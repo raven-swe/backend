@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Generated files
+*.tsbuildinfo
+.tscache/
+
+# Prisma generated files
+prisma/migrations/
+generated/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+LICENSE
+
+# Config files
+*.config.js
+*.config.ts
+tsconfig.json
+jest.config.js
+.eslintrc.js
+
+
+**/*.spec.ts
+**/*.test.ts
+test/
+e2e/
