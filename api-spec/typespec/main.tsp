@@ -3,7 +3,7 @@ import "@typespec/openapi3";
 
 using Http;
 
-@service(#{ title: "Raven" })
+@service(#{ title: "Twitter" })
 @server("https://example.com", "Single server endpoint")
 namespace Twitter;
 
@@ -82,8 +82,8 @@ model ApiValidationErrorResponse {
 
 @doc("Entity mention in bio")
 model BioMentionEntity {
-    @doc("The ID of the mentioned user")
-    text: string; //we expose text but store as user id and hydrate
+    @doc("The username of the mentioned user")
+    username: string; //we expose text but store as user id and hydrate
     
     @doc("Start position of the mention in the bio text")
     startPosition: int32;
