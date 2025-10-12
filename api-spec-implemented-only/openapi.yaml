@@ -1,0 +1,32 @@
+openapi: 3.0.0
+info:
+  title: Raven
+  version: 0.0.0
+tags: []
+paths: {}
+components:
+  schemas:
+    BearerAuth:
+      type: object
+      required:
+        - type
+        - scheme
+        - bearerFormat
+      properties:
+        type:
+          type: string
+          enum:
+            - http
+        scheme:
+          type: string
+          enum:
+            - bearer
+        bearerFormat:
+          type: string
+          enum:
+            - JWT
+      description: JWT bearer token authentication
+servers:
+  - url: https://example.com
+    description: Single server endpoint
+    variables: {}
