@@ -11,7 +11,9 @@ describe('RedisService', () => {
 
     service = module.get<RedisService>(RedisService);
   });
-
+  afterAll(async () =>{
+    await service.onModuleDestroy();
+  })
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
