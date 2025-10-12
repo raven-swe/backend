@@ -239,24 +239,15 @@ model UpdateProfileRequest {
     websiteUrl?: string | null;
 }
 
-@doc("Common query parameters for paginating through a list of results.")
-model PaginationParameters {
+@doc("Query parameters for cursor-based pagination")
+model CursorPaginationParameters {
     @query
-    @doc("The number of items to return per page.")
+    @doc("The cursor position to start fetching from")
+    cursor?: string;
+
+    @query
+    @doc("The number of items to return per page (default: 20)")
     limit?: int32 = 20;
-
-    @query
-    @doc("The number of items to skip before starting to collect the result set.")
-    offset?: int32 = 0;
-}
-
-@doc("A generic model for a paginated list response.")
-model Paged<T> {
-    @doc("The array of items for the current page.")
-    items: T[];
-
-    @doc("The total number of items available.")
-    totalCount: int32;
 }
 
 model RegisterStartBody {
@@ -284,13 +275,13 @@ model MessageResponse<TMessage extends string> {
     }>;
 }
 
-alias FollowingListResponse = DataResponseWithPagination<Paged<CompactUser>>;
-alias FollowersListResponse = DataResponseWithPagination<Paged<{
+alias FollowingListResponse = DataResponseWithPagination<CompactUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<{
   ...CompactUser,
   isFollowing: boolean;
-}>>;
-alias BlockedListResponse = DataResponseWithPagination<Paged<CompactUser>>;
-alias MutedListResponse = DataResponseWithPagination<Paged<CompactUser>>;
+}[]>;
+alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
+alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
@@ -444,7 +435,7 @@ namespace Users {
         @route("/{username}/followers")
         op listUserFollowers(
             @path username: string,
-            ...PaginationParameters ,
+            ...CursorPaginationParameters ,
             isFollowing?: boolean, 
         ): FollowersListResponse;
 
@@ -453,7 +444,7 @@ namespace Users {
         @summary("List mutual followers with a user given their username")
         op listMutualFollowers(
             @path username: string,
-            ...PaginationParameters,
+            ...CursorPaginationParameters,
         ): FollowersListResponse;
 
         @route("/{username}/following")
@@ -462,7 +453,7 @@ namespace Users {
             @get
             op listUserFollowing(
                 @path username: string,
-                ...PaginationParameters,
+                ...CursorPaginationParameters,
             ): FollowingListResponse;
 
             @summary("Follow a user")
@@ -549,7 +540,7 @@ namespace Me {
         @get
         op listUserBlocks(
             @path username: string,
-            ...PaginationParameters,
+            ...CursorPaginationParameters,
         ): BlockedListResponse;
         
         @summary("Block a user")
@@ -576,7 +567,7 @@ namespace Me {
         @get
         op listUserMutes(
             @path username: string,
-            ...PaginationParameters,
+            ...CursorPaginationParameters,
         ): MutedListResponse;
 
         @summary("Mute a user")
