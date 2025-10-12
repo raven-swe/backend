@@ -146,6 +146,9 @@ model PublicUser {
     @maxLength(255)
     websiteUrl: string | null;
 
+    @doc("User's date of birth")
+    birthdate: string | null;
+
     @doc("Date when the user joined")
     joinedAt: utcDateTime;
 }

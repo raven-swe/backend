@@ -1730,6 +1730,7 @@ components:
         - bannerUrl
         - location
         - websiteUrl
+        - birthdate
         - joinedAt
       properties:
         username:
@@ -1774,6 +1775,11 @@ components:
             - type: 'null'
           maxLength: 255
           description: User's website URL
+        birthdate:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: User's date of birth
         joinedAt:
           type: string
           format: date-time
