@@ -621,7 +621,9 @@ paths:
             schema:
               type: object
               properties:
-                banner: {}
+                banner:
+                  type: string
+                  format: binary
               required:
                 - banner
             encoding:
@@ -655,18 +657,13 @@ paths:
         - Me
       security:
         - BearerAuth: []
-  /me/blocks/{username}:
+  /me/blocks:
     get:
       operationId: Blocks_listUserBlocks
       summary: List a user's blocks
       parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/PaginationParameters.limit'
-        - $ref: '#/components/parameters/PaginationParameters.offset'
+        - $ref: '#/components/parameters/CursorPaginationParameters.cursor'
+        - $ref: '#/components/parameters/CursorPaginationParameters.limit'
       responses:
         '200':
           description: The request has succeeded.
@@ -686,21 +683,9 @@ paths:
                   message:
                     type: string
                   data:
-                    type: object
-                    required:
-                      - items
-                      - totalCount
-                    properties:
-                      items:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/CompactUser'
-                        description: The array of items for the current page.
-                      totalCount:
-                        type: integer
-                        format: int32
-                        description: The total number of items available.
-                    description: A generic model for a paginated list response.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompactUser'
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
@@ -708,6 +693,7 @@ paths:
         - Me
       security:
         - BearerAuth: []
+  /me/blocks/{username}:
     post:
       operationId: Blocks_blockUser
       summary: Block a user
@@ -772,18 +758,13 @@ paths:
         - Me
       security:
         - BearerAuth: []
-  /me/mutes/{username}:
+  /me/mutes:
     get:
       operationId: Mutes_listUserMutes
       summary: List a user's mutes
       parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/PaginationParameters.limit'
-        - $ref: '#/components/parameters/PaginationParameters.offset'
+        - $ref: '#/components/parameters/CursorPaginationParameters.cursor'
+        - $ref: '#/components/parameters/CursorPaginationParameters.limit'
       responses:
         '200':
           description: The request has succeeded.
@@ -803,21 +784,9 @@ paths:
                   message:
                     type: string
                   data:
-                    type: object
-                    required:
-                      - items
-                      - totalCount
-                    properties:
-                      items:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/CompactUser'
-                        description: The array of items for the current page.
-                      totalCount:
-                        type: integer
-                        format: int32
-                        description: The total number of items available.
-                    description: A generic model for a paginated list response.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompactUser'
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
@@ -825,6 +794,7 @@ paths:
         - Me
       security:
         - BearerAuth: []
+  /me/mutes/{username}:
     post:
       operationId: Mutes_muteUser
       summary: Mute a user
@@ -963,7 +933,9 @@ paths:
             schema:
               type: object
               properties:
-                profilePicture: {}
+                profilePicture:
+                  type: string
+                  format: binary
               required:
                 - profilePicture
             encoding:
@@ -1126,8 +1098,8 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/PaginationParameters.limit'
-        - $ref: '#/components/parameters/PaginationParameters.offset'
+        - $ref: '#/components/parameters/CursorPaginationParameters.cursor'
+        - $ref: '#/components/parameters/CursorPaginationParameters.limit'
       responses:
         '200':
           description: The request has succeeded.
@@ -1147,70 +1119,48 @@ paths:
                   message:
                     type: string
                   data:
-                    type: object
-                    required:
-                      - items
-                      - totalCount
-                    properties:
-                      items:
-                        type: array
-                        items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                          minLength: 1
+                          description: The user's unique, public-facing username.
+                        displayName:
+                          type: string
+                          minLength: 1
+                          maxLength: 100
+                          description: The user's display name.
+                        bio:
+                          type: string
+                          nullable: true
+                          maxLength: 160
+                          description: The user's bio (max 160 characters).
+                        bioEntities:
                           type: object
-                          properties:
-                            username:
-                              type: string
-                              minLength: 1
-                              description: The user's unique, public-facing username.
-                            displayName:
-                              type: string
-                              minLength: 1
-                              maxLength: 100
-                              description: The user's display name.
-                            bio:
-                              anyOf:
-                                - type: string
-                                - type: 'null'
-                              maxLength: 160
-                              description: The user's bio (max 160 characters).
-                            bioEntities:
-                              anyOf:
-                                - $ref: '#/components/schemas/BioEntities'
-                                - type: 'null'
-                              description: Entities in the bio (mentions and hashtags)
-                            avatarUrl:
-                              anyOf:
-                                - type: string
-                                - type: 'null'
-                              description: URL to the user's avatar image
-                            isFollowing:
-                              type: boolean
-                          required:
-                            - username
-                            - displayName
-                            - bio
-                            - bioEntities
-                            - avatarUrl
-                            - isFollowing
-                        description: The array of items for the current page.
-                      totalCount:
-                        type: integer
-                        format: int32
-                        description: The total number of items available.
-                    description: A generic model for a paginated list response.
+                          allOf:
+                            - $ref: '#/components/schemas/BioEntities'
+                          nullable: true
+                          description: Entities in the bio (mentions and hashtags)
+                        avatarUrl:
+                          type: string
+                          nullable: true
+                          description: URL to the user's avatar image
+                        isFollowing:
+                          type: boolean
+                      required:
+                        - username
+                        - displayName
+                        - bio
+                        - bioEntities
+                        - avatarUrl
+                        - isFollowing
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
       tags:
         - Users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                isFollowing:
-                  type: boolean
       security:
         - BearerAuth: []
   /users/{username}/following:
@@ -1223,8 +1173,8 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/PaginationParameters.limit'
-        - $ref: '#/components/parameters/PaginationParameters.offset'
+        - $ref: '#/components/parameters/CursorPaginationParameters.cursor'
+        - $ref: '#/components/parameters/CursorPaginationParameters.limit'
       responses:
         '200':
           description: The request has succeeded.
@@ -1244,21 +1194,9 @@ paths:
                   message:
                     type: string
                   data:
-                    type: object
-                    required:
-                      - items
-                      - totalCount
-                    properties:
-                      items:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/CompactUser'
-                        description: The array of items for the current page.
-                      totalCount:
-                        type: integer
-                        format: int32
-                        description: The total number of items available.
-                    description: A generic model for a paginated list response.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompactUser'
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
@@ -1340,8 +1278,8 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/PaginationParameters.limit'
-        - $ref: '#/components/parameters/PaginationParameters.offset'
+        - $ref: '#/components/parameters/CursorPaginationParameters.cursor'
+        - $ref: '#/components/parameters/CursorPaginationParameters.limit'
       responses:
         '200':
           description: The request has succeeded.
@@ -1361,56 +1299,43 @@ paths:
                   message:
                     type: string
                   data:
-                    type: object
-                    required:
-                      - items
-                      - totalCount
-                    properties:
-                      items:
-                        type: array
-                        items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        username:
+                          type: string
+                          minLength: 1
+                          description: The user's unique, public-facing username.
+                        displayName:
+                          type: string
+                          minLength: 1
+                          maxLength: 100
+                          description: The user's display name.
+                        bio:
+                          type: string
+                          nullable: true
+                          maxLength: 160
+                          description: The user's bio (max 160 characters).
+                        bioEntities:
                           type: object
-                          properties:
-                            username:
-                              type: string
-                              minLength: 1
-                              description: The user's unique, public-facing username.
-                            displayName:
-                              type: string
-                              minLength: 1
-                              maxLength: 100
-                              description: The user's display name.
-                            bio:
-                              anyOf:
-                                - type: string
-                                - type: 'null'
-                              maxLength: 160
-                              description: The user's bio (max 160 characters).
-                            bioEntities:
-                              anyOf:
-                                - $ref: '#/components/schemas/BioEntities'
-                                - type: 'null'
-                              description: Entities in the bio (mentions and hashtags)
-                            avatarUrl:
-                              anyOf:
-                                - type: string
-                                - type: 'null'
-                              description: URL to the user's avatar image
-                            isFollowing:
-                              type: boolean
-                          required:
-                            - username
-                            - displayName
-                            - bio
-                            - bioEntities
-                            - avatarUrl
-                            - isFollowing
-                        description: The array of items for the current page.
-                      totalCount:
-                        type: integer
-                        format: int32
-                        description: The total number of items available.
-                    description: A generic model for a paginated list response.
+                          allOf:
+                            - $ref: '#/components/schemas/BioEntities'
+                          nullable: true
+                          description: Entities in the bio (mentions and hashtags)
+                        avatarUrl:
+                          type: string
+                          nullable: true
+                          description: URL to the user's avatar image
+                        isFollowing:
+                          type: boolean
+                      required:
+                        - username
+                        - displayName
+                        - bio
+                        - bioEntities
+                        - avatarUrl
+                        - isFollowing
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
@@ -1420,25 +1345,23 @@ paths:
         - BearerAuth: []
 components:
   parameters:
-    PaginationParameters.limit:
+    CursorPaginationParameters.cursor:
+      name: cursor
+      in: query
+      required: false
+      description: The cursor position to start fetching from
+      schema:
+        type: string
+      explode: false
+    CursorPaginationParameters.limit:
       name: limit
       in: query
       required: false
-      description: The number of items to return per page.
+      description: 'The number of items to return per page (default: 20)'
       schema:
         type: integer
         format: int32
         default: 20
-      explode: false
-    PaginationParameters.offset:
-      name: offset
-      in: query
-      required: false
-      description: The number of items to skip before starting to collect the result set.
-      schema:
-        type: integer
-        format: int32
-        default: 0
       explode: false
   schemas:
     ApiErrorResponse:
@@ -1550,36 +1473,32 @@ components:
           maxLength: 100
           description: The user's display name.
         bio:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 160
           description: The user's bio (max 160 characters).
         bioEntities:
-          anyOf:
+          type: object
+          allOf:
             - $ref: '#/components/schemas/BioEntities'
-            - type: 'null'
+          nullable: true
           description: Entities in the bio (mentions and hashtags)
         avatarUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's avatar image
         bannerUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's banner image
         location:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 100
           description: User's location
         websiteUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 255
           description: User's website URL
         joinedAt:
@@ -1594,9 +1513,8 @@ components:
           format: date
           description: User's date of birth (private)
         phone:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: User's phone number (private)
         languageCode:
           type: string
@@ -1654,12 +1572,12 @@ components:
     BioMentionEntity:
       type: object
       required:
-        - text
+        - username
         - startPosition
       properties:
-        text:
+        username:
           type: string
-          description: The ID of the mentioned user
+          description: The username of the mentioned user
         startPosition:
           type: integer
           format: int32
@@ -1684,20 +1602,19 @@ components:
           maxLength: 100
           description: The user's display name.
         bio:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 160
           description: The user's bio (max 160 characters).
         bioEntities:
-          anyOf:
+          type: object
+          allOf:
             - $ref: '#/components/schemas/BioEntities'
-            - type: 'null'
+          nullable: true
           description: Entities in the bio (mentions and hashtags)
         avatarUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's avatar image
       description: Compact user(followers/following) lists
     CursorPagination:
@@ -1706,14 +1623,12 @@ components:
         - hasNextPage
       properties:
         cursor:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: The current cursor position
         nextCursor:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: The next cursor position for fetching the next set of data
         hasNextPage:
           type: boolean
@@ -1743,42 +1658,37 @@ components:
           maxLength: 100
           description: The user's display name.
         bio:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 160
           description: The user's bio (max 160 characters).
         bioEntities:
-          anyOf:
+          type: object
+          allOf:
             - $ref: '#/components/schemas/BioEntities'
-            - type: 'null'
+          nullable: true
           description: Entities in the bio (mentions and hashtags)
         avatarUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's avatar image
         bannerUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's banner image
         location:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 100
           description: User's location
         websiteUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 255
           description: User's website URL
         birthdate:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: User's date of birth
         joinedAt:
           type: string
@@ -1811,26 +1721,24 @@ components:
           maxLength: 100
           description: The user's display name.
         bio:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 160
           description: The user's bio (max 160 characters).
         bioEntities:
-          anyOf:
+          type: object
+          allOf:
             - $ref: '#/components/schemas/BioEntities'
-            - type: 'null'
+          nullable: true
           description: Entities in the bio (mentions and hashtags)
         location:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 100
           description: User's location
         websiteUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           maxLength: 255
           description: User's website URL
       description: Request body for updating profile
@@ -1851,9 +1759,8 @@ components:
           maxLength: 100
           description: The user's display name.
         avatarUrl:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
+          nullable: true
           description: URL to the user's avatar image
       description: Metadata for user sent in suggestions/tweets/search results/etc.
   securitySchemes:

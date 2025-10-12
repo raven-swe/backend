@@ -538,7 +538,6 @@ namespace Me {
         @summary("List a user's blocks")
         @get
         op listUserBlocks(
-            @path username: string,
             ...CursorPaginationParameters,
         ): BlockedListResponse;
         
@@ -565,7 +564,6 @@ namespace Me {
         @summary("List a user's mutes")
         @get
         op listUserMutes(
-            @path username: string,
             ...CursorPaginationParameters,
         ): MutedListResponse;
 
