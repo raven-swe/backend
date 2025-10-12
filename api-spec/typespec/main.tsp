@@ -436,7 +436,6 @@ namespace Users {
         op listUserFollowers(
             @path username: string,
             ...CursorPaginationParameters ,
-            isFollowing?: boolean, 
         ): FollowersListResponse;
 
         @get
