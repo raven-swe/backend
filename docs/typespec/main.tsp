@@ -5,7 +5,7 @@ using Http;
 
 @service(#{ title: "Raven" })
 @server("https://example.com", "Single server endpoint")
-namespace Twitter;
+namespace Raven;
 
 @doc("JWT bearer token authentication")
 model BearerAuth {
@@ -553,13 +553,13 @@ namespace Me {
 namespace Onboarding {
     @get
     @route("/username-suggestions")
-    op getUsernameSuggestions(@query query: string): DataResponse<{
+    op getUsernameSuggestions(): DataResponse<{
         suggestions: string[];
     }>;
 
     @get
     @route("/follow-suggestions")
-    op getFollowSuggestions(@query query: string): DataResponse<{
+    op getFollowSuggestions(): DataResponse<{
         suggestions: UserMetadata[];
     }>;
 }
