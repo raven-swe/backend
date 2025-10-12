@@ -146,8 +146,8 @@ model PublicUser {
     @maxLength(255)
     websiteUrl: string | null;
 
-    @doc("User's date of birth")
-    birthdate: string | null;
+    @doc("User's date of birth (YYYY-MM-DD)")
+    birthDate: plainDate | null;
 
     @doc("Date when the user joined")
     joinedAt: utcDateTime;
@@ -192,7 +192,7 @@ model AuthenticatedUser {
     email: string;
 
     @doc("User's date of birth (private)")
-    birthdate: plainDate;
+    birthDate: plainDate;
 
     @doc("User's phone number (private)")
     phone: string | null;
@@ -253,7 +253,7 @@ model CursorPaginationParameters {
 model RegisterStartBody {
     name: string;
     email: string;
-    dateOfBirth: utcDateTime;
+    birthDate: plainDate;
     recaptchaToken: string; // token from client side recaptcha v2
 }
 
