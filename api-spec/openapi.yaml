@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Twitter
+  title: Raven
   version: 0.0.0
 tags:
   - name: Auth
@@ -482,8 +482,30 @@ paths:
           schema:
             type: string
       responses:
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      authUrl:
+                        type: string
+                    required:
+                      - authUrl
+                description: Success response wrapper with data
       tags:
         - Auth
   /auth/{provider}/callback:
@@ -1457,9 +1479,9 @@ components:
         - bannerUrl
         - location
         - websiteUrl
+        - birthDate
         - joinedAt
         - email
-        - birthdate
         - phone
         - languageCode
       properties:
@@ -1501,6 +1523,11 @@ components:
           nullable: true
           maxLength: 255
           description: User's website URL
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+          description: User's date of birth (YYYY-MM-DD)
         joinedAt:
           type: string
           format: date-time
@@ -1508,10 +1535,6 @@ components:
         email:
           type: string
           description: User's email address (private)
-        birthdate:
-          type: string
-          format: date
-          description: User's date of birth (private)
         phone:
           type: string
           nullable: true
@@ -1645,7 +1668,7 @@ components:
         - bannerUrl
         - location
         - websiteUrl
-        - birthdate
+        - birthDate
         - joinedAt
       properties:
         username:
@@ -1686,10 +1709,11 @@ components:
           nullable: true
           maxLength: 255
           description: User's website URL
-        birthdate:
+        birthDate:
           type: string
+          format: date
           nullable: true
-          description: User's date of birth
+          description: User's date of birth (YYYY-MM-DD)
         joinedAt:
           type: string
           format: date-time
@@ -1700,16 +1724,16 @@ components:
       required:
         - name
         - email
-        - dateOfBirth
+        - birthDate
         - recaptchaToken
       properties:
         name:
           type: string
         email:
           type: string
-        dateOfBirth:
+        birthDate:
           type: string
-          format: date-time
+          format: date
         recaptchaToken:
           type: string
     UpdateProfileRequest:

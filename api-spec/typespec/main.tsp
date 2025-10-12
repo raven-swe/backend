@@ -3,7 +3,7 @@ import "@typespec/openapi3";
 
 using Http;
 
-@service(#{ title: "Twitter" })
+@service(#{ title: "Raven" })
 @server("https://example.com", "Single server endpoint")
 namespace Twitter;
 
@@ -155,44 +155,10 @@ model PublicUser {
 
 @doc("Authenticated user profile (includes private data)")
 model AuthenticatedUser {
-    @doc("The user's unique, public-facing username.")
-    @minLength(1)
-    username: string;
-
-    @doc("The user's display name.")
-    @minLength(1)
-    @maxLength(100)
-    displayName: string;
-
-    @doc("The user's bio (max 160 characters).")
-    @maxLength(160)
-    bio: string | null;
-
-    @doc("Entities in the bio (mentions and hashtags)")
-    bioEntities: BioEntities | null;
-
-    @doc("URL to the user's avatar image")
-    avatarUrl: string | null;
-
-    @doc("URL to the user's banner image")
-    bannerUrl: string | null;
-
-    @doc("User's location")
-    @maxLength(100)
-    location: string | null;
-
-    @doc("User's website URL")
-    @maxLength(255)
-    websiteUrl: string | null;
-
-    @doc("Date when the user joined")
-    joinedAt: utcDateTime;
+    ...PublicUser;
 
     @doc("User's email address (private)")
     email: string;
-
-    @doc("User's date of birth (private)")
-    birthDate: plainDate;
 
     @doc("User's phone number (private)")
     phone: string | null;
@@ -413,7 +379,10 @@ namespace Auth {
     namespace Oauth {
         @get
         @summary("Get OAuth URL for a given provider")
-        op getOauthUrl(@path provider: string): void;
+        op getOauthUrl(@path provider: string): DataResponse<{
+            authUrl: string;
+        }>;
+
 
         @get
         @route("/callback")
