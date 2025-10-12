@@ -83,13 +83,10 @@ model ApiValidationErrorResponse {
 @doc("Entity mention in bio")
 model BioMentionEntity {
     @doc("The ID of the mentioned user")
-    mentionId: string;
+    text: string; //we expose text but store as id
     
     @doc("Start position of the mention in the bio text")
     startPosition: int32;
-    
-    @doc("End position of the mention in the bio text")
-    endPosition: int32;
 }
 
 @doc("Entity hashtag in bio")
