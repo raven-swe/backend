@@ -303,7 +303,7 @@ namespace Auth {
     @route("/login")
     op login(
         @body body: {
-            username: string;
+            identifier: string;
             password: string;
         },
     ): DataResponse<{
