@@ -86,12 +86,12 @@ paths:
             schema:
               type: object
               properties:
-                username:
+                identifier:
                   type: string
                 password:
                   type: string
               required:
-                - username
+                - identifier
                 - password
   /auth/logout:
     post:
@@ -471,45 +471,8 @@ paths:
               required:
                 - creationToken
                 - otp
-  /auth/{provider}:
-    get:
-      operationId: Oauth_getOauthUrl
-      summary: Get OAuth URL for a given provider
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - data
-                properties:
-                  success:
-                    type: boolean
-                    enum:
-                      - true
-                  message:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      authUrl:
-                        type: string
-                    required:
-                      - authUrl
-                description: Success response wrapper with data
-      tags:
-        - Auth
   /auth/{provider}/callback:
-    get:
+    post:
       operationId: Oauth_handleOauthCallback
       summary: Handle OAuth callback for a given provider
       parameters:
@@ -548,6 +511,17 @@ paths:
                 description: Success response wrapper with data
       tags:
         - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider_token_id:
+                  type: string
+              required:
+                - provider_token_id
   /me:
     get:
       operationId: Me_getMyProfile

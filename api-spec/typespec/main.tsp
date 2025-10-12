@@ -377,17 +377,10 @@ namespace Auth {
 
     @route("/{provider}")
     namespace Oauth {
-        @get
-        @summary("Get OAuth URL for a given provider")
-        op getOauthUrl(@path provider: string): DataResponse<{
-            authUrl: string;
-        }>;
-
-
-        @get
+        @post
         @route("/callback")
         @summary("Handle OAuth callback for a given provider")
-        op handleOauthCallback(@path provider: string): DataResponse<{
+        op handleOauthCallback(@path provider: string, @body body : { provider_token_id: string }): DataResponse<{
             accessToken: string;
             refreshToken: string;
         }>;
