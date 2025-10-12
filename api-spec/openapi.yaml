@@ -1642,7 +1642,6 @@ components:
       required:
         - hashtag
         - startPosition
-        - endPosition
       properties:
         hashtag:
           type: string
@@ -1651,10 +1650,6 @@ components:
           type: integer
           format: int32
           description: Start position of the hashtag in the bio text
-        endPosition:
-          type: integer
-          format: int32
-          description: End position of the hashtag in the bio text
       description: Entity hashtag in bio
     BioMentionEntity:
       type: object
