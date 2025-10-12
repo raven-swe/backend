@@ -3,7 +3,7 @@ import "@typespec/openapi3";
 
 using Http;
 
-@service(#{ title: "Twitter" })
+@service(#{ title: "Raven" })
 @server("https://example.com", "Single server endpoint")
 namespace Twitter;
 
