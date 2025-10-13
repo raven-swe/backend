@@ -420,6 +420,7 @@ namespace Auth {
             ...OkResponse;
             ...Body<{
                 success: true;
+                token: string;
                 message: "Password reset code sent to email.";
             }>;
         } | ValidationErrorResponse | NotFoundResponse | RateLimitResponse | InternalServerErrorResponse;
@@ -447,6 +448,9 @@ namespace Auth {
         @post
         @route("/resend-otp")
         op resendOtpPassword(
+            @body body: {
+                token: string;
+            }
         ): MessageResponse<"otp resent successfully."> | BadRequestResponse | RateLimitResponse | InternalServerErrorResponse;
     };
 
