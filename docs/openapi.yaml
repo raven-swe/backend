@@ -4,6 +4,7 @@ info:
   version: 0.0.0
 tags:
   - name: Auth
+  - name: OAuth
   - name: Users
   - name: Me
   - name: Onboarding
@@ -96,6 +97,7 @@ paths:
   /auth/logout:
     post:
       operationId: Auth_logout
+      summary: Logout the user by invalidating the refresh token for this client only
       parameters: []
       responses:
         '200':
@@ -225,8 +227,6 @@ paths:
                   - message
       tags:
         - Auth
-      security:
-        - BearerAuth: []
   /auth/password/reset:
     post:
       operationId: Password_resetPassword
@@ -303,6 +303,17 @@ paths:
                 description: Success response wrapper with data
       tags:
         - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
   /auth/register/complete:
     post:
       operationId: Register_completeRegister
@@ -464,57 +475,6 @@ paths:
               required:
                 - creationToken
                 - otp
-  /auth/{provider}/callback:
-    post:
-      operationId: Oauth_handleOauthCallback
-      summary: Handle OAuth callback for a given provider
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - data
-                properties:
-                  success:
-                    type: boolean
-                    enum:
-                      - true
-                  message:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      accessToken:
-                        type: string
-                      refreshToken:
-                        type: string
-                    required:
-                      - accessToken
-                      - refreshToken
-                description: Success response wrapper with data
-      tags:
-        - Auth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                provider_token_id:
-                  type: string
-              required:
-                - provider_token_id
   /me:
     get:
       operationId: Me_getMyProfile
@@ -995,6 +955,104 @@ paths:
                   type: string
       security:
         - BearerAuth: []
+  /oauth/oauth/complete:
+    post:
+      operationId: Oauth_completeOauthRegister
+      summary: Complete OAuth registration by sending the birth data
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                    required:
+                      - accessToken
+                      - refreshToken
+                description: Success response wrapper with data
+      tags:
+        - OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                creationToken:
+                  type: string
+                birthDate:
+                  type: string
+                  format: date
+              required:
+                - creationToken
+                - birthDate
+  /oauth/{provider}/callback:
+    post:
+      operationId: Oauth_handleOauthCallback
+      summary: Handle OAuth callback for a given provider
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      creationToken:
+                        type: string
+                    required:
+                      - creationToken
+                description: Success response wrapper with data
+      tags:
+        - OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider_token_id:
+                  type: string
+              required:
+                - provider_token_id
   /onboarding/follow-suggestions:
     get:
       operationId: Onboarding_getFollowSuggestions

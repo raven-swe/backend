@@ -312,6 +312,7 @@ namespace Auth {
     }>;
 
     @post
+    @summary("Logout the user by invalidating the refresh token for this client only")
     @route("/logout")
     @useAuth(BearerAuth)
     op logout(): MessageResponse<"Logged out successfully.">;
@@ -492,10 +493,6 @@ namespace Me {
             profilePicture: HttpPart<File>;
         },
     ): MessageResponse<"Profile picture updated successfully.">;
-
-    @delete
-    @route("/profile-picture")
-    op deleteProfilePicture(): MessageResponse<"Profile picture deleted successfully.">;
 
     @post
     @route("/banner")
