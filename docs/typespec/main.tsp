@@ -574,6 +574,25 @@ namespace Me {
     ): MessageResponse<"Profile picture updated successfully."> | ValidationErrorResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @post
+    @route("phone")
+    op addPhoneNumber(
+        @body body: {
+            phoneNumber: string;
+            recaptchaToken: string; // token from client side recaptcha v2
+        },
+    ): MessageResponse<"Phone number added successfully. Verification code sent via SMS."> | ValidationErrorResponse | ConflictResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/email")
+    @summary("Update the authenticated user's email address, invalidates any SSO providers linked to the account")
+    op updateEmail(
+        @body body: {
+            newEmail: string;
+            recaptchaToken: string; // token from client side recaptcha v2
+        },
+    ): MessageResponse<"Email update initiated. Please verify the new email address."> | ValidationErrorResponse | ConflictResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
     @route("/banner")
     op updateBanner(
         @header contentType: "multipart/form-data",
