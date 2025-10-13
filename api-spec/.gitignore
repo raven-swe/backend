@@ -8,5 +8,5 @@ dist/
 # Dependency directories
 node_modules/
 
-*.yaml
+openapi.yaml
 *.yml
