@@ -428,11 +428,19 @@ namespace Auth {
         } | ValidationErrorResponse | NotFoundResponse | RateLimitResponse | InternalServerErrorResponse;
 
         @post
+        @route("/forgot/verify")
+        op verifyForgotPassword(
+            @body body: {
+                token: string;
+                otp: string;
+            },
+        ): MessageResponse<"Password reset verified successfully."> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
+
+        @post
         @route("/reset")
         op resetPassword(
             @body body: {
                 token: string;
-                otp: string;
                 newPassword: string;
             },
         ): MessageResponse<"Password reset successfully."> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
