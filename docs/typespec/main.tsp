@@ -584,13 +584,33 @@ namespace Me {
 
     @put
     @route("/email")
-    @summary("Update the authenticated user's email address, invalidates any SSO providers linked to the account")
+    @summary("Initiates update of the authenticated user's email address")
     op updateEmail(
         @body body: {
             newEmail: string;
-            recaptchaToken: string; // token from client side recaptcha v2
         },
     ): MessageResponse<"Email update initiated. Please verify the new email address."> | ValidationErrorResponse | ConflictResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
+    @route("/email/resend-otp")
+    @summary("Resend the verification code to the new email address")
+    op resendEmailVerificationOtp(
+        @body body: {
+            newEmail: string;
+        },
+    ): MessageResponse<"Verification code resent successfully."> | BadRequestResponse | RateLimitResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
+    @route("/email/verify")
+    @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
+    op verifyNewEmail(
+        @body body: {
+            verificationCode: string;
+        },
+    ): MessageResponse<"Email address updated successfully."> | BadRequestResponse | ValidationErrorResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+
+
 
     @post
     @route("/banner")
