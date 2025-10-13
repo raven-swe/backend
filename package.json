@@ -22,7 +22,15 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prepare": "husky || true; prisma generate"
+    "prepare": "husky || true; prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:create": "prisma migrate dev",
+    "db:reset": "prisma migrate reset --force",
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
