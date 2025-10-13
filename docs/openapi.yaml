@@ -159,6 +159,8 @@ paths:
               required:
                 - currentPassword
                 - newPassword
+      security:
+        - BearerAuth: []
   /auth/password/forgot:
     post:
       operationId: Password_forgotPassword
@@ -223,17 +225,8 @@ paths:
                   - message
       tags:
         - Auth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                creationToken:
-                  type: string
-              required:
-                - creationToken
+      security:
+        - BearerAuth: []
   /auth/password/reset:
     post:
       operationId: Password_resetPassword
@@ -1005,13 +998,7 @@ paths:
   /onboarding/follow-suggestions:
     get:
       operationId: Onboarding_getFollowSuggestions
-      parameters:
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-          explode: false
+      parameters: []
       responses:
         '200':
           description: The request has succeeded.
@@ -1046,13 +1033,7 @@ paths:
   /onboarding/username-suggestions:
     get:
       operationId: Onboarding_getUsernameSuggestions
-      parameters:
-        - name: query
-          in: query
-          required: true
-          schema:
-            type: string
-          explode: false
+      parameters: []
       responses:
         '200':
           description: The request has succeeded.

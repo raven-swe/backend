@@ -352,6 +352,7 @@ namespace Auth {
 
         @post
         @route("/change")
+        @useAuth(BearerAuth)
         op changePassword(
             @body body: {
                 currentPassword: string;
@@ -361,10 +362,8 @@ namespace Auth {
 
         @post
         @route("/resend-otp")
+        @useAuth(BearerAuth)
         op resendOtpPassword(
-            @body body: {
-                creationToken: string;
-            },
         ): MessageResponse<"otp resent successfully.">;
     };
 
