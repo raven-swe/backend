@@ -320,11 +320,13 @@ model MessageResponse<TMessage extends string> {
     }>;
 }
 
-alias FollowingListResponse = DataResponseWithPagination<CompactUser[]>;
-alias FollowersListResponse = DataResponseWithPagination<{
-  ...CompactUser,
+model FollowingUser {
+  ...CompactUser;
   isFollowing: boolean;
-}[]>;
+}
+
+alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 
@@ -435,8 +437,7 @@ namespace Auth {
             },
         ): MessageResponse<"Password reset successfully."> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
-        @post
-        @route("/change")
+        @put
         @useAuth(BearerAuth)
         op changePassword(
             @body body: {
