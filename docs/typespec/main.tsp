@@ -318,7 +318,11 @@ namespace Auth {
 
     @post
     @route("/refresh-token")
-    op refreshToken(): DataResponse<{
+    op refreshToken(
+    @body body:{
+        refreshToken: string;
+    })
+    : DataResponse<{
         accessToken: string;
         refreshToken: string;
     }>;
@@ -362,7 +366,6 @@ namespace Auth {
 
         @post
         @route("/resend-otp")
-        @useAuth(BearerAuth)
         op resendOtpPassword(
         ): MessageResponse<"otp resent successfully.">;
     };
@@ -373,17 +376,31 @@ namespace Auth {
     op checkEmail(@query email: string): DataResponse<{
         exists: boolean;
     }>;
+    
+}
 
-    @route("/{provider}")
-    namespace Oauth {
-        @post
-        @route("/callback")
-        @summary("Handle OAuth callback for a given provider")
-        op handleOauthCallback(@path provider: string, @body body : { provider_token_id: string }): DataResponse<{
-            accessToken: string;
-            refreshToken: string;
-        }>;
-    }
+@tag("OAuth")
+@route("/oauth")
+namespace Oauth {
+    @post
+    @route("{provider}/callback")
+    @summary("Handle OAuth callback for a given provider")
+    op handleOauthCallback(@path provider: string, @body body : { provider_token_id: string }): DataResponse<{
+        creationToken: string;
+    }>;
+
+    @post
+    @route("/oauth/complete")
+    @summary("Complete OAuth registration by sending the birth data")
+    op completeOauthRegister(
+        @body body: {
+            creationToken: string;
+            birthDate: plainDate;
+        },
+    ): DataResponse<{
+        accessToken: string;
+        refreshToken: string; 
+    }>;
 }
 
 @tag("Users")
