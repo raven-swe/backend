@@ -80,6 +80,85 @@ model ApiValidationErrorResponse {
     };
 }
 
+@doc("Standard error codes used across the API")
+enum ErrorCode {
+    // Authentication & Authorization (401, 403)
+    INVALID_TOKEN: "INVALID_TOKEN",
+    TOKEN_EXPIRED: "TOKEN_EXPIRED",
+    UNAUTHORIZED: "UNAUTHORIZED",
+    FORBIDDEN: "FORBIDDEN",
+    
+    // Validation (400)
+    VALIDATION_ERROR: "VALIDATION_ERROR",
+    INVALID_INPUT: "INVALID_INPUT",
+    
+    // Resource errors (404, 409)
+    NOT_FOUND: "NOT_FOUND",
+    ALREADY_EXISTS: "ALREADY_EXISTS",
+    
+    // Rate limiting (429)
+    RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
+    
+    // Server errors (500)
+    INTERNAL_SERVER_ERROR: "INTERNAL_SERVER_ERROR",
+}
+
+@doc("Validation-specific error codes")
+enum ValidationErrorCode {
+    REQUIRED_FIELD: "REQUIRED_FIELD",
+    INVALID_FORMAT: "INVALID_FORMAT",
+    INVALID_LENGTH: "INVALID_LENGTH",
+    INVALID_VALUE: "INVALID_VALUE",
+}
+
+@doc("Standard 400 Bad Request response")
+model BadRequestResponse {
+    ...Response<400>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 401 Unauthorized response")
+model UnauthorizedResponse {
+    ...Response<401>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 403 Forbidden response")
+model ForbiddenResponse {
+    ...Response<403>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 404 Not Found response")
+model NotFoundResponse {
+    ...Response<404>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 409 Conflict response")
+model ConflictResponse {
+    ...Response<409>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 422 Validation Error response")
+model ValidationErrorResponse {
+    ...Response<422>;
+    ...Body<ApiValidationErrorResponse>;
+}
+
+@doc("Standard 429 Rate Limit Exceeded response")
+model RateLimitResponse {
+    ...Response<429>;
+    ...Body<ApiErrorResponse>;
+}
+
+@doc("Standard 500 Internal Server Error response")
+model InternalServerErrorResponse {
+    ...Response<500>;
+    ...Body<ApiErrorResponse>;
+}
+
 @doc("Entity mention in bio")
 model BioMentionEntity {
     @doc("The username of the mentioned user")
@@ -266,7 +345,7 @@ namespace Auth {
         @route("/start")
         op startRegister(@body body: RegisterStartBody): DataResponse<{
             creationToken: string;
-        }>;
+        }> | ValidationErrorResponse | ConflictResponse | RateLimitResponse | InternalServerErrorResponse;
 
         @post
         @route("/verify")
@@ -275,7 +354,7 @@ namespace Auth {
                 creationToken: string;
                 otp: string;
             },
-        ): MessageResponse<"Registration verified successfully.">;
+        ): MessageResponse<"Registration verified successfully."> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
         @post
         @route("/resend-otp")
@@ -283,7 +362,7 @@ namespace Auth {
             @body body: {
                 creationToken: string;
             },
-        ): MessageResponse<"otp resent successfully.">;
+        ): MessageResponse<"otp resent successfully."> | BadRequestResponse | RateLimitResponse | InternalServerErrorResponse;
 
         @post
         @summary("Complete the registration process by setting a password")
@@ -296,7 +375,7 @@ namespace Auth {
         ): DataResponse<{
             accessToken: string;
             refreshToken: string; 
-        }>;
+        }> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
     }
 
     @post
@@ -309,13 +388,13 @@ namespace Auth {
     ): DataResponse<{
         accessToken: string;
         refreshToken: string;
-    }>;
+    }> | ValidationErrorResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @post
     @summary("Logout the user by invalidating the refresh token for this client only")
     @route("/logout")
     @useAuth(BearerAuth)
-    op logout(): MessageResponse<"Logged out successfully.">;
+    op logout(): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
     @post
     @route("/refresh-token")
@@ -326,7 +405,7 @@ namespace Auth {
     : DataResponse<{
         accessToken: string;
         refreshToken: string;
-    }>;
+    }> | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @route("/password")
     namespace Password {
@@ -343,7 +422,7 @@ namespace Auth {
                 success: true;
                 message: "Password reset code sent to email.";
             }>;
-        };
+        } | ValidationErrorResponse | NotFoundResponse | RateLimitResponse | InternalServerErrorResponse;
 
         @post
         @route("/reset")
@@ -353,7 +432,7 @@ namespace Auth {
                 otp: string;
                 newPassword: string;
             },
-        ): MessageResponse<"Password reset successfully.">;
+        ): MessageResponse<"Password reset successfully."> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
         @post
         @route("/change")
@@ -363,12 +442,12 @@ namespace Auth {
                 currentPassword: string;
                 newPassword: string;
             },
-        ): MessageResponse<"Password changed successfully.">;
+        ): MessageResponse<"Password changed successfully."> | UnauthorizedResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
         @post
         @route("/resend-otp")
         op resendOtpPassword(
-        ): MessageResponse<"otp resent successfully.">;
+        ): MessageResponse<"otp resent successfully."> | BadRequestResponse | RateLimitResponse | InternalServerErrorResponse;
     };
 
     // check for email exists or not
@@ -376,7 +455,7 @@ namespace Auth {
     @route("/check-email")
     op checkEmail(@query email: string): DataResponse<{
         exists: boolean;
-    }>;
+    }> | ValidationErrorResponse | InternalServerErrorResponse;
     
 }
 
@@ -388,7 +467,7 @@ namespace Oauth {
     @summary("Handle OAuth callback for a given provider")
     op handleOauthCallback(@path provider: string, @body body : { provider_token_id: string }): DataResponse<{
         creationToken: string;
-    }>;
+    }> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
     @post
     @route("/oauth/complete")
@@ -401,7 +480,7 @@ namespace Oauth {
     ): DataResponse<{
         accessToken: string;
         refreshToken: string; 
-    }>;
+    }> | BadRequestResponse | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("Users")
@@ -415,7 +494,7 @@ namespace Users {
         op listUserFollowers(
             @path username: string,
             ...CursorPaginationParameters ,
-        ): FollowersListResponse;
+        ): FollowersListResponse | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
         @get
         @route("/{username}/mutual")
@@ -423,7 +502,7 @@ namespace Users {
         op listMutualFollowers(
             @path username: string,
             ...CursorPaginationParameters,
-        ): FollowersListResponse;
+        ): FollowersListResponse | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
         @route("/{username}/following")
         namespace Following {
@@ -432,21 +511,21 @@ namespace Users {
             op listUserFollowing(
                 @path username: string,
                 ...CursorPaginationParameters,
-            ): FollowingListResponse;
+            ): FollowingListResponse | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
             @summary("Follow a user")
             @post
             op followUser(
                 @path
                 username: string,
-            ): FollowUserResponse;
+            ): FollowUserResponse | NotFoundResponse | ConflictResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
 
             @summary("Unfollow a user")
             @delete
             op unfollowUser(
                 @path
                 username: string,
-            ): UnfollowUserResponse;
+            ): UnfollowUserResponse | NotFoundResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
         }
     }
 }
@@ -463,17 +542,17 @@ namespace Me {
         @body body: {
             newUsername: string;
         },
-    ): MessageResponse<"Username changed successfully.">;
+    ): MessageResponse<"Username changed successfully."> | ValidationErrorResponse | ConflictResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @get
     @summary("Get the authenticated user's profile")
-    op getMyProfile(): DataResponse<AuthenticatedUser>;
+    op getMyProfile(): DataResponse<AuthenticatedUser> | UnauthorizedResponse | InternalServerErrorResponse;
 
     @patch(#{ implicitOptionality: true })
     @summary("Update the authenticated user's profile")
     op updateMyProfile(
         @body body: UpdateProfileRequest,
-    ): DataResponse<AuthenticatedUser>;
+    ): DataResponse<AuthenticatedUser> | ValidationErrorResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @put
     @route("/password")
@@ -483,7 +562,7 @@ namespace Me {
             currentPassword: string;
             newPassword: string;
         },
-    ): MessageResponse<"Password changed successfully.">;
+    ): MessageResponse<"Password changed successfully."> | UnauthorizedResponse | ValidationErrorResponse | InternalServerErrorResponse;
 
     @post
     @route("/profile-picture")
@@ -492,7 +571,7 @@ namespace Me {
         @multipartBody body: {
             profilePicture: HttpPart<File>;
         },
-    ): MessageResponse<"Profile picture updated successfully.">;
+    ): MessageResponse<"Profile picture updated successfully."> | ValidationErrorResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @post
     @route("/banner")
@@ -501,11 +580,11 @@ namespace Me {
         @multipartBody body: {
             banner: HttpPart<File>;
         },
-    ): MessageResponse<"Banner updated successfully.">;
+    ): MessageResponse<"Banner updated successfully."> | ValidationErrorResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @delete
     @route("/banner")
-    op deleteBanner(): MessageResponse<"Banner deleted successfully.">;
+    op deleteBanner(): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
     @route("/blocks")
     @useAuth(BearerAuth)
@@ -514,7 +593,7 @@ namespace Me {
         @get
         op listUserBlocks(
             ...CursorPaginationParameters,
-        ): BlockedListResponse;
+        ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
         
         @summary("Block a user")
         @post
@@ -522,7 +601,7 @@ namespace Me {
         op blockUser(
             @path
             username: string,
-        ): BlockUserResponse;
+        ): BlockUserResponse | NotFoundResponse | ConflictResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
         
         @summary("Unblock a user")
         @delete
@@ -530,7 +609,7 @@ namespace Me {
         op unblockUser(
             @path
             username: string,
-        ): UnblockUserResponse;
+        ): UnblockUserResponse | NotFoundResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
     }
 
     @route("/mutes")
@@ -540,7 +619,7 @@ namespace Me {
         @get
         op listUserMutes(
             ...CursorPaginationParameters,
-        ): MutedListResponse;
+        ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
         @summary("Mute a user")
         @post
@@ -548,7 +627,7 @@ namespace Me {
         op muteUser(
             @path
             username: string,
-        ): MuteUserResponse;
+        ): MuteUserResponse | NotFoundResponse | ConflictResponse | UnauthorizedResponse | ForbiddenResponse | InternalServerErrorResponse;
 
         @summary("Unmute a user")
         @delete
@@ -556,7 +635,7 @@ namespace Me {
         op unmuteUser(
             @path
             username: string,
-        ): UnmuteUserResponse;
+        ): UnmuteUserResponse | NotFoundResponse | BadRequestResponse | UnauthorizedResponse | InternalServerErrorResponse;
     }
 }
 
@@ -568,11 +647,11 @@ namespace Onboarding {
     @route("/username-suggestions")
     op getUsernameSuggestions(): DataResponse<{
         suggestions: string[];
-    }>;
+    }> | UnauthorizedResponse | InternalServerErrorResponse;
 
     @get
     @route("/follow-suggestions")
     op getFollowSuggestions(): DataResponse<{
         suggestions: UserMetadata[];
-    }>;
+    }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

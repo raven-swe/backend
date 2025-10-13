@@ -44,6 +44,18 @@ paths:
                     required:
                       - exists
                 description: Success response wrapper with data
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
   /auth/login:
@@ -78,6 +90,24 @@ paths:
                       - accessToken
                       - refreshToken
                 description: Success response wrapper with data
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -118,6 +148,18 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       security:
@@ -145,6 +187,24 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -186,6 +246,30 @@ paths:
                 required:
                   - success
                   - message
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '429':
+          description: Standard 429 Rate Limit Exceeded response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -225,6 +309,24 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          description: Standard 429 Rate Limit Exceeded response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
   /auth/password/reset:
@@ -250,6 +352,24 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -301,6 +421,24 @@ paths:
                       - accessToken
                       - refreshToken
                 description: Success response wrapper with data
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -347,6 +485,24 @@ paths:
                       - accessToken
                       - refreshToken
                 description: Success response wrapper with data
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -386,6 +542,24 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          description: Standard 429 Rate Limit Exceeded response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -428,6 +602,30 @@ paths:
                     required:
                       - creationToken
                 description: Success response wrapper with data
+        '409':
+          description: Standard 409 Conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '429':
+          description: Standard 429 Rate Limit Exceeded response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -459,6 +657,24 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Auth
       requestBody:
@@ -500,6 +716,18 @@ paths:
                   data:
                     $ref: '#/components/schemas/AuthenticatedUser'
                 description: Success response wrapper with data
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -528,6 +756,24 @@ paths:
                   data:
                     $ref: '#/components/schemas/AuthenticatedUser'
                 description: Success response wrapper with data
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       requestBody:
@@ -561,6 +807,30 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       requestBody:
@@ -602,6 +872,18 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -638,6 +920,18 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -671,6 +965,36 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Standard 403 Forbidden response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Standard 409 Conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -703,6 +1027,30 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -739,6 +1087,18 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -772,6 +1132,36 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Standard 403 Forbidden response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Standard 409 Conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -804,6 +1194,30 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       security:
@@ -832,6 +1246,24 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       requestBody:
@@ -873,6 +1305,30 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       requestBody:
@@ -890,32 +1346,6 @@ paths:
             encoding:
               profilePicture:
                 contentType: '*/*'
-      security:
-        - BearerAuth: []
-    delete:
-      operationId: Me_deleteProfilePicture
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum:
-                      - true
-                  message:
-                    type: string
-                    enum:
-                      - Profile picture deleted successfully.
-                required:
-                  - success
-                  - message
-      tags:
-        - Me
       security:
         - BearerAuth: []
   /me/username:
@@ -942,6 +1372,30 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Standard 409 Conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Me
       requestBody:
@@ -988,6 +1442,24 @@ paths:
                       - accessToken
                       - refreshToken
                 description: Success response wrapper with data
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - OAuth
       requestBody:
@@ -1040,6 +1512,24 @@ paths:
                     required:
                       - creationToken
                 description: Success response wrapper with data
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Standard 422 Validation Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiValidationErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - OAuth
       requestBody:
@@ -1084,6 +1574,18 @@ paths:
                     required:
                       - suggestions
                 description: Success response wrapper with data
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Onboarding
       security:
@@ -1119,6 +1621,18 @@ paths:
                     required:
                       - suggestions
                 description: Success response wrapper with data
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Onboarding
       security:
@@ -1194,6 +1708,24 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Users
       security:
@@ -1235,6 +1767,24 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Users
       security:
@@ -1267,6 +1817,36 @@ paths:
                 required:
                   - success
                   - message
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Standard 403 Forbidden response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Standard 409 Conflict response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Users
       security:
@@ -1299,6 +1879,30 @@ paths:
                 required:
                   - success
                   - message
+        '400':
+          description: Standard 400 Bad Request response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Users
       security:
@@ -1374,6 +1978,24 @@ paths:
                   pagination:
                     $ref: '#/components/schemas/CursorPagination'
                 description: Success response wrapper with data and pagination
+        '401':
+          description: Standard 401 Unauthorized response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Standard 404 Not Found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Standard 500 Internal Server Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       tags:
         - Users
       security:
@@ -1670,6 +2292,20 @@ components:
           type: boolean
           description: Indicates if there are more pages to fetch
       description: Cursor-based pagination for infinite scrolling
+    ErrorCode:
+      type: string
+      enum:
+        - INVALID_TOKEN
+        - TOKEN_EXPIRED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - VALIDATION_ERROR
+        - INVALID_INPUT
+        - NOT_FOUND
+        - ALREADY_EXISTS
+        - RATE_LIMIT_EXCEEDED
+        - INTERNAL_SERVER_ERROR
+      description: Standard error codes used across the API
     PublicUser:
       type: object
       required:
@@ -1800,6 +2436,14 @@ components:
           nullable: true
           description: URL to the user's avatar image
       description: Metadata for user sent in suggestions/tweets/search results/etc.
+    ValidationErrorCode:
+      type: string
+      enum:
+        - REQUIRED_FIELD
+        - INVALID_FORMAT
+        - INVALID_LENGTH
+        - INVALID_VALUE
+      description: Validation-specific error codes
   securitySchemes:
     BearerAuth:
       type: http
