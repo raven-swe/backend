@@ -533,7 +533,7 @@ model Notification {
   @doc("The timestamp when the notification was created.")
   createdAt: utcDateTime;
 
-  @doc("A snippet of the related tweet, if applicable.")
+@doc("Indicates whether the notification has been seen by the user.")
   isSeen: boolean;
 }
 
