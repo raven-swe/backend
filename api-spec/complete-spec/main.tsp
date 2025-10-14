@@ -195,6 +195,14 @@ model TweetEntities {
     hashtags: HashtagEntity[] | null;
 }
 
+@doc("Entity media in tweet.")
+model MediaEntity {
+    @doc("Unique identifier for the media item.")
+    id: string;
+
+    ...MediaItem;
+}
+
 
 @doc("Compact user(followers/following) lists")
 model CompactUser {
@@ -304,6 +312,9 @@ enum MediaType {
 model MediaItem {
     @doc("The type of media.")
     type: MediaType;
+
+    @doc("URL to access the media file.")
+    url: string;
     
     @doc("Alt text for accessibility.")
     altText: string;
@@ -367,7 +378,7 @@ model CompactTweet {
     entities: TweetEntities;
 
     @doc("Optional array of media ids attached to the tweet (max 4 items)")
-    media: string[];
+    media: MediaItem[] | null;
 }
 
 model Tweet {
