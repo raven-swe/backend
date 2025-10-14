@@ -45,16 +45,16 @@ model users {
 }
 
 model profiles {
-  user_id      BigInt    @id
-  display_name String    @db.VarChar(100)
-  bio          String?   @db.VarChar(160)
+  user_id      BigInt   @id
+  display_name String   @db.VarChar(100)
+  bio          String?  @db.VarChar(160)
   bio_entities Json?
   avatar_url   String?
   banner_url   String?
   location     String?
   website_url  String?
-  updated_at   DateTime? @updatedAt
-  user         users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updated_at   DateTime @updatedAt
+  user         users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model refresh_tokens {
@@ -98,9 +98,9 @@ model tweets {
   id                BigInt           @id @default(autoincrement())
   user_id           BigInt
   content           String           @db.VarChar(280)
-  has_media         Boolean?         @default(false)
-  has_hashtags      Boolean?         @default(false)
-  has_mentions      Boolean?         @default(false)
+  has_media         Boolean          @default(false)
+  has_hashtags      Boolean          @default(false)
+  has_mentions      Boolean          @default(false)
   reply_to_tweet_id BigInt?
   quoted_tweet_id   BigInt?
   like_count        Int              @default(0)
@@ -108,7 +108,7 @@ model tweets {
   reply_count       Int              @default(0)
   is_deleted        Boolean          @default(false)
   created_at        DateTime         @default(now())
-  updated_at        DateTime?        @updatedAt
+  updated_at        DateTime         @updatedAt
   likes             likes[]
   media             media[]
   notifications     notifications[]
@@ -150,10 +150,10 @@ model mutes {
 model follows {
   follower_id        BigInt
   followed_id        BigInt
-  created_at         DateTime? @default(now())
-  with_notifications Boolean?  @default(false)
-  followed_user      users     @relation("follows_followed_idTousers", fields: [followed_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  follower_user      users     @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_at         DateTime @default(now())
+  with_notifications Boolean  @default(false)
+  followed_user      users    @relation("follows_followed_idTousers", fields: [followed_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  follower_user      users    @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([follower_id, followed_id])
   @@index([followed_id, follower_id])
@@ -184,8 +184,8 @@ model likes {
 model hashtags {
   id             BigInt           @id @default(autoincrement())
   tag            String?          @unique @db.VarChar(100)
-  created_at     DateTime?        @default(now())
-  count          Int?             @default(0)
+  created_at     DateTime         @default(now())
+  count          Int              @default(0)
   tweet_hashtags tweet_hashtags[]
 }
 
@@ -216,7 +216,7 @@ model messages {
   user_id                        BigInt
   conversation_id                BigInt
   message_entities               Json?
-  created_at                     DateTime?                   @default(now())
+  created_at                     DateTime                    @default(now())
   conversation_participants      conversation_participants[]
   conversation_with_last_message conversations[]             @relation("conversations_last_message_idTomessages")
   conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -228,7 +228,7 @@ model messages {
 model conversations {
   id                        BigInt                      @id @default(autoincrement())
   last_message_id           BigInt?
-  created_at                DateTime?                   @default(now())
+  created_at                DateTime                    @default(now())
   conversation_participants conversation_participants[]
   last_message              messages?                   @relation("conversations_last_message_idTomessages", fields: [last_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages                  messages[]                  @relation("messages_conversation_idToconversations")
@@ -239,7 +239,7 @@ model conversation_participants {
   conversation_id      BigInt
   user_id              BigInt
   last_seen_message_id BigInt?
-  notifications_muted  Boolean?      @default(false)
+  notifications_muted  Boolean       @default(false)
   conversations        conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages             messages?     @relation(fields: [last_seen_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user                 users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -254,7 +254,7 @@ model notifications {
   receiver_id BigInt
   type        NotificationType
   tweet_id    BigInt?
-  seen        Boolean?         @default(false)
+  seen        Boolean          @default(false)
   created_at  DateTime         @default(now())
   actor       users            @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receiver    users            @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
