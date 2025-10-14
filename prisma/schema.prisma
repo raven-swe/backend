@@ -15,13 +15,13 @@ datasource db {
 
 model users {
   id                        BigInt                      @id @default(autoincrement())
-  username                  String                      @unique
-  email                     String                      @unique
+  username                  String                      @unique @db.VarChar(50)
+  email                     String                      @unique @db.VarChar(100)
   password_hash             String?
   birthdate                 DateTime                    @db.Date
-  phone                     String?
+  phone                     String?                     @db.VarChar(20)
   created_at                DateTime                    @default(now())
-  language_code             String                      @default("en")
+  language_code             language_code               @default(EN)
   is_deleted                Boolean?                    @default(false)
   blocked_by                blocks[]                    @relation("blocks_blocked_idTousers")
   blocked_users             blocks[]                    @relation("blocks_user_idTousers")
@@ -46,8 +46,8 @@ model users {
 
 model profiles {
   user_id      BigInt    @id
-  display_name String
-  bio          String?
+  display_name String    @db.VarChar(100)
+  bio          String?   @db.VarChar(160)
   bio_entities Json?
   avatar_url   String?
   banner_url   String?
@@ -65,15 +65,16 @@ model refresh_tokens {
   expires_at   DateTime
   last_used_at DateTime?
   created_at   DateTime      @default(now())
+
   user_devices user_devices? @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model user_external_accounts {
-  provider         String
+  provider         String   @db.VarChar(50)
   provider_user_id String
   user_id          BigInt
-  provider_email   String?
+  provider_email   String?  @db.VarChar(100)
   created_at       DateTime @default(now())
   users            users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -96,7 +97,7 @@ model user_devices {
 model tweets {
   id                BigInt           @id @default(autoincrement())
   user_id           BigInt
-  content           String
+  content           String           @db.VarChar(280)
   has_media         Boolean?         @default(false)
   has_hashtags      Boolean?         @default(false)
   has_mentions      Boolean?         @default(false)
@@ -122,6 +123,7 @@ model tweets {
   tweet_mentions    tweet_mentions[]
 
   @@index([reply_to_tweet_id])
+  @@index([quoted_tweet_id])
   @@index([user_id, created_at])
 }
 
@@ -148,7 +150,7 @@ model mutes {
 model follows {
   follower_id        BigInt
   followed_id        BigInt
-  created_at         DateTime?
+  created_at         DateTime? @default(now())
   with_notifications Boolean?  @default(false)
   followed_user      users     @relation("follows_followed_idTousers", fields: [followed_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   follower_user      users     @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -181,16 +183,16 @@ model likes {
 
 model hashtags {
   id             BigInt           @id @default(autoincrement())
-  tag            String?          @unique @db.VarChar
-  created_at     DateTime?
-  count          Int?
+  tag            String?          @unique @db.VarChar(100)
+  created_at     DateTime?        @default(now())
+  count          Int?             @default(0)
   tweet_hashtags tweet_hashtags[]
 }
 
 model tweet_hashtags {
   tweet_id       BigInt
   hashtag_id     BigInt
-  starting_index Int
+  starting_index Int  
   hashtags       hashtags @relation(fields: [hashtag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweets         tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -213,8 +215,8 @@ model messages {
   id                             BigInt                      @id @default(autoincrement())
   user_id                        BigInt
   conversation_id                BigInt
-  message_entities               Json?
-  created_at                     DateTime?
+  message_entities               Json?                       
+  created_at                     DateTime?                   @default(now())
   conversation_participants      conversation_participants[]
   conversation_with_last_message conversations[]             @relation("conversations_last_message_idTomessages")
   conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -226,7 +228,7 @@ model messages {
 model conversations {
   id                        BigInt                      @id @default(autoincrement())
   last_message_id           BigInt?
-  created_at                DateTime?
+  created_at                DateTime?                   @default(now())
   conversation_participants conversation_participants[]
   last_message              messages?                   @relation("conversations_last_message_idTomessages", fields: [last_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages                  messages[]                  @relation("messages_conversation_idToconversations")
@@ -303,4 +305,9 @@ enum notification_type {
   TWEET
   MENTION
   MESSAGE
+}
+
+enum language_code {
+  EN
+  AR
 }
