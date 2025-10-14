@@ -254,7 +254,7 @@ model notifications {
   receiver_id BigInt
   type        notification_type
   tweet_id    BigInt?
-  seen        Boolean?
+  seen        Boolean?          @default(false)
   created_at  DateTime          @default(now())
   actor       users             @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receiver    users             @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
