@@ -35,7 +35,7 @@ model users {
   muted_users               mutes[]                     @relation("mutes_user_idTousers")
   sent_notifications        notifications[]             @relation("notifications_actor_idTousers")
   received_notifications    notifications[]             @relation("notifications_receiver_idTousers")
-  profiles                  profiles?
+  profile                   profiles?
   refresh_tokens            refresh_tokens[]
   retweets                  retweets[]
   tweets                    tweets[]
@@ -54,20 +54,20 @@ model profiles {
   location     String?
   website_url  String?
   updated_at   DateTime? @updatedAt
-  users        users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user         users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model refresh_tokens {
-  id           BigInt        @id @default(autoincrement())
+  id           BigInt    @id @default(autoincrement())
   device_id    BigInt?
   user_id      BigInt
-  token_hash   String        @unique
+  token_hash   String    @unique
   expires_at   DateTime
   last_used_at DateTime?
-  created_at   DateTime      @default(now())
+  created_at   DateTime  @default(now())
 
-  user_devices user_devices? @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_device user_devices? @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model user_external_accounts {
@@ -76,7 +76,7 @@ model user_external_accounts {
   user_id          BigInt
   provider_email   String?  @db.VarChar(100)
   created_at       DateTime @default(now())
-  users            users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([provider, provider_user_id])
   @@unique([user_id, provider], map: "user_external_accounts_user_id_provider_idx")
@@ -91,7 +91,7 @@ model user_devices {
   last_used_at   DateTime
   created_at     DateTime         @default(now())
   refresh_tokens refresh_tokens[]
-  users          users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user           users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model tweets {
@@ -119,7 +119,7 @@ model tweets {
   quotes            tweets[]         @relation("tweets_quoted_tweet_idTotweets")
   reply_to_tweet    tweets?          @relation("tweets_reply_to_tweet_idTotweets", fields: [reply_to_tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies           tweets[]         @relation("tweets_reply_to_tweet_idTotweets")
-  users             users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user              users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet_mentions    tweet_mentions[]
 
   @@index([reply_to_tweet_id])
@@ -163,8 +163,8 @@ model retweets {
   user_id    BigInt
   tweet_id   BigInt
   created_at DateTime @default(now())
-  tweets     tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet      tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, tweet_id])
   @@index([tweet_id])
@@ -174,8 +174,8 @@ model likes {
   user_id    BigInt
   tweet_id   BigInt
   created_at DateTime @default(now())
-  tweets     tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet      tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, tweet_id])
   @@index([tweet_id, user_id])
@@ -192,9 +192,9 @@ model hashtags {
 model tweet_hashtags {
   tweet_id       BigInt
   hashtag_id     BigInt
-  starting_index Int  
-  hashtags       hashtags @relation(fields: [hashtag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweets         tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  starting_index Int
+  hashtag        hashtags @relation(fields: [hashtag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet          tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([hashtag_id, tweet_id])
   @@index([tweet_id, hashtag_id])
@@ -204,8 +204,8 @@ model tweet_mentions {
   tweet_id       BigInt
   user_id        BigInt
   starting_index Int
-  tweets         tweets @relation(fields: [tweet_id], references: [id])
-  users          users  @relation(fields: [user_id], references: [id])
+  tweet          tweets @relation(fields: [tweet_id], references: [id])
+  user           users  @relation(fields: [user_id], references: [id])
 
   @@id([tweet_id, user_id])
   @@index([user_id, tweet_id])
@@ -215,12 +215,12 @@ model messages {
   id                             BigInt                      @id @default(autoincrement())
   user_id                        BigInt
   conversation_id                BigInt
-  message_entities               Json?                       
+  message_entities               Json?
   created_at                     DateTime?                   @default(now())
   conversation_participants      conversation_participants[]
   conversation_with_last_message conversations[]             @relation("conversations_last_message_idTomessages")
   conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                          users                       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user                           users                       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([conversation_id, created_at])
 }
@@ -242,23 +242,23 @@ model conversation_participants {
   notifications_muted  Boolean?      @default(false)
   conversations        conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages             messages?     @relation(fields: [last_seen_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user                 users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([conversation_id, user_id], map: "conversation_participants_conversation_id_user_id_idx")
   @@index([user_id, conversation_id])
 }
 
 model notifications {
-  id          BigInt            @id @default(autoincrement())
+  id          BigInt           @id @default(autoincrement())
   actor_id    BigInt
   receiver_id BigInt
   type        NotificationType
   tweet_id    BigInt?
-  seen        Boolean?          @default(false)
-  created_at  DateTime          @default(now())
-  actor       users             @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  receiver    users             @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweets      tweets?           @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seen        Boolean?         @default(false)
+  created_at  DateTime         @default(now())
+  actor       users            @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiver    users            @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet       tweets?          @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([receiver_id, created_at])
 }
@@ -273,8 +273,8 @@ model media {
   width       Float?
   height      Float?
   created_at  DateTime      @default(now())
-  tweets      tweets        @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users       users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet       tweets        @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet_media tweet_media[]
 
   @@index([user_id])
@@ -285,7 +285,7 @@ model tweet_media {
   media_id BigInt
   order    Int?
   media    media  @relation(fields: [media_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweets   tweets @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet    tweets @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([tweet_id, media_id])
 }
