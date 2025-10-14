@@ -1347,7 +1347,7 @@ namespace Me {
 
     @patch
     @route("/{notificationId}/mark-seen")
-    op markNotificationAsSeen(@path notificationId: integer): DataResponse<{
+    op markNotificationAsSeen(@path notificationId: string): DataResponse<{
       updatedCount: integer;
     }> | UnauthorizedResponse | InternalServerErrorResponse;
   }
