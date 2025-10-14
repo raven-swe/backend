@@ -21,7 +21,7 @@ model users {
   birthdate                 DateTime                    @db.Date
   phone                     String?                     @db.VarChar(20)
   created_at                DateTime                    @default(now())
-  language_code             language_code               @default(EN)
+  language_code             LanguageCode                @default(EN)
   is_deleted                Boolean                     @default(false)
   blocked_by                blocks[]                    @relation("blocks_blocked_idTousers")
   blocked_users             blocks[]                    @relation("blocks_user_idTousers")
@@ -252,7 +252,7 @@ model notifications {
   id          BigInt            @id @default(autoincrement())
   actor_id    BigInt
   receiver_id BigInt
-  type        notification_type
+  type        NotificationType
   tweet_id    BigInt?
   seen        Boolean?          @default(false)
   created_at  DateTime          @default(now())
@@ -267,7 +267,7 @@ model media {
   id          BigInt        @id @default(autoincrement())
   user_id     BigInt
   tweet_id    BigInt
-  type        media_type
+  type        MediaType
   url         String
   alt_text    String?
   width       Float?
@@ -290,13 +290,13 @@ model tweet_media {
   @@id([tweet_id, media_id])
 }
 
-enum media_type {
+enum MediaType {
   IMAGE
   VIDEO
   GIF
 }
 
-enum notification_type {
+enum NotificationType {
   FOLLOW
   LIKE
   REPLY
@@ -307,7 +307,7 @@ enum notification_type {
   MESSAGE
 }
 
-enum language_code {
+enum LanguageCode {
   EN
   AR
 }
