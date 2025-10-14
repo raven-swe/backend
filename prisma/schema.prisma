@@ -97,7 +97,7 @@ model user_devices {
 model tweets {
   id                BigInt           @id @default(autoincrement())
   user_id           BigInt
-  content           String           @db.VarChar(280)
+  content           String?          @db.VarChar(280)
   has_media         Boolean          @default(false)
   has_hashtags      Boolean          @default(false)
   has_mentions      Boolean          @default(false)
