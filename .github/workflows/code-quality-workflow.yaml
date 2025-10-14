@@ -65,9 +65,7 @@ jobs:
 
       - name: Generate OpenAPI spec yaml files for head branch
         if: ${{ github.base_ref != 'main' }}
-        run: |
-          cd .
-          pnpm run spec:generate
+        run: pnpm run spec:generate
 
       - name: Run OpenAPI Diff (from HEAD revision)
         if: ${{ github.base_ref != 'main' }}
