@@ -160,7 +160,7 @@ model InternalServerErrorResponse {
 }
 
 @doc("Entity mention in bio")
-model BioMentionEntity {
+model MentionEntity {
     @doc("The username of the mentioned user")
     username: string; //we expose text but store as user id and hydrate
     
@@ -169,7 +169,7 @@ model BioMentionEntity {
 }
 
 @doc("Entity hashtag in bio")
-model BioHashtagEntity {
+model HashtagEntity {
     @doc("The hashtag text (without #)")
     hashtag: string;
     
@@ -180,10 +180,19 @@ model BioHashtagEntity {
 @doc("Bio entities containing mentions and hashtags")
 model BioEntities {
     @doc("Array of mention entities in the bio")
-    mentions?: BioMentionEntity[];
+    mentions?: MentionEntity[];
     
     @doc("Array of hashtag entities in the bio")
-    hashtags?: BioHashtagEntity[];
+    hashtags?: HashtagEntity[];
+}
+
+@doc("Entities containing mentions and hashtags for tweet content")
+model TweetEntities {
+    @doc("Array of mention entities in the tweet")
+    mentions: MentionEntity[] | null; 
+
+    @doc("Array of hashtag entities in the tweet")
+    hashtags: HashtagEntity[] | null;
 }
 
 
@@ -282,6 +291,99 @@ model UpdateProfileRequest {
     @doc("User's website URL")
     @maxLength(255)
     websiteUrl?: string | null;
+}
+
+@doc("The type of media file.")
+enum MediaType {
+    IMAGE,
+    VIDEO,
+    GIF
+}
+
+@doc("Detailed information about an attached media item.")
+model MediaItem {
+    @doc("The type of media.")
+    type: MediaType;
+    
+    @doc("Alt text for accessibility.")
+    altText: string;
+
+    @doc("The width of the media item (in pixels for image/video).")
+    width: int32;
+    
+    @doc("The height of the media item (in pixels for image/video).")
+    height: int32;
+}
+
+
+@doc("The content and optional media for creating a new tweet")
+model TweetBody {
+    @doc("Text content of the tweet (max 280 characters).")
+    @maxLength(280)
+    content: string | null;
+
+    @doc("Optional array of media items attached to the tweet (max 4 items)")
+    @maxItems(4)
+    media: MediaItem[] | null;
+
+    @doc("The ID of the tweet this one is a reply to.")
+    replyToTweetId: string | null;
+
+    @doc("The ID of the tweet being quoted.")
+    quotedTweetId?: string | null; 
+}
+
+
+@doc("A compact representation of a tweet, used when nesting or in lists.")
+model CompactTweet {
+    @doc("The unique identifier for the tweet.")
+    id: string;
+
+    @doc("The user who created the tweet.")
+    author: UserMetadata;
+
+    @doc("The text content of the tweet.")
+    content: string | null;
+
+    @doc("The time the tweet was created.")
+    createdAt: utcDateTime;
+
+    @doc("Number of replies to this tweet.")
+    replyCount: int32;
+
+    @doc("Number of retweets of this tweet.")
+    retweetCount: int32;
+
+    @doc("Number of likes on this tweet.")
+    likeCount: int32;
+
+    @doc("Indicates if the authenticated user has liked this tweet.")
+    isLiked: boolean;
+
+    @doc("Indicates if the authenticated user has retweeted this tweet.")
+    isRetweeted: boolean;
+
+    @doc("Structured data entities (mentions, hashtags) found in the tweet content.")
+    entities: TweetEntities;
+
+    @doc("Optional array of media ids attached to the tweet (max 4 items)")
+    media: string[];
+}
+
+model Tweet {
+    ...CompactTweet;
+
+    @doc("The ID of the tweet this one is a reply to.")
+    isReplyToTweetId: int64 | null;
+
+    @doc("The full object of the tweet being replied to, for easy display.")
+    replyToTweet?: CompactTweet; // Hydrated object for a parent tweet.
+
+    @doc("The ID of the tweet being quoted.")
+    quotedTweetId?: string;
+        
+    @doc("The full object of the tweet being quoted, for easy display.")
+    quotedTweet?: CompactTweet; // Hydrated object for a quoted tweet.
 }
 
 @doc("Query parameters for cursor-based pagination")
@@ -723,4 +825,13 @@ namespace Onboarding {
     op getFollowSuggestions(): DataResponse<{
         suggestions: UserMetadata[];
     }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+
+@tag("Tweets")
+@route("/tweets")
+@useAuth(BearerAuth)
+namespace Tweets {
+    // op postTweet(@Body body: TweetBody)
+
 }
