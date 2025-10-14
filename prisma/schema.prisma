@@ -18,7 +18,7 @@ model users {
   username                  String                      @unique
   email                     String                      @unique
   password_hash             String?
-  birthdate                 DateTime
+  birthdate                 DateTime                    @db.Date
   phone                     String?
   created_at                DateTime                    @default(now())
   language_code             String                      @default("en")
