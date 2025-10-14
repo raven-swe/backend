@@ -22,6 +22,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
     "prepare": "husky || true; prisma generate"
   },
   "dependencies": {
