@@ -508,6 +508,43 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+model TweetMetadata {
+  primaryTweetId: string;
+  primaryTweetSnippet: string;
+
+  @minItems(1)
+  relatedTweetsIds: string[];
+}
+
+model Notification {
+  @doc("Unique ID for the notification event.")
+  id: string;
+
+  @doc("A list of users who triggered this notification.")
+  @minItems(1) // A notification must be triggered by at least one user
+  triggeredBy: UserMetadata[]; // for multiple users like multiple likes
+
+  @doc("A snippet of the related tweet, if applicable.")
+  relatedTweets: TweetMetadata | null; // for tweet related notifications
+
+  @doc("The type of notification.")
+  type: NotificationType;
+
+  @doc("The timestamp when the notification was created.")
+  createdAt: utcDateTime;
+
+  @doc("A snippet of the related tweet, if applicable.")
+  isSeen: boolean;
+}
+
+enum NotificationType {
+  FOLLOW: "FOLLOW",
+  LIKE: "LIKE",
+  REPLY: "REPLY",
+  QUOTE: "QUOTE",
+  RETWEET: "RETWEET",
+  TWEET: "TWEET",
+  MENTION: "MENTION",
 }
 
 @doc("Query parameters for cursor-based pagination")
@@ -578,6 +615,8 @@ alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
+alias NotificationsListResponse = DataResponseWithPagination<Notification[]>;
+
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -1277,6 +1316,40 @@ namespace Me {
       | UnauthorizedResponse
       | ForbiddenResponse
       | InternalServerErrorResponse;
+
+    @get
+    @route("/{id}/likes")
+    @summary("Get users who liked my tweet")
+    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+      | DataResponseWithPagination<UserMetadata[]>
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  @route("/notifications")
+  @useAuth(BearerAuth)
+  namespace Notifications {
+    @get
+    op listUserNotifications(
+      ...CursorPaginationParameters,
+    ): NotificationsListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @get
+    @route("/count")
+    op getNotificationsCount(): DataResponse<{
+      unseenCount: integer;
+    }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @patch
+    @route("/mark-all-seen")
+    op markAllNotificationsAsSeen(): DataResponse<{
+      updatedCount: integer;
+    }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @patch
+    @route("/{notificationId}/mark-seen")
+    op markNotificationAsSeen(@path notificationId: integer): DataResponse<{
+      updatedCount: integer;
+    }> | UnauthorizedResponse | InternalServerErrorResponse;
   }
 }
 
