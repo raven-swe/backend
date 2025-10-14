@@ -59,15 +59,15 @@ model profiles {
 
 model refresh_tokens {
   id           BigInt    @id @default(autoincrement())
-  device_id    BigInt?
+  device_id    BigInt    @unique
   user_id      BigInt
   token_hash   String    @unique
   expires_at   DateTime
   last_used_at DateTime?
   created_at   DateTime  @default(now())
 
-  user_device user_devices? @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_device user_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user        users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model user_external_accounts {
@@ -83,15 +83,15 @@ model user_external_accounts {
 }
 
 model user_devices {
-  id             BigInt           @id @default(autoincrement())
+  id             BigInt          @id @default(autoincrement())
   user_id        BigInt
-  fcm_token      String           @unique
-  ip_address     String?          @db.Inet
+  fcm_token      String          @unique
+  ip_address     String?         @db.Inet
   device_type    String?
   last_used_at   DateTime
-  created_at     DateTime         @default(now())
-  refresh_tokens refresh_tokens[]
-  user           users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_at     DateTime        @default(now())
+  refresh_tokens refresh_tokens?
+  user           users           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model tweets {
