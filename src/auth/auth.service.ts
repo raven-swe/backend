@@ -528,4 +528,8 @@ export class AuthService {
     }
     return { exists: false };
   }
+  async login(user: Express.User) {
+    //login logic
+    return Promise.resolve(user);
+  }
 }
