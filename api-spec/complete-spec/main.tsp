@@ -276,6 +276,33 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
+
+  @doc("The user's bio")
+  bio: string | null;
+
+  @doc("Entities in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+
+  @doc("Is the user followed by the current logged-in user or not")
+  isFollowing: boolean | null;
+}
+
+@doc("Extended user metadata displayed in hover cards and user previews")
+model UserPreview {
+  ...UserMetadata;
+
+  @doc("The number of users this user is following")
+  followingCount: int64;
+
+  @doc("The number of followers this user has")
+  followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64;
+
+  @doc("Display names of up to 3 mutual followers (e.g., ['Alice Smith', 'Bob Jones', 'Carol White']) shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[];
 }
 
 @doc("Request body for updating profile")
@@ -340,7 +367,7 @@ model TweetBody {
   replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId?: string | null;
+  quotedTweetId: string | null;
 }
 
 @doc("A compact representation of a tweet, used when nesting or in lists.")
@@ -386,13 +413,13 @@ model Tweet {
   isReplyToTweetId: int64 | null;
 
   @doc("The full object of the tweet being replied to, for easy display.")
-  replyToTweet?: CompactTweet; // Hydrated object for a parent tweet.
+  replyToTweet: CompactTweet | null; // Hydrated object for a parent tweet.
 
   @doc("The ID of the tweet being quoted.")
   quotedTweetId?: string;
 
   @doc("The full object of the tweet being quoted, for easy display.")
-  quotedTweet?: CompactTweet; // Hydrated object for a quoted tweet.
+  quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
 @doc("Query parameters for cursor-based pagination")
@@ -972,6 +999,7 @@ namespace Onboarding {
 @useAuth(BearerAuth)
 namespace Tweets {
   @post
+  @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
     | MessageResponse<"Tweet posted successfully.">
     | ValidationErrorResponse
@@ -980,4 +1008,52 @@ namespace Tweets {
     | InternalServerErrorResponse
     | ConflictResponse
     | RateLimitResponse;
+
+  @get
+  @route("/{id}")
+  @summary("Get a specific tweet by ID")
+  op getTweet(@path id: string):
+    | DataResponse<Tweet>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+ @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadata[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+
 }
