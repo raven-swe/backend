@@ -263,6 +263,16 @@ model AuthenticatedUser {
   languageCode: string = "en";
 }
 
+@doc("User's biography with structured entities")
+model UserBio {
+  @doc("The user's bio text (max 160 characters)")
+  @maxLength(160)
+  bio: string | null;
+
+  @doc("Structured entities found in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+}
+
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")
 model UserMetadata {
   @doc("The user's unique, public-facing username.")
@@ -277,19 +287,24 @@ model UserMetadata {
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
 
-  @doc("The user's bio")
-  bio: string | null;
-
-  @doc("Entities in the bio (mentions and hashtags)")
-  bioEntities: BioEntities | null;
-
-  @doc("Is the user followed by the current logged-in user or not")
+  @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean | null;
+
+  @doc("Is the user following the current logged-in user")
+  isFollower: boolean | null;
+}
+
+@doc("User metadata with biography information")
+model UserMetadataWithBio {
+  ...UserMetadata;
+
+  @doc("The user's biography with structured entities")
+  bio: UserBio | null;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
 model UserPreview {
-  ...UserMetadata;
+  ...UserMetadataWithBio;
 
   @doc("The number of users this user is following")
   followingCount: int64;
@@ -300,7 +315,7 @@ model UserPreview {
   @doc("The number of mutual followers shared with the authenticated user")
   mutualsCount: int64;
 
-  @doc("Display names of up to 3 mutual followers (e.g., ['Alice Smith', 'Bob Jones', 'Carol White']) shown before clicking 'View all mutuals'")
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
   mutualNames: string[];
 }
@@ -364,7 +379,7 @@ model TweetBody {
   media: MediaItem[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
-  replyToTweetId: string | null;
+  isReplyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
   quotedTweetId: string | null;
@@ -412,22 +427,11 @@ model Tweet {
   @doc("The ID of the tweet this one is a reply to.")
   isReplyToTweetId: int64 | null;
 
-  @doc("The full object of the tweet being replied to, for easy display.")
-  replyToTweet: CompactTweet | null; // Hydrated object for a parent tweet.
-
   @doc("The ID of the tweet being quoted.")
   quotedTweetId?: string;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
-}
-
-@doc("Complete tweet data with detailed user preview for hover cards and rich feed rendering")
-model TweetWithUserPreview {
-  ...Tweet;
-
-  @doc("Detailed user information including follower counts and mutual followers")
-  userPreview: UserPreview;
 }
 
 @doc("Query parameters for cursor-based pagination")
@@ -983,6 +987,29 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
+
+  @route("/tweets")
+  @useAuth(BearerAuth)
+  namespace Tweets {
+    @delete
+    @route("/{id}")
+    @summary("Delete a tweet")
+    op deleteTweet(@path id: string):
+      | MessageResponse<"Tweet deleted successfully.">
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/{id}/likes")
+    @summary("Get users who liked my tweet")
+    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+      | DataResponseWithPagination<UserMetadata[]>
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
 }
 
 @tag("Onboarding")
@@ -1026,16 +1053,6 @@ namespace Tweets {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @delete
-  @route("/{id}")
-  @summary("Delete a tweet")
-  op deleteTweet(@path id: string):
-    | MessageResponse<"Tweet deleted successfully.">
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | ForbiddenResponse
-    | InternalServerErrorResponse;
-
   @get
   @route("/{id}/replies")
   @summary("Get replies to a specific tweet")
@@ -1049,7 +1066,7 @@ namespace Tweets {
   @route("/{id}/quotes")
   @summary("Get quotes to a specific tweet")
   op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<TweetWithUserPreview[]>
+    | DataResponseWithPagination<Tweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1058,7 +1075,7 @@ namespace Tweets {
   @route("/{id}/retweets")
   @summary("Get users who retweeted a tweet")
   op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<UserPreview[]>
+    | DataResponseWithPagination<UserMetadataWithBio[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
