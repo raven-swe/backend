@@ -68,7 +68,6 @@ model user_external_accounts {
   provider         String   @db.VarChar(50)
   provider_user_id String
   user_id          BigInt
-  provider_email   String?  @db.VarChar(100)
   created_at       DateTime @default(now())
   user             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
