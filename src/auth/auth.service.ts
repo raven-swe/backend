@@ -288,4 +288,8 @@ export class AuthService {
     //   return null;
     return Promise.resolve({ identifier, password });
   }
+  async login(user: Express.User) {
+    //login logic
+    return Promise.resolve(user);
+  }
 }
