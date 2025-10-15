@@ -422,6 +422,14 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+@doc("Complete tweet data with detailed user preview for hover cards and rich feed rendering")
+model TweetWithUserPreview {
+  ...Tweet;
+
+  @doc("Detailed user information including follower counts and mutual followers")
+  userPreview: UserPreview;
+}
+
 @doc("Query parameters for cursor-based pagination")
 model CursorPaginationParameters {
   @query
@@ -1041,7 +1049,7 @@ namespace Tweets {
   @route("/{id}/quotes")
   @summary("Get quotes to a specific tweet")
   op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<Tweet[]>
+    | DataResponseWithPagination<TweetWithUserPreview[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1050,10 +1058,11 @@ namespace Tweets {
   @route("/{id}/retweets")
   @summary("Get users who retweeted a tweet")
   op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<UserMetadata[]>
+    | DataResponseWithPagination<UserPreview[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+    
 
 }
