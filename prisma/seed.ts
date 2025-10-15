@@ -32,7 +32,6 @@ async function main() {
   await prisma.user_external_accounts.deleteMany();
   await prisma.profiles.deleteMany();
   await prisma.users.deleteMany();
-  console.log('deleted');
 
   await prisma.$executeRaw`ALTER SEQUENCE "users_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "refresh_tokens_id_seq" RESTART WITH 1;`;
@@ -527,14 +526,14 @@ async function main() {
     },
   });
 
-  const msg1_1 = await prisma.messages.create({
+  await prisma.messages.create({
     data: {
       conversation_id: groupConversation1.id,
       user_id: 4,
       message_entities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
     },
   });
-  const msg1_2 = await prisma.messages.create({
+  await prisma.messages.create({
     data: {
       conversation_id: groupConversation1.id,
       user_id: 1,
@@ -585,7 +584,7 @@ async function main() {
     },
   });
 
-  const msg2_1 = await prisma.messages.create({
+  await prisma.messages.create({
     data: {
       conversation_id: groupConversation2.id,
       user_id: 8,
@@ -667,10 +666,11 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
-    console.error('Seeding failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error('Seeding failed:', e);
+    await prisma.$disconnect();
+    process.exit(1);
   });
