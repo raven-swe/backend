@@ -35,6 +35,7 @@ import { createValidationError } from 'src/common/utils/create-validation-error.
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
+import useragent from 'useragent';
 
 @Injectable()
 export class AuthService {
@@ -531,7 +532,8 @@ export class AuthService {
   async login(user: RequestUser) {
     const payload = { username: user.identifier, sub: user.id };
     return Promise.resolve({
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
     });
   }
 }
