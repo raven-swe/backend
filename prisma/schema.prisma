@@ -85,7 +85,7 @@ model user_external_accounts {
 model user_devices {
   id            BigInt          @id @default(autoincrement())
   user_id       BigInt
-  fcm_token     String          @unique
+  fcm_token     String?         @unique
   ip_address    String?         @db.Inet
   device_type   String?
   last_used_at  DateTime
