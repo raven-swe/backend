@@ -259,28 +259,29 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean | null;
+
+  @doc("Is the user following the current logged-in user")
+  isFollower: boolean | null;
 }
 
-model SuggestedUserMetadataForSearch {
-  ...UserMetadata;
-
-  @doc("Both following each other/ Him following You/ You following him")
-  following: string;
-}
-
-model AllSuggestedUsers {
+model TopSuggestedUsers {
   @doc("Suggested Users when typing")
   @maxItems(10)
-  users: SuggestedUserMetadataForSearch[];
+  users: UserMetadata[];
 }
 
 model SuggestedUsersForSearchResults {
-  @doc("The top 3 matching users after searching")
-  @maxItems(3)
+  @doc("The top 10 matching users after searching")
+  @maxItems(10)
   topUsers: UserMetadata[];
+}
 
+model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
-  users: SuggestedUserMetadataForSearch[];
+  users: UserMetadata[];
 }
 
 @doc("Request body for updating profile")
@@ -869,22 +870,35 @@ namespace Search {
   @get
   @route("/{query}")
   op searchUsers(@path query: string):
-    | DataResponse<AllSuggestedUsers>
+    | DataResponse<TopSuggestedUsers>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Search for users matching the query returns paginated user results with top 3 featured users")
+  @summary("Get top 10 featured users for the People tab")
   @get
-  @route("/users")
-  op searchUsersPage(
+  @route("/users/top")
+  op getTopUsers(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<SuggestedUsersForSearchResults>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get all matching users with pagination for the People tab")
+  @get
+  @route("/users/all")
+  op getAllUsers(
     @doc("The search query")
     @query
     query: string,
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<SuggestedUsersForSearchResults>
+    | DataResponseWithPagination<AllMatchingUsers>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -895,39 +909,39 @@ namespace Search {
   op searchTweets(
     @doc("The main keyword search query. Comma-separated.")
     @query
-    words: string | null,
+    words?: string,
 
     @doc("A comma-separated list of hashtags to search for (without the '#').")
     @query
-    hashtags: string | null,
+    hashtags?: string,
 
     @doc("Search for tweets from a specific author's username (without the '@').")
     @query
-    fromUser: string | null,
+    fromUser?: string,
 
     @doc("Search for tweets mentioning a specific user's username (without the '@').")
     @query
-    mentionsUser: string | null,
+    mentionedUsername?: string,
 
     @doc("An array of filters. Use 'type' to include and '-type' to exclude (e.g., 'links', '-replies').")
     @query
-    filter: string[] | null,
+    filter?: string[],
 
     @doc("Sort results by creation date. Required for a 'Latest' tab.")
     @query
-    orderBy: "-created_at" | null,
+    orderBy?: "-createdAt",
 
     @doc("Show posts with a minimum number of likes")
     @query
-    min_likes: int32 | null,
+    minLikes?: int32,
 
     @doc("Show posts with a minimum number of replies")
     @query
-    min_replies: int32 | null,
+    minReplies?: int32,
 
     @doc("Show posts with a minimum number of reposts")
     @query
-    min_reposts: int32 | null,
+    minReposts?: int32,
 
     ...CursorPaginationParameters,
   ):
