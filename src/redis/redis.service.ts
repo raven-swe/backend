@@ -1,7 +1,6 @@
-import { Global, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
-@Global()
 @Injectable()
 export class RedisService {
   private readonly redis: Redis;
