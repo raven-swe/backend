@@ -25,9 +25,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:create": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:reset": "prisma migrate reset --force",
+    "db:reset": "prisma migrate reset --force && prisma db seed",
     "db:seed": "prisma db seed",
-    "db:seed:reset": "prisma migrate reset --force && prisma db seed",
     "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
     "prepare": "husky || true; prisma generate"
   },
