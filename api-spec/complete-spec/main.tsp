@@ -1045,7 +1045,7 @@ namespace Tweets {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
- @get
+  @get
   @route("/{id}/quotes")
   @summary("Get quotes to a specific tweet")
   op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
@@ -1063,6 +1063,43 @@ namespace Tweets {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-    
+  @post
+  @route("/{id}/like")
+  @summary("Like a tweet")
+  op likeTweet(@path id: string):
+    | MessageResponse<"Tweet liked successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 
+  @delete
+  @route("/{id}/like")
+  @summary("Unlike a tweet")
+  op unlikeTweet(@path id: string):
+    | MessageResponse<"Tweet unliked successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{id}/retweet")
+  @summary("Retweet a tweet")
+  op retweetTweet(@path id: string):
+    | MessageResponse<"Tweet retweeted successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/retweet")
+  @summary("Undo retweet")
+  op unretweetTweet(@path id: string):
+    | MessageResponse<"Retweet undone successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
