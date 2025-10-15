@@ -57,7 +57,8 @@
     "passport-local": "^1.0.0",
     "prisma": "^6.17.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "useragent": "^2.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -73,6 +74,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
+    "@types/useragent": "^2.3.4",
     "@typespec/compiler": "^1.5.0",
     "@typespec/http": "^1.5.0",
     "@typespec/openapi3": "^1.5.0",
