@@ -291,7 +291,7 @@ export class AuthService {
     return Promise.resolve({ identifier, id: 'id' });
   }
   async login(user: RequestUser) {
-    const payload = { username: user.identifier, sub: user.id };
+    const payload: RequestUser = user;
     return Promise.resolve({
       access_token: this.jwtService.sign(payload),
     });
