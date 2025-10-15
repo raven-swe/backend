@@ -8,9 +8,9 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import type { Request, Response } from 'express';
 import { Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { LocalAuthGuard } from './local-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -62,6 +62,7 @@ export class AuthController {
   async checkEmail(@Query() checkEmailDto: CheckEmailDto) {
     return await this.authService.checkEmail(checkEmailDto.email);
   @UseGuards(AuthGuard('local'))
+  @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Req() req: Request) {
     return this.authService.login(req.user!);
