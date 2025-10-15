@@ -22,13 +22,13 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prepare": "husky || true; prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:create": "prisma migrate dev",
-    "db:reset": "prisma migrate reset --force",
     "db:generate": "prisma generate",
+    "db:reset": "prisma migrate reset --force",
     "db:seed": "prisma db seed",
-    "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3", "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
+    "db:seed:reset": "prisma migrate reset --force && prisma db seed",
+    "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
     "prepare": "husky || true; prisma generate"
   },
   "prisma": {
