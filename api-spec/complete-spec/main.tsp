@@ -267,7 +267,7 @@ model AuthenticatedUser {
 model UserBio {
   @doc("The user's bio text (max 160 characters)")
   @maxLength(160)
-  bio: string | null;
+  text: string | null;
 
   @doc("Structured entities found in the bio (mentions and hashtags)")
   bioEntities: BioEntities | null;
