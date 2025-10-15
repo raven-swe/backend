@@ -13,15 +13,13 @@ export class RedisService {
       enableReadyCheck: false,
       maxRetriesPerRequest: null,
     });
-  }
 
-  onModuleInit() {
     this.redis.on('connect', () => {
-      console.info('Connected to Redis');
+      console.info('Redis connected');
     });
 
     this.redis.on('error', (err) => {
-      console.error('Redis connection error:', err);
+      console.error('Redis connection error', err);
     });
   }
 

@@ -9,4 +9,14 @@ export class PrismaService extends PrismaClient {
       datasourceUrl: config.get('DATABASE_URL'),
     });
   }
+
+  async onModuleInit() {
+    try {
+      await this.$connect();
+      console.info('Database connected');
+    } catch (err) {
+      console.error('Database connection error', err);
+      process.exit(1);
+    }
+  }
 }
