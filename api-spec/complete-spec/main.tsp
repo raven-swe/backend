@@ -376,13 +376,13 @@ model TweetBody {
 
   @doc("Optional array of media items attached to the tweet (max 4 items)")
   @maxItems(4)
-  media: MediaItem[] | null;
+  media?: MediaItem[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  isReplyToTweetId?: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quotedTweetId?: string | null;
 }
 
 @doc("A compact representation of a tweet, used when nesting or in lists.")
@@ -428,7 +428,7 @@ model Tweet {
   isReplyToTweetId: int64 | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId?: string;
+  quotedTweetId: string;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
