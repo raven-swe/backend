@@ -215,6 +215,7 @@ model messages {
   id                             BigInt                      @id @default(autoincrement())
   user_id                        BigInt
   conversation_id                BigInt
+  content                        String
   message_entities               Json?
   created_at                     DateTime                    @default(now())
   conversation_participants      conversation_participants[]
