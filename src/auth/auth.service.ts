@@ -274,11 +274,13 @@ export class AuthService {
       return userId;
     });
 import { Injectable } from '@nestjs/common';
-import { User } from './types';
+import { JwtService } from '@nestjs/jwt';
+import { RequestUser } from './types';
 
 @Injectable()
 export class AuthService {
-  async validateUser(identifier: string, password: string): Promise<User | null> {
+  constructor(private readonly jwtService: JwtService) {}
+  async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
     //   const user = { username, pass };
     //   // const user = await this.usersService.findOne(username);//TODO: get the user using prisma
     //   if (user && user.pass === pass) {
@@ -286,10 +288,12 @@ export class AuthService {
     //     return result;
     //   }
     //   return null;
-    return Promise.resolve({ identifier, password });
+    return Promise.resolve({ identifier, id: 'id' });
   }
-  async login(user: Express.User) {
-    //login logic
-    return Promise.resolve(user);
+  async login(user: RequestUser) {
+    const payload = { username: user.identifier, sub: user.id };
+    return Promise.resolve({
+      access_token: this.jwtService.sign(payload),
+    });
   }
 }

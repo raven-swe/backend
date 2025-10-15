@@ -1,7 +1,7 @@
-import { User } from './user.type';
+import { RequestUser } from './user.type';
 
 declare module 'express-serve-static-core' {
   interface Request {
-    user?: User;
+    user?: RequestUser;
   }
 }
