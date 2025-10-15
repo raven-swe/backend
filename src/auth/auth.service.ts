@@ -273,5 +273,19 @@ export class AuthService {
 
       return userId;
     });
+import { Injectable } from '@nestjs/common';
+import { User } from './types';
+
+@Injectable()
+export class AuthService {
+  async validateUser(identifier: string, password: string): Promise<User | null> {
+    //   const user = { username, pass };
+    //   // const user = await this.usersService.findOne(username);//TODO: get the user using prisma
+    //   if (user && user.pass === pass) {
+    //     const { pass, ...result } = user;
+    //     return result;
+    //   }
+    //   return null;
+    return Promise.resolve({ identifier, password });
   }
 }

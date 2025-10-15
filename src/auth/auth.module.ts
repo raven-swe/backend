@@ -7,6 +7,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
 import { DevicesModule } from 'src/device/device.module';
+import { LocalStrategy } from './local.strategy';
+
 @Module({
   imports: [
     UsersModule,
@@ -23,6 +25,6 @@ import { DevicesModule } from 'src/device/device.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, LocalStrategy],
 })
 export class AuthModule {}
