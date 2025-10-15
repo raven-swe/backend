@@ -583,6 +583,8 @@ export class AuthService {
     return { refreshToken: newRefreshToken, accessToken };
   }
   async login(user: RequestUser) {
+    //TODO: 1 - the user is the one that is sent from validateUser method
+    //TODO: 2 - create a new refresh token and return it with the body
     const payload: RequestUser = user;
     return Promise.resolve({
       access_token: this.jwtService.sign(payload),
