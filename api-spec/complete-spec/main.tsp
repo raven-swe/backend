@@ -259,6 +259,28 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
+
+}
+
+model SuggestedUserMetadataForSearch {
+  ...UserMetadata,
+  @doc("Both following each other/ Him following You/ You following him")
+  following: string;
+}
+
+model AllSuggestedUsers {
+  @doc("Suggested Users when typing")
+  @maxItems(10)
+  users: SuggestedUserMetadataForSearch[];
+}
+
+model SuggestedUsersForSearchResults {
+  @doc("The top 3 matching users after searching")
+  @maxItems(3)
+  topUsers: UserMetadata[];
+
+  @doc("Paginated list of all matching users (default 20 per page)")
+  users: SuggestedUserMetadataForSearch[];
 }
 
 @doc("Request body for updating profile")
@@ -843,9 +865,28 @@ namespace Me {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Search for tweets with just the query word(s), a hashtag(s), an @ or using from:")
+  @summary("Get users matching the current query (while typing in search box)")
   @get
-  op search(
+  @route("/{query}")
+  op searchUsers(
+    @path query: string
+  ) : DataResponse<AllSuggestedUsers> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @summary("Search for users matching the query returns paginated user results with top 3 featured users")
+  @get
+  @route("/users")
+  op searchUsersPage(
+    @doc("The search query")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<SuggestedUsersForSearchResults> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @get
+  @route("/tweets")
+  op searchTweets(
     @doc("The main keyword search query. Comma-separated.")
     @query
     words: string | null,
@@ -881,7 +922,10 @@ namespace Search {
     @doc("Show posts with a minimum number of reposts")
     @query
     min_reposts: int32 | null,
-  ): FollowersListResponse | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<{}[]> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+  // TODO: Replace {}[] with actual Tweet[] model when we merge
 }
 
 @tag("Onboarding")
