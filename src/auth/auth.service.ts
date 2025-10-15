@@ -528,8 +528,10 @@ export class AuthService {
     }
     return { exists: false };
   }
-  async login(user: Express.User) {
-    //login logic
-    return Promise.resolve(user);
+  async login(user: RequestUser) {
+    const payload = { username: user.identifier, sub: user.id };
+    return Promise.resolve({
+      access_token: this.jwtService.sign(payload),
+    });
   }
 }
