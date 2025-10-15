@@ -583,7 +583,7 @@ export class AuthService {
     return { refreshToken: newRefreshToken, accessToken };
   }
   async login(user: RequestUser) {
-    const payload = { username: user.identifier, sub: user.id };
+    const payload: RequestUser = user;
     return Promise.resolve({
       access_token: this.jwtService.sign(payload),
     });
