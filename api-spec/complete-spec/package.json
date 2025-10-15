@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "scripts": {
+    "spec:generate": "tsp compile main.tsp --emit @typespec/openapi3",
+    "format": "tsp format \"./**/*.tsp\""
+  },
   "dependencies": {
     "@typespec/compiler": "latest",
     "@typespec/http": "latest",
