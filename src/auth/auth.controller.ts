@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import type { RequestUser } from './types';
 import { User } from './decorators/user.decorator';
+import * as useragent from 'useragent';
 
 @Controller('auth')
 export class AuthController {
@@ -66,7 +67,8 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@User() user: RequestUser) {
-    return this.authService.login(user);
+  async login(@User() user: RequestUser, @Headers('user-agent') agentString: string) {
+    const agent = useragent.parse(agentString);
+    return this.authService.login(user, agent);
   }
 }

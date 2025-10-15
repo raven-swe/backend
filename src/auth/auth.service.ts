@@ -277,7 +277,9 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RequestUser } from './types';
 import * as bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
+import useragent from 'useragent';
 
 @Injectable()
 export class AuthService {
@@ -308,12 +310,39 @@ export class AuthService {
     }
     return null;
   }
-  async login(user: RequestUser) {
-    //TODO: 1 - the user is the one that is sent from validateUser method
-    //TODO: 2 - create a new refresh token and return it with the body
-    const payload: RequestUser = user;
+  async login(user: RequestUser, agent: useragent.Agent) {
+    const accessToken = this.jwtService.sign(user);
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    // const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    //TODO: but inside a prisma trnasaction
+
+    // const userDevice = await this.prisma.user_devices.upsert({
+    //   where: { fcm_token: device.fcmToken },
+    //   update: { last_used_at: new Date() },
+    //   create: {
+    //     user_id: BigInt(user.id),
+    //     fcm_token: device.fcmToken,
+    //     device_type: device.deviceType,
+    //     last_used_at: new Date(),
+    //   },
+    // });
+    //
+    // await this.prisma.refresh_tokens.create({
+    //   data: {
+    //     user_id: BigInt(user.id),
+    //     device_id: userDevice.id,
+    //     token_hash: hashedRefreshToken,
+    //     expires_at: expiresAt,
+    //   },
+    // });
+
+    const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
     return Promise.resolve({
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
     });
   }
 }
