@@ -259,11 +259,11 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
-
 }
 
 model SuggestedUserMetadataForSearch {
-  ...UserMetadata,
+  ...UserMetadata;
+
   @doc("Both following each other/ Him following You/ You following him")
   following: string;
 }
@@ -868,9 +868,11 @@ namespace Search {
   @summary("Get users matching the current query (while typing in search box)")
   @get
   @route("/{query}")
-  op searchUsers(
-    @path query: string
-  ) : DataResponse<AllSuggestedUsers> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+  op searchUsers(@path query: string):
+    | DataResponse<AllSuggestedUsers>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 
   @summary("Search for users matching the query returns paginated user results with top 3 featured users")
   @get
@@ -881,7 +883,11 @@ namespace Search {
     query: string,
 
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<SuggestedUsersForSearchResults> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+  ):
+    | DataResponseWithPagination<SuggestedUsersForSearchResults>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
   @get
@@ -924,7 +930,11 @@ namespace Search {
     min_reposts: int32 | null,
 
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<{}[]> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
+  ):
+    | DataResponseWithPagination<{}[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
   // TODO: Replace {}[] with actual Tweet[] model when we merge
 }
 
