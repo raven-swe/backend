@@ -276,21 +276,41 @@ export class AuthService {
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RequestUser } from './types';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
+  ) {}
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
-    //   const user = { username, pass };
-    //   // const user = await this.usersService.findOne(username);//TODO: get the user using prisma
-    //   if (user && user.pass === pass) {
-    //     const { pass, ...result } = user;
-    //     return result;
-    //   }
-    //   return null;
-    return Promise.resolve({ identifier, id: 'id' });
+    // const user = await this.prisma.users.findFirst({
+    //   where: {
+    //     OR: [
+    //       { username: identifier },
+    //       { email: identifier },
+    //       { phone: identifier },
+    //     ],
+    //   },
+    // });
+    const user: { id: number; username: string; password: string } = {
+      id: 10,
+      username: 'example',
+      password: 'hash',
+    };
+    if (user && user.password) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        return Promise.resolve({ id: user.id.toString(), username: user.username });
+      }
+    }
+    return null;
   }
   async login(user: RequestUser) {
+    //TODO: 1 - the user is the one that is sent from validateUser method
+    //TODO: 2 - create a new refresh token and return it with the body
     const payload: RequestUser = user;
     return Promise.resolve({
       access_token: this.jwtService.sign(payload),
