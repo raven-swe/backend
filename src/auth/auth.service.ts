@@ -582,4 +582,8 @@ export class AuthService {
     });
     return { refreshToken: newRefreshToken, accessToken };
   }
+  async login(user: Express.User) {
+    //login logic
+    return Promise.resolve(user);
+  }
 }
