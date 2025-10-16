@@ -9,8 +9,7 @@ namespace Twitter;
 
 @doc("JWT bearer token authentication")
 model BearerAuth {
-    type: "http";
-    scheme: "bearer";
-    bearerFormat: "JWT";
+  type: "http";
+  scheme: "bearer";
+  bearerFormat: "JWT";
 }
-
