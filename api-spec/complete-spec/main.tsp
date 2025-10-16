@@ -161,6 +161,24 @@ model InternalServerErrorResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("Single user session, providing details about the device, location, and activity status.")
+model SessionResponse {
+  @doc("Unique identifier for the session.")
+  id: string;
+
+  @doc("The type of device or client used for this session (e.g., 'Linux', 'Android', 'Web', 'Windows').")
+  deviceType: string;
+
+  @doc("The location where the session was initiated or active")
+  location: string | null;
+
+  @doc("The UTC timestamp indicating the last time this session was active.")
+  lastActive: utcDateTime;
+
+  @doc("A boolean flag indicating whether this session is the one currently making the API request.")
+  isCurrent: boolean;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -544,7 +562,7 @@ alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
-
+alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -724,7 +742,6 @@ namespace Auth {
       | InternalServerErrorResponse;
   }
 
-  // check for email exists or not
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -1054,7 +1071,6 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
-
     @put
     @route("/country")
     @summary("Update the authenticated user's country")
@@ -1062,14 +1078,13 @@ namespace Me {
       @body body: {
         countryName: string;
       },
-    ): 
+    ):
       | MessageResponse<"Country updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
-    
     @put
     @route("/gender")
     @summary("Update the authenticated user's gender")
@@ -1077,29 +1092,26 @@ namespace Me {
       @body body: {
         gender: Gender;
       },
-    ): 
+    ):
       | MessageResponse<"Gender updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
-        
     @put
     @route("/birthdate")
     @summary("Update the authenticated user's birth date")
     op updateBirthDate(
       @body body: {
-        date: plainDate | null,
+        date: plainDate | null;
       },
-    ): 
+    ):
       | MessageResponse<"Birth date updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
-
-    
 
     @put
     @route("/language")
@@ -1108,15 +1120,14 @@ namespace Me {
       @body body: {
         language: LanguageCode;
       },
-    ): 
+    ):
       | MessageResponse<"Default language updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
-          @summary("List a user's blocks")
-    
+    @summary("List a user's blocks")
     @get
     @route("/blocks")
     op listUserBlocks(
@@ -1130,6 +1141,19 @@ namespace Me {
       ...CursorPaginationParameters,
     ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
+    @get
+    @route("/sessions")
+    @summary("Retrieve all active and recent sessions for the authenticated user.")
+    op getSessions(): SessionListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @delete 
+    @route("/sessions/{sessionId}")
+    @summary("Log out or terminate a specific session by its ID.")
+    op deleteSession(@path sessionId: string):
+      | MessageResponse<"Session terminated successfully.">
+      | NotFoundResponse 
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
