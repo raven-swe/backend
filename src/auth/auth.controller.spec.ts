@@ -10,7 +10,44 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { CheckIdentifierQueryDto } from './dtos';
 
+const mockAuthService = {
+  login: jest.fn(() =>
+    Promise.resolve({
+      accessToken: 'mockAccessToken',
+      refreshToken: 'mockRefreshToken',
+import { RequestWithCookies } from './types';
+import { RefreshTokenDto } from './dtos';
+
+const mockAuthService = {
+  login: jest.fn(() =>
+   Promise.resolve({
+      access_token: 'mockAccessToken',
+      refresh_token: 'mockRefreshToken',
+    }),
+  ),
+  checkIdentifier: jest.fn(() =>
+    Promise.resolve({
+      exists: true,
+      type: 'username',
+    }),
+  ),
+  refreshAccessToken:jest.fn(()=>
+    Promise.resolve({
+      access_token:'mockAccessToken',
+      refresh_token:'mockRefreshToken'
+    })
+  )
+
+};
+
 describe('AuthController with real config service', () => {
+function mockRequestWithCookies(cookies: Record<string, string | undefined> = {}): RequestWithCookies {
+  return {
+    cookies,
+  } as unknown as RequestWithCookies;
+}
+
+describe('AuthController', () => {
   let controller: AuthController;
   let config: ConfigService;
 
@@ -489,4 +526,42 @@ describe('AuthController with mocked config service', () => {
       });
     }
   });
+      });    })
+})
+        access_token: 'mockAccessToken',
+        refresh_token: 'mockRefreshToken',
+      });
+    });
+  });
+
+  describe('refreshToken',()=>{
+    it('should call authService.refreshAccessToken, set a cookie and return tokens',async()=>{
+
+      const refreshToken = 'old_mocked_refresh_token'
+
+      const req = mockRequestWithCookies({ refresh_token: refreshToken });
+      const dto :RefreshTokenDto = {refresh_token:refreshToken}
+
+      const mockResponse = {
+        cookie: jest.fn(),
+      } as unknown as Response;
+
+      const result = await controller.refrehAccessToken(req, dto, mockResponse)
+
+      expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken)
+      
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 900,
+      });
+
+      expect(result).toEqual({
+        access_token: 'mockAccessToken',
+        refresh_token: 'mockRefreshToken',
+      });
+    })
+  })
 });
