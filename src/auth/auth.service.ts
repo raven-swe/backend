@@ -531,6 +531,12 @@ export class AuthService {
       };
     }
     return { exists: false };
+  private async generateRefreshTokenWithExpiry(expiryInDays: number) {
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiryInDays);
+    return { refreshToken, hashedRefreshToken, expiresAt };
   }
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
