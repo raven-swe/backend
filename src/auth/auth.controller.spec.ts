@@ -182,7 +182,7 @@ expect.objectContaining({
       }),      );
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('jwt', 'mockAccessToken', {
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
