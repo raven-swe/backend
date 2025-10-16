@@ -311,23 +311,24 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
 
-    const userDevice = await this.prisma.user_devices.create({
-      data: {
-        user_id: BigInt(user.id),
-        device_type: agent.toString(),
-        last_used_at: new Date(),
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      const userDevice = await tx.user_devices.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_type: agent.toString(),
+          last_used_at: new Date(),
+        },
+      });
 
-    await this.prisma.refresh_tokens.create({
-      data: {
-        user_id: BigInt(user.id),
-        device_id: userDevice.id,
-        token_hash: hashedRefreshToken,
-        expires_at: expiresAt,
-      },
+      await tx.refresh_tokens.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_id: userDevice.id,
+          token_hash: hashedRefreshToken,
+          expires_at: expiresAt,
+        },
+      });
     });
-
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
