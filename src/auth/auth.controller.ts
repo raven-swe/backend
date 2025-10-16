@@ -30,6 +30,8 @@ import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
+import { UAParser } from 'ua-parser-js';
+import { RefreshTokenDto } from './dtos';
 
 @Controller('auth')
 export class AuthController {
@@ -139,12 +141,12 @@ export class AuthController {
   @Post('refresh-token')
   async refrehAccessToken(
     @Req() req: RequestWithCookies,
-    @Body('refresh_token') refreshTokenBody: string,
+    @Body() refreshTokenDto: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     let refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) {
-      refreshToken = refreshTokenBody;
+      refreshToken = refreshTokenDto.refresh_token;
     }
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
