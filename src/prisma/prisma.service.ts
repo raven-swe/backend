@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly logger: Logger,
+  ) {
     super({
       datasourceUrl: config.get('DATABASE_URL'),
     });
@@ -13,9 +16,12 @@ export class PrismaService extends PrismaClient {
   async onModuleInit() {
     try {
       await this.$connect();
-      console.info('Database connected');
+      this.logger.log('Database connected');
     } catch (err) {
-      console.error('Database connection error', err);
+      this.logger.error(
+        'Database connection error',
+        err instanceof Error ? err.stack : String(err),
+      );
       process.exit(1);
     }
   }
