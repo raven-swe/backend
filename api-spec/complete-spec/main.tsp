@@ -260,7 +260,7 @@ model AuthenticatedUser {
   phone: string | null;
 
   @doc("User's language preference")
-  languageCode: string = "en";
+  languageCode: LanguageCode = LanguageCode.EN;
 }
 
 @doc("User's biography with structured entities")
@@ -516,6 +516,28 @@ model MessageResponse<TMessage extends string> {
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
+}
+
+model AccountInfo {
+  username: string;
+  email: string | null;
+  accountCreationDate: utcDateTime;
+  accountCreationIp: string | null;
+  country: string;
+  languages: LanguageCode[];
+  gender: Gender;
+  birthDate: plainDate;
+  age: int32;
+}
+
+enum LanguageCode {
+  AR,
+  EN,
+}
+
+enum Gender {
+  Male,
+  Female,
 }
 
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -873,20 +895,6 @@ namespace Users {
 @route("/me")
 @useAuth(BearerAuth)
 namespace Me {
-  @patch(#{ implicitOptionality: true })
-  @route("/username")
-  @summary("Change the authenticated user's username")
-  op changeMyUsername(
-    @body body: {
-      newUsername: string;
-    },
-  ):
-    | MessageResponse<"Username changed successfully.">
-    | ValidationErrorResponse
-    | ConflictResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @get
   @summary("Get the authenticated user's profile")
   op getMyProfile(): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
@@ -910,24 +918,6 @@ namespace Me {
   ):
     | MessageResponse<"Password changed successfully.">
     | UnauthorizedResponse
-    | ValidationErrorResponse
-    | InternalServerErrorResponse;
-
-  @summary("Validate the current user's password")
-  @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
-  @useAuth(BearerAuth)
-  @post
-  @route("password/validate-password")
-  op validatePassword(
-    @body body: {
-      password: string;
-    },
-  ):
-    | DataResponse<{
-        isValid: boolean;
-      }>
-    | UnauthorizedResponse
-    | ForbiddenResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
 
@@ -959,48 +949,6 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @put
-  @route("/email")
-  @summary("Initiates update of the authenticated user's email address")
-  op updateEmail(
-    @body body: {
-      newEmail: string;
-    },
-  ):
-    | MessageResponse<"Email update initiated. Please verify the new email address.">
-    | ValidationErrorResponse
-    | ConflictResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @post
-  @route("/email/resend-otp")
-  @summary("Resend the verification code to the new email address")
-  op resendEmailVerificationOtp(
-    @body body: {
-      newEmail: string;
-    },
-  ):
-    | MessageResponse<"Verification code resent successfully.">
-    | BadRequestResponse
-    | RateLimitResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @post
-  @route("/email/verify")
-  @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
-  op verifyNewEmail(
-    @body body: {
-      verificationCode: string;
-    },
-  ):
-    | MessageResponse<"Email address updated successfully.">
-    | BadRequestResponse
-    | ValidationErrorResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @post
   @route("/banner")
   op updateBanner(
@@ -1020,9 +968,91 @@ namespace Me {
   op deleteBanner(
   ): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
+  @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
+    @summary("Validate the current user's password")
+    @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
+    @useAuth(BearerAuth)
+    @post
+    @route("password/validate")
+    op validatePassword(
+      @body body: {
+        password: string;
+      },
+    ):
+      | DataResponse<{
+          isValid: boolean;
+        }>
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
 
+    @summary("Get the authenticated user's account information")
+    @doc("Retrieves detailed profile and account settings for the currently authenticated user, identified by their JWT.")
+    @get
+    op getAccountInfo():
+      | DataResponse<AccountInfo>
+      | UnauthorizedResponse
+      | InternalServerErrorResponse
+      | ForbiddenResponse;
+
+    @patch(#{ implicitOptionality: true })
+    @route("/username")
+    @summary("Change the authenticated user's username")
+    op changeMyUsername(
+      @body body: {
+        newUsername: string;
+      },
+    ):
+      | MessageResponse<"Username changed successfully.">
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/email")
+    @summary("Initiates update of the authenticated user's email address")
+    op updateEmail(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | MessageResponse<"Email update initiated. Please verify the new email address.">
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/resend-otp")
+    @summary("Resend the verification code to the new email address")
+    op resendEmailVerificationOtp(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | MessageResponse<"Verification code resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/verify")
+    @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
+    op verifyNewEmail(
+      @body body: {
+        verificationCode: string;
+      },
+    ):
+      | MessageResponse<"Email address updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
