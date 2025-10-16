@@ -24,6 +24,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     UsersModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
+    RecaptchaModule,
   ],
   controllers: [],
   providers: [
