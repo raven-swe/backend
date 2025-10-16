@@ -68,6 +68,7 @@ export class AuthController {
     return await this.authService.checkEmail(checkEmailDto.email);
   @UseGuards(AuthGuard('local'))
   @UseGuards(LocalAuthGuard)
+  @HttpCode(200)
   @Post('login')
   async login(
     @User() user: RequestUser,
