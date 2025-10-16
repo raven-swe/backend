@@ -286,6 +286,10 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
+}
+
+model UserMetadataWithFollowInfo {
+  ...UserMetadata,
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean | null;
@@ -296,7 +300,7 @@ model UserMetadata {
 
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
-  ...UserMetadata;
+  ...UserMetadataWithFollowInfo;
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
@@ -312,29 +316,33 @@ model UserRelationship {
 
   @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
   muted: boolean;
+
+  @doc("Is the user followed by the current logged-in user")
+  following: boolean | null;
+
+  @doc("Is the user following the current logged-in user")
+  follower: boolean | null;
 }
 
 @doc("Complete user profile with full account details and relationship context.")
 model UserProfile {
-  ...UserMetadataWithBio;
+  ...PublicUser;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
   relationship: UserRelationship;
 
-  @doc("User's birth date if they chose to make it publicly visible. Null if hidden or not provided.")
-  birthDate: plainDate | null;
-
-  @doc("URL to the user's profile banner/header image displayed at the top of their profile page.")
-  bannerUrl: string;
-
-  @doc("Timestamp when this account was created.")
-  createdAt: utcDateTime;
-
-  @doc("Number of users this account is following.")
+  @doc("The number of users this user is following")
   followingCount: int64;
 
-  @doc("Number of users following this account.")
+  @doc("The number of followers this user has")
   followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64 | null;
+
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[] | null;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -348,11 +356,11 @@ model UserPreview {
   followersCount: int64;
 
   @doc("The number of mutual followers shared with the authenticated user")
-  mutualsCount: int64;
+  mutualsCount: int64 | null;
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[];
+  mutualNames: string[] | null;
 }
 
 @doc("Request body for updating profile")
@@ -759,12 +767,20 @@ namespace Oauth {
 @useAuth(BearerAuth)
 namespace Users {
 
-  @summary("")
+  @summary("User's profile details")
   @get
-  @route()
-  op getUserProfile {
+  @route("/{username}/profile")
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
 
-  }
+  @summary("User's profile details")
+  @get
+  @route("/{username}/tweets")
+  op getUserTweets(
+    @path username: string,
+  ): DataResponseWithPagination<Tweet[]>;
+
 
   namespace Follows {
     @summary("List a user's followers")
@@ -843,8 +859,7 @@ namespace Me {
 
   @get
   @summary("Get the authenticated user's profile")
-  op getMyProfile(
-  ): DataResponse<AuthenticatedUser> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getMyProfile(): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
@@ -1048,7 +1063,7 @@ namespace Me {
     @route("/{id}/likes")
     @summary("Get users who liked my tweet")
     op getTweetLikes(@path id: string, ...CursorPaginationParameters):
-      | DataResponseWithPagination<UserMetadata[]>
+      | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
       | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
