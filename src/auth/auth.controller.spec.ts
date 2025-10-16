@@ -12,6 +12,7 @@ import { CheckIdentifierQueryDto } from './dtos';
 
 describe('AuthController with real config service', () => {
   let controller: AuthController;
+  let config:ConfigService;
 
   const mockAuthService = {
     verifyRecaptcha: jest.fn(),
@@ -377,6 +378,7 @@ describe('AuthController with mocked config service', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+    config = module.get<ConfigService>(ConfigService)
   });
 
   it('should be defined', () => {
