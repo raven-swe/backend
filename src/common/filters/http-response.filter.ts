@@ -163,6 +163,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+    //if it had its own code
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      if ('code' in exceptionResponse) {
+        code = exceptionResponse['code'] as string;
+      }
+    }
+
     return {
       success: false,
       error: {
