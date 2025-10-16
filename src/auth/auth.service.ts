@@ -488,6 +488,12 @@ export class AuthService {
     const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
+    const refreshTokenExpiresIn = parseInt(
+      this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
+      10,
+    );
+    const { refreshToken, hashedRefreshToken, expiresAt } =
+      await this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
@@ -528,6 +534,12 @@ export class AuthService {
       };
     }
     return { exists: false };
+  private async generateRefreshTokenWithExpiry(expiryInDays: number) {
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiryInDays);
+    return { refreshToken, hashedRefreshToken, expiresAt };
   }
   async login(user: RequestUser) {
     const payload = { username: user.identifier, sub: user.id };
