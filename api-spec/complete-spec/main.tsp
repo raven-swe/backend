@@ -284,6 +284,12 @@ model AllMatchingUsers {
   users: UserMetadata[];
 }
 
+model TopHashtags {
+  @doc("Top 3 relevant hashtags for the search query")
+  @maxItems(3)
+  hashtags: string[];
+}
+
 @doc("Request body for updating profile")
 model UpdateProfileRequest {
   @doc("The user's display name.")
@@ -868,8 +874,11 @@ namespace Me {
 namespace Search {
   @summary("Get users matching the current query (while typing in search box)")
   @get
-  @route("/{query}")
-  op searchUsers(@path query: string):
+  op searchUsers(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
     | DataResponse<TopSuggestedUsers>
     | NotFoundResponse
     | UnauthorizedResponse
@@ -884,6 +893,19 @@ namespace Search {
     query: string,
   ):
     | DataResponse<SuggestedUsersForSearchResults>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get top 3 relevant hastags for the current search query (If it contains #)")
+  @get
+  @route("/hashtags/top")
+  op getTopHashtags(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopHashtags>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -907,41 +929,9 @@ namespace Search {
   @get
   @route("/tweets")
   op searchTweets(
-    @doc("The main keyword search query. Comma-separated.")
+    @doc("The search query")
     @query
-    words?: string,
-
-    @doc("A comma-separated list of hashtags to search for (without the '#').")
-    @query
-    hashtags?: string,
-
-    @doc("Search for tweets from a specific author's username (without the '@').")
-    @query
-    fromUser?: string,
-
-    @doc("Search for tweets mentioning a specific user's username (without the '@').")
-    @query
-    mentionedUsername?: string,
-
-    @doc("An array of filters. Use 'type' to include and '-type' to exclude (e.g., 'links', '-replies').")
-    @query
-    filter?: string[],
-
-    @doc("Sort results by creation date. Required for a 'Latest' tab.")
-    @query
-    orderBy?: "-createdAt",
-
-    @doc("Show posts with a minimum number of likes")
-    @query
-    minLikes?: int32,
-
-    @doc("Show posts with a minimum number of replies")
-    @query
-    minReplies?: int32,
-
-    @doc("Show posts with a minimum number of reposts")
-    @query
-    minReposts?: int32,
+    query: string,
 
     ...CursorPaginationParameters,
   ):
