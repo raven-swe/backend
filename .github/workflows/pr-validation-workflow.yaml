@@ -2,21 +2,42 @@ name: Pull Request Validations
 
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
-    branches: [dev]
+    types: [opened, edited, reopened, ready_for_review]
+    branches: [main, dev]
+
+permissions:
+  pull-requests: read
+  contents: read
 
 jobs:
+  validate-merge-permissions:
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    name: Validate Merge Permissions
+    steps:
+      - name: Verify Authorized User
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          PR_AUTHOR="${{ github.actor }}"
+          ALLOWED_USER="AhmedSobhy01"
+
+          if [ "$PR_AUTHOR" != "$ALLOWED_USER" ] && [ "$TARGET_BRANCH" = "main" ]; then
+            echo "Unauthorized PR to main by $PR_AUTHOR, only $ALLOWED_USER is allowed."
+            exit 1
+          fi
+
+          echo "Authorized PR to main branch."
+
   branch-name-validation:
+    if: github.event.pull_request.base.ref == 'dev'
     name: Validate branch naming convention
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Enforce kebab-case branch name
         env:
           BRANCH_NAME: ${{ github.head_ref }}
-          BRANCH_PATTERN: "^(feat|fix|build|chore|refactor|docs|perf|test)/[a-z0-9]+(-[a-z0-9]+)*$"
+          BRANCH_PATTERN: '^(feat|fix|build|chore|refactor|docs|perf|test)/[a-z0-9]+(-[a-z0-9]+)*$'
         run: |
           echo "Checking branch: $BRANCH_NAME"
           if ! echo "$BRANCH_NAME" | grep -Eq "$BRANCH_PATTERN"; then
@@ -29,9 +50,6 @@ jobs:
   validate-pr-title:
     name: Validate PR title format
     runs-on: ubuntu-latest
-
-    permissions:
-      pull-requests: read
 
     steps:
       - name: Check PR title format
