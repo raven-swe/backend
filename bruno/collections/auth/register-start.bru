@@ -1,0 +1,41 @@
+meta {
+  name: register-start
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/auth/register/start
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "ogamal1011@gmail.com",
+    "name": "omar",
+    "birthDate": "2004-4-1",
+    "recaptchaToken":"anytoken"
+  }
+}
+
+script:post-response {
+  const responseBody = res.getBody();
+  try {
+    const token = responseBody.creationToken;
+    if (token) {
+      bru.setVar("creationToken", token); 
+      console.log("Token saved successfully.");
+    } else {
+      console.warn("Token not found in the response.");
+    }
+  } catch (error) {
+    console.error("Error parsing response body:", error);
+  }
+  
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
