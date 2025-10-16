@@ -1,37 +1,35 @@
-import { Injectable } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, Profile } from 'passport-github2';
-import { ProviderProfile } from '../interfaces/oAuth.interface';
+import { BadRequestException } from '@nestjs/common';
+import { OAuthProviderStrategy } from './oauth.provider.strategy';
+import { ProviderProfile } from '../interfaces/oauth.interface';
 
-@Injectable()
-export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
-  constructor() {
-    super({
-      clientID: process.env.GITHUB_CLIENT_ID ?? '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
-      callbackURL: process.env.GITHUB_CALLBACK_URL ?? '',
-      scope: ['user:email'],
+export class GithubOAuthStrategy implements OAuthProviderStrategy {
+  async validateToken(providerTokenId: string): Promise<ProviderProfile> {
+    const res = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${providerTokenId}` },
     });
-  }
-
-  validate(
-    accessToken: string,
-    refreshToken: string,
-    githubProviderProfile: Profile,
-    done: (error: Error | null, user?: ProviderProfile | null) => void,
-  ): void {
-    const email = githubProviderProfile.emails?.[0]?.value;
-    if (!email) {
-      return done(new Error('Email is required from GitHub profile'), null);
+    if (!res.ok) {
+      throw new BadRequestException('Invalid GitHub token');
     }
+    const githubData = await res.json();
 
-    const user: ProviderProfile = {
-      id: githubProviderProfile.id,
-      email,
-      name: githubProviderProfile.displayName,
+    // TODO search more about the emails and name if always exist(MUST)
+    // let email = githubData.email ?? null;
+    // if (!email) {
+    //   const emailsRes = await fetch('https://api.github.com/user/emails', {
+    //     headers: { Authorization: `Bearer ${providerTokenId}` },
+    //   });
+    //   if (emailsRes.ok) {
+    //     const emails = await emailsRes.json();
+    //     const primary = emails.find((e: any) => e.primary) || emails[0];
+    //     email = primary?.email ?? null;
+    //   }
+    // }
+
+    return {
+      id: String(githubData.id),
+      email: githubData.email,
+      name: githubData.name,
       provider: 'github',
     };
-
-    done(null, user);
   }
 }

@@ -26,9 +26,6 @@ importers:
       '@nestjs/jwt':
         specifier: ^11.0.1
         version: 11.0.1(@nestjs/common@11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))
-      '@nestjs/passport':
-        specifier: ^11.0.5
-        version: 11.0.5(@nestjs/common@11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0)
       '@nestjs/platform-express':
         specifier: ^11.0.1
         version: 11.1.6(@nestjs/common@11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.6)
@@ -56,9 +53,6 @@ importers:
       nodemailer:
         specifier: ^7.0.9
         version: 7.0.9
-      passport-github2:
-        specifier: ^0.1.12
-        version: 0.1.12
       prisma:
         specifier: ^6.17.0
         version: 6.17.0(typescript@5.9.3)
@@ -99,9 +93,6 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.2
         version: 7.0.2
-      '@types/passport-github2':
-        specifier: ^1.2.9
-        version: 1.2.9
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
@@ -962,12 +953,6 @@ packages:
     peerDependencies:
       '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
 
-  '@nestjs/passport@11.0.5':
-    resolution: {integrity: sha512-ulQX6mbjlws92PIM15Naes4F4p2JoxGnIJuUsdXQPT+Oo2sqQmENEZXM7eYuimocfHnKlcfZOuyzbA33LwUlOQ==}
-    peerDependencies:
-      '@nestjs/common': ^10.0.0 || ^11.0.0
-      passport: ^0.5.0 || ^0.6.0 || ^0.7.0
-
   '@nestjs/platform-express@11.1.6':
     resolution: {integrity: sha512-HErwPmKnk+loTq8qzu1up+k7FC6Kqa8x6lJ4cDw77KnTxLzsCaPt+jBvOq6UfICmfqcqCCf3dKXg+aObQp+kIQ==}
     peerDependencies:
@@ -1345,18 +1330,6 @@ packages:
 
   '@types/nodemailer@7.0.2':
     resolution: {integrity: sha512-Zo6uOA9157WRgBk/ZhMpTQ/iCWLMk7OIs/Q9jvHarMvrzUUP/MDdPHL2U1zpf57HrrWGv4nYQn5uIxna0xY3xw==}
-
-  '@types/oauth@0.9.6':
-    resolution: {integrity: sha512-H9TRCVKBNOhZZmyHLqFt9drPM9l+ShWiqqJijU1B8P3DX3ub84NjxDuy+Hjrz+fEca5Kwip3qPMKNyiLgNJtIA==}
-
-  '@types/passport-github2@1.2.9':
-    resolution: {integrity: sha512-/nMfiPK2E6GKttwBzwj0Wjaot8eHrM57hnWxu52o6becr5/kXlH/4yE2v2rh234WGvSgEEzIII02Nc5oC5xEHA==}
-
-  '@types/passport-oauth2@1.8.0':
-    resolution: {integrity: sha512-6//z+4orIOy/g3zx17HyQ71GSRK4bs7Sb+zFasRoc2xzlv7ZCJ+vkDBYFci8U6HY+or6Zy7ajf4mz4rK7nsWJQ==}
-
-  '@types/passport@1.0.17':
-    resolution: {integrity: sha512-aciLyx+wDwT2t2/kJGJR2AEeBz0nJU4WuRX04Wu9Dqc5lSUtwu0WERPHYsLhF9PtseiAMPBGNUOtFjxZ56prsg==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -3846,10 +3819,6 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  utils-merge@1.0.1:
-    resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
-    engines: {node: '>= 0.4.0'}
-
   uuid@11.1.0:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
     hasBin: true
@@ -5224,11 +5193,6 @@ snapshots:
       '@types/jsonwebtoken': 9.0.10
       jsonwebtoken: 9.0.2
 
-  '@nestjs/passport@11.0.5(@nestjs/common@11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))(passport@0.7.0)':
-    dependencies:
-      '@nestjs/common': 11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      passport: 0.7.0
-
   '@nestjs/platform-express@11.1.6(@nestjs/common@11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.6)':
     dependencies:
       '@nestjs/common': 11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -5750,26 +5714,6 @@ snapshots:
       '@types/node': 22.18.8
     transitivePeerDependencies:
       - aws-crt
-
-  '@types/oauth@0.9.6':
-    dependencies:
-      '@types/node': 22.18.8
-
-  '@types/passport-github2@1.2.9':
-    dependencies:
-      '@types/express': 5.0.3
-      '@types/passport': 1.0.17
-      '@types/passport-oauth2': 1.8.0
-
-  '@types/passport-oauth2@1.8.0':
-    dependencies:
-      '@types/express': 5.0.3
-      '@types/oauth': 0.9.6
-      '@types/passport': 1.0.17
-
-  '@types/passport@1.0.17':
-    dependencies:
-      '@types/express': 5.0.3
 
   '@types/qs@6.14.0': {}
 
@@ -8461,8 +8405,6 @@ snapshots:
       punycode: 2.3.1
 
   util-deprecate@1.0.2: {}
-
-  utils-merge@1.0.1: {}
 
   uuid@11.1.0: {}
 

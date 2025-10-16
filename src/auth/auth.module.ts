@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { OauthController } from './oauth.controller';
 import { AuthService } from './auth.service';
-import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
 import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
+import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
 import { DevicesModule } from 'src/device/device.module';
@@ -25,6 +25,6 @@ import { GithubStrategy } from './strategies/oauth.github.strategy';
     }),
   ],
   controllers: [AuthController, OauthController],
-  providers: [AuthService],
+  providers: [AuthService, GithubStrategy],
 })
 export class AuthModule {}
