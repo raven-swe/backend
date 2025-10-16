@@ -19,13 +19,13 @@ const mockAuthService = {
   ),
 };
 
-const mockConfigService = {
-  get: jest.fn((key: string) => {
-    if (key === 'NODE_ENV') return 'production';
-    if (key === 'ACCESS_TOKEN_EXPIRES_IN_SECONDS') return 900; // 15 minutes
-    return null;
-  }),
-};
+// const mockConfigService = {
+//   get: jest.fn((key: string) => {
+//     if (key === 'NODE_ENV') return 'production';
+//     if (key === 'ACCESS_TOKEN_EXPIRES_IN_SECONDS') return 900; // 15 minutes
+//     return null;
+//   }),
+// };
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -40,13 +40,18 @@ describe('AuthController', () => {
       resendOtp: jest.fn(),
       checkEmail: jest.fn(),
     };
+  let config:ConfigService;
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        ConfigService,
+        { provide: AuthService, useValue: mockAuthService },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+    config = module.get<ConfigService>(ConfigService)
   });
 
   describe('startRegistration', () => {
@@ -181,12 +186,13 @@ expect.objectContaining({
         }) as unknown,
       }),      );
 
+      const daysToMillis = 24*60*60*1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
         httpOnly: true,
-        secure: true,
+        secure: config.get("NODE_ENV")==='production',
         sameSite: 'none',
-        maxAge: 900,
+        maxAge: config.get("REFRESH_TOKEN_EXPIRES_IN_DAYS")*daysToMillis,
       });
 
       expect(result).toEqual({
