@@ -162,7 +162,7 @@ model InternalServerErrorResponse {
 }
 
 @doc("Entity mention in bio")
-model BioMentionEntity {
+model MentionEntity {
   @doc("The username of the mentioned user")
   username: string; //we expose text but store as user id and hydrate
 
@@ -171,7 +171,7 @@ model BioMentionEntity {
 }
 
 @doc("Entity hashtag in bio")
-model BioHashtagEntity {
+model HashtagEntity {
   @doc("The hashtag text (without #)")
   hashtag: string;
 
@@ -182,10 +182,27 @@ model BioHashtagEntity {
 @doc("Bio entities containing mentions and hashtags")
 model BioEntities {
   @doc("Array of mention entities in the bio")
-  mentions?: BioMentionEntity[];
+  mentions?: MentionEntity[];
 
   @doc("Array of hashtag entities in the bio")
-  hashtags?: BioHashtagEntity[];
+  hashtags?: HashtagEntity[];
+}
+
+@doc("Entities containing mentions and hashtags for tweet content")
+model TweetEntities {
+  @doc("Array of mention entities in the tweet")
+  mentions: MentionEntity[] | null;
+
+  @doc("Array of hashtag entities in the tweet")
+  hashtags: HashtagEntity[] | null;
+}
+
+@doc("Entity media in tweet.")
+model MediaEntity {
+  @doc("Unique identifier for the media item.")
+  id: string;
+
+  ...MediaItem;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -246,6 +263,16 @@ model AuthenticatedUser {
   languageCode: string = "en";
 }
 
+@doc("User's biography with structured entities")
+model UserBio {
+  @doc("The user's bio text (max 160 characters)")
+  @maxLength(160)
+  text: string | null;
+
+  @doc("Structured entities found in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+}
+
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")
 model UserMetadata {
   @doc("The user's unique, public-facing username.")
@@ -290,6 +317,32 @@ model TopHashtags {
   hashtags: string[];
 }
 
+@doc("User metadata with biography information")
+model UserMetadataWithBio {
+  ...UserMetadata;
+
+  @doc("The user's biography with structured entities")
+  bio: UserBio | null;
+}
+
+@doc("Extended user metadata displayed in hover cards and user previews")
+model UserPreview {
+  ...UserMetadataWithBio;
+
+  @doc("The number of users this user is following")
+  followingCount: int64;
+
+  @doc("The number of followers this user has")
+  followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64;
+
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[];
+}
+
 @doc("Request body for updating profile")
 model UpdateProfileRequest {
   @doc("The user's display name.")
@@ -311,6 +364,97 @@ model UpdateProfileRequest {
   @doc("User's website URL")
   @maxLength(255)
   websiteUrl?: string | null;
+}
+
+@doc("The type of media file.")
+enum MediaType {
+  IMAGE,
+  VIDEO,
+  GIF,
+}
+
+@doc("Detailed information about an attached media item.")
+model MediaItem {
+  @doc("The type of media.")
+  type: MediaType;
+
+  @doc("URL to access the media file.")
+  url: string;
+
+  @doc("Alt text for accessibility.")
+  altText: string;
+
+  @doc("The width of the media item (in pixels for image/video).")
+  width: int32;
+
+  @doc("The height of the media item (in pixels for image/video).")
+  height: int32;
+}
+
+@doc("The content and optional media for creating a new tweet")
+model TweetBody {
+  @doc("Text content of the tweet (max 280 characters).")
+  @maxLength(280)
+  content: string | null;
+
+  @doc("Optional array of media items attached to the tweet (max 4 items)")
+  @maxItems(4)
+  media?: MediaItem[] | null;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId?: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId?: string | null;
+}
+
+@doc("A compact representation of a tweet, used when nesting or in lists.")
+model CompactTweet {
+  @doc("The unique identifier for the tweet.")
+  id: string;
+
+  @doc("The user who created the tweet.")
+  author: UserMetadata;
+
+  @doc("The text content of the tweet.")
+  content: string | null;
+
+  @doc("The time the tweet was created.")
+  createdAt: utcDateTime;
+
+  @doc("Number of replies to this tweet.")
+  replyCount: int32;
+
+  @doc("Number of retweets of this tweet.")
+  retweetCount: int32;
+
+  @doc("Number of likes on this tweet.")
+  likeCount: int32;
+
+  @doc("Indicates if the authenticated user has liked this tweet.")
+  isLiked: boolean;
+
+  @doc("Indicates if the authenticated user has retweeted this tweet.")
+  isRetweeted: boolean;
+
+  @doc("Structured data entities (mentions, hashtags) found in the tweet content.")
+  entities: TweetEntities;
+
+  @doc("Optional array of media ids attached to the tweet (max 4 items)")
+  media: MediaItem[] | null;
+}
+
+model Tweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId: string | null;
+
+  @doc("The full object of the tweet being quoted, for easy display.")
+  quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
 @doc("Query parameters for cursor-based pagination")
@@ -941,6 +1085,29 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
   // TODO: Replace {}[] with actual Tweet[] model when we merge
+
+  @route("/tweets")
+  @useAuth(BearerAuth)
+  namespace Tweets {
+    @delete
+    @route("/{id}")
+    @summary("Delete a tweet")
+    op deleteTweet(@path id: string):
+      | MessageResponse<"Tweet deleted successfully.">
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/{id}/likes")
+    @summary("Get users who liked my tweet")
+    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+      | DataResponseWithPagination<UserMetadata[]>
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
 }
 
 @tag("Onboarding")
@@ -958,4 +1125,96 @@ namespace Onboarding {
   op getFollowSuggestions(): DataResponse<{
     suggestions: UserMetadata[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Tweets")
+@route("/tweets")
+@useAuth(BearerAuth)
+namespace Tweets {
+  @post
+  @summary("Create a new tweet")
+  op postTweet(@body body: TweetBody):
+    | MessageResponse<"Tweet posted successfully.">
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | ConflictResponse
+    | RateLimitResponse;
+
+  @get
+  @route("/{id}")
+  @summary("Get a specific tweet by ID")
+  op getTweet(@path id: string):
+    | DataResponse<Tweet>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{id}/like")
+  @summary("Like a tweet")
+  op likeTweet(@path id: string):
+    | MessageResponse<"Tweet liked successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/like")
+  @summary("Unlike a tweet")
+  op unlikeTweet(@path id: string):
+    | MessageResponse<"Tweet unliked successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{id}/retweet")
+  @summary("Retweet a tweet")
+  op retweetTweet(@path id: string):
+    | MessageResponse<"Tweet retweeted successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/retweet")
+  @summary("Undo retweet")
+  op unretweetTweet(@path id: string):
+    | MessageResponse<"Retweet undone successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
