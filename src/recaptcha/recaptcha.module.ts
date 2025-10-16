@@ -1,10 +1,10 @@
 import { Logger, Module } from '@nestjs/common';
 import { RecaptchaService } from './recaptcha.service';
-import { HttpService } from '@nestjs/axios';
 import { RecaptchaGuard } from './recaptcha.guard';
-
+import { HttpModule } from '@nestjs/axios';
 @Module({
-  providers: [RecaptchaService, Logger, HttpService],
-  exports: [RecaptchaGuard],
+  imports: [HttpModule],
+  providers: [RecaptchaService, RecaptchaGuard, Logger],
+  exports: [RecaptchaGuard, RecaptchaService],
 })
 export class RecaptchaModule {}

@@ -20,7 +20,7 @@ export class RecaptchaService {
     private readonly httpService: HttpService,
     configService: ConfigService,
   ) {
-    const secret = configService.get<string>('RECAPTCHA_SECRET_KEY');
+    const secret = configService.get<string>('RECAPTCHA_SECRET_KEY_TEST');
     if (!secret) {
       throw new Error('RECAPTCHA_SECRET_KEY is not defined in configuration');
     }
@@ -34,17 +34,20 @@ export class RecaptchaService {
     }
 
     this.logger.debug(`Validating reCAPTCHA token: ${token}`);
-    const payload = {
-      secret: this.secretKey,
-      response: token,
-    };
 
     //http service returns an Observable, this converts it to a promise
     //I use it as it can be mocked in tests
     try {
+      const payload = new URLSearchParams({
+        secret: this.secretKey,
+        response: token,
+      }).toString();
       const response = await firstValueFrom(
-        this.httpService.post<RecaptchaResponse>(this.recaptchaVerifyUrl, payload),
+        this.httpService.post<RecaptchaResponse>(this.recaptchaVerifyUrl, payload, {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        }),
       );
+      this.logger.log(JSON.stringify(response.data));
       this.logger.debug(`reCAPTCHA validation response received ${JSON.stringify(response.data)}`);
 
       if (!response.data.success) {
