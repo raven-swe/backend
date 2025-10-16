@@ -289,7 +289,7 @@ model UserMetadata {
 }
 
 model UserMetadataWithFollowInfo {
-  ...UserMetadata,
+  ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean | null;
@@ -766,48 +766,51 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(
-    @path username: string,
-  ): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getUserProfile(@path username: string):
+    | DataResponse<UserProfile>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 
-  @summary("List of user's posts")
+  @summary("List user's tweets")
   @get
   @route("/{username}/tweets")
-  op getUserTweets(
-    @path username: string,
-    ...CursorPaginationParameters
-  ): DataResponseWithPagination<Tweet[]>;
+  op getUserTweets(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 
-  @summary("List of user's replies and tweets")
+  @summary("List user's replies and tweets")
   @get
   @route("/{username}/replies")
-  op getUserReplies(
-    @path username: string,
-    ...CursorPaginationParameters
-  ): DataResponseWithPagination<Tweet[]>;
+  op getUserReplies(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 
-  @summary("List of user's liked tweets")
+  @summary("List user's liked tweets")
   @get
   @route("/{username}/likes")
-  op getUserLikes(
-    @path username: string,
-    ...CursorPaginationParameters
-  ): DataResponseWithPagination<Tweet[]>;
+  op getUserLikes(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
 
-
-  @summary("List of user's tweets that has media")
+  @summary("List user's tweets with media attachments")
   @get
   @route("/{username}/media")
-  op getUserMedia(
-    @path username: string,
-    ...CursorPaginationParameters
-  ): DataResponseWithPagination<Tweet[]>;
-
-
+  op getUserMedia(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 
   namespace Follows {
     @summary("List a user's followers")
@@ -1085,15 +1088,6 @@ namespace Me {
       | UnauthorizedResponse
       | ForbiddenResponse
       | InternalServerErrorResponse;
-
-    @get
-    @route("/{id}/likes")
-    @summary("Get users who liked my tweet")
-    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
-      | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
-      | NotFoundResponse
-      | UnauthorizedResponse
-      | InternalServerErrorResponse;
   }
 }
 
@@ -1161,6 +1155,15 @@ namespace Tweets {
   @summary("Get users who retweeted a tweet")
   op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
     | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
