@@ -2,7 +2,11 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
-import { ProviderProfile } from './interfaces/oAuth.interface';
+import { ProviderProfile } from './interfaces/oauth.interface';
+import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
+import { GithubOAuthStrategy } from './strategies/oauth.github.strategy';
+import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
+import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
 
 @Injectable()
 export class AuthService {
@@ -11,7 +15,21 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async handlePassportOauth(providerProfile: ProviderProfile) {
+  private strategies: Record<SupportedOAuthProvider, OAuthProviderStrategy> = {
+    github: new GithubOAuthStrategy(),
+    google: new GoogleOAuthStrategy(),
+  };
+
+  async handleOauthToken(provider: SupportedOAuthProvider, providerTokenId: string) {
+    const strategy = this.strategies[provider];
+    if (!strategy) {
+      throw new BadRequestException(`Provider ${provider} is not supported`);
+    }
+    const providerProfile = await strategy.validateToken(providerTokenId);
+    return this.handleOauthProfile(providerProfile);
+  }
+
+  async handleOauthProfile(providerProfile: ProviderProfile) {
     // Check if user exists in DB
     // TODO check with email not provider_id (3 cases)
     const externalAccount = await this.prisma.user_external_accounts.findUnique({
@@ -85,8 +103,15 @@ export class AuthService {
       },
     });
 
+    // DEBUG
+    console.log(user);
+
     // TODO set expirations
-    const accessToken = this.jwtService.sign({ userId: user.id, username: user.username });
+    // TODO make unified token generation function
+    const accessToken = this.jwtService.sign({
+      userId: user.id.toString(),
+      username: user.username,
+    });
     const refreshToken = crypto.randomBytes(64).toString('hex');
 
     return {
