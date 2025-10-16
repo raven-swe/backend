@@ -508,6 +508,7 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
 model TweetMetadata {
   primaryTweetId: string;
   primaryTweetSnippet: string;
@@ -533,7 +534,7 @@ model Notification {
   @doc("The timestamp when the notification was created.")
   createdAt: utcDateTime;
 
-@doc("Indicates whether the notification has been seen by the user.")
+  @doc("Indicates whether the notification has been seen by the user.")
   isSeen: boolean;
 }
 
@@ -1303,70 +1304,33 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
-
-  @route("/tweets")
-  @useAuth(BearerAuth)
-  namespace Tweets {
-    @delete
-    @route("/{id}")
-    @summary("Delete a tweet")
-    op deleteTweet(@path id: string):
-      | MessageResponse<"Tweet deleted successfully.">
-      | NotFoundResponse
-      | UnauthorizedResponse
-      | ForbiddenResponse
-      | InternalServerErrorResponse;
-
-    @get
-    @route("/{id}/likes")
-    @summary("Get users who liked my tweet")
-    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
-      | DataResponseWithPagination<UserMetadata[]>
-      | NotFoundResponse
-      | UnauthorizedResponse
-      | InternalServerErrorResponse;
-  @route("/notifications")
-  @useAuth(BearerAuth)
-  namespace Notifications {
-    @get
-    op listUserNotifications(
-      ...CursorPaginationParameters,
-    ): NotificationsListResponse | UnauthorizedResponse | InternalServerErrorResponse;
-
-    @get
-    @route("/count")
-    op getNotificationsCount(): DataResponse<{
-      unseenCount: integer;
-    }> | UnauthorizedResponse | InternalServerErrorResponse;
-
-    @patch
-    @route("/mark-all-seen")
-    op markAllNotificationsAsSeen(): DataResponse<{
-      updatedCount: integer;
-    }> | UnauthorizedResponse | InternalServerErrorResponse;
-
-    @patch
-    @route("/{notificationId}/mark-seen")
-    op markNotificationAsSeen(@path notificationId: string): DataResponse<{
-      updatedCount: integer;
-    }> | UnauthorizedResponse | InternalServerErrorResponse;
-  }
 }
 
-@tag("Onboarding")
-@route("/onboarding")
+@tag("Notifications")
+@route("/notifications")
 @useAuth(BearerAuth)
-namespace Onboarding {
+namespace Notifications {
   @get
-  @route("/username-suggestions")
-  op getUsernameSuggestions(): DataResponse<{
-    suggestions: string[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  op listUserNotifications(
+    ...CursorPaginationParameters,
+  ): NotificationsListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
-  @route("/follow-suggestions")
-  op getFollowSuggestions(): DataResponse<{
-    suggestions: UserMetadata[];
+  @route("/count")
+  op getNotificationsCount(): DataResponse<{
+    unseenCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/mark-all-seen")
+  op markAllNotificationsAsSeen(): DataResponse<{
+    updatedCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/{notificationId}/mark-seen")
+  op markNotificationAsSeen(@path notificationId: string): DataResponse<{
+    updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
@@ -1469,4 +1433,40 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadata[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
+@useAuth(BearerAuth)
+namespace Onboarding {
+  @get
+  @route("/username-suggestions")
+  op getUsernameSuggestions(): DataResponse<{
+    suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/follow-suggestions")
+  op getFollowSuggestions(): DataResponse<{
+    suggestions: UserMetadata[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
