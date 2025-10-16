@@ -104,7 +104,7 @@ export class AuthService {
     });
 
     // DEBUG
-    console.log(user);
+    console.info(user);
 
     // TODO set expirations
     // TODO make unified token generation function

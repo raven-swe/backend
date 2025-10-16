@@ -19,7 +19,7 @@ export class OauthController {
       throw new BadRequestException('provider_token_id is required in request body');
     }
 
-    if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as any)) {
+    if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
       throw new BadRequestException('Unsupported provider');
     }
 
