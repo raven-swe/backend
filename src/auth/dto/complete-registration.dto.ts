@@ -14,5 +14,5 @@ export class CompleteRegistrationDto {
 
   @IsString()
   @IsNotEmpty()
-  token: string;
+  creationToken: string;
 }
