@@ -43,6 +43,7 @@ import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.in
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
 import useragent from 'useragent';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -590,6 +591,6 @@ export class AuthService {
     return Promise.resolve({
       access_token: accessToken,
       refresh_token: refreshToken,
-    });
+    };
   }
 }
