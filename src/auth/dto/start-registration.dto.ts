@@ -11,7 +11,7 @@ export class StartRegistrationDto {
 
   @IsDate()
   @IsNotEmpty()
-  dateOfBirth: Date;
+  birthDate: Date;
 
   @IsString()
   @IsNotEmpty()

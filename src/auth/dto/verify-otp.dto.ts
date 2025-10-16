@@ -8,5 +8,5 @@ export class VerifyOtpDto {
 
   @IsString()
   @IsNotEmpty()
-  token: string;
+  creationToken: string;
 }
