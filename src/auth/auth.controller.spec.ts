@@ -390,6 +390,7 @@ describe('AuthController with mocked config service', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+    config = module.get<ConfigService>(ConfigService)
   });
 
   it('should be defined', () => {
