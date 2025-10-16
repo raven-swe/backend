@@ -1000,7 +1000,7 @@ namespace Me {
   op deleteBanner(
   ): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
-  @delete
+  @post
   @summary("Deactivate or delete the authenticated user's account.")
   op deactivateAccount(
     @body body: {
@@ -1187,7 +1187,7 @@ namespace Me {
     op getConnectedAccounts(
     ): DataResponse<ConnectedAccountResponse[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
-    @delete
+    @post
     @route("/connected-accounts/{provider}")
     @summary("Disconnect an external social account by its provider (e.g., 'google', 'github').")
     op disconnectAccount(
