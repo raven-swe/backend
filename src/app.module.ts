@@ -4,6 +4,8 @@ import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { EmailModule } from './email/email.module';
+import { RecaptchaModule } from './recaptcha/recaptcha.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { PrismaModule } from './prisma/prisma.module';
     UsersModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
+    RecaptchaModule,
   ],
   controllers: [],
   providers: [],
