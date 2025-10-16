@@ -872,8 +872,9 @@ namespace Me {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get users matching the current query (while typing in search box)")
+  @summary("Get top 10 users matching the current query (while typing in search box)")
   @get
+  @route("/users")
   op searchUsers(
     @doc("The search query")
     @query
