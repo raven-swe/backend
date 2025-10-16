@@ -1,0 +1,59 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
+import { HttpService } from '@nestjs/axios';
+
+interface RecaptchaResponse {
+  success: boolean;
+  challenge_ts: string;
+  hostname: string;
+  'error-codes'?: string[];
+}
+
+@Injectable()
+export class RecaptchaService {
+  private readonly logger = new Logger(RecaptchaService.name);
+  private readonly secretKey: string;
+  private readonly recaptchaVerifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+
+  constructor(
+    private readonly httpService: HttpService,
+    configService: ConfigService,
+  ) {
+    const secret = configService.get<string>('RECAPTCHA_SECRET_KEY');
+    if (!secret) {
+      throw new Error('RECAPTCHA_SECRET_KEY is not defined in configuration');
+    }
+    this.secretKey = secret;
+  }
+
+  async validateToken(token: string): Promise<boolean> {
+    if (!token) {
+      this.logger.warn('No reCAPTCHA token provided');
+      return false;
+    }
+
+    this.logger.debug(`Validating reCAPTCHA token: ${token}`);
+    const payload = {
+      secret: this.secretKey,
+      response: token,
+    };
+
+    //http service returns an Observable, this converts it to a promise
+    //I use it as it can be mocked in tests
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post<RecaptchaResponse>(this.recaptchaVerifyUrl, payload),
+      );
+      this.logger.debug(`reCAPTCHA validation response received ${JSON.stringify(response.data)}`);
+
+      if (!response.data.success) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error('Error while validating reCAPTCHA token', error);
+      return false;
+    }
+  }
+}
