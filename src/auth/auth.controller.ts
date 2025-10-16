@@ -14,6 +14,8 @@ import { LocalAuthGuard } from './local-auth.guard';
 import type { RequestUser } from './types';
 import { User } from './decorators/user.decorator';
 import * as useragent from 'useragent';
+import type { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('auth')
 export class AuthController {
@@ -67,8 +69,20 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@User() user: RequestUser, @Headers('user-agent') agentString: string) {
+  async login(
+    @User() user: RequestUser,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('user-agent') agentString: string,
+  ) {
     const agent = useragent.parse(agentString);
-    return this.authService.login(user, agent);
+    const { access_token, refresh_token } = await this.authService.login(user, agent);
+    res.cookie('jwt', access_token, {
+      httpOnly: true,
+      secure: this.config.get('NODE_ENV') === 'production',
+      sameSite: 'none',
+      maxAge: this.config.get('ACCESS_TOKEN_EXPIRES_IN_SECONDS') || 15 * 60,
+    });
+
+    return { access_token, refresh_token };
   }
 }
