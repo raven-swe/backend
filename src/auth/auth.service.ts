@@ -331,8 +331,8 @@ export class AuthService {
       });
     });
     return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
+      accessToken,
+      refreshToken,
     };
   }
 }

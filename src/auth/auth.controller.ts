@@ -76,15 +76,15 @@ export class AuthController {
     @Headers('user-agent') agentString: string,
   ) {
     const agent = useragent.parse(agentString);
-    const { access_token, refresh_token } = await this.authService.login(user, agent);
+    const { accessToken, refreshToken } = await this.authService.login(user, agent);
     const daysToMillis = 24 * 60 * 60 * 1000;
-    res.cookie('refresh_token', refresh_token, {
+    res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
       maxAge: this.config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis || 30 * daysToMillis,
     });
 
-    return { access_token, refresh_token };
+    return { accessToken, refreshToken };
   }
 }
