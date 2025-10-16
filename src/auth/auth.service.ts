@@ -541,11 +541,43 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + expiryInDays);
     return { refreshToken, hashedRefreshToken, expiresAt };
   }
-  async login(user: RequestUser) {
-    const payload = { username: user.identifier, sub: user.id };
-    return Promise.resolve({
-      access_token: accessToken,
-      refresh_token: refreshToken,
+
+  async refreshAccessToken(refreshToken: string) {
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    const oldToken = await this.prisma.refresh_tokens.findUnique({
+      where: {
+        token_hash: hashedRefreshToken,
+      },
+      include: {
+        user: { select: { id: true, username: true } },
+      },
     });
+
+    if (!oldToken) {
+      throw new UnauthorizedException('invalid refresh token');
+    }
+
+    if (oldToken.expires_at < new Date()) {
+      throw new UnauthorizedException('refresh token expired');
+    }
+
+    const user: RequestUser = { id: oldToken.user.id.toString(), username: oldToken.user.username };
+    const accessToken = this.jwtService.sign(user);
+    const refreshTokenExpiresIn = parseInt(
+      this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
+      10,
+    );
+    const {
+      refreshToken: newRefreshToken,
+      hashedRefreshToken: newHashedRefreshToken,
+      expiresAt,
+    } = await this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
+    //
+    await this.prisma.refresh_tokens.update({
+      where: { id: oldToken.id },
+      data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
+    });
+    return { refresh_token: newRefreshToken, access_token: accessToken };
   }
 }
