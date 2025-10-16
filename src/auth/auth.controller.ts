@@ -153,11 +153,13 @@ export class AuthController {
     }
     const { access_token, refresh_token } = await this.authService.refreshAccessToken(refreshToken);
 
+    const daysToMillis = 24 * 60 * 60 * 1000;
     res.cookie('refresh_token', refresh_token, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
-      maxAge: this.config.get('ACCESS_TOKEN_EXPIRES_IN_SECONDS') || 15 * 60,
+      maxAge:
+        this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
     });
 
     return { access_token, refresh_token };
