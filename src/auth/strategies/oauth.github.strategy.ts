@@ -30,11 +30,11 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
         throw new BadRequestException('Failed to fetch GitHub emails');
       }
 
-      const emails: Array<{
+      const emails = (await emailsRes.json()) as Array<{
         email: string;
         primary: boolean;
         verified: boolean;
-      }> = await emailsRes.json();
+      }>;
 
       const primaryVerified = emails.find((e) => e.primary && e.verified);
 
