@@ -55,7 +55,7 @@ describe('AuthController with real config service', () => {
     ),
   };
 
-  beforeEach(async () => {
+beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ envFilePath: '.env.test', ignoreEnvFile: false })],
       controllers: [AuthController],
