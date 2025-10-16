@@ -8,6 +8,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { EmailModule } from './email/email.module';
+import { RecaptchaModule } from './recaptcha/recaptcha.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     UsersModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
+    RecaptchaModule,
   ],
   controllers: [],
   providers: [
