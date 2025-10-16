@@ -158,12 +158,12 @@ export class AuthController {
   @Post('refresh-token')
   async refrehAccessToken(
     @Req() req: RequestWithCookies,
-    @Body('refresh_token') refreshTokenBody: string,
+    @Body() refreshTokenDto: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     let refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) {
-      refreshToken = refreshTokenBody;
+      refreshToken = refreshTokenDto.refresh_token;
     }
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
