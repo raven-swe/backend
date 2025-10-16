@@ -481,11 +481,11 @@ model Tweet {
 model CursorPaginationParameters {
   @query
   @doc("The cursor position to start fetching from")
-  cursor?: string;
+  cursor: string;
 
   @query
   @doc("The number of items to return per page (default: 20)")
-  limit?: int32 = 20;
+  limit: int32 = 20;
 }
 
 model RegisterStartBody {
@@ -774,12 +774,39 @@ namespace Users {
     @path username: string,
   ): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
 
-  @summary("User's profile details")
+  @summary("List of user's posts")
   @get
   @route("/{username}/tweets")
   op getUserTweets(
     @path username: string,
+    ...CursorPaginationParameters
   ): DataResponseWithPagination<Tweet[]>;
+
+  @summary("List of user's replies and tweets")
+  @get
+  @route("/{username}/replies")
+  op getUserReplies(
+    @path username: string,
+    ...CursorPaginationParameters
+  ): DataResponseWithPagination<Tweet[]>;
+
+  @summary("List of user's liked tweets")
+  @get
+  @route("/{username}/likes")
+  op getUserLikes(
+    @path username: string,
+    ...CursorPaginationParameters
+  ): DataResponseWithPagination<Tweet[]>;
+
+
+  @summary("List of user's tweets that has media")
+  @get
+  @route("/{username}/media")
+  op getUserMedia(
+    @path username: string,
+    ...CursorPaginationParameters
+  ): DataResponseWithPagination<Tweet[]>;
+
 
 
   namespace Follows {
