@@ -280,30 +280,23 @@ import * as bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import useragent from 'useragent';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
-    // const user = await this.prisma.users.findFirst({
-    //   where: {
-    //     OR: [
-    //       { username: identifier },
-    //       { email: identifier },
-    //       { phone: identifier },
-    //     ],
-    //   },
-    // });
-    const user: { id: number; username: string; password: string } = {
-      id: 10,
-      username: 'example',
-      password: 'hash',
-    };
-    if (user && user.password) {
-      const isMatch = await bcrypt.compare(password, user.password);
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+    if (user && user.password_hash) {
+      const isMatch = await bcrypt.compare(password, user.password_hash);
       if (isMatch) {
         return Promise.resolve({ id: user.id.toString(), username: user.username });
       }
@@ -313,36 +306,31 @@ export class AuthService {
   async login(user: RequestUser, agent: useragent.Agent) {
     const accessToken = this.jwtService.sign(user);
     const refreshToken = crypto.randomBytes(64).toString('hex');
-    // const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
-    //TODO: but inside a prisma trnasaction
-
-    // const userDevice = await this.prisma.user_devices.upsert({
-    //   where: { fcm_token: device.fcmToken },
-    //   update: { last_used_at: new Date() },
-    //   create: {
-    //     user_id: BigInt(user.id),
-    //     fcm_token: device.fcmToken,
-    //     device_type: device.deviceType,
-    //     last_used_at: new Date(),
-    //   },
-    // });
-    //
-    // await this.prisma.refresh_tokens.create({
-    //   data: {
-    //     user_id: BigInt(user.id),
-    //     device_id: userDevice.id,
-    //     token_hash: hashedRefreshToken,
-    //     expires_at: expiresAt,
-    //   },
-    // });
-
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
-    return Promise.resolve({
+
+    const userDevice = await this.prisma.user_devices.create({
+      data: {
+        user_id: BigInt(user.id),
+        device_type: agent.toString(),
+        last_used_at: new Date(),
+      },
+    });
+
+    await this.prisma.refresh_tokens.create({
+      data: {
+        user_id: BigInt(user.id),
+        device_id: userDevice.id,
+        token_hash: hashedRefreshToken,
+        expires_at: expiresAt,
+      },
+    });
+
+    return {
       access_token: accessToken,
       refresh_token: refreshToken,
-    });
+    };
   }
 }
