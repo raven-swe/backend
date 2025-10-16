@@ -179,6 +179,21 @@ model SessionResponse {
   isCurrent: boolean;
 }
 
+@doc("A single external social account connected to the user's primary account.")
+model ConnectedAccountResponse {
+  @doc("The name of the external provider (e.g., 'google', 'github').")
+  provider: string;
+
+  @doc("The unique identifier (e.g., email address) associated with the user")
+  displayIdentifier: string;
+
+  @doc("The connection status.")
+  status: "Connected" | "Error";
+
+  @doc("The timestamp when this external account was first linked.")
+  connectedAt: utcDateTime;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -985,6 +1000,17 @@ namespace Me {
   op deleteBanner(
   ): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
+  @delete
+  @summary("Deactivate or delete the authenticated user's account.")
+  op deactivateAccount(
+    @body body: {
+      currentPassword: string;
+    },
+  ):
+    | MessageResponse<"Account deactivated successfully. You have been logged out.">
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
   @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
@@ -1146,13 +1172,34 @@ namespace Me {
     @summary("Retrieve all active and recent sessions for the authenticated user.")
     op getSessions(): SessionListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
-    @delete 
+    @delete
     @route("/sessions/{sessionId}")
     @summary("Log out or terminate a specific session by its ID.")
     op deleteSession(@path sessionId: string):
       | MessageResponse<"Session terminated successfully.">
-      | NotFoundResponse 
+      | NotFoundResponse
       | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/connected-accounts")
+    @summary("Retrieve a list of all external social accounts connected for login.")
+    op getConnectedAccounts(
+    ): DataResponse<ConnectedAccountResponse[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @delete
+    @route("/connected-accounts/{provider}")
+    @summary("Disconnect an external social account by its provider (e.g., 'google', 'github').")
+    op disconnectAccount(
+      @path provider: string,
+      @body body: {
+        currentPassword: string;
+      },
+    ):
+      | MessageResponse<"Account disconnected successfully.">
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | NotFoundResponse
       | InternalServerErrorResponse;
   }
 
