@@ -285,7 +285,7 @@ model UserMetadata {
   displayName: string;
 
   @doc("URL to the user's avatar image")
-  avatarUrl: string | null;
+  avatarUrl: string;
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean | null;
@@ -300,6 +300,41 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+}
+
+@doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
+model UserRelationship {
+  @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
+  blocking: boolean;
+
+  @doc("True if this user has blocked the current user.")
+  blockedBy: boolean;
+
+  @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
+  muted: boolean;
+}
+
+@doc("Complete user profile with full account details and relationship context.")
+model UserProfile {
+  ...UserMetadataWithBio;
+
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
+
+  @doc("User's birth date if they chose to make it publicly visible. Null if hidden or not provided.")
+  birthDate: plainDate | null;
+
+  @doc("URL to the user's profile banner/header image displayed at the top of their profile page.")
+  bannerUrl: string;
+
+  @doc("Timestamp when this account was created.")
+  createdAt: utcDateTime;
+
+  @doc("Number of users this account is following.")
+  followingCount: int64;
+
+  @doc("Number of users following this account.")
+  followersCount: int64;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -723,6 +758,14 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+
+  @summary("")
+  @get
+  @route()
+  op getUserProfile {
+
+  }
+
   namespace Follows {
     @summary("List a user's followers")
     @get
