@@ -39,6 +39,50 @@ jest.mock('crypto', () => ({
 jest.mock('./utils/otp.util', () => ({
   generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
 }));
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import * as useragent from 'useragent';
+import { RequestUser } from './types';
+import * as bcrypt from 'bcrypt';
+
+// Mock the dependencies
+const mockPrismaService = {
+  users:{
+    findFirst:jest.fn()
+  },
+    refresh_tokens: {
+    create: jest.fn(),
+  },
+  user_devices: {
+    create: jest.fn(),
+  },
+  
+$transaction: jest.fn(async (callback: (tx: typeof mockPrismaService) => Promise<unknown>):Promise<unknown> => {
+    return await callback(mockPrismaService);
+  }),
+};
+
+const mockJwtService = {
+  sign: jest.fn(() => 'mockAccessToken'),
+};
+
+const mockConfigService = {
+  get: jest.fn(() => '30'), // Mock JWT expiration time
+};
+
+// Mock crypto and bcrypt to make tests fast and deterministic
+jest.mock('crypto', () => ({
+  randomBytes: () => ({
+    toString: () => 'mockRefreshToken',
+  }),
+}));
+jest.mock('bcrypt', () => ({
+  hash: () => Promise.resolve('mockHashedToken'),
+  compare: jest.fn(() => Promise.resolve(true)),
+}));
+
+const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -91,6 +135,9 @@ describe('AuthService', () => {
         { provide: RefreshTokensService, useValue: mockRefreshTokensService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -103,6 +150,110 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  describe('login', () => {
+    it('should return user when correct password',async()=>{
+
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id:'100',username:'username',password_hash:'hash'
+      })
+
+
+      const body = {identifier:'username',password:'password'}
+      const result = await service.validateUser(body.identifier,body.password )
+
+      expect(result).not.toBeNull()
+    })
+
+    it('should return null when incorrect password',async()=>{
+
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id:'100',username:'username',password_hash:'hash'
+      })
+mockedBcrypt.compare.mockResolvedValueOnce(false as never);
+
+      const body = {identifier:'username',password:'password'}
+      const result = await service.validateUser(body.identifier,body.password )
+
+      expect(result).toBeNull()
+    })
+
+    it("should return null when user doesn't have password_hash" ,async()=>{
+
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id:'100',username:'username',password_hash:undefined
+      })
+
+      const body = {identifier:'username',password:'password'}
+      const result = await service.validateUser(body.identifier,body.password )
+
+      expect(result).toBeNull()
+    })
+
+
+    it('cant find user',async()=>{
+
+      mockPrismaService.users.findFirst.mockResolvedValue(null)
+
+      const body = {identifier:'username',password:'password'}
+      const result = await service.validateUser(body.identifier,body.password )
+
+      expect(result).toBeNull()
+    })
+
+    it('should correctly handle login', async () => {
+      const user:RequestUser = { id: '1', username: 'username' };
+
+      const mockAgent = useragent.parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+
+      mockPrismaService.refresh_tokens.create.mockResolvedValue({
+        id: '100',
+        token_hash: 'mockHashedToken',
+        expires_at:'expires_at'
+      });
+
+      mockPrismaService.user_devices.create.mockResolvedValue({
+        id: '100',
+        device_type:mockAgent.toString()
+      });
+
+      const result = await service.login(user,mockAgent );
+
+      expect(result).toEqual({
+        access_token: 'mockAccessToken',
+        refresh_token: 'mockRefreshToken',
+      });
+
+type RefreshTokenCreateInput = {
+  data: {
+    user_id: bigint;
+    token_hash: string;
+    device_id: string;
+    expires_at: Date;
+  };
+};
+
+const calls = mockPrismaService.refresh_tokens.create.mock
+  .calls as [RefreshTokenCreateInput][];
+
+const call = calls[0][0];
+
+expect(call.data.user_id).toBe(BigInt(user.id));
+expect(call.data.token_hash).toBe('mockHashedToken');
+expect(call.data.device_id).toBe('100');
+expect(call.data.expires_at).toBeInstanceOf(Date);      
+
+      expect(mockPrismaService.user_devices.create).toHaveBeenCalledWith({
+        data:{
+ user_id:BigInt(user.id),
+          device_type:mockAgent.toString()
+        }
+      })
+
+      expect(mockJwtService.sign).toHaveBeenCalledWith({
+        id: user.id,
+        username: user.username,
+      });
+    });
   });
 
   describe('startRegistration', () => {
