@@ -9,7 +9,10 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
+<<<<<<< HEAD
 import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../validation-error-codes';
+=======
+>>>>>>> 806cdc6 (feat: add a global filter to catch http exceptions and format them as per the interface, works for validation errors)
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -59,11 +62,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
         this.logger.warn(`Validation failed: ${JSON.stringify(exceptionResponse)}`);
         const message = (exceptionResponse as { message: ValidationError[] }).message;
         errorResponse = this.formatValidationErrors(message);
+<<<<<<< HEAD
         status = HttpStatus.UNPROCESSABLE_ENTITY;
+=======
+>>>>>>> 806cdc6 (feat: add a global filter to catch http exceptions and format them as per the interface, works for validation errors)
       } else {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
       }
+<<<<<<< HEAD
+=======
+    } else if (exception instanceof Error) {
+      // Handle regular errors
+      errorResponse = {
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An unexpected error occurred',
+        },
+      };
+>>>>>>> 806cdc6 (feat: add a global filter to catch http exceptions and format them as per the interface, works for validation errors)
     } else {
       // Handle unknown exceptions
       errorResponse = {
@@ -83,6 +101,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json(errorResponse);
   }
 
+<<<<<<< HEAD
   private formatValidationErrors(validationErrors: ValidationError[]): ApiValidationErrorResponse {
     const seen = new Set<string>();
 
@@ -122,6 +141,32 @@ export class HttpExceptionFilter implements ExceptionFilter {
       },
       [] as { field: string; code: string; message: string }[],
     );
+=======
+  private formatValidationErrors(validationErrors: unknown[]): ApiValidationErrorResponse {
+    const formattedErrors = validationErrors.flatMap((error) => {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'property' in error &&
+        'constraints' in error &&
+        (error as ValidationError).constraints
+      ) {
+        return Object.values((error as ValidationError).constraints!).map((message) => ({
+          field: (error as ValidationError).property,
+          code: 'INVALID_VALUE',
+          message,
+        }));
+      }
+      // fallback for string errors
+      return [
+        {
+          field: 'unknown',
+          code: 'INVALID_VALUE',
+          message: typeof error === 'string' ? error : JSON.stringify(error),
+        },
+      ];
+    });
+>>>>>>> 806cdc6 (feat: add a global filter to catch http exceptions and format them as per the interface, works for validation errors)
 
     return {
       success: false,
@@ -171,6 +216,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+<<<<<<< HEAD
     //if it had its own code
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       if ('code' in exceptionResponse) {
@@ -178,6 +224,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+=======
+>>>>>>> 806cdc6 (feat: add a global filter to catch http exceptions and format them as per the interface, works for validation errors)
     return {
       success: false,
       error: {
