@@ -1115,18 +1115,26 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
+          @summary("List a user's blocks")
+    
+    @get
+    @route("/blocks")
+    op listUserBlocks(
+      ...CursorPaginationParameters,
+    ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   }
 
   @route("/blocks")
   @useAuth(BearerAuth)
   namespace Blocks {
-    @summary("List a user's blocks")
-    @get
-    op listUserBlocks(
-      ...CursorPaginationParameters,
-    ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
-
     @summary("Block a user")
     @post
     @route("/{username}")
@@ -1158,12 +1166,6 @@ namespace Me {
   @route("/mutes")
   @useAuth(BearerAuth)
   namespace Mutes {
-    @summary("List a user's mutes")
-    @get
-    op listUserMutes(
-      ...CursorPaginationParameters,
-    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
-
     @summary("Mute a user")
     @post
     @route("/{username}")
