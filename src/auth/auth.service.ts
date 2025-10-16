@@ -48,7 +48,10 @@ export class AuthService {
       // If user exists, return access and refresh tokens
       // TODO set expirations
       // TODO make unified token generation function
-      const accessToken = this.jwtService.sign({ userId: user.id, username: user.username });
+      const accessToken = this.jwtService.sign({
+        userId: user.id.toString(),
+        username: user.username,
+      });
       const refreshToken = crypto.randomBytes(64).toString('hex');
 
       return {
