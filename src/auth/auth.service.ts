@@ -289,6 +289,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
+
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
     const user = await this.prisma.users.findFirst({
       where: {
@@ -298,11 +299,12 @@ export class AuthService {
     if (user && user.password_hash) {
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (isMatch) {
-        return Promise.resolve({ id: user.id.toString(), username: user.username });
+        return { id: user.id.toString(), username: user.username };
       }
     }
     return null;
   }
+
   async login(user: RequestUser, agent: useragent.Agent) {
     const accessToken = this.jwtService.sign(user);
     const refreshToken = crypto.randomBytes(64).toString('hex');
@@ -316,7 +318,6 @@ export class AuthService {
         data: {
           user_id: BigInt(user.id),
           device_type: agent.toString(),
-          last_used_at: new Date(),
         },
       });
 
