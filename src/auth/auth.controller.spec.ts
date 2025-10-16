@@ -6,6 +6,26 @@ import { StartRegistrationDto } from './dto/start-registration.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import { DeviceType } from 'src/device/interfaces/device.interface';
+import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
+import useragent from 'useragent';
+
+const mockAuthService = {
+  login: jest.fn(() =>
+    Promise.resolve({
+      access_token: 'mockAccessToken',
+      refresh_token: 'mockRefreshToken',
+    }),
+  ),
+};
+
+const mockConfigService = {
+  get: jest.fn((key: string) => {
+    if (key === 'NODE_ENV') return 'production';
+    if (key === 'ACCESS_TOKEN_EXPIRES_IN_SECONDS') return 900; // 15 minutes
+    return null;
+  }),
+};
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -138,6 +158,41 @@ describe('AuthController', () => {
       const result = await controller.checkEmail(dto);
       expect(mockAuthService.checkEmail).toHaveBeenCalledWith(dto.email);
       expect(result).toBe(serviceResult);
+    });
+  });
+
+  describe('login', () => {
+    it('should call authService.login, set a cookie, and return tokens', async () => {
+
+      const mockUser = { id: '1', username: 'username' };
+      const mockUserAgent = useragent.parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      
+      const mockResponse = {
+        cookie: jest.fn(),
+      } as unknown as Response;
+
+      const result = await controller.login(mockUser, mockResponse, mockUserAgent.toString());
+
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        mockUser,
+expect.objectContaining({
+        os: expect.objectContaining({
+          family: 'Windows',
+        }) as unknown,
+      }),      );
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('jwt', 'mockAccessToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 900,
+      });
+
+      expect(result).toEqual({
+        access_token: 'mockAccessToken',
+        refresh_token: 'mockRefreshToken',
+      });
     });
   });
 });
