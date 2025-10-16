@@ -913,6 +913,24 @@ namespace Me {
     | ValidationErrorResponse
     | InternalServerErrorResponse;
 
+  @summary("Validate the current user's password")
+  @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
+  @useAuth(BearerAuth)
+  @post
+  @route("password/validate-password")
+  op validatePassword(
+    @body body: {
+      password: string;
+    },
+  ):
+    | DataResponse<{
+        isValid: boolean;
+      }>
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+
   @post
   @route("/profile-picture")
   op updateProfilePicture(
@@ -1001,6 +1019,11 @@ namespace Me {
   @route("/banner")
   op deleteBanner(
   ): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @route("/settings")
+  namespace Settings {
+
+  }
 
   @route("/blocks")
   @useAuth(BearerAuth)
