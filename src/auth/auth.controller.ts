@@ -155,6 +155,15 @@ export class AuthController {
       refreshToken = req.cookies?.refresh_token;
     } else if (clientType === 'mobile') {
       refreshToken = refreshTokenDto.refresh_token;
+  @Post('refresh-token')
+  async refrehAccessToken(
+    @Req() req: RequestWithCookies,
+    @Body('refresh_token') refreshTokenBody: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    let refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      refreshToken = refreshTokenBody;
     }
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
