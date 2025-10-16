@@ -76,7 +76,7 @@ export class AuthController {
   ) {
     const agent = useragent.parse(agentString);
     const { access_token, refresh_token } = await this.authService.login(user, agent);
-    res.cookie('jwt', access_token, {
+    res.cookie('refresh_token', refresh_token, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
