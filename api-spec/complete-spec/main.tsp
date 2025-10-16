@@ -1001,7 +1001,7 @@ namespace Me {
     @patch(#{ implicitOptionality: true })
     @route("/username")
     @summary("Change the authenticated user's username")
-    op changeMyUsername(
+    op updateUsername(
       @body body: {
         newUsername: string;
       },
@@ -1053,6 +1053,69 @@ namespace Me {
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+
+    @put
+    @route("/country")
+    @summary("Update the authenticated user's country")
+    op updateCountry(
+      @body body: {
+        countryName: string;
+      },
+    ): 
+      | MessageResponse<"Country updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    
+    @put
+    @route("/gender")
+    @summary("Update the authenticated user's gender")
+    op updateGender(
+      @body body: {
+        gender: Gender;
+      },
+    ): 
+      | MessageResponse<"Gender updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+        
+    @put
+    @route("/birthdate")
+    @summary("Update the authenticated user's birth date")
+    op updateBirthDate(
+      @body body: {
+        date: plainDate | null,
+      },
+    ): 
+      | MessageResponse<"Birth date updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    
+
+    @put
+    @route("/language")
+    @summary("Update the authenticated user's default language")
+    op updateLanguage(
+      @body body: {
+        language: LanguageCode;
+      },
+    ): 
+      | MessageResponse<"Default language updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+
   }
 
   @route("/blocks")
