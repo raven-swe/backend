@@ -136,5 +136,28 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
+  @Post('refresh-token')
+  async refrehAccessToken(
+    @Req() req: RequestWithCookies,
+    @Body('refresh_token') refreshTokenBody: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    let refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      refreshToken = refreshTokenBody;
+    }
+    if (!refreshToken) {
+      throw new UnauthorizedException('missing refresh token');
+    }
+    const { access_token, refresh_token } = await this.authService.refreshAccessToken(refreshToken);
+
+    res.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: this.config.get('NODE_ENV') === 'production',
+      sameSite: 'none',
+      maxAge: this.config.get('ACCESS_TOKEN_EXPIRES_IN_SECONDS') || 15 * 60,
+    });
+
+    return { access_token, refresh_token };
   }
 }
