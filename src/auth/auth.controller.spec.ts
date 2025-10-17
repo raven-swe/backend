@@ -425,3 +425,68 @@ describe('AuthController with mocked config service', () => {
     }
   });
 });
+
+describe('AuthController with mocked config service',()=>{
+
+// const mockConfigService = {
+//   get: jest.fn((key: string) => {
+//     if (key === 'NODE_ENV') return 'production';
+//     if (key === 'ACCESS_TOKEN_EXPIRES_IN_SECONDS') return 900; // 15 minutes
+//     return null;
+//   }),
+// };
+  const mockConfigService = {
+      get: jest.fn(),
+    };
+
+  let controller: AuthController;
+
+beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        {provide:ConfigService,useValue:mockConfigService},
+        { provide: AuthService, useValue: mockAuthService },
+      ],
+    }).compile();
+
+    controller = module.get<AuthController>(AuthController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+    it('should fallback to default value when config serivce cant get value',async()=>{
+
+const mockUser = { id: '1', username: 'username' };
+      const mockUserAgent = useragent.parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      
+      const mockResponse = {
+        cookie: jest.fn(),
+      } as unknown as Response;
+
+      const result = await controller.login(mockUser, mockResponse, mockUserAgent.toString());
+
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        mockUser,
+expect.objectContaining({
+        os: expect.objectContaining({
+          family: 'Windows',
+        }) as unknown,
+      }),      );
+
+    const daysToMillis = 24*60*60*1000;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'none',
+        maxAge: 30*daysToMillis,
+      });
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });    })
+})
