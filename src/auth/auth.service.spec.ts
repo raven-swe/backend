@@ -86,7 +86,8 @@ const createMockPrismaService = () => {
   };
 };
 
-describe('AuthService', () => {
+
+describe('AuthService with mock ConfigService', () => {
   let service: AuthService;
   let mockPrismaService: ReturnType<typeof createMockPrismaService>;
   let mockJwtService: jest.Mocked<Partial<JwtService>>;
@@ -277,6 +278,31 @@ describe('AuthService', () => {
     const ipAddress = '192.33.100.1';
     const user: RequestUser = { id: '1', username: 'testuser' };
 
+    it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
+    const plainPassword = 'password123';
+    const hashedPassword = 'a_very_long_hashed_string';
+    mockPrismaService.users.findFirst.mockResolvedValue({
+      id: '1',
+      username: 'testuser',
+      password_hash: hashedPassword,
+    });
+    mockedBcrypt.compare.mockResolvedValue(true as never);
+
+    await service.validateUser('testuser', plainPassword);
+
+    expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
+  });
+
+    it('should propagate errors from the database', async () => {
+    const dbError = new Error('Database connection failed');
+    mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+
+    await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+  });
+
+  })
+
+  describe('login', () => {
     it('should correctly handle login', async () => {
       const fakeToken = {
         id: 100n,
@@ -1102,4 +1128,5 @@ describe('AuthService', () => {
       });
     });
   });
+
 });

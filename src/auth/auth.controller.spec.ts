@@ -429,13 +429,6 @@ describe('AuthController with mocked config service', () => {
 
 describe('AuthController with mocked config service',()=>{
 
-// const mockConfigService = {
-//   get: jest.fn((key: string) => {
-//     if (key === 'NODE_ENV') return 'production';
-//     if (key === 'ACCESS_TOKEN_EXPIRES_IN_SECONDS') return 900; // 15 minutes
-//     return null;
-//   }),
-// };
   const mockConfigService = {
       get: jest.fn(),
     };
