@@ -13,7 +13,6 @@ describe('PrismaService', () => {
     }).compile();
 
     service = module.get<PrismaService>(PrismaService);
-    await service.$connect();
   });
 
   afterAll(async () => {
