@@ -8,6 +8,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { RecaptchaFailedException } from './exceptions/recaptcha.exception';
 import type { Response } from 'express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -65,5 +66,10 @@ export class AuthController {
       throw new RecaptchaFailedException();
     }
     return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('password/forgot/verify')
+  async verifyForgotPasswordOtp(@Body() verifyForgotPasswordOtp: VerifyForgotPasswordDto) {
+    return await this.authService.verifyForgotPassword(verifyForgotPasswordOtp);
   }
 }
