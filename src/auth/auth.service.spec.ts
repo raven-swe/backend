@@ -45,7 +45,6 @@ import {  ConfigService } from '@nestjs/config';
 import * as useragent from 'useragent';
 import { RequestUser } from './types';
 import * as bcrypt from 'bcrypt';
-
 // Mock the dependencies
 const mockPrismaService = {
   users:{
@@ -68,11 +67,17 @@ const mockJwtService = {
 };
 
 
-// Mock crypto and bcrypt to make tests fast and deterministic
 jest.mock('crypto', () => ({
   randomBytes: () => ({
     toString: () => 'mockRefreshToken',
   }),
+  createHash: () => {
+    const hash = {
+      update: jest.fn().mockReturnThis(),
+      digest: jest.fn().mockReturnValue('mockHashedToken'),
+    };
+    return hash;
+  },
 }));
 jest.mock('bcrypt', () => ({
   hash: () => Promise.resolve('mockHashedToken'),
