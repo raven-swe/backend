@@ -886,20 +886,21 @@ namespace Auth {
           ...OkResponse;
           ...Body<{
             success: true;
-            token: string;
+            confirmationToken : string;
             message: "Password reset code sent to email.";
           }>;
         }
       | ValidationErrorResponse
       | NotFoundResponse
       | RateLimitResponse
-      | InternalServerErrorResponse;
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
     op verifyForgotPassword(
       @body body: {
-        token: string;
+        confirmationToken : string;
         otp: string;
       },
     ):
@@ -912,7 +913,7 @@ namespace Auth {
     @route("/reset")
     op resetPassword(
       @body body: {
-        token: string;
+        confirmationToken : string;
         newPassword: string;
       },
     ):
