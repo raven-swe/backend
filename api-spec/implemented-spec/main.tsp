@@ -245,17 +245,6 @@ namespace Auth {
       | InternalServerErrorResponse;
   }
 
-  @post
-    @route("/resend-otp")
-    op resendOtpPassword(
-      @body body: {
-        token: string;
-      },
-    ):
-      | MessageResponse<"otp resent successfully.">
-      | BadRequestResponse
-      | RateLimitResponse
-      | InternalServerErrorResponse;
 
   @get
   @route("/check-email")
