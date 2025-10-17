@@ -74,8 +74,3 @@ tsconfig.json
 jest.config.js
 .eslintrc.js
 
-
-**/*.spec.ts
-**/*.test.ts
-test/
-e2e/
