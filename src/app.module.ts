@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     PrismaModule,
     EmailModule,
     RecaptchaModule,
+    RefreshTokensModule,
   ],
   controllers: [],
   providers: [
