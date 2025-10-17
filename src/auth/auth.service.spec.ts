@@ -41,7 +41,7 @@ jest.mock('./utils/otp.util', () => ({
 }));
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
+import {  ConfigService } from '@nestjs/config';
 import * as useragent from 'useragent';
 import { RequestUser } from './types';
 import * as bcrypt from 'bcrypt';
@@ -67,9 +67,6 @@ const mockJwtService = {
   sign: jest.fn(() => 'mockAccessToken'),
 };
 
-const mockConfigService = {
-  get: jest.fn(() => '30'), // Mock JWT expiration time
-};
 
 // Mock crypto and bcrypt to make tests fast and deterministic
 jest.mock('crypto', () => ({
@@ -84,7 +81,8 @@ jest.mock('bcrypt', () => ({
 
 const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
-describe('AuthService', () => {
+
+describe('AuthService with mock ConfigService', () => {
   let service: AuthService;
   let mockRedisService: Partial<RedisService>;
   let mockUsersService: Partial<UsersService>;
@@ -94,6 +92,14 @@ describe('AuthService', () => {
   let mockRefreshTokensService: Partial<RefreshTokensService>;
   let mockEmailQueue: { add: jest.Mock };
   let mockPrismaService: Partial<PrismaService>;
+  const mockConfigService = {
+  get: jest.fn((key: string) => {
+    if (key === 'NODE_ENV') return 'dev';
+    if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return 30; 
+    return null;
+  }),
+};
+
 
   beforeEach(async () => {
     mockUsersService = {
@@ -152,6 +158,8 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   describe('login', () => {
     it('should return user when correct password',async()=>{
+  describe('validateUser',()=>{
+        it('should return user when correct password',async()=>{
 
       mockPrismaService.users.findFirst.mockResolvedValue({
         id:'100',username:'username',password_hash:'hash'
@@ -200,6 +208,31 @@ mockedBcrypt.compare.mockResolvedValueOnce(false as never);
       expect(result).toBeNull()
     })
 
+    it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
+    const plainPassword = 'password123';
+    const hashedPassword = 'a_very_long_hashed_string';
+    mockPrismaService.users.findFirst.mockResolvedValue({
+      id: '1',
+      username: 'testuser',
+      password_hash: hashedPassword,
+    });
+    mockedBcrypt.compare.mockResolvedValue(true as never);
+
+    await service.validateUser('testuser', plainPassword);
+
+    expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
+  });
+
+    it('should propagate errors from the database', async () => {
+    const dbError = new Error('Database connection failed');
+    mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+
+    await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+  });
+
+  })
+
+  describe('login', () => {
     it('should correctly handle login', async () => {
       const user:RequestUser = { id: '1', username: 'username' };
 
@@ -253,6 +286,16 @@ expect(call.data.expires_at).toBeInstanceOf(Date);
         id: user.id,
         username: user.username,
       });
+    });
+
+    it('should throw an error if the database transaction fails', async () => {
+        const user: RequestUser = { id: '1', username: 'testuser' };
+        const mockAgent = useragent.parse('Mozilla/5.0');
+        
+        const transactionError = new Error('Transaction failed due to a conflict');
+        mockPrismaService.$transaction.mockRejectedValueOnce(transactionError);
+
+        await expect(service.login(user, mockAgent)).rejects.toThrow(transactionError);
     });
   });
 
