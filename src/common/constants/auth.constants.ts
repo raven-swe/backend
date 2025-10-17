@@ -19,3 +19,10 @@ export const AUTH_ERROR_MESSAGES = {
   BOTH_IDENTIFIERS_EMPTY: 'Email or username must be provided',
   INVALID_PASSWORD: 'Invalid password',
 } as const;
+
+export const REDIS_KEYS = {
+  REGISTRATION: (token: string) => `registration:${token}`,
+  OTP_RESEND: (email: string) => `otp_resend:${email}`,
+  PASSWORD_RESET: (token: string) => `password_reset:${token}`,
+  OTP_RESEND_PASSWORD_RESET: (email: string) => `otp_resend:password_reset:${email}`,
+} as const;

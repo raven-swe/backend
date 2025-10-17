@@ -13,7 +13,7 @@ import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { OtpFailedException } from './exceptions/otp.exception';
 import { LanguageCode } from '@prisma/client';
-import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES } from 'src/common/constants/auth.constants';
+import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES, REDIS_KEYS } from 'src/common/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 
 interface CachedRegistrationData {
@@ -109,8 +109,8 @@ export class AuthService {
     }
 
     const creationToken: string = crypto.randomUUID();
-    const redisKey = `registration:${creationToken}`; // caching by token is easier, if user bails out and comes back a new token is issued
-    const resendKey = `otp_resend:${startRegistrationDto.email}`; // for rate-limiting by email, should be used whenever resending OTP is implemented
+    const redisKey = REDIS_KEYS.REGISTRATION(creationToken); // caching by token is easier, if user bails out and comes back a new token is issued
+    const resendKey = REDIS_KEYS.OTP_RESEND(startRegistrationDto.email); // for rate-limiting by email, should be used whenever resending OTP is implemented
 
     const registrationData: CachedRegistrationData = {
       name: startRegistrationDto.name,
@@ -133,7 +133,7 @@ export class AuthService {
   }
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string }> {
-    const redisKey = `registration:${verifyOtpDto.creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(verifyOtpDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new HttpException(
@@ -158,7 +158,7 @@ export class AuthService {
   }
 
   async completeRegistration(completeRegistrationDto: CompleteRegistrationDto) {
-    const redisKey = `registration:${completeRegistrationDto.creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(completeRegistrationDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new OtpFailedException('Invaid or expired OTP token');
@@ -192,7 +192,7 @@ export class AuthService {
   }
 
   async resendOtp(creationToken: string): Promise<{ message: string }> {
-    const redisKey = `registration:${creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new HttpException(
@@ -267,8 +267,8 @@ export class AuthService {
 
     // Generate otp and store to redis
     const confirmationToken = crypto.randomUUID();
-    const redisKey = `password_reset:${confirmationToken}`;
-    const resendKey = `otp_resend:password_reset:${user.email}`;
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(confirmationToken);
+    const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(user.email);
 
     const passwordResetData: CachedPasswordResetData = {
       email: user.email,
@@ -291,5 +291,8 @@ export class AuthService {
 
   async verifyForgotPassword(
     verifyForgotPassword: VerifyForgotPasswordDto,
-  ): Promise<{ message: string }> {}
+  ): Promise<{ message: string }> {
+   
+    
+  }
 }
