@@ -161,6 +161,39 @@ model InternalServerErrorResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("Single user session, providing details about the device, location, and activity status.")
+model SessionResponse {
+  @doc("Unique identifier for the session.")
+  id: string;
+
+  @doc("The type of device or client used for this session (e.g., 'Linux', 'Android', 'Web', 'Windows').")
+  deviceType: string;
+
+  @doc("The location where the session was initiated or active")
+  location: string | null;
+
+  @doc("The UTC timestamp indicating the last time this session was active.")
+  lastActive: utcDateTime;
+
+  @doc("A boolean flag indicating whether this session is the one currently making the API request.")
+  isCurrent: boolean;
+}
+
+@doc("A single external social account connected to the user's primary account.")
+model ConnectedAccountResponse {
+  @doc("The name of the external provider (e.g., 'google', 'github').")
+  provider: string;
+
+  @doc("The unique identifier (e.g., email address) associated with the user")
+  displayIdentifier: string;
+
+  @doc("The connection status.")
+  status: "Connected" | "Error";
+
+  @doc("The timestamp when this external account was first linked.")
+  connectedAt: utcDateTime;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -260,7 +293,7 @@ model AuthenticatedUser {
   phone: string | null;
 
   @doc("User's language preference")
-  languageCode: string = "en";
+  languageCode: LanguageCode = LanguageCode.EN;
 }
 
 @doc("User's biography with structured entities")
@@ -285,7 +318,11 @@ model UserMetadata {
   displayName: string;
 
   @doc("URL to the user's avatar image")
-  avatarUrl: string | null;
+  avatarUrl: string;
+}
+
+model UserMetadataWithFollowInfo {
+  ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean | null;
@@ -296,10 +333,49 @@ model UserMetadata {
 
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
-  ...UserMetadata;
+  ...UserMetadataWithFollowInfo;
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+}
+
+@doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
+model UserRelationship {
+  @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
+  blocking: boolean;
+
+  @doc("True if this user has blocked the current user.")
+  blockedBy: boolean;
+
+  @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
+  muted: boolean;
+
+  @doc("Is the user followed by the current logged-in user")
+  following: boolean | null;
+
+  @doc("Is the user following the current logged-in user")
+  follower: boolean | null;
+}
+
+@doc("Complete user profile with full account details and relationship context.")
+model UserProfile {
+  ...PublicUser;
+
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
+
+  @doc("The number of users this user is following")
+  followingCount: int64;
+
+  @doc("The number of followers this user has")
+  followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64 | null;
+
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[] | null;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -313,11 +389,11 @@ model UserPreview {
   followersCount: int64;
 
   @doc("The number of mutual followers shared with the authenticated user")
-  mutualsCount: int64;
+  mutualsCount: int64 | null;
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[];
+  mutualNames: string[] | null;
 }
 
 @doc("Request body for updating profile")
@@ -438,11 +514,11 @@ model Tweet {
 model CursorPaginationParameters {
   @query
   @doc("The cursor position to start fetching from")
-  cursor?: string;
+  cursor: string;
 
   @query
   @doc("The number of items to return per page (default: 20)")
-  limit?: int32 = 20;
+  limit: int32 = 20;
 }
 
 model RegisterStartBody {
@@ -475,11 +551,33 @@ model FollowingUser {
   isFollowing: boolean;
 }
 
+model AccountInfo {
+  username: string;
+  email: string | null;
+  accountCreationDate: utcDateTime;
+  accountCreationIp: string | null;
+  country: string;
+  languages: LanguageCode[];
+  gender: Gender;
+  birthDate: plainDate;
+  age: int32;
+}
+
+enum LanguageCode {
+  AR,
+  EN,
+}
+
+enum Gender {
+  Male,
+  Female,
+}
+
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
-
+alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -659,7 +757,6 @@ namespace Auth {
       | InternalServerErrorResponse;
   }
 
-  // check for email exists or not
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -723,6 +820,52 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @summary("User's profile details")
+  @get
+  @route("/{username}/profile")
+  op getUserProfile(@path username: string):
+    | DataResponse<UserProfile>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's tweets")
+  @get
+  @route("/{username}/tweets")
+  op getUserTweets(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's replies and tweets")
+  @get
+  @route("/{username}/replies")
+  op getUserReplies(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's liked tweets")
+  @get
+  @route("/{username}/likes")
+  op getUserLikes(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's tweets with media attachments")
+  @get
+  @route("/{username}/media")
+  op getUserMedia(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
   namespace Follows {
     @summary("List a user's followers")
     @get
@@ -784,24 +927,9 @@ namespace Users {
 @route("/me")
 @useAuth(BearerAuth)
 namespace Me {
-  @patch(#{ implicitOptionality: true })
-  @route("/username")
-  @summary("Change the authenticated user's username")
-  op changeMyUsername(
-    @body body: {
-      newUsername: string;
-    },
-  ):
-    | MessageResponse<"Username changed successfully.">
-    | ValidationErrorResponse
-    | ConflictResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @get
   @summary("Get the authenticated user's profile")
-  op getMyProfile(
-  ): DataResponse<AuthenticatedUser> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getMyProfile(): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
@@ -853,48 +981,6 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @put
-  @route("/email")
-  @summary("Initiates update of the authenticated user's email address")
-  op updateEmail(
-    @body body: {
-      newEmail: string;
-    },
-  ):
-    | MessageResponse<"Email update initiated. Please verify the new email address.">
-    | ValidationErrorResponse
-    | ConflictResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @post
-  @route("/email/resend-otp")
-  @summary("Resend the verification code to the new email address")
-  op resendEmailVerificationOtp(
-    @body body: {
-      newEmail: string;
-    },
-  ):
-    | MessageResponse<"Verification code resent successfully.">
-    | BadRequestResponse
-    | RateLimitResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @post
-  @route("/email/verify")
-  @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
-  op verifyNewEmail(
-    @body body: {
-      verificationCode: string;
-    },
-  ):
-    | MessageResponse<"Email address updated successfully.">
-    | BadRequestResponse
-    | ValidationErrorResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @post
   @route("/banner")
   op updateBanner(
@@ -914,15 +1000,212 @@ namespace Me {
   op deleteBanner(
   ): MessageResponse<"Banner deleted successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
-  @route("/blocks")
+  @post
+  @summary("Deactivate or delete the authenticated user's account.")
+  op deactivateAccount(
+    @body body: {
+      currentPassword: string;
+    },
+  ):
+    | MessageResponse<"Account deactivated successfully. You have been logged out.">
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
   @useAuth(BearerAuth)
-  namespace Blocks {
+  @route("/settings")
+  namespace Settings {
+    @summary("Validate the current user's password")
+    @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
+    @useAuth(BearerAuth)
+    @post
+    @route("password/validate")
+    op validatePassword(
+      @body body: {
+        password: string;
+      },
+    ):
+      | DataResponse<{
+          isValid: boolean;
+        }>
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @summary("Get the authenticated user's account information")
+    @doc("Retrieves detailed profile and account settings for the currently authenticated user, identified by their JWT.")
+    @get
+    op getAccountInfo():
+      | DataResponse<AccountInfo>
+      | UnauthorizedResponse
+      | InternalServerErrorResponse
+      | ForbiddenResponse;
+
+    @patch(#{ implicitOptionality: true })
+    @route("/username")
+    @summary("Change the authenticated user's username")
+    op updateUsername(
+      @body body: {
+        newUsername: string;
+      },
+    ):
+      | MessageResponse<"Username changed successfully.">
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/email")
+    @summary("Initiates update of the authenticated user's email address")
+    op updateEmail(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | MessageResponse<"Email update initiated. Please verify the new email address.">
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/resend-otp")
+    @summary("Resend the verification code to the new email address")
+    op resendEmailVerificationOtp(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | MessageResponse<"Verification code resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/verify")
+    @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
+    op verifyNewEmail(
+      @body body: {
+        verificationCode: string;
+      },
+    ):
+      | MessageResponse<"Email address updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/country")
+    @summary("Update the authenticated user's country")
+    op updateCountry(
+      @body body: {
+        countryName: string;
+      },
+    ):
+      | MessageResponse<"Country updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/gender")
+    @summary("Update the authenticated user's gender")
+    op updateGender(
+      @body body: {
+        gender: Gender;
+      },
+    ):
+      | MessageResponse<"Gender updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/birthdate")
+    @summary("Update the authenticated user's birth date")
+    op updateBirthDate(
+      @body body: {
+        date: plainDate | null;
+      },
+    ):
+      | MessageResponse<"Birth date updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/language")
+    @summary("Update the authenticated user's default language")
+    op updateLanguage(
+      @body body: {
+        language: LanguageCode;
+      },
+    ):
+      | MessageResponse<"Default language updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
     @summary("List a user's blocks")
     @get
+    @route("/blocks")
     op listUserBlocks(
       ...CursorPaginationParameters,
     ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @get
+    @route("/sessions")
+    @summary("Retrieve all active and recent sessions for the authenticated user.")
+    op getSessions(): SessionListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @delete
+    @route("/sessions/{sessionId}")
+    @summary("Log out or terminate a specific session by its ID.")
+    op deleteSession(@path sessionId: string):
+      | MessageResponse<"Session terminated successfully.">
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/connected-accounts")
+    @summary("Retrieve a list of all external social accounts connected for login.")
+    op getConnectedAccounts(
+    ): DataResponse<ConnectedAccountResponse[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
+    @route("/connected-accounts/{provider}")
+    @summary("Disconnect an external social account by its provider (e.g., 'google', 'github').")
+    op disconnectAccount(
+      @path provider: string,
+      @body body: {
+        currentPassword: string;
+      },
+    ):
+      | MessageResponse<"Account disconnected successfully.">
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/blocks")
+  @useAuth(BearerAuth)
+  namespace Blocks {
     @summary("Block a user")
     @post
     @route("/{username}")
@@ -954,12 +1237,6 @@ namespace Me {
   @route("/mutes")
   @useAuth(BearerAuth)
   namespace Mutes {
-    @summary("List a user's mutes")
-    @get
-    op listUserMutes(
-      ...CursorPaginationParameters,
-    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
-
     @summary("Mute a user")
     @post
     @route("/{username}")
@@ -999,15 +1276,6 @@ namespace Me {
       | NotFoundResponse
       | UnauthorizedResponse
       | ForbiddenResponse
-      | InternalServerErrorResponse;
-
-    @get
-    @route("/{id}/likes")
-    @summary("Get users who liked my tweet")
-    op getTweetLikes(@path id: string, ...CursorPaginationParameters):
-      | DataResponseWithPagination<UserMetadata[]>
-      | NotFoundResponse
-      | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
 }
@@ -1076,6 +1344,15 @@ namespace Tweets {
   @summary("Get users who retweeted a tweet")
   op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
     | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
