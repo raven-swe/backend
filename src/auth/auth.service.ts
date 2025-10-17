@@ -14,6 +14,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { OtpFailedException } from './exceptions/otp.exception';
 import { LanguageCode } from '@prisma/client';
 import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES } from 'src/common/constants/auth.constants';
+import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 
 interface CachedRegistrationData {
   email: string;
@@ -34,7 +35,7 @@ interface CachedPasswordResetData {
 export class AuthService {
   private readonly registrationTTL = 300; // 5 minutes
   private readonly passwordResetTTL = 300;
-  private readonly otpResendLimit = 3;
+  private readonly otpResendLimit = 5;
   private readonly otpResendWindow = 600; // 10 minutes
   private readonly logger = new Logger(AuthService.name);
 
@@ -46,7 +47,7 @@ export class AuthService {
     private readonly recaptchaService: RecaptchaService,
   ) {}
 
-  private async generateAndStoreOtp<T extends { otp: string; verified: boolean }>(
+  private async generateAndSendOtp<T extends { otp: string; verified: boolean }>(
     redisKey: string,
     email: string,
     resendKey: string,
@@ -119,7 +120,7 @@ export class AuthService {
       verified: false,
     };
 
-    await this.generateAndStoreOtp(
+    await this.generateAndSendOtp(
       redisKey,
       startRegistrationDto.email,
       resendKey,
@@ -276,7 +277,7 @@ export class AuthService {
       verified: false,
     };
 
-    await this.generateAndStoreOtp(
+    await this.generateAndSendOtp(
       redisKey,
       user.email,
       resendKey,
@@ -287,4 +288,8 @@ export class AuthService {
     this.logger.log(`Password reset initiated for ${user.email}`);
     return { confirmationToken };
   }
+
+  async verifyForgotPassword(
+    verifyForgotPassword: VerifyForgotPasswordDto,
+  ): Promise<{ message: string }> {}
 }
