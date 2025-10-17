@@ -219,8 +219,8 @@ mockedBcrypt.compare.mockResolvedValueOnce(false as never);
       const result = await service.login(user,mockAgent );
 
       expect(result).toEqual({
-        access_token: 'mockAccessToken',
-        refresh_token: 'mockRefreshToken',
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
       });
 
 type RefreshTokenCreateInput = {
