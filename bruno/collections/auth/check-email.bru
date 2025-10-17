@@ -1,0 +1,20 @@
+meta {
+  name: check-email
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:3000/auth/check-email?email=ogamal1011@gmail.com
+  body: json
+  auth: inherit
+}
+
+params:query {
+  email: ogamal1011@gmail.com
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
