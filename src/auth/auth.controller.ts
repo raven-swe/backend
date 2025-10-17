@@ -238,4 +238,16 @@ export class AuthController {
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: this.config.get('NODE_ENV') === 'production',
+      sameSite: 'none',
+    });
+
+    return { message: 'Logout successful' };
+  }
 }
