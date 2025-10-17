@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { RedisService } from 'src/redis/redis.service';
-import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
@@ -51,7 +50,7 @@ export class AuthService {
       );
     }
 
-    const creationToken: string = uuidv4();
+    const creationToken: string = crypto.randomUUID();
     const otp = crypto.randomInt(100000, 999999).toString();
     const redisKey = `registration:${creationToken}`; // caching by token is easier, if user bails out and comes back a new token is issued
     const resendKey = `otp_resend:${startRegistrationDto.email}`; // for rate-limiting by email, should be used whenever resending OTP is implemented
