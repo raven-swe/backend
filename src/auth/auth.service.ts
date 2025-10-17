@@ -308,7 +308,9 @@ export class AuthService {
   async login(user: RequestUser, agent: useragent.Agent) {
     const accessToken = this.jwtService.sign(user);
     const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const hash = crypto.createHash('sha256');
+    hash.update(refreshToken);
+    const hashedRefreshToken = hash.digest('hex');
     const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
