@@ -10,6 +10,18 @@ export class UsersRepository {
     return await this.prisma.users.findUnique({ where: { email } });
   }
 
+  async findByUsername(username: string) {
+    return await this.prisma.users.findUnique({ where: { username } });
+  }
+
+  async findByIdentifier(identifier: string) {
+    return await this.prisma.users.findFirst({
+      where: {
+        OR: [{ email: identifier }, { username: identifier }],
+      },
+    });
+  }
+
   async createUser({
     email,
     password,
