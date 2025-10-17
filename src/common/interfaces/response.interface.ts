@@ -26,5 +26,5 @@ export interface ApiValidationErrorResponse extends ApiResponseBase {
 
 export interface ApiSuccessResponse<T> extends ApiResponseBase {
   success: true;
-  data: T;
+  data: T | null;
 }
