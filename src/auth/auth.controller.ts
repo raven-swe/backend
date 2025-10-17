@@ -7,6 +7,7 @@ import { CheckEmailDto } from './dto/CheckEmailDto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { RecaptchaFailedException } from './exceptions/recaptcha.exception';
 import type { Response } from 'express';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -55,5 +56,14 @@ export class AuthController {
   @Get('check-email')
   async checkEmail(@Query() checkEmailDto: CheckEmailDto) {
     return await this.authService.checkEmail(checkEmailDto.email);
+  }
+
+  @Post('password/forgot')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    const valid = await this.authService.verifyRecaptcha(forgotPasswordDto.recaptchaToken);
+    if (!valid) {
+      throw new RecaptchaFailedException();
+    }
+    return this.authService.forgotPassword(forgotPasswordDto);
   }
 }

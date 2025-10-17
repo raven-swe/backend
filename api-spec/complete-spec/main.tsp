@@ -590,7 +590,7 @@ namespace Auth {
     @route("/forgot")
     op forgotPassword(
       @body body: {
-        email: string;
+        identifier: string; 
         recaptchaToken: string; // token from client side recaptcha v2
       },
     ):
