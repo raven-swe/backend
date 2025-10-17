@@ -13,7 +13,11 @@ import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { OtpFailedException } from './exceptions/otp.exception';
 import { LanguageCode } from '@prisma/client';
-import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES, REDIS_KEYS } from 'src/common/constants/auth.constants';
+import {
+  AUTH_ERROR_MESSAGES,
+  AUTH_ERROR_CODES,
+  REDIS_KEYS,
+} from 'src/common/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 
 interface CachedRegistrationData {
@@ -292,7 +296,33 @@ export class AuthService {
   async verifyForgotPassword(
     verifyForgotPassword: VerifyForgotPasswordDto,
   ): Promise<{ message: string }> {
-   
-    
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(verifyForgotPassword.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    this.logger.log("Data", data);
+    if (!data) {
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Compare incoming otp with the stored otp
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    const isOtpValid = await bcrypt.compare(verifyForgotPassword.otp, passwordResetData.otp);
+
+    if (!isOtpValid) {
+      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_INVALID);
+    }
+
+    // Verify otp
+    passwordResetData.verified = true;
+    await this.redisService.set(redisKey, JSON.stringify(passwordResetData), this.passwordResetTTL);
+    this.logger.log(`Password reset OTP verified for ${passwordResetData.email}`);
+
+    return { message: 'Password reset verified successfully.' };
   }
 }
