@@ -370,6 +370,7 @@ describe('AuthController with mocked config service', () => {
       ),
     };
     const module: TestingModule = await Test.createTestingModule({
+      imports:[ConfigModule.forRoot({envFilePath:'.env.test',ignoreEnvFile:false})],
       controllers: [AuthController],
       providers: [
         { provide: ConfigService, useValue: mockConfigService },
