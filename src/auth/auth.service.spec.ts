@@ -1186,4 +1186,5 @@ describe('AuthService with mock ConfigService', () => {
       await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
     });
   });
+
 });
