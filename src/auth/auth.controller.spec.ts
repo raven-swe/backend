@@ -37,9 +37,9 @@ describe('AuthController with real config service', () => {
   let config:ConfigService;
 
     const module: TestingModule = await Test.createTestingModule({
+      imports:[ConfigModule.forRoot({envFilePath:'.env.test',ignoreEnvFile:false})],
       controllers: [AuthController],
       providers: [
-        ConfigService,
         { provide: AuthService, useValue: mockAuthService },
       ],
     }).compile();
