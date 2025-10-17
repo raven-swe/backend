@@ -53,8 +53,7 @@
     "nodemailer": "^7.0.9",
     "prisma": "^6.17.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "uuid": "^13.0.0"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -104,20 +103,11 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "coveragePathIgnorePatterns": [
-      "main\\.ts",
-      "app\\.module\\.ts",
-      ".*\\.module\\.ts",
-      ".*\\.dto\\.ts",
-      ".*\\.exception\\.ts",
-      ".*\\.constants\\.ts",
-      ".*\\.filter\\.ts",
-      ".*\\.interceptor\\.ts",
-      ".*\\.repository\\.ts",
-      "prisma\\.service\\.ts",
-      "oprismaservice\\.ts",
-      "redis\\.service\\.ts",
-      "redisservice\\.ts"
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!uuid)"
     ]
   }
 }
