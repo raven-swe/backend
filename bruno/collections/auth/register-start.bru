@@ -15,14 +15,14 @@ body:json {
     "email": "ogamal1011@gmail.com",
     "name": "omar",
     "birthDate": "2004-4-1",
-    "recaptchaToken":"anytoken"
+    "recaptchaToken":"any"
   }
 }
 
 script:post-response {
   const responseBody = res.getBody();
   try {
-    const token = responseBody.creationToken;
+    const token = responseBody.data.creationToken;
     if (token) {
       bru.setVar("creationToken", token); 
       console.log("Token saved successfully.");
