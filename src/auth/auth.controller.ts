@@ -151,10 +151,11 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
     }
-    const { access_token, refresh_token } = await this.authService.refreshAccessToken(refreshToken);
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.authService.refreshAccessToken(refreshToken);
 
     const daysToMillis = 24 * 60 * 60 * 1000;
-    res.cookie('refresh_token', refresh_token, {
+    res.cookie('refresh_token', newRefreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
@@ -162,6 +163,6 @@ export class AuthController {
         this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
     });
 
-    return { access_token, refresh_token };
+    return { accessToken, refreshToken: newRefreshToken };
   }
 }

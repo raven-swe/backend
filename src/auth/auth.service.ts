@@ -493,7 +493,7 @@ export class AuthService {
       10,
     );
     const { refreshToken, hashedRefreshToken, expiresAt } =
-      await this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
+      this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
@@ -535,8 +535,11 @@ export class AuthService {
     }
     return { exists: false };
   private async generateRefreshTokenWithExpiry(expiryInDays: number) {
+  private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const hash = crypto.createHash('sha256');
+    hash.update(refreshToken);
+    const hashedRefreshToken = hash.digest('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiryInDays);
     return { refreshToken, hashedRefreshToken, expiresAt };
@@ -572,12 +575,12 @@ export class AuthService {
       refreshToken: newRefreshToken,
       hashedRefreshToken: newHashedRefreshToken,
       expiresAt,
-    } = await this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
-    //
+    } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
+
     await this.prisma.refresh_tokens.update({
       where: { id: oldToken.id },
       data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
     });
-    return { refresh_token: newRefreshToken, access_token: accessToken };
+    return { refreshToken: newRefreshToken, accessToken };
   }
 }
