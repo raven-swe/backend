@@ -651,10 +651,10 @@ namespace Auth {
     @route("/resend-otp")
     op resendOtpPassword(
       @body body: {
-        token: string;
+        confirmationToken: string;
       },
     ):
-      | MessageResponse<"otp resent successfully.">
+      | MessageResponse<"OTP resent successfully.">
       | BadRequestResponse
       | RateLimitResponse
       | InternalServerErrorResponse;

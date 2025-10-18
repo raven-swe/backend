@@ -21,6 +21,7 @@ import {
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { hashPassword } from './utils/password.util';
+import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
 
 interface CachedRegistrationData {
   email: string;
@@ -205,38 +206,24 @@ export class AuthService {
     if (!data) {
       throw new HttpException(
         {
-          message: 'Invalid or expired creation token',
-          code: 'INVALID_TOKEN',
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
         },
         HttpStatus.BAD_REQUEST,
       );
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
-    const resendKey = `otp_resend:${registrationData.email}`;
-    const attempts = await this.redisService.get(resendKey);
-    if (attempts && parseInt(attempts) >= this.otpResendLimit) {
-      throw new HttpException(
-        'OTP resend limit reached. Please try again later.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
+    const resendKey = REDIS_KEYS.OTP_RESEND(registrationData.email);
 
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = await bcrypt.hash(otp, 10);
-    registrationData.otp = hashedOtp;
-
-    await this.redisService.set(redisKey, JSON.stringify(registrationData), this.registrationTTL);
-    await this.redisService.set(
+    await this.generateAndSendOtp(
+      redisKey,
+      registrationData.email,
       resendKey,
-      String((Number(attempts) || 0) + 1),
-      this.otpResendWindow,
+      this.registrationTTL,
+      registrationData,
     );
 
-    await this.emailQueue.add('sendOtp', {
-      email: registrationData.email,
-      otp: otp,
-    });
     this.logger.log(`Resent OTP for ${registrationData.email}`);
     return { message: 'OTP resent successfully' };
   }
@@ -360,5 +347,40 @@ export class AuthService {
 
     this.logger.log(`Password reset completed for ${passwordResetData.email}`);
     return { message: 'Password reset successfully.' };
+  }
+
+  async resendPasswordOtp(
+    resendPasswordOtpDto: ResendPasswordOtpDto,
+  ): Promise<{ message: string }> {
+    this.logger.log(`Confirmation Token: ${resendPasswordOtpDto.confirmationToken}`);
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(resendPasswordOtpDto.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    this.logger.log(`Looking for key: ${redisKey}`);
+    this.logger.log(`Data found: ${!!data}`);
+
+    if (!data) {
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email);
+
+    await this.generateAndSendOtp(
+      redisKey,
+      passwordResetData.email,
+      resendKey,
+      this.passwordResetTTL,
+      passwordResetData,
+    );
+
+    this.logger.log(`Resent password reset OTP for ${passwordResetData.email}`);
+    return { message: 'OTP resent successfully' };
   }
 }

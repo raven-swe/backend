@@ -10,6 +10,7 @@ import type { Response } from 'express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -77,5 +78,10 @@ export class AuthController {
   @Post('password/reset')
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return await this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post('password/resend-otp')
+  async resendPasswordOtp(@Body() resendPasswordOtpDto: ResendPasswordOtpDto) {
+    return await this.authService.resendPasswordOtp(resendPasswordOtpDto);
   }
 }
