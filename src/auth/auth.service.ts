@@ -19,6 +19,7 @@ import {
   REDIS_KEYS,
 } from 'src/common/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 interface CachedRegistrationData {
   email: string;
@@ -180,10 +181,12 @@ export class AuthService {
       birthDate: registrationData.birthDate,
       languageCode: LanguageCode.EN, //until we start user profiles
     };
+
     const user = await this.usersService.createUser(userData);
     const accessToken = await this.generateAccessToken(user.id);
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+
     // clean up redis entry
     await this.redisService.del(redisKey);
     await this.redisService.del(`otp_resend:${registrationData.email}`);
@@ -299,7 +302,6 @@ export class AuthService {
     const redisKey = REDIS_KEYS.PASSWORD_RESET(verifyForgotPassword.confirmationToken);
     const data = await this.redisService.get(redisKey);
 
-    this.logger.log("Data", data);
     if (!data) {
       throw new HttpException(
         {
@@ -324,5 +326,28 @@ export class AuthService {
     this.logger.log(`Password reset OTP verified for ${passwordResetData.email}`);
 
     return { message: 'Password reset verified successfully.' };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(resetPasswordDto.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    if (!data) {
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if user's data is verified or not
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    if (!passwordResetData.verified) {
+      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
+    }
+
+    return { message: 'Password reset successfully.' };
   }
 }

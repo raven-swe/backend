@@ -32,4 +32,11 @@ export class UsersService {
   }) {
     return this.usersRepository.createUser(data);
   }
+
+  /**
+   * Update user's password by user id
+   */
+  async updatePassword(userId: bigint, hashedPassword: string) {
+    return this.usersRepository.updatePassword(userId, hashedPassword);
+  }
 }
