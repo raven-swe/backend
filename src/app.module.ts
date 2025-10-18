@@ -10,6 +10,7 @@ import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { DevicesModule } from './devices/devices.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
     EmailModule,
     RecaptchaModule,
     RefreshTokensModule,
+    DevicesModule,
   ],
   controllers: [],
   providers: [
