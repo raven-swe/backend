@@ -509,13 +509,6 @@ model Tweet {
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
-model TweetMetadata {
-  primaryTweetId: string;
-  primaryTweetSnippet: string;
-
-  @minItems(1)
-  relatedTweetsIds: string[];
-}
 
 model Notification {
   @doc("Unique ID for the notification event.")
@@ -526,7 +519,7 @@ model Notification {
   triggeredBy: UserMetadata[]; // for multiple users like multiple likes
 
   @doc("A snippet of the related tweet, if applicable.")
-  relatedTweets: TweetMetadata | null; // for tweet related notifications
+  relatedTweets: Tweet[]; // for tweet related notifications
 
   @doc("The type of notification.")
   type: NotificationType;
@@ -1442,15 +1435,6 @@ namespace Tweets {
     | NotFoundResponse
     | UnauthorizedResponse
     | ForbiddenResponse
-    | InternalServerErrorResponse;
-
-  @get
-  @route("/{id}/likes")
-  @summary("Get users who liked my tweet")
-  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<UserMetadata[]>
-    | NotFoundResponse
-    | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
 
