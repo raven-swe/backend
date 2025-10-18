@@ -1,29 +1,55 @@
 import { BadRequestException } from '@nestjs/common';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
-import { ProviderProfile } from '../interfaces/oauth.interface';
+import { ProviderProfile } from '../types/oauth.type';
 
 interface GithubUserResponse {
   id: number | string;
   email: string;
   name: string;
   login: string;
+  avatar_url: string;
 }
 
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
-  async validateToken(providerTokenId: string): Promise<ProviderProfile> {
-    const res = await fetch('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${providerTokenId}` },
+  async validateToken(provider_token_id: string): Promise<ProviderProfile> {
+    const res = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_CLIENT_ID!,
+        client_secret: process.env.GITHUB_CLIENT_SECRET!,
+        code: provider_token_id,
+        redirect_uri: process.env.GITHUB_REDIRECT_URI!,
+      }),
     });
+
     if (!res.ok) {
+      throw new BadRequestException('Invalid GitHub code');
+    }
+
+    const githubAccess = (await res.json()) as { access_token: string };
+
+    if (!githubAccess.access_token) throw new BadRequestException("Couldn't get the access token");
+
+    const code = githubAccess.access_token;
+
+    const userDataRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${code}` },
+    });
+
+    if (!userDataRes.ok) {
       throw new BadRequestException('Invalid GitHub token');
     }
-    const githubData = (await res.json()) as GithubUserResponse;
+    const githubData = (await userDataRes.json()) as GithubUserResponse;
 
     // handling email not returned from the first request
     let email = githubData.email ?? null;
     if (!email) {
       const emailsRes = await fetch('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${providerTokenId}` },
+        headers: { Authorization: `Bearer ${code}` },
       });
 
       if (!emailsRes.ok) {
@@ -49,6 +75,7 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       id: String(githubData.id),
       email,
       name: githubData.name,
+      avatar_url: githubData.avatar_url,
       provider: 'github',
     };
   }

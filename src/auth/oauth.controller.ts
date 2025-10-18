@@ -1,36 +1,52 @@
-import { Controller, Post, Body, Param } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { Controller, Post, Body, Param, Headers } from '@nestjs/common';
+import { oAuthService } from './oauth.service';
+import { ConfigService } from '@nestjs/config';
+import * as useragent from 'useragent';
 import { BadRequestException } from '@nestjs/common';
 import {
   SUPPORTED_OAUTH_PROVIDERS,
   SupportedOAuthProvider,
 } from './constants/supported-oauth-providers';
+import { OauthCallbackDto } from './dtos/oauth-callback.dto';
+import { OauthCompleteDto } from './dtos/oauth-complete.dto';
 
 @Controller('oauth')
 export class OauthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly oAuthService: oAuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post(':provider/callback')
   async providerCallback(
     @Param('provider') provider: string,
-    @Body('provider_token_id') providerTokenId: string,
+    @Body() oAuthCallbackDto: OauthCallbackDto,
+    @Headers('user-agent') agentString: string,
   ) {
-    if (!providerTokenId) {
-      throw new BadRequestException('provider_token_id is required in request body');
-    }
+    const agent = useragent.parse(agentString);
 
     if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
       throw new BadRequestException('Unsupported provider');
     }
 
-    return this.authService.handleOauthToken(provider as SupportedOAuthProvider, providerTokenId);
+    return this.oAuthService.handleOauthToken(
+      provider as SupportedOAuthProvider,
+      oAuthCallbackDto.providerTokenId,
+      agent,
+    );
   }
 
   @Post('complete')
-  async completeOauthRegister(@Body() body: { creationToken: string; birthDate: string }) {
-    if (!body || !body.creationToken || !body.birthDate) {
-      throw new BadRequestException('creationToken and birthDate are required in request body');
-    }
-    return this.authService.completeOauthRegister(body.creationToken, body.birthDate);
+  async completeOauthRegister(
+    @Body() oAuthCompleteDto: OauthCompleteDto,
+    @Headers('user-agent') agentString: string,
+  ) {
+    const agent = useragent.parse(agentString);
+
+    return this.oAuthService.completeOauthRegister(
+      oAuthCompleteDto.creationToken,
+      oAuthCompleteDto.birthDate,
+      agent,
+    );
   }
 }
