@@ -1,7 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { OtpFailedException } from '../exceptions/otp.exception';
 import {
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
