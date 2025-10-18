@@ -9,6 +9,7 @@ import { RecaptchaFailedException } from './exceptions/recaptcha.exception';
 import type { Response } from 'express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -71,5 +72,10 @@ export class AuthController {
   @Post('password/forgot/verify')
   async verifyForgotPasswordOtp(@Body() verifyForgotPasswordOtp: VerifyForgotPasswordDto) {
     return await this.authService.verifyForgotPassword(verifyForgotPasswordOtp);
+  }
+
+  @Post('password/reset')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return await this.authService.resetPassword(resetPasswordDto);
   }
 }

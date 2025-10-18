@@ -20,6 +20,7 @@ import {
 } from 'src/common/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { hashPassword } from './utils/password.util';
 
 interface CachedRegistrationData {
   email: string;
@@ -177,7 +178,7 @@ export class AuthService {
     const userData = {
       email: registrationData.email,
       username: registrationData.email,
-      password: completeRegistrationDto.password,
+      password: await hashPassword(completeRegistrationDto.password),
       birthDate: registrationData.birthDate,
       languageCode: LanguageCode.EN, //until we start user profiles
     };
@@ -348,6 +349,16 @@ export class AuthService {
       throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
     }
 
+    // Update user with his new password
+    const userId = BigInt(passwordResetData.userId);
+    const hashedPassword = await hashPassword(resetPasswordDto.newPassword);
+    await this.usersService.updatePassword(userId, hashedPassword);
+
+    // Delete redis reset password keys
+    await this.redisService.del(redisKey);
+    await this.redisService.del(REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email));
+
+    this.logger.log(`Password reset completed for ${passwordResetData.email}`);
     return { message: 'Password reset successfully.' };
   }
 }
