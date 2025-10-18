@@ -1,0 +1,21 @@
+meta {
+  name: Oauth Callback
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/oauth/github/callback
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "provider_token_id": ""
+  }
+}
+
+settings {
+  encodeUrl: true
+}

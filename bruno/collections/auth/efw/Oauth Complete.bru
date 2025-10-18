@@ -1,0 +1,22 @@
+meta {
+  name: Oauth Complete
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/oauth/complete
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "creationToken": "",
+    "birthDate": "2003-08-04"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

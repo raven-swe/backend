@@ -14,6 +14,7 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       exceptionFactory: (errors) => new BadRequestException(errors),
+      forbidUnknownValues: false,
     }),
   );
   await app.listen(process.env.PORT ?? 3000);

@@ -94,7 +94,7 @@ describe('AuthService', () => {
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    service = module.get<oAuthService>(oAuthService);
   });
 
   afterEach(() => {

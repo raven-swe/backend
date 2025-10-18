@@ -54,7 +54,8 @@
     "passport-github2": "^0.1.12",
     "prisma": "^6.17.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "useragent": "^2.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -69,6 +70,7 @@
     "@types/nodemailer": "^7.0.2",
     "@types/passport-github2": "^1.2.9",
     "@types/supertest": "^6.0.2",
+    "@types/useragent": "^2.3.4",
     "@typespec/compiler": "^1.5.0",
     "@typespec/http": "^1.5.0",
     "@typespec/openapi3": "^1.5.0",
