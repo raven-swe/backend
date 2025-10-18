@@ -725,16 +725,24 @@ namespace Auth {
     | InternalServerErrorResponse;
 
   @post
-  @summary("Logout the user by invalidating the refresh token for this client only")
   @route("/logout")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   @useAuth(BearerAuth)
   op logout(
+    @cookie("refresh_token") refreshToken?: string,
+    @body body?: {
+      refreshToken: string;
+    },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @post
   @route("/refresh-token")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   op refreshToken(
-    @body body: {
+    @cookie("refresh_token") refreshToken?: string,
+    @body body?: {
       refreshToken: string;
     },
   ):
