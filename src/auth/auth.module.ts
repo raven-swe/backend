@@ -6,6 +6,7 @@ import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
 import { BullModule } from '@nestjs/bullmq';
+import { DevicesModule } from 'src/devices/devices.module';
 @Module({
   imports: [
     UsersModule,
@@ -18,6 +19,7 @@ import { BullModule } from '@nestjs/bullmq';
     BullModule.registerQueue({
       name: 'email',
     }),
+    DevicesModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, Logger, UsersService],
