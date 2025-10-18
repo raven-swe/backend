@@ -26,3 +26,10 @@ export const REDIS_KEYS = {
   PASSWORD_RESET: (token: string) => `password_reset:${token}`,
   OTP_RESEND_PASSWORD_RESET: (email: string) => `otp_resend:password_reset:${email}`,
 } as const;
+
+export const AUTH_CONFIG = {
+  REGISTRATION_TTL: 300, // 5 minutes
+  PASSWORD_RESET_TTL: 300,
+  OTP_RESEND_LIMIT: 5,
+  OTP_RESEND_WINDOW: 600, // 10 minutes
+};
