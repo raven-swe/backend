@@ -329,12 +329,8 @@ export class AuthService {
   async resendPasswordOtp(
     resendPasswordOtpDto: ResendPasswordOtpDto,
   ): Promise<{ message: string }> {
-    this.logger.log(`Confirmation Token: ${resendPasswordOtpDto.confirmationToken}`);
     const redisKey = REDIS_KEYS.PASSWORD_RESET(resendPasswordOtpDto.confirmationToken);
     const data = await this.redisService.get(redisKey);
-
-    this.logger.log(`Looking for key: ${redisKey}`);
-    this.logger.log(`Data found: ${!!data}`);
 
     if (!data) {
       throw new HttpException(
