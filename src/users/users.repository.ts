@@ -44,4 +44,11 @@ export class UsersRepository {
       },
     });
   }
+
+  async updatePassword(userId: bigint, hashedPassword: string) {
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { password_hash: hashedPassword },
+    });
+  }
 }
