@@ -34,6 +34,7 @@ import { DevicesModule } from './devices/devices.module';
     }),
     AuthModule,
     UsersModule,
+    DevicesModule,
     RedisModule,
     PrismaModule,
     EmailModule,

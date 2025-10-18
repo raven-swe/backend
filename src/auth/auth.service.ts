@@ -24,6 +24,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { hashPassword } from './utils/password.util';
 import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
 import { generateAndStoreOtp } from './utils/otp.util';
+import { DevicesService } from 'src/devices/devices.service';
 
 interface CachedRegistrationData {
   email: string;
@@ -50,6 +51,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectQueue('email') private emailQueue: Queue,
     private readonly recaptchaService: RecaptchaService,
+    private readonly devicesService: DevicesService,
   ) {}
 
   async startRegistration(
@@ -307,12 +309,16 @@ export class AuthService {
       throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
     }
 
-    // Update user with his new password
+    // Update user with new password
     const userId = BigInt(passwordResetData.userId);
     const hashedPassword = await hashPassword(resetPasswordDto.newPassword);
     await this.usersService.updatePassword(userId, hashedPassword);
 
-    // Delete redis reset password keys
+    // Remove all devices/sessions for this user
+    await this.devicesService.removeAllUserDevices(userId);
+    this.logger.log(`Logged out user ${userId} from all devices after password reset`);
+
+    // Clean up redis entries
     await this.redisService.del(redisKey);
     await this.redisService.del(REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email));
 
