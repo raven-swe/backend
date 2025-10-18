@@ -17,11 +17,13 @@ import {
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
   REDIS_KEYS,
+  AUTH_CONFIG,
 } from 'src/common/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { hashPassword } from './utils/password.util';
 import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
+import { generateAndStoreOtp } from './utils/otp.util';
 
 interface CachedRegistrationData {
   email: string;
@@ -40,10 +42,6 @@ interface CachedPasswordResetData {
 
 @Injectable()
 export class AuthService {
-  private readonly registrationTTL = 300; // 5 minutes
-  private readonly passwordResetTTL = 300;
-  private readonly otpResendLimit = 5;
-  private readonly otpResendWindow = 600; // 10 minutes
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -53,53 +51,6 @@ export class AuthService {
     @InjectQueue('email') private emailQueue: Queue,
     private readonly recaptchaService: RecaptchaService,
   ) {}
-
-  private async generateAndSendOtp<T extends { otp: string; verified: boolean }>(
-    redisKey: string,
-    email: string,
-    resendKey: string,
-    ttl: number,
-    data: Omit<T, 'otp' | 'verified'>,
-  ): Promise<string> {
-    // Track resend attempts to rate-limit
-    const attempts = await this.redisService.get(resendKey);
-
-    if (attempts && parseInt(attempts) >= this.otpResendLimit) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
-          code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    // Generate and hash a random otp
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = await bcrypt.hash(otp, 10);
-
-    const dataWithOtp: T = {
-      ...data,
-      otp: hashedOtp,
-      verified: false,
-    } as T;
-
-    // Save to redis and increase number of attempts
-    await this.redisService.set(redisKey, JSON.stringify(dataWithOtp), ttl);
-    await this.redisService.set(
-      resendKey,
-      String((Number(attempts) || 0) + 1),
-      this.otpResendWindow,
-    );
-
-    // Send the otp to the user
-    await this.emailQueue.add('sendOtp', {
-      email,
-      otp,
-    });
-
-    return otp;
-  }
 
   async startRegistration(
     startRegistrationDto: StartRegistrationDto,
@@ -127,12 +78,16 @@ export class AuthService {
       verified: false,
     };
 
-    await this.generateAndSendOtp(
-      redisKey,
-      startRegistrationDto.email,
-      resendKey,
-      this.registrationTTL,
-      registrationData,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: startRegistrationDto.email,
+        resendKey,
+        ttl: AUTH_CONFIG.REGISTRATION_TTL,
+        data: registrationData,
+        emailQueue: this.emailQueue,
+      },
+      this.redisService,
     );
 
     this.logger.log(`Started registration for ${startRegistrationDto.email}`);
@@ -159,7 +114,11 @@ export class AuthService {
     }
 
     registrationData.verified = true;
-    await this.redisService.set(redisKey, JSON.stringify(registrationData), this.registrationTTL);
+    await this.redisService.set(
+      redisKey,
+      JSON.stringify(registrationData),
+      AUTH_CONFIG.REGISTRATION_TTL,
+    );
     this.logger.log(`OTP verified for ${registrationData.email}`);
     return { message: 'OTP verified successfully' };
   }
@@ -216,12 +175,16 @@ export class AuthService {
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     const resendKey = REDIS_KEYS.OTP_RESEND(registrationData.email);
 
-    await this.generateAndSendOtp(
-      redisKey,
-      registrationData.email,
-      resendKey,
-      this.registrationTTL,
-      registrationData,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: registrationData.email,
+        resendKey,
+        ttl: AUTH_CONFIG.REGISTRATION_TTL,
+        data: registrationData,
+        emailQueue: this.emailQueue,
+      },
+      this.redisService,
     );
 
     this.logger.log(`Resent OTP for ${registrationData.email}`);
@@ -272,12 +235,16 @@ export class AuthService {
       verified: false,
     };
 
-    await this.generateAndSendOtp(
-      redisKey,
-      user.email,
-      resendKey,
-      this.passwordResetTTL,
-      passwordResetData,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: user.email,
+        resendKey,
+        ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        data: passwordResetData,
+        emailQueue: this.emailQueue,
+      },
+      this.redisService,
     );
 
     this.logger.log(`Password reset initiated for ${user.email}`);
@@ -310,7 +277,11 @@ export class AuthService {
 
     // Verify otp
     passwordResetData.verified = true;
-    await this.redisService.set(redisKey, JSON.stringify(passwordResetData), this.passwordResetTTL);
+    await this.redisService.set(
+      redisKey,
+      JSON.stringify(passwordResetData),
+      AUTH_CONFIG.PASSWORD_RESET_TTL,
+    );
     this.logger.log(`Password reset OTP verified for ${passwordResetData.email}`);
 
     return { message: 'Password reset verified successfully.' };
@@ -372,12 +343,16 @@ export class AuthService {
     const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
     const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email);
 
-    await this.generateAndSendOtp(
-      redisKey,
-      passwordResetData.email,
-      resendKey,
-      this.passwordResetTTL,
-      passwordResetData,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: passwordResetData.email,
+        resendKey,
+        ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        data: passwordResetData,
+        emailQueue: this.emailQueue,
+      },
+      this.redisService,
     );
 
     this.logger.log(`Resent password reset OTP for ${passwordResetData.email}`);
