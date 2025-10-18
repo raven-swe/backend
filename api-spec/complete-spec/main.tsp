@@ -510,25 +510,50 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+@doc("Specific actions that can trigger notifications.")
+enum NotificationAction {
+  LIKE,
+  RETWEET,
+  REPLY,
+  QUOTE,
+  MENTION,
+  FOLLOW,
+}
+
+@doc("Summarizes the users (actors) who triggered a notification.")
+model NotificationActorSummary {
+  @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
+  @maxItems(3)
+  previewActors: UserMetadata[];
+
+  @doc("The total count of all users (e.g., for '...and 4 others').")
+  @minValue(1)
+  totalActorCount: int32;
+}
+
+@doc("Represents a single notification item for a user.")
 model Notification {
   @doc("Unique ID for the notification event.")
   id: string;
 
-  @doc("A list of users who triggered this notification.")
-  @minItems(1) // A notification must be triggered by at least one user
-  triggeredBy: UserMetadata[]; // for multiple users like multiple likes
+  @doc("The specific action that triggered this notification.")
+  action: NotificationAction;
 
-  @doc("A snippet of the related tweet, if applicable.")
-  relatedTweets: Tweet[]; // for tweet related notifications
+  @doc("Summary of the user(s) who triggered this notification.")
+  actorSummary: NotificationActorSummary;
 
-  @doc("The type of notification.")
-  type: NotificationType;
+  @doc("The primary, new tweet(s) that are the subject of this notification.\ne.g., the new reply, the new quote, or the set of tweets that were liked.")
+  @minItems(0)
+  primaryTweets?: Tweet[];
 
-  @doc("The timestamp when the notification was created.")
-  createdAt: utcDateTime;
+  @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
+  parentTweet?: Tweet;
 
-  @doc("Indicates whether the notification has been seen by the user.")
-  isSeen: boolean;
+  @doc("Timestamp of the *latest* event in this aggregation.")
+  latestEventAt: utcDateTime;
+
+  @doc("Indicates whether the notification has been read.")
+  isRead: boolean;
 }
 
 enum NotificationType {
