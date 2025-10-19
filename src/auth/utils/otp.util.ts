@@ -8,6 +8,8 @@ import {
 } from 'src/common/constants/auth.constants';
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
+import { OtpType } from 'src/email/email.service';
+import { EmailJobData } from 'src/email/email.consumer';
 
 interface GenerateAndStoreOtpParams<T extends { otp: string; verified: boolean }> {
   redisKey: string;
@@ -16,6 +18,8 @@ interface GenerateAndStoreOtpParams<T extends { otp: string; verified: boolean }
   ttl: number;
   data: Omit<T, 'otp' | 'verified'>;
   emailQueue: Queue;
+  otpType: OtpType;
+  username?: string; // Optional, only for forget password
 }
 
 /**
@@ -28,7 +32,7 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
   params: GenerateAndStoreOtpParams<T>,
   redisService: RedisService,
 ): Promise<string> {
-  const { redisKey, email, resendKey, ttl, data, emailQueue } = params;
+  const { redisKey, email, resendKey, ttl, data, emailQueue, otpType, username } = params;
 
   // Track resend attempts to rate-limit
   const attempts = await redisService.get(resendKey);
@@ -61,11 +65,15 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
     AUTH_CONFIG.OTP_RESEND_WINDOW,
   );
 
-  // Send the otp to the user
-  await emailQueue.add('sendOtp', {
+  // Send the otp to the user with type
+  const jobData: EmailJobData = {
+    type: otpType,
     email,
     otp,
-  });
+    username: username || '',
+  };
+
+  await emailQueue.add('sendOtp', jobData);
 
   return otp;
 }
