@@ -12,10 +12,10 @@ import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import type { RequestUser } from './types';
-import { User } from './decorators/user.decorator';
-import * as useragent from 'useragent';
+import { User, IPAddress } from './decorators';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { UAParser } from 'ua-parser-js';
 
 @Controller('auth')
 export class AuthController {
@@ -72,11 +72,13 @@ export class AuthController {
   @Post('login')
   async login(
     @User() user: RequestUser,
+    @IPAddress() ipAddress: string,
     @Res({ passthrough: true }) res: Response,
     @Headers('user-agent') agentString: string,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    const agent = useragent.parse(agentString);
-    const { accessToken, refreshToken } = await this.authService.login(user, agent);
+    const agent = UAParser(agentString);
+    const { accessToken, refreshToken } = await this.authService.login(user, agent, ipAddress);
     const daysToMillis = 24 * 60 * 60 * 1000;
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,

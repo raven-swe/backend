@@ -279,7 +279,6 @@ import { RequestUser } from './types';
 import * as bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
-import useragent from 'useragent';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -305,8 +304,17 @@ export class AuthService {
     return null;
   }
 
-  async login(user: RequestUser, agent: useragent.Agent) {
+  private deviceParser(agent: UAParser.IResult) {
+    const browser = agent.browser;
+    const os = agent.os;
+    const device = agent.device;
+
+    return `${browser.name || 'Unknown'} on ${os.name || 'Unknown'} (${device.type || 'Desktop'})`;
+  }
+
+  async login(user: RequestUser, agent: UAParser.IResult, ipAddress: string) {
     const accessToken = this.jwtService.sign(user);
+
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const hash = crypto.createHash('sha256');
     hash.update(refreshToken);
@@ -315,11 +323,13 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
 
+    const deviceType = this.deviceParser(agent);
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
         data: {
           user_id: BigInt(user.id),
-          device_type: agent.toString(),
+          device_type: deviceType,
+          ip_address: ipAddress,
         },
       });
 
