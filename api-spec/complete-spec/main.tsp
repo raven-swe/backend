@@ -710,6 +710,7 @@ namespace Auth {
   @post
   @route("/login")
   op login(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       identifier: string;
       password: string;
@@ -730,6 +731,7 @@ namespace Auth {
   @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   @useAuth(BearerAuth)
   op logout(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @cookie("refresh_token") refreshToken?: string,
     @body body?: {
       refreshToken: string;
@@ -741,6 +743,7 @@ namespace Auth {
   @doc("refresh token is required in cookie from web clints and in body from mobile clients")
   @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   op refreshToken(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @cookie("refresh_token") refreshToken?: string,
     @body body?: {
       refreshToken: string;
