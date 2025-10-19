@@ -16,6 +16,8 @@ import { User, IPAddress } from './decorators';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { UAParser } from 'ua-parser-js';
+import { Throttle } from '@nestjs/throttler';
+import { CheckIdentifierQueryDto } from './dtos';
 
 @Controller('auth')
 export class AuthController {
@@ -93,5 +95,11 @@ export class AuthController {
       maxAge: this.config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis || 30 * daysToMillis,
     });
     return { accessToken };
+  }
+
+  @Get('check-identifier')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
+    return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
   }
 }

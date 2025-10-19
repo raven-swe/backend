@@ -347,4 +347,21 @@ export class AuthService {
       refreshToken,
     };
   }
+
+  async checkIdentifier(identifier: string) {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+
+    if (user) {
+      return {
+        exists: true,
+        type:
+          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+      };
+    }
+    return { exists: false };
+  }
 }
