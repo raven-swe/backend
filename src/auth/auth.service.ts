@@ -555,13 +555,20 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string) {
     const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
     const oldToken = await this.prisma.refresh_tokens.findUnique({
+  private async getTokenByHash(hash: string) {
+    return await this.prisma.refresh_tokens.findUnique({
       where: {
-        token_hash: hashedRefreshToken,
+        token_hash: hash,
       },
       include: {
         user: { select: { id: true, username: true } },
       },
     });
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const oldToken = await this.getTokenByHash(hashedRefreshToken);
 
     if (!oldToken) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -584,10 +591,11 @@ export class AuthService {
     } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.refresh_tokens.update({
-      where: { id: oldToken.id },
+      where: { id: BigInt(oldToken.id) },
       data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
     });
     return { refreshToken: newRefreshToken, accessToken };
+  }
   async checkIdentifier(identifier: string) {
     const user = await this.prisma.users.findFirst({
       where: {
@@ -604,13 +612,17 @@ export class AuthService {
     }
     return { exists: false };
   }
-  async login(user: RequestUser) {
-    //TODO: 1 - the user is the one that is sent from validateUser method
-    //TODO: 2 - create a new refresh token and return it with the body
-    const payload: RequestUser = user;
-    return Promise.resolve({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    };
+
+  async clearRefreshToken(userId: string, refreshToken: string) {
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const token = await this.getTokenByHash(hashedRefreshToken);
+    if (token) {
+      await this.prisma.$transaction([
+        this.prisma.refresh_tokens.delete({
+          where: { id: BigInt(token.id), user_id: BigInt(userId) },
+        }),
+        this.prisma.user_devices.delete({ where: { id: BigInt(token.device_id) } }),
+      ]);
+    }
   }
 }

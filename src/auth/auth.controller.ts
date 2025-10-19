@@ -233,6 +233,8 @@ export class AuthController {
         this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
     });
     return { accessToken };
+  }
+
   @Get('check-identifier')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
@@ -241,13 +243,32 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: this.config.get('NODE_ENV') === 'production',
-      sameSite: 'none',
-    });
+  @HttpCode(200)
+  async logout(
+    @Req() req: RequestWithCookies,
+    @Res({ passthrough: true }) res: Response,
+    @User() user: RequestUser,
+    @Body() logoutDto: LogoutDto,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
+  ) {
+    if (!clientType) {
+      throw new UnauthorizedException();
+    }
+    let refreshToken;
+    if (clientType === 'web') {
+      refreshToken = req.cookies?.refresh_token;
+      res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: this.config.get('NODE_ENV') === 'production',
+        sameSite: 'none',
+      });
+    } else if (clientType === 'mobile') {
+      refreshToken = logoutDto.refresh_token;
+    }
+    if (refreshToken) {
+      await this.authService.clearRefreshToken(user.id, refreshToken);
+    }
 
-    return { message: 'Logout successful' };
+    return { message: 'Logged out successfully' };
   }
 }
