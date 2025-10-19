@@ -834,6 +834,14 @@ namespace Auth {
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username or email is already taken")
+  @route("/check-identifier")
+  op checkIdentifier(@query identifier: string): DataResponse<{
+    exists: boolean;
+    type: "username" | "email";
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
