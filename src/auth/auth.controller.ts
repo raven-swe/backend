@@ -5,6 +5,7 @@ import {
   Get,
   Query,
   Req,
+  Query,
   Res,
   UnauthorizedException,
   UseGuards,
@@ -232,5 +233,9 @@ export class AuthController {
         this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
     });
     return { accessToken };
+  @Get('check-identifier')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
+    return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
   }
 }

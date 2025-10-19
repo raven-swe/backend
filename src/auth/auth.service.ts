@@ -588,6 +588,21 @@ export class AuthService {
       data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
     });
     return { refreshToken: newRefreshToken, accessToken };
+  async checkIdentifier(identifier: string) {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+
+    if (user) {
+      return {
+        exists: true,
+        type:
+          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+      };
+    }
+    return { exists: false };
   }
   async login(user: RequestUser) {
     //TODO: 1 - the user is the one that is sent from validateUser method
