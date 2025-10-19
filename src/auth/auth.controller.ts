@@ -139,22 +139,33 @@ export class AuthController {
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
   @Post('refresh-token')
+  @HttpCode(200)
   async refrehAccessToken(
     @Req() req: RequestWithCookies,
     @Body() refreshTokenDto: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    let refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) {
+    if (!clientType) {
+      throw new UnauthorizedException();
+    }
+    let refreshToken;
+    if (clientType === 'web') {
+      refreshToken = req.cookies?.refresh_token;
+    } else if (clientType === 'mobile') {
       refreshToken = refreshTokenDto.refresh_token;
     }
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
     }
+
     const { accessToken, refreshToken: newRefreshToken } =
       await this.authService.refreshAccessToken(refreshToken);
 
     const daysToMillis = 24 * 60 * 60 * 1000;
+    if (clientType == 'mobile') {
+      return { accessToken, refreshToken: newRefreshToken };
+    }
     res.cookie('refresh_token', newRefreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
@@ -162,7 +173,6 @@ export class AuthController {
       maxAge:
         this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
     });
-
-    return { accessToken, refreshToken: newRefreshToken };
+    return { accessToken };
   }
 }
