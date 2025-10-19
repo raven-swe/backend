@@ -552,9 +552,6 @@ export class AuthService {
     return hash.digest('hex');
   }
 
-  async refreshAccessToken(refreshToken: string) {
-    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-    const oldToken = await this.prisma.refresh_tokens.findUnique({
   private async getTokenByHash(hash: string) {
     return await this.prisma.refresh_tokens.findUnique({
       where: {
@@ -567,7 +564,7 @@ export class AuthService {
   }
 
   async refreshAccessToken(refreshToken: string) {
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
     const oldToken = await this.getTokenByHash(hashedRefreshToken);
 
     if (!oldToken) {
@@ -614,7 +611,7 @@ export class AuthService {
   }
 
   async clearRefreshToken(userId: string, refreshToken: string) {
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
     const token = await this.getTokenByHash(hashedRefreshToken);
     if (token) {
       await this.prisma.$transaction([
