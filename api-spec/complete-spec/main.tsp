@@ -693,6 +693,7 @@ namespace Auth {
     @summary("Complete the registration process by setting a password")
     @route("/complete")
     op completeRegister(
+      @header("X-Client-Type") clientType: "web" | "mobile",
       @body body: {
         creationToken: string;
         password: string;
