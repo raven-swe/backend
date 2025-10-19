@@ -510,14 +510,13 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
-@doc("Specific actions that can trigger notifications.")
-enum NotificationAction {
-  LIKE,
-  RETWEET,
-  REPLY,
-  QUOTE,
-  MENTION,
-  FOLLOW,
+@doc("Defines the filter categories for the notifications list.")
+enum NotificationFilter {
+  @doc("Show all types of notifications.")
+  all,
+
+  @doc("Show only conversational notifications like replies, mentions, and quotes.")
+  mentions,
 }
 
 @doc("Summarizes the users (actors) who triggered a notification.")
@@ -537,7 +536,7 @@ model Notification {
   id: string;
 
   @doc("The specific action that triggered this notification.")
-  action: NotificationAction;
+  type: NotificationType;
 
   @doc("Summary of the user(s) who triggered this notification.")
   actorSummary: NotificationActorSummary;
@@ -1331,6 +1330,10 @@ namespace Notifications {
   @get
   op listUserNotifications(
     ...CursorPaginationParameters,
+
+    @query
+    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
+    filter?: NotificationFilter = NotificationFilter.all,
   ): NotificationsListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
