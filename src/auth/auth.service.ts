@@ -25,6 +25,7 @@ import { hashPassword } from './utils/password.util';
 import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { DevicesService } from 'src/devices/devices.service';
+import { OtpType } from 'src/email/email.service';
 
 interface CachedRegistrationData {
   email: string;
@@ -88,6 +89,7 @@ export class AuthService {
         ttl: AUTH_CONFIG.REGISTRATION_TTL,
         data: registrationData,
         emailQueue: this.emailQueue,
+        otpType: OtpType.REGISTRATION,
       },
       this.redisService,
     );
@@ -185,6 +187,7 @@ export class AuthService {
         ttl: AUTH_CONFIG.REGISTRATION_TTL,
         data: registrationData,
         emailQueue: this.emailQueue,
+        otpType: OtpType.REGISTRATION,
       },
       this.redisService,
     );
@@ -245,6 +248,7 @@ export class AuthService {
         ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
         data: passwordResetData,
         emailQueue: this.emailQueue,
+        otpType: OtpType.FORGOT_PASSWORD,
       },
       this.redisService,
     );
@@ -353,6 +357,7 @@ export class AuthService {
         ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
         data: passwordResetData,
         emailQueue: this.emailQueue,
+        otpType: OtpType.FORGOT_PASSWORD,
       },
       this.redisService,
     );

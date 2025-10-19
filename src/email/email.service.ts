@@ -7,6 +7,22 @@ export interface EmailOtpJob {
   otp: string;
 }
 
+export interface ForgotPasswordOtpJob {
+  email: string;
+  otp: string;
+  username: string;
+}
+
+export enum OtpType {
+  REGISTRATION = 'registration',
+  FORGOT_PASSWORD = 'forgotPassword',
+}
+
+export interface OtpEmailOptions extends EmailOtpJob {
+  type: OtpType;
+  username?: string;
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -24,21 +40,62 @@ export class EmailService {
     });
   }
 
-  async sendRegistrationOtp({ email, otp }: EmailOtpJob): Promise<void> {
-    const mailOptions = {
-      from: '"Raven Support" <no-reply@raven.com',
-      to: email,
-      subject: 'Your One-Time Password (OTP)',
-      html: `<h1>Welcome to Raven!</h1>
-          <p>Your OTP is: <strong>${otp}</strong></p>
+  /**
+   * Generic function that returns email template according to the email type
+   */
+  private getOtpEmailTemplate(
+    otp: string,
+    type: OtpType,
+    username?: string,
+  ): { subject: string; html: string } {
+    const templates: Record<OtpType, { subject: string; html: string }> = {
+      [OtpType.REGISTRATION]: {
+        subject: 'Your One-Time Password (OTP) - Welcome to Raven',
+        html: `<h1>Welcome to Raven!</h1>
+          <p>Thank you for signing up. Your One-Time Password (OTP) is:</p>
+          <p><strong>${otp}</strong></p>
           <p>This code will expire in 5 minutes.</p>`,
+      },
+      [OtpType.FORGOT_PASSWORD]: {
+        subject: 'Your One-Time Password (OTP) - Password Reset',
+        html: `<h1>Reset your password?</h1>
+          <p>If you requested a password reset for ${username}, use the confirmation code below to complete the process.</p>
+          <p><strong>${otp}</strong></p>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this, please ignore this email or contact support.</p>`,
+      },
     };
+
+    return templates[type];
+  }
+
+  private async sendEmail(email: string, subject: string, html: string): Promise<void> {
+    const mailOptions = {
+      from: '"Raven Support" <no-reply@raven.com>',
+      to: email,
+      subject,
+      html,
+    };
+
     try {
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`OTP email sent to ${email}`);
+      this.logger.log(`Email sent to ${email} - Subject: ${subject}`);
     } catch (error) {
-      this.logger.error(`Failed to send OTP email to ${email}`, error);
+      this.logger.error(`Failed to send email to ${email}`, error);
       throw error;
     }
+  }
+
+  async sendOtpEmail({ email, otp, type }: OtpEmailOptions): Promise<void> {
+    const { subject, html } = this.getOtpEmailTemplate(otp, type);
+    await this.sendEmail(email, subject, html);
+  }
+
+  async sendRegistrationOtp({ email, otp }: EmailOtpJob): Promise<void> {
+    await this.sendOtpEmail({ email, otp, type: OtpType.REGISTRATION });
+  }
+
+  async sendForgotPasswordOtp({ email, otp, username }: ForgotPasswordOtpJob): Promise<void> {
+    await this.sendOtpEmail({ email, otp, type: OtpType.FORGOT_PASSWORD, username });
   }
 }
