@@ -14,7 +14,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     const user = await this.authService.validateUser(identifier, password);
 
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('wrong credentials');
     }
     return user;
   }

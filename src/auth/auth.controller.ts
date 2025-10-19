@@ -80,13 +80,18 @@ export class AuthController {
     const agent = UAParser(agentString);
     const { accessToken, refreshToken } = await this.authService.login(user, agent, ipAddress);
     const daysToMillis = 24 * 60 * 60 * 1000;
+    if (!clientType) {
+      throw new UnauthorizedException();
+    }
+    if (clientType === 'mobile') {
+      return { accessToken, refreshToken };
+    }
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
       maxAge: this.config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis || 30 * daysToMillis,
     });
-
-    return { accessToken, refreshToken };
+    return { accessToken };
   }
 }
