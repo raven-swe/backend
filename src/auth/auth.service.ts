@@ -530,16 +530,20 @@ export class AuthService {
   private async generateRefreshTokenWithExpiry(expiryInDays: number) {
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hash = crypto.createHash('sha256');
-    hash.update(refreshToken);
-    const hashedRefreshToken = hash.digest('hex');
     const expiresAt = new Date();
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
     expiresAt.setDate(expiresAt.getDate() + expiryInDays);
     return { refreshToken, hashedRefreshToken, expiresAt };
   }
 
+  private hashStringDeterministic(str: string) {
+    const hash = crypto.createHash('sha256');
+    hash.update(str);
+    return hash.digest('hex');
+  }
+
   async refreshAccessToken(refreshToken: string) {
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
 
     const oldToken = await this.prisma.refresh_tokens.findUnique({
       where: {
