@@ -156,13 +156,20 @@ export class AuthController {
     } else if (clientType === 'mobile') {
       refreshToken = refreshTokenDto.refresh_token;
   @Post('refresh-token')
+  @HttpCode(200)
   async refrehAccessToken(
     @Req() req: RequestWithCookies,
     @Body() refreshTokenDto: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    let refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) {
+    if (!clientType) {
+      throw new UnauthorizedException();
+    }
+    let refreshToken;
+    if (clientType === 'web') {
+      refreshToken = req.cookies?.refresh_token;
+    } else if (clientType === 'mobile') {
       refreshToken = refreshTokenDto.refresh_token;
     }
     if (!refreshToken) {

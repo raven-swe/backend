@@ -485,13 +485,6 @@ export class AuthService {
   async login(user: RequestUser, deviceType: string, ipAddress: string) {
     const accessToken = await this.jwtService.signAsync({ id: user.id });
 
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hash = crypto.createHash('sha256');
-    hash.update(refreshToken);
-    const hashedRefreshToken = hash.digest('hex');
-    const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
       10,
