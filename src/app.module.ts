@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
@@ -33,11 +33,11 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     },
 
     {
-      provide: 'APP_FILTER',
+      provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
     {
-      provide: 'APP_INTERCEPTOR',
+      provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
     },
   ],
