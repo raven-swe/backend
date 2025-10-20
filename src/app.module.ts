@@ -9,6 +9,9 @@ import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { DevicesModule } from './device/device.module';
+import { HttpExceptionFilter } from './common/filters/http-response.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 @Module({
   imports: [
@@ -28,6 +31,7 @@ import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
     EmailModule,
     RecaptchaModule,
     RefreshTokensModule,
+    DevicesModule,
   ],
   controllers: [],
   providers: [
