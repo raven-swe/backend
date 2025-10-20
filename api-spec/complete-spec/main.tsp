@@ -1334,7 +1334,12 @@ namespace Notifications {
     @query
     @doc("Filters the notifications by a specific category. Defaults to 'all'.")
     filter?: NotificationFilter = NotificationFilter.all,
-  ): NotificationsListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+  ):
+    | NotificationsListResponse
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 
   @get
   @route("/count")
@@ -1350,9 +1355,15 @@ namespace Notifications {
 
   @patch
   @route("/{notificationId}/mark-seen")
-  op markNotificationAsSeen(@path notificationId: string): DataResponse<{
-    updatedCount: integer;
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  op markNotificationAsSeen(@path notificationId: string):
+    | DataResponse<{
+        updatedCount: integer;
+      }>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Tweets")
