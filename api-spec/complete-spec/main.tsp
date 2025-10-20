@@ -1916,3 +1916,4 @@ namespace Search {
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+  }
