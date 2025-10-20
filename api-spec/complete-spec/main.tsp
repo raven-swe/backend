@@ -1080,7 +1080,7 @@ namespace Search {
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<{}[]>
+    | DataResponseWithPagination<Tweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
