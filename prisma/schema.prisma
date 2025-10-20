@@ -215,6 +215,9 @@ model messages {
   conversation_with_last_message conversations?              @relation("conversations_last_message_idTomessages")
   conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user                           users                       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  media_url                      String?
+  is_deleted_sender              Boolean                     @default(false)
+  is_deleted_receiver            Boolean                     @default(false)
 
   @@index([conversation_id, created_at])
 }
