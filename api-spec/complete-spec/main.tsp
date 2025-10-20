@@ -820,6 +820,15 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @summary("User's preview window on hover")
+  @get
+  @route("/{username}/preview")
+  op getUserPreview(@path username: string): 
+    | DataResponse<UserPreview>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+  
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
