@@ -1016,7 +1016,7 @@ namespace Me {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 10 users matching the current query (while typing in search box)")
+  @summary("Get top 10 users matching the current query (while searching/ mentioning users(suggested mentions))")
   @get
   @route("/users")
   op searchUsers(
@@ -1042,7 +1042,7 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Get top 3 relevant hastags for the current search query (If it contains #)")
+  @summary("Get top 3 relevant hastags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
   @route("/hashtags/top")
   op getTopHashtags(
