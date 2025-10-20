@@ -14,6 +14,12 @@ model BearerAuth {
   bearerFormat: "JWT";
 }
 
+model SetAuthCookieResponse {
+  @header("Set-Cookie")
+  @doc("Contains the HTTP-only refresh token cookie for web clients.")
+  setCookie: string;
+}
+
 @doc("Base structure for all API responses")
 model ApiResponseBase {
   @doc("Indicates whether the request was successful")
@@ -709,10 +715,11 @@ namespace Auth {
       password: string;
     },
   ):
-    | DataResponse<{
+    | (DataResponse<{
         accessToken: string;
         refreshToken: string;
-      }>
+      }> &
+        SetAuthCookieResponse)
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
