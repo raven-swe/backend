@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -6,7 +6,8 @@ import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { CheckEmailDto } from './dto/CheckEmailDto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { RecaptchaFailedException } from './exceptions/recaptcha.exception';
-import type { Response } from 'express';
+import { RefreshTokenTTL } from './constants';
+import type { Request, Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -28,17 +29,21 @@ export class AuthController {
 
   @Post('register/complete')
   async completeRegistration(
+    @Req() req: Request,
     @Body() completeRegistrationDto: CompleteRegistrationDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken } =
-      await this.authService.completeRegistration(completeRegistrationDto);
+    const ipAddress = req.ip;
+    const { accessToken, refreshToken } = await this.authService.completeRegistration(
+      completeRegistrationDto,
+      ipAddress,
+    );
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: RefreshTokenTTL,
     });
 
     return {

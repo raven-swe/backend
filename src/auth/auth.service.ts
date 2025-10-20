@@ -7,33 +7,37 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
+import { DevicesService } from 'src/device/device.service';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { Device } from 'src/device/interfaces/device.interface';
+import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { OtpFailedException } from './exceptions/otp.exception';
 import { LanguageCode } from '@prisma/client';
-
-interface CachedRegistrationData {
-  email: string;
-  name: string;
-  birthDate: Date;
-  otp: string;
-  verified: boolean; // otp state
-}
+import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { NewUser } from 'src/users/interfaces/NewUser.interface';
+import { RefreshTokenTTL } from './constants';
 
 @Injectable()
 export class AuthService {
   private readonly registrationTTL = 300; // 5 minutes
   private readonly otpResendLimit = 3;
   private readonly otpResendWindow = 600; // 10 minutes
+  private readonly saltRounds = 10; // for password hashing
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
     private readonly jwtService: JwtService,
-    @InjectQueue('email') private emailQueue: Queue,
+    private readonly devicesService: DevicesService,
+    private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
+    private readonly prisma: PrismaService,
+    @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
   async startRegistration(
@@ -111,29 +115,45 @@ export class AuthService {
     return { message: 'OTP verified successfully' };
   }
 
-  async completeRegistration(completeRegistrationDto: CompleteRegistrationDto) {
+  async completeRegistration(
+    completeRegistrationDto: CompleteRegistrationDto,
+    ipAddress: string | undefined,
+  ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
     const redisKey = `registration:${completeRegistrationDto.creationToken}`;
     const data = await this.redisService.get(redisKey);
     if (!data) {
-      throw new OtpFailedException('Invaid or expired OTP token');
+      throw new OtpFailedException('Invalid or expired OTP token');
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     if (!registrationData.verified) {
       throw new OtpFailedException('OTP not verified');
     }
+    const hashedPassword = await this.hashPassword(completeRegistrationDto.password);
 
     const userData = {
       email: registrationData.email,
       username: registrationData.email,
-      password: completeRegistrationDto.password,
+      passwordHash: hashedPassword,
       birthDate: registrationData.birthDate,
       languageCode: LanguageCode.EN, //until we start user profiles
     };
-    const user = await this.usersService.createUser(userData);
-    const accessToken = await this.generateAccessToken(user.id);
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const randomToken = crypto.randomBytes(64).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(randomToken).digest('hex');
+    const refreshToken: RefreshToken = {
+      userId: BigInt(0), //placeholders to be set in transaction
+      deviceId: BigInt(0),
+      tokenHash: tokenHash,
+      expiresAt: new Date(RefreshTokenTTL + Date.now()),
+    };
+    const newDevice: Device = {
+      userId: BigInt(0),
+      ipAddress: ipAddress || 'unknown',
+      deviceType: completeRegistrationDto.deviceType,
+    };
+    const userId = await this.createUserAndDeviceAndToken(userData, newDevice, refreshToken);
+    const accessToken = await this.generateAccessToken(userId);
+
     // clean up redis entry
     await this.redisService.del(redisKey);
     await this.redisService.del(`otp_resend:${registrationData.email}`);
@@ -141,7 +161,7 @@ export class AuthService {
     return {
       message: 'Registration completed successfully',
       accessToken,
-      refreshToken: refreshTokenHash,
+      refreshToken: tokenHash,
     };
   }
 
@@ -200,5 +220,31 @@ export class AuthService {
   async verifyRecaptcha(token: string): Promise<boolean> {
     const valid = await this.recaptchaService.validateToken(token);
     return !!valid;
+  }
+
+  private async hashPassword(password: string): Promise<string> {
+    return await bcrypt.hash(password, this.saltRounds);
+  }
+
+  //naming can be better ofc :)
+  private async createUserAndDeviceAndToken(
+    newUser: NewUser,
+    newDevice: Device,
+    refreshToken: RefreshToken,
+  ): Promise<bigint> {
+    return await this.prisma.$transaction(async (tx) => {
+      const { id: userId } = await this.usersService.createUser(newUser, tx);
+      this.logger.log(`User created with ID: ${userId}`);
+      newDevice.userId = userId;
+
+      const { id: deviceId } = await this.devicesService.createDevice(newDevice, tx);
+      this.logger.log(`Device created with ID: ${deviceId}`);
+      refreshToken.userId = userId;
+      refreshToken.deviceId = deviceId;
+
+      await this.refreshTokensService.createRefreshToken(refreshToken, tx);
+      this.logger.log(`Refresh token created for user ID: ${userId} and device ID: ${deviceId}`);
+      return userId;
+    });
   }
 }
