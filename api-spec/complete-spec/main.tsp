@@ -244,6 +244,15 @@ model MediaEntity {
   ...MediaItem;
 }
 
+@doc("Preview of a hashtag with its usage statistics")
+model HashtagPreview {
+  @doc("The hashtag text (without #)")
+  hashtag: string;
+
+  @doc("Number of tweets using this hashtag")
+  tweetsCount: integer;
+}
+
 @doc("Compact user(followers/following) lists")
 model CompactUser {
   @doc("The user's unique, public-facing username.")
@@ -593,7 +602,7 @@ model CursorPaginationParameters {
   limit: int32 = 20;
 }
 
-// Conversations / Messages related 
+// Conversations / Messages related
 @doc("Entities containing mentions and hashtags for message content")
 model MessageEntities {
   @doc("Array of mention entities in the message")
@@ -685,7 +694,6 @@ model TopHashtags {
   @maxItems(3)
   hashtags: string[];
 }
-
 
 model RegisterStartBody {
   name: string;
@@ -1712,10 +1720,7 @@ namespace Conversations {
     """)
   op listConversations(
     ...CursorPaginationParameters,
-  ):
-    | ConversationListResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  ): ConversationListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @post
   @route("/with/{username}")
@@ -1733,9 +1738,7 @@ namespace Conversations {
     - Sending messages: POST /conversations/{id}/messages
     - Muting/unmuting: POST/DELETE /conversations/{id}/mute
     """)
-  op createOrGetConversationByUsername(
-    @path username: string,
-  ):
+  op createOrGetConversationByUsername(@path username: string):
     | ConversationResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1748,9 +1751,7 @@ namespace Conversations {
   @doc("""
     Retrieves conversation details using the conversation ID (obtained from list or create endpoints).
     """)
-  op getConversation(
-    @path conversationId: string,
-  ):
+  op getConversation(@path conversationId: string):
     | ConversationResponse
     | UnauthorizedResponse
     | ForbiddenResponse
@@ -1765,10 +1766,7 @@ namespace Conversations {
     Messages are ordered by creation time (newest first).
     Soft-deleted messages (for the current user) are filtered out.
     """)
-  op getMessages(
-    @path conversationId: string,
-    ...CursorPaginationParameters,
-  ):
+  op getMessages(@path conversationId: string, ...CursorPaginationParameters):
     | MessageListResponse
     | UnauthorizedResponse
     | ForbiddenResponse
@@ -1782,10 +1780,7 @@ namespace Conversations {
     Sends a message in an existing conversation using the conversation ID.
     Conversation must exist (use POST /conversations/with/{username} first to create or retrieve existing one).
     """)
-  op sendMessage(
-    @path conversationId: string,
-    @body body: SendMessageRequest,
-  ):
+  op sendMessage(@path conversationId: string, @body body: SendMessageRequest):
     | ConversationMessageResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1801,10 +1796,7 @@ namespace Conversations {
     Soft-deletes a message using conversation ID and message ID.
     Sets is_deleted_sender or is_deleted_receiver flag based on user role.
     """)
-  op deleteMessage(
-    @path conversationId: string,
-    @path messageId: string,
-  ):
+  op deleteMessage(@path conversationId: string, @path messageId: string):
     | DeleteMessageResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1818,9 +1810,7 @@ namespace Conversations {
   @doc("""
     Mutes notifications for a conversation using its ID.
     """)
-  op muteConversation(
-    @path conversationId: string,
-  ):
+  op muteConversation(@path conversationId: string):
     | MuteConversationResponse
     | UnauthorizedResponse
     | ForbiddenResponse
@@ -1834,9 +1824,7 @@ namespace Conversations {
   @doc("""
     Unmutes notifications for a conversation using its ID.
     """)
-  op unmuteConversation(
-    @path conversationId: string,
-  ):
+  op unmuteConversation(@path conversationId: string):
     | UnmuteConversationResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1910,9 +1898,79 @@ namespace Search {
     @doc("The search query")
     @query
     query: string,
-       ...CursorPaginationParameters,
+
+    ...CursorPaginationParameters,
   ):
     | DataResponseWithPagination<Tweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+}
+
+@tag("Explore")
+@route("/explore")
+@useAuth(BearerAuth)
+namespace Explore {
+  @get
+  @route("/for-you")
+  @summary("Get trending hashtags and tweets")
+  @doc("Returns a mix of trending topics, hashtags and tweets personalized for the user")
+  op getExploreForYou(...CursorPaginationParameters): DataResponse<{
+    @doc("Trending hashtags for the user (6-10 items)")
+    @minItems(6)
+    @maxItems(10)
+    trendingHashtags: HashtagPreview[];
+
+    @doc("Personalized tweets with pagination")
+    tweets: Tweet[];
+
+    @doc("Pagination info for tweets")
+    pagination: CursorPagination;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/trending")
+  @summary("Get trending hashtags/keywords across all categories")
+  @doc("Returns top trending hashtags globally, ordered by trending score")
+  op getTrendingHashtags(): DataResponse<{
+    @doc("Trending news hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/news")
+  @summary("Get trending keywords/hashtags in the News category")
+  @doc("Returns top trending news-related keywords (max 30)")
+  op getNewsExplore(): DataResponse<{
+    @doc("Trending news keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/sports")
+  @summary("Get trending keywords/hashtags in the Sports category")
+  @doc("Returns top trending sports-related hashtags (max 30)")
+  op getSportsExplore():
+    | DataResponse<{
+        @doc("Trending sports keywords/hashtags (max 30 items)")
+        @maxItems(30)
+        trendingHashtags: HashtagPreview[];
+      }>
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/entertainment")
+  @summary("Get trending hashtags in the Entertainment category")
+  @doc("Returns top trending entertainment-related hashtags (max 30)")
+  op getEntertainmentExplore():
+    | DataResponse<{
+        @doc("Trending entertainment keywords/hashtags (max 30 items)")
+        @maxItems(30)
+        trendingHashtags: HashtagPreview[];
+      }>
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
