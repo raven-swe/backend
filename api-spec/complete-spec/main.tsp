@@ -1985,9 +1985,9 @@ namespace Hashtags {
   @doc("Returns a list of suggested hashtags based on current trends and the user's interests.")
   op getHashtagSuggestions(
     @query
-    @doc("Optional search query (without #) to filter suggestions (min 1 character)")
+    @doc("search query (without #) to filter suggestions (min 1 character)")
     @minLength(1)
-    query?: string,
+    query: string,
   ):
     | DataResponse<{
       @doc("List of hashtags suggestions (without #)")
