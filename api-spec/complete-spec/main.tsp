@@ -510,6 +510,19 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+@doc("Suggested mention item for mentions suggestions")
+model MentionSuggestion {
+  @doc("The username of the suggested user")
+  username: string;
+
+  @doc("The display name of the suggested user")
+  displayName: string;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string;
+}
+
+
 @doc("Query parameters for cursor-based pagination")
 model CursorPaginationParameters {
   @query
@@ -520,6 +533,7 @@ model CursorPaginationParameters {
   @doc("The number of items to return per page (default: 20)")
   limit: int32 = 20;
 }
+
 
 model RegisterStartBody {
   name: string;
@@ -820,7 +834,7 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-  @summary("User's preview window on hover")
+  @summary("Get a user's profile preview.")
   @get
   @route("/{username}/preview")
   op getUserPreview(@path username: string): 
@@ -1406,3 +1420,42 @@ namespace Tweets {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
+
+@tag("Hashtags")
+@useAuth(BearerAuth)
+@route("/hashtags")
+namespace Hashtags {
+  @get
+  @route("/suggestions")
+  @summary("Get suggested hashtags based on trending topics")
+  @doc("Returns a list of suggested hashtags based on current trends and the user's interests.")
+  op getHashtagSuggestions(
+    @query
+    @doc("Optional search query (without #) to filter suggestions (min 1 character)")
+    @minLength(1)
+    query?: string,
+  ):
+    | DataResponse<{
+      @doc("List of hashtags suggestions (without #)")
+      suggestions: string[];
+    }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @route("/{hashtag}/tweets")
+  @summary("Get tweets for a specific hashtag")
+  @doc("Returns all tweets containing the specified hashtag with cursor-based pagination.")
+  op getHashtagTweets(
+    @path
+    @doc("The hashtag to search for (without #)")
+    hashtag: string,
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<Tweet[]>
+    | ValidationErrorResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
