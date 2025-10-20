@@ -5,13 +5,14 @@ import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
-import { HttpExceptionFilter } from './common/filters/http-response.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { DevicesModule } from './device/device.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { BullModule } from '@nestjs/bullmq';
+import { EmailModule } from './email/email.module';
+import { RecaptchaModule } from './recaptcha/recaptcha.module';
 
 @Module({
   imports: [
@@ -23,6 +24,12 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
           limit: 60, // 60 requests per minute
         },
       ],
+    }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
+      },
     }),
     AuthModule,
     UsersModule,
