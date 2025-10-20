@@ -1368,6 +1368,27 @@ namespace Me {
 
 @tag("Notifications")
 @route("/notifications")
+@tag("Timeline")
+@route("/timeline")
+@useAuth(BearerAuth)
+namespace Timeline {
+  @get
+  @route("/for-you")
+  @summary("Get the personalized 'For You' feed for the authenticated user")
+  op getForYouFeed(
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/following")
+  @summary("Get tweets from users the authenticated user follows")
+  op getFollowingFeed(
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
 @useAuth(BearerAuth)
 namespace Notifications {
   @get
