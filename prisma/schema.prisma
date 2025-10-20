@@ -16,7 +16,7 @@ model users {
   phone                     String?                     @db.VarChar(20)
   created_at                DateTime                    @default(now())
   language_code             LanguageCode                @default(EN)
-  is_deleted                Boolean                     @default(false)
+  deleted_at                DateTime?        
   blocked_by                blocks[]                    @relation("blocks_blocked_idTousers")
   blocked_users             blocks[]                    @relation("blocks_user_idTousers")
   conversation_participants conversation_participants[]
