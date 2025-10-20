@@ -1343,18 +1343,21 @@ namespace Notifications {
 
   @get
   @route("/count")
+  @doc("Get the count of unseen notifications")
   op getNotificationsCount(): DataResponse<{
     unseenCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
   @route("/mark-all-seen")
+  @doc("Mark all notifications as seen")
   op markAllNotificationsAsSeen(): DataResponse<{
     updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
   @route("/{notificationId}/mark-seen")
+  @doc("Mark a specific notification as seen by its ID")
   op markNotificationAsSeen(@path notificationId: string):
     | DataResponse<{
         updatedCount: integer;
