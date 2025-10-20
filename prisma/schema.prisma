@@ -43,10 +43,10 @@ model profiles {
   display_name String   @db.VarChar(100)
   bio          String?  @db.VarChar(160)
   bio_entities Json?
-  avatar_url   String?
-  banner_url   String?
-  location     String?
-  website_url  String?
+  avatar_url   String?  @db.VarChar(255)
+  banner_url   String?  @db.VarChar(255)
+  location     String?  @db.VarChar(255)
+  website_url  String?  @db.VarChar(255)
   updated_at   DateTime @updatedAt
   user         users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -78,7 +78,7 @@ model user_external_accounts {
 model user_devices {
   id            BigInt          @id @default(autoincrement())
   user_id       BigInt
-  fcm_token     String?         @unique
+  fcm_token     String?  
   ip_address    String?         @db.Inet
   device_type   String?
   last_used_at  DateTime        @default(now())
@@ -90,7 +90,7 @@ model user_devices {
 model tweets {
   id                BigInt           @id @default(autoincrement())
   user_id           BigInt
-  content           String?          @db.VarChar(280)
+  content           String?          @db.VarChar(280) // we should add a constraint
   has_media         Boolean          @default(false)
   has_hashtags      Boolean          @default(false)
   has_mentions      Boolean          @default(false)
@@ -103,7 +103,6 @@ model tweets {
   created_at        DateTime         @default(now())
   updated_at        DateTime         @updatedAt
   likes             likes[]
-  media             media[]
   notifications     notifications[]
   retweets          retweets[]
   tweet_hashtags    tweet_hashtags[]
@@ -229,7 +228,6 @@ model conversations {
 }
 
 model conversation_participants {
-  id                   BigInt        @id @default(autoincrement())
   conversation_id      BigInt
   user_id              BigInt
   last_seen_message_id BigInt?
@@ -238,7 +236,7 @@ model conversation_participants {
   messages             messages?     @relation(fields: [last_seen_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user                 users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([conversation_id, user_id], map: "conversation_participants_conversation_id_user_id_idx")
+  @@id([conversation_id, user_id], map: "conversation_participants_conversation_id_user_id_idx")
   @@index([user_id, conversation_id])
 }
 
@@ -253,21 +251,18 @@ model notifications {
   actor       users            @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receiver    users            @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet       tweets?          @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   @@index([receiver_id, created_at])
 }
 
 model media {
   id          BigInt        @id @default(autoincrement())
   user_id     BigInt
-  tweet_id    BigInt
   type        MediaType
-  url         String
+  url         String        @db.VarChar(255)
   alt_text    String?
-  width       Float?
-  height      Float?
+  width       Int?
+  height      Int?
   created_at  DateTime      @default(now())
-  tweet       tweets        @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet_media tweet_media[]
 
