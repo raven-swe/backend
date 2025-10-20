@@ -593,6 +593,77 @@ model CursorPaginationParameters {
   limit: int32 = 20;
 }
 
+// Conversations / Messages related 
+@doc("Entities containing mentions and hashtags for message content")
+model MessageEntities {
+  @doc("Array of mention entities in the message")
+  mentions: MentionEntity[] | null;
+
+  @doc("Array of hashtag entities in the message")
+  hashtags: HashtagEntity[] | null;
+}
+
+@doc("A single message in a conversation")
+model Message {
+  @doc("Unique identifier for the message")
+  id: string;
+
+  @doc("The user who sent the message")
+  sender: UserMetadata;
+
+  @doc("Text content of the message (max 10,000 characters *For now)")
+  @maxLength(10000)
+  content: string;
+
+  @doc("Structured data entities (mentions, hashtags) parsed from message content")
+  entities: MessageEntities | null;
+
+  @doc("Optional media URL attached to the message (single media is supported per message)")
+  mediaUrl: string | null;
+
+  @doc("Timestamp when the message was created/sent")
+  createdAt: utcDateTime;
+
+  @doc("True if this message was sent by the authenticated user (Easy for client side)")
+  isMine: boolean;
+}
+
+@doc("Unified conversation model")
+model Conversation {
+  @doc("Unique identifier for the conversation")
+  id: string;
+
+  @doc("The other participant in the 1:1 conversation")
+  participant: UserMetadata;
+
+  @doc("The most recent message in the conversation (needed in list view, null if no messages yet)")
+  lastMessage: {
+    @doc("Preview of the message content (may be truncated by frontend)")
+    content: string;
+
+    @doc("Username of the sender")
+    senderUsername: string;
+
+    @doc("Timestamp of the last message")
+    sentAt: utcDateTime;
+  } | null;
+
+  @doc("True if notifications are muted for this conversation")
+  isMuted: boolean;
+}
+
+@doc("Request body for sending a new message")
+model SendMessageRequest {
+  @doc("Text content of the message (max 10,000 characters)")
+  @maxLength(10000)
+  content: string;
+
+  @doc("Optional media URL to attach (single media per message, max 2048 characters)")
+  @maxLength(2048)
+  mediaUrl?: string | null;
+}
+
+
 model RegisterStartBody {
   name: string;
   email: string;
@@ -658,6 +729,15 @@ alias BlockUserResponse = MessageResponse<"user blocked successfully">;
 alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
+// Conversation and Messages response aliases
+alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
+alias MessageListResponse = DataResponseWithPagination<Message[]>;
+alias ConversationResponse = DataResponse<Conversation>;
+alias ConversationMessageResponse = DataResponse<Message>;
+alias MuteConversationResponse = MessageResponse<"Conversation muted successfully">;
+alias UnmuteConversationResponse = MessageResponse<"Conversation unmuted successfully">;
+alias DeleteMessageResponse = MessageResponse<"Message deleted successfully">;
 
 @tag("Auth")
 @route("/auth")
@@ -1593,5 +1673,151 @@ namespace Hashtags {
     | ValidationErrorResponse
     | NotFoundResponse
     | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Conversations")
+@route("/conversations")
+@useAuth(BearerAuth)
+namespace Conversations {
+  @get
+  @summary("List all conversations for the authenticated user")
+  @doc("""
+    Retrieves a paginated list of all 1:1 conversations for the authenticated user,
+    ordered by most recent activity (last message timestamp).
+    Each conversation includes its ID, so clients can use the ID for subsequent operations.
+    """)
+  op listConversations(
+    ...CursorPaginationParameters,
+  ):
+    | ConversationListResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/with/{username}")
+  @summary("Create or retrieve a 1:1 conversation with a user by username")
+  @doc("""
+    Creates a new 1:1 conversation with the specified user, or returns the existing one.
+    Returns the conversation with its ID, which should be used for all subsequent operations.
+    
+    **Use this endpoint when:**
+    - User clicks "Message" button on someone's profile
+    - Initializing a conversation for the first time
+    
+    **After receiving the conversation ID, use ID-based endpoints for:**
+    - Fetching messages: GET /conversations/{id}/messages
+    - Sending messages: POST /conversations/{id}/messages
+    - Muting/unmuting: POST/DELETE /conversations/{id}/mute
+    """)
+  op createOrGetConversationByUsername(
+    @path username: string,
+  ):
+    | ConversationResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{conversationId}")
+  @summary("Get conversation details by ID")
+  @doc("""
+    Retrieves conversation details using the conversation ID (obtained from list or create endpoints).
+    """)
+  op getConversation(
+    @path conversationId: string,
+  ):
+    | ConversationResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{conversationId}/messages")
+  @summary("List messages in a conversation by ID")
+  @doc("""
+    Retrieves paginated messages using conversation ID.
+    Messages are ordered by creation time (newest first).
+    Soft-deleted messages (for the current user) are filtered out.
+    """)
+  op getMessages(
+    @path conversationId: string,
+    ...CursorPaginationParameters,
+  ):
+    | MessageListResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{conversationId}/messages")
+  @summary("Send a new message in a conversation by ID")
+  @doc("""
+    Sends a message in an existing conversation using the conversation ID.
+    Conversation must exist (use POST /conversations/with/{username} first to create or retrieve existing one).
+    """)
+  op sendMessage(
+    @path conversationId: string,
+    @body body: SendMessageRequest,
+  ):
+    | ConversationMessageResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{conversationId}/messages/{messageId}")
+  @summary("Soft-delete a message by IDs")
+  @doc("""
+    Soft-deletes a message using conversation ID and message ID.
+    Sets is_deleted_sender or is_deleted_receiver flag based on user role.
+    """)
+  op deleteMessage(
+    @path conversationId: string,
+    @path messageId: string,
+  ):
+    | DeleteMessageResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{conversationId}/mute")
+  @summary("Mute a conversation by ID")
+  @doc("""
+    Mutes notifications for a conversation using its ID.
+    """)
+  op muteConversation(
+    @path conversationId: string,
+  ):
+    | MuteConversationResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | ConflictResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{conversationId}/mute")
+  @summary("Unmute a conversation by ID")
+  @doc("""
+    Unmutes notifications for a conversation using its ID.
+    """)
+  op unmuteConversation(
+    @path conversationId: string,
+  ):
+    | UnmuteConversationResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
     | InternalServerErrorResponse;
 }
