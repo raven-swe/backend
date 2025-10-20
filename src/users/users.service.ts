@@ -1,21 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
-import { LanguageCode } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { NewUser } from './interfaces/NewUser.interface';
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async findByEmail(email: string) {
     return this.usersRepository.findByEmail(email);
   }
 
-  async createUser(data: {
-    email: string;
-    username: string;
-    password: string;
-    birthDate: Date;
-    languageCode: LanguageCode;
-  }) {
-    return this.usersRepository.createUser(data);
+  async createUser(newUser: NewUser, tx: Prisma.TransactionClient = this.prisma) {
+    return this.usersRepository.createUser(newUser, tx);
   }
 }
