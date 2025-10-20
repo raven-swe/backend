@@ -510,6 +510,61 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+@doc("Defines the filter categories for the notifications list.")
+enum NotificationFilter {
+  @doc("Show all types of notifications.")
+  all,
+
+  @doc("Show only conversational notifications like replies, mentions, and quotes.")
+  mentions,
+}
+
+@doc("Summarizes the users (actors) who triggered a notification.")
+model NotificationActorSummary {
+  @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
+  @maxItems(3)
+  previewActors: UserMetadata[];
+
+  @doc("The total count of all users (e.g., for '...and 4 others').")
+  @minValue(1)
+  totalActorCount: int32;
+}
+
+@doc("Represents a single notification item for a user.")
+model Notification {
+  @doc("Unique ID for the notification event.")
+  id: string;
+
+  @doc("The specific action that triggered this notification.")
+  type: NotificationType;
+
+  @doc("Summary of the user(s) who triggered this notification.")
+  actorSummary: NotificationActorSummary;
+
+  @doc("The primary, new tweet(s) that are the subject of this notification.\ne.g., the new reply, the new quote, or the set of tweets that were liked.")
+  @minItems(0)
+  primaryTweets?: Tweet[];
+
+  @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
+  parentTweet?: Tweet;
+
+  @doc("Timestamp of the *latest* event in this aggregation.")
+  latestEventAt: utcDateTime;
+
+  @doc("Indicates whether the notification has been read.")
+  isRead: boolean;
+}
+
+enum NotificationType {
+  FOLLOW: "FOLLOW",
+  LIKE: "LIKE",
+  REPLY: "REPLY",
+  QUOTE: "QUOTE",
+  RETWEET: "RETWEET",
+  TWEET: "TWEET",
+  MENTION: "MENTION",
+}
+
 @doc("Query parameters for cursor-based pagination")
 model CursorPaginationParameters {
   @query
@@ -578,6 +633,8 @@ alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
+alias NotificationsListResponse = DataResponseWithPagination<Notification[]>;
+
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -1264,37 +1321,52 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
-
-  @route("/tweets")
-  @useAuth(BearerAuth)
-  namespace Tweets {
-    @delete
-    @route("/{id}")
-    @summary("Delete a tweet")
-    op deleteTweet(@path id: string):
-      | MessageResponse<"Tweet deleted successfully.">
-      | NotFoundResponse
-      | UnauthorizedResponse
-      | ForbiddenResponse
-      | InternalServerErrorResponse;
-  }
 }
 
-@tag("Onboarding")
-@route("/onboarding")
+@tag("Notifications")
+@route("/notifications")
 @useAuth(BearerAuth)
-namespace Onboarding {
+namespace Notifications {
   @get
-  @route("/username-suggestions")
-  op getUsernameSuggestions(): DataResponse<{
-    suggestions: string[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  op listUserNotifications(
+    ...CursorPaginationParameters,
+
+    @query
+    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
+    filter?: NotificationFilter = NotificationFilter.all,
+  ):
+    | NotificationsListResponse
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 
   @get
-  @route("/follow-suggestions")
-  op getFollowSuggestions(): DataResponse<{
-    suggestions: UserMetadata[];
+  @route("/count")
+  @doc("Get the count of unseen notifications")
+  op getNotificationsCount(): DataResponse<{
+    unseenCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/mark-all-seen")
+  @doc("Mark all notifications as seen")
+  op markAllNotificationsAsSeen(): DataResponse<{
+    updatedCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/{notificationId}/mark-seen")
+  @doc("Mark a specific notification as seen by its ID")
+  op markNotificationAsSeen(@path notificationId: string):
+    | DataResponse<{
+        updatedCount: integer;
+      }>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Tweets")
@@ -1396,4 +1468,31 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
+@useAuth(BearerAuth)
+namespace Onboarding {
+  @get
+  @route("/username-suggestions")
+  op getUsernameSuggestions(): DataResponse<{
+    suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/follow-suggestions")
+  op getFollowSuggestions(): DataResponse<{
+    suggestions: UserMetadata[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
