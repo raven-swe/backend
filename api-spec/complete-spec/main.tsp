@@ -663,6 +663,29 @@ model SendMessageRequest {
   mediaUrl?: string | null;
 }
 
+model TopSuggestedUsers {
+  @doc("Suggested Users when typing")
+  @maxItems(10)
+  users: UserMetadata[];
+}
+
+model SuggestedUsersForSearchResults {
+  @doc("The top 10 matching users after searching")
+  @maxItems(10)
+  topUsers: UserMetadata[];
+}
+
+model AllMatchingUsers {
+  @doc("Paginated list of all matching users (default 20 per page)")
+  users: UserMetadata[];
+}
+
+model TopHashtags {
+  @doc("Top 3 relevant hashtags for the search query")
+  @maxItems(3)
+  hashtags: string[];
+}
+
 
 model RegisterStartBody {
   name: string;
@@ -1821,3 +1844,75 @@ namespace Conversations {
     | NotFoundResponse
     | InternalServerErrorResponse;
 }
+
+@tag("Search")
+@route("/search")
+@useAuth(BearerAuth)
+namespace Search {
+  @summary("Get top 10 users matching the current query (while searching/ mentioning users(suggested mentions))")
+  @get
+  @route("/users")
+  op searchUsers(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopSuggestedUsers>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get top 10 featured users for the People tab")
+  @get
+  @route("/users/top")
+  op getTopUsers(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<SuggestedUsersForSearchResults>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get top 3 relevant hastags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @get
+  @route("/hashtags/top")
+  op getTopHashtags(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopHashtags>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get all matching users with pagination for the People tab")
+  @get
+  @route("/users/all")
+  op getAllUsers(
+    @doc("The search query")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<AllMatchingUsers>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @get
+  @route("/tweets")
+  op searchTweets(
+    @doc("The search query")
+    @query
+    query: string,
+       ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
