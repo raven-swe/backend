@@ -582,7 +582,6 @@ model MentionSuggestion {
   avatarUrl: string;
 }
 
-
 @doc("Query parameters for cursor-based pagination")
 model CursorPaginationParameters {
   @query
@@ -593,7 +592,6 @@ model CursorPaginationParameters {
   @doc("The number of items to return per page (default: 20)")
   limit: int32 = 20;
 }
-
 
 model RegisterStartBody {
   name: string;
@@ -914,12 +912,12 @@ namespace Users {
   @summary("Get a user's profile preview.")
   @get
   @route("/{username}/preview")
-  op getUserPreview(@path username: string): 
+  op getUserPreview(@path username: string):
     | DataResponse<UserPreview>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
-  
+
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
@@ -1366,8 +1364,6 @@ namespace Me {
   }
 }
 
-@tag("Notifications")
-@route("/notifications")
 @tag("Timeline")
 @route("/timeline")
 @useAuth(BearerAuth)
@@ -1387,8 +1383,8 @@ namespace Timeline {
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
-@tag("Onboarding")
-@route("/onboarding")
+@tag("Notifications")
+@route("/notifications")
 @useAuth(BearerAuth)
 namespace Notifications {
   @get
@@ -1576,9 +1572,9 @@ namespace Hashtags {
     query: string,
   ):
     | DataResponse<{
-      @doc("List of hashtags suggestions (without #)")
-      suggestions: string[];
-    }>
+        @doc("List of hashtags suggestions (without #)")
+        suggestions: string[];
+      }>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1590,6 +1586,7 @@ namespace Hashtags {
     @path
     @doc("The hashtag to search for (without #)")
     hashtag: string,
+
     ...CursorPaginationParameters,
   ):
     | DataResponseWithPagination<Tweet[]>
@@ -1598,4 +1595,3 @@ namespace Hashtags {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
-
