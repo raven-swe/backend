@@ -14,6 +14,12 @@ model BearerAuth {
   bearerFormat: "JWT";
 }
 
+model SetAuthCookieResponse {
+  @header("Set-Cookie")
+  @doc("Contains the HTTP-only refresh token cookie for web clients.")
+  setCookie: string;
+}
+
 @doc("Base structure for all API responses")
 model ApiResponseBase {
   @doc("Indicates whether the request was successful")
@@ -687,6 +693,7 @@ namespace Auth {
     @summary("Complete the registration process by setting a password")
     @route("/complete")
     op completeRegister(
+      @header("X-Client-Type") clientType: "web" | "mobile",
       @body body: {
         creationToken: string;
         password: string;
@@ -704,30 +711,42 @@ namespace Auth {
   @post
   @route("/login")
   op login(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       identifier: string;
       password: string;
     },
   ):
-    | DataResponse<{
+    | (DataResponse<{
         accessToken: string;
         refreshToken: string;
-      }>
+      }> &
+        SetAuthCookieResponse)
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
   @post
-  @summary("Logout the user by invalidating the refresh token for this client only")
   @route("/logout")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   @useAuth(BearerAuth)
   op logout(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @cookie("refresh_token") refreshToken?: string,
+    @body body?: {
+      refreshToken: string;
+    },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @post
   @route("/refresh-token")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   op refreshToken(
-    @body body: {
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @cookie("refresh_token") refreshToken?: string,
+    @body body?: {
       refreshToken: string;
     },
   ):
@@ -815,9 +834,11 @@ namespace Auth {
   }
 
   @get
-  @route("/check-email")
-  op checkEmail(@query email: string): DataResponse<{
+  @summary("Check if a username or email is already taken")
+  @route("/check-identifier")
+  op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
+    type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
