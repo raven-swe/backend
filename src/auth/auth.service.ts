@@ -327,7 +327,7 @@ export class AuthService {
     await this.redisService.del(REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email));
 
     this.logger.log(`Password reset completed for ${passwordResetData.email}`);
-    return { message: 'Password reset successfully.' };
+    return { message: 'Password has been reset successfully.' };
   }
 
   async resendPasswordOtp(

@@ -917,7 +917,7 @@ namespace Auth {
         newPassword: string;
       },
     ):
-      | MessageResponse<"Password reset successfully.">
+      | MessageResponse<"Password has been reset successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | InternalServerErrorResponse;
