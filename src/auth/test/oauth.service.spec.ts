@@ -1,44 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from './auth.service';
-import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { RedisService } from 'src/redis/redis.service';
-import { UsersService } from 'src/users/users.service';
-import { JwtService } from '@nestjs/jwt';
-import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { DevicesService } from 'src/device/device.service';
-import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import * as crypto from 'crypto';
-import * as bcrypt from 'bcrypt';
-import { generateAndStoreOtp } from './utils/otp.util';
-import {
-  AUTH_CONFIG,
-  AUTH_ERROR_CODES,
-  AUTH_ERROR_MESSAGES,
-  REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
-import { getQueueToken } from '@nestjs/bullmq';
-import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
-import { DeviceType } from 'src/device/interfaces/device.interface';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-
-jest.mock('bcrypt');
-
-jest.mock('crypto', () => ({
-  randomUUID: jest.fn(),
-  randomBytes: jest.fn().mockReturnValue({
-    toString: jest.fn().mockReturnValue('mock-refresh-token-hex-string'),
-  }),
-  createHash: jest.fn().mockReturnValue({
-    update: jest.fn().mockReturnThis(),
-    digest: jest.fn(),
-  }),
-}));
-
-jest.mock('./utils/otp.util', () => ({
-  generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
-}));
+import { oAuthService } from '../oauth.service';
 
 describe('AuthService', () => {
   let service: AuthService;
