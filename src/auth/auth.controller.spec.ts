@@ -587,36 +587,63 @@ describe('AuthController with mocked config service', () => {
     status: jest.fn().mockReturnThis(),
   } as unknown as Response;
   const mockUser = { id: '1', username: 'username' };
+  describe('login', () => {
+    it('should fallback to default value when config serivce cant get value', async () => {
+      const result = await controller.login(
+        mockUser,
+        ipAddress,
+        mockDeviceType,
+        mockResponse,
+        mockClientType,
+      );
 
-  it('should fallback to default value when config serivce cant get value', async () => {
-    const result = await controller.login(
-      mockUser,
-      ipAddress,
-      mockDeviceType,
-      mockResponse,
-      mockClientType,
-    );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
 
-    expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+      const daysToMillis = 24 * 60 * 60 * 1000;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'none',
+        maxAge: 30 * daysToMillis,
+      });
 
-    const daysToMillis = 24 * 60 * 60 * 1000;
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'none',
-      maxAge: 30 * daysToMillis,
-    });
-
-    expect(result).toEqual({
-      access_token: 'mockAccessToken',
-      refresh_token: 'mockRefreshToken',
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+      });
     });
   });
   describe('refreshToken', () => {
-    it('should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
+    let mockClientType: 'web' | 'mobile' = 'web';
+    it('for client type web should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
       const refreshToken = 'old_mocked_refresh_token';
-      const mockClientType = 'web';
+
+      const req = mockRequestWithCookies({ refresh_token: refreshToken });
+      const dto: RefreshTokenDto = { refresh_token: refreshToken };
+
+      const mockResponse = {
+        cookie: jest.fn(),
+      } as unknown as Response;
+
+      const result = await controller.refrehAccessToken(req, dto, mockResponse, mockClientType);
+
+      expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
+      const daysToMillis = 24 * 60 * 60 * 1000;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'none',
+        maxAge: 30 * daysToMillis,
+      });
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+      });
+    });
+    it('for client type mobile should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
+      const refreshToken = 'old_mocked_refresh_token';
+      mockClientType = 'mobile';
 
       const req = mockRequestWithCookies({ refresh_token: refreshToken });
       const dto: RefreshTokenDto = { refresh_token: refreshToken };
@@ -629,17 +656,9 @@ describe('AuthController with mocked config service', () => {
 
       expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        maxAge: 900,
-      });
-
       expect(result).toEqual({
-        access_token: 'mockAccessToken',
-        refresh_token: 'mockRefreshToken',
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
       });
     });
   });
