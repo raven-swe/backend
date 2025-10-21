@@ -1191,8 +1191,6 @@ describe('AuthService with mock ConfigService', () => {
   });
 
   describe('checkIdentifier', () => {
-    // const mockDeviceType = 'Chrome on Windows (Desktop)';
-    // const ipAddress = '192.33.100.1';
     const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
 
     it('should return exist true when user found with username', async () => {
@@ -1245,6 +1243,39 @@ describe('AuthService with mock ConfigService', () => {
       expect(result).toEqual({
         exists: false,
       });
+    });
+  });
+  describe('refrehAccessToken', () => {
+    it('should validate old token and return new accessToken and refreshToken', async () => {
+      const oldToken = 'oldRefreshToken';
+      const date = new Date();
+      date.setDate(date.getDate() + 1);
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        user: { id: BigInt('100'), username: 'username' },
+        expires_at: date,
+      });
+      const result = await service.refreshAccessToken(oldToken);
+
+      expect(result).toEqual({
+        refreshToken: 'mockRefreshToken',
+        accessToken: 'mockAccessToken',
+      });
+    });
+    it('should throw UnauthorizedException if token not found', async () => {
+      const oldToken = 'oldRefreshToken';
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue(null);
+
+      await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
+    });
+    it('should throw UnauthorizedException if token expired', async () => {
+      const oldToken = 'oldRefreshToken';
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        expires_at: date,
+      });
+
+      await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
     });
   });
 });
