@@ -43,7 +43,7 @@ export class EmailService {
   /**
    * Generic function that returns email template according to the email type
    */
-  private getOtpEmailTemplate(
+  getOtpEmailTemplate(
     otp: string,
     type: OtpType,
     username?: string,
@@ -69,7 +69,7 @@ export class EmailService {
     return templates[type];
   }
 
-  private async sendEmail(email: string, subject: string, html: string): Promise<void> {
+  async sendEmail(email: string, subject: string, html: string): Promise<void> {
     const mailOptions = {
       from: '"Raven Support" <no-reply@raven.com>',
       to: email,
@@ -86,8 +86,8 @@ export class EmailService {
     }
   }
 
-  async sendOtpEmail({ email, otp, type }: OtpEmailOptions): Promise<void> {
-    const { subject, html } = this.getOtpEmailTemplate(otp, type);
+  async sendOtpEmail({ email, otp, type, username }: OtpEmailOptions): Promise<void> {
+    const { subject, html } = this.getOtpEmailTemplate(otp, type, username);
     await this.sendEmail(email, subject, html);
   }
 
