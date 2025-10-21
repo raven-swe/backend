@@ -527,7 +527,7 @@ export class AuthService {
       };
     }
     return { exists: false };
-  private async generateRefreshTokenWithExpiry(expiryInDays: number) {
+  }
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date();

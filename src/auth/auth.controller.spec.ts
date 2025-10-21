@@ -9,18 +9,12 @@ import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { CheckIdentifierQueryDto } from './dtos';
-
-const mockAuthService = {
-  login: jest.fn(() =>
-    Promise.resolve({
-      accessToken: 'mockAccessToken',
-      refreshToken: 'mockRefreshToken',
 import { RequestWithCookies } from './types';
 import { RefreshTokenDto } from './dtos';
 
 const mockAuthService = {
   login: jest.fn(() =>
-   Promise.resolve({
+    Promise.resolve({
       access_token: 'mockAccessToken',
       refresh_token: 'mockRefreshToken',
     }),
@@ -31,25 +25,25 @@ const mockAuthService = {
       type: 'username',
     }),
   ),
-  refreshAccessToken:jest.fn(()=>
+  refreshAccessToken: jest.fn(() =>
     Promise.resolve({
-      access_token:'mockAccessToken',
-      refresh_token:'mockRefreshToken'
-    })
-  )
-
+      access_token: 'mockAccessToken',
+      refresh_token: 'mockRefreshToken',
+    }),
+  ),
 };
-
-describe('AuthController with real config service', () => {
-function mockRequestWithCookies(cookies: Record<string, string | undefined> = {}): RequestWithCookies {
+function mockRequestWithCookies(
+  cookies: Record<string, string | undefined> = {},
+): RequestWithCookies {
   return {
     cookies,
   } as unknown as RequestWithCookies;
 }
 
-describe('AuthController', () => {
-  let controller: AuthController;
-  let config: ConfigService;
+describe('AuthController with real config service', () => {
+  describe('AuthController', () => {
+    let controller: AuthController;
+    let config: ConfigService;
 
   const mockAuthService = {
     verifyRecaptcha: jest.fn(),
@@ -311,59 +305,85 @@ describe('AuthController', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('with client type mobile should call authService.login and return refreshToken', async () => {
-      mockClientType = 'mobile';
-      const result = await controller.login(
-        mockUser,
-        ipAddress,
-        mockDeviceType,
-        mockResponse,
-        mockClientType,
-      );
-      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
-      expect(result).toEqual({
-        accessToken: 'mockAccessToken',
-        refreshToken: 'mockRefreshToken',
-      });
+    it('should be defined', () => {
+      expect(controller).toBeDefined();
     });
-    it('with client type web should call authService.login, set a cookie', async () => {
-      const mockClientType = 'web';
-      mockResponse.status(200);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.status).toHaveBeenCalledWith(200);
 
-      const result = await controller.login(
-        mockUser,
-        ipAddress,
-        mockDeviceType,
-        mockResponse,
-        mockClientType,
-      );
+    describe('login', () => {
+      const mockDeviceType = 'Chrome On Windows (Desktop)';
+      const ipAddress = '192.33.100.1';
+      let mockClientType: 'web' | 'mobile' = 'web';
+      const mockResponse = {
+        cookie: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+      } as unknown as Response;
+      const mockUser = { id: '1', username: 'username' };
 
-      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
-
-      const daysToMillis = 24 * 60 * 60 * 1000;
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
-        httpOnly: true,
-        secure: config.get('NODE_ENV') === 'production',
-        sameSite: 'none',
-        maxAge: config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis,
+      it('with client type undefined should call authService.login and return refreshToken', async () => {
+        await expect(
+          controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, undefined as never),
+        ).rejects.toThrow(UnauthorizedException);
       });
 
-      expect(result).toEqual({
-        accessToken: 'mockAccessToken',
+      it('with client type mobile should call authService.login and return refreshToken', async () => {
+        mockClientType = 'mobile';
+        const result = await controller.login(
+          mockUser,
+          ipAddress,
+          mockDeviceType,
+          mockResponse,
+          mockClientType,
+        );
+        expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+        expect(result).toEqual({
+          accessToken: 'mockAccessToken',
+          refreshToken: 'mockRefreshToken',
+        });
+      });
+      it('with client type web should call authService.login, set a cookie', async () => {
+        const mockClientType = 'web';
+        mockResponse.status(200);
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(mockResponse.status).toHaveBeenCalledWith(200);
+
+        const result = await controller.login(
+          mockUser,
+          ipAddress,
+          mockDeviceType,
+          mockResponse,
+          mockClientType,
+        );
+
+        expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+
+        const daysToMillis = 24 * 60 * 60 * 1000;
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+          httpOnly: true,
+          secure: config.get('NODE_ENV') === 'production',
+          sameSite: 'none',
+          maxAge: config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis,
+        });
+
+        expect(result).toEqual({
+          accessToken: 'mockAccessToken',
+        });
+      });
+
+      it('should throw an UnauthorizedException if login fails', async () => {
+        mockAuthService.login.mockRejectedValueOnce(new UnauthorizedException());
+
+        await expect(
+          controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, mockClientType),
+        ).rejects.toThrow(UnauthorizedException);
       });
     });
 
     it('should throw an UnauthorizedException if login fails', async () => {
       (mockAuthService.login as jest.Mock).mockRejectedValueOnce(new UnauthorizedException());
 
-      await expect(
-        controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, mockClientType),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-  });
+        expect(mockAuthService.checkIdentifier).toHaveBeenCalled();
+        expect(mockAuthService.checkIdentifier).toHaveBeenCalledWith(dto.identifier);
 
   describe('checkIdentifier', () => {
     it('it should call the checkIdentifier', async () => {
@@ -515,41 +535,27 @@ describe('AuthController with mocked config service', () => {
       maxAge: 30 * daysToMillis,
     });
 
-    if (mockClientType === 'web') {
-      expect(result).toEqual({
-        accessToken: 'mockAccessToken',
-      });
-    } else {
-      expect(result).toEqual({
-        accessToken: 'mockAccessToken',
-        refreshToken: 'mockRefreshToken',
-      });
-    }
-  });
-      });    })
-})
-        access_token: 'mockAccessToken',
-        refresh_token: 'mockRefreshToken',
-      });
+    expect(result).toEqual({
+      access_token: 'mockAccessToken',
+      refresh_token: 'mockRefreshToken',
     });
   });
-
-  describe('refreshToken',()=>{
-    it('should call authService.refreshAccessToken, set a cookie and return tokens',async()=>{
-
-      const refreshToken = 'old_mocked_refresh_token'
+  describe('refreshToken', () => {
+    it('should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
+      const refreshToken = 'old_mocked_refresh_token';
+      const mockClientType = 'web';
 
       const req = mockRequestWithCookies({ refresh_token: refreshToken });
-      const dto :RefreshTokenDto = {refresh_token:refreshToken}
+      const dto: RefreshTokenDto = { refresh_token: refreshToken };
 
       const mockResponse = {
         cookie: jest.fn(),
       } as unknown as Response;
 
-      const result = await controller.refrehAccessToken(req, dto, mockResponse)
+      const result = await controller.refrehAccessToken(req, dto, mockResponse, mockClientType);
 
-      expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken)
-      
+      expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
+
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
         httpOnly: true,
@@ -562,6 +568,6 @@ describe('AuthController with mocked config service', () => {
         access_token: 'mockAccessToken',
         refresh_token: 'mockRefreshToken',
       });
-    })
-  })
+    });
+  });
 });
