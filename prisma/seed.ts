@@ -528,23 +528,23 @@ async function main() {
 
   await prisma.messages.create({
     data: {
+      content: 'Hey guys, thinking of making that NestJS project open source.',
       conversation_id: groupConversation1.id,
       user_id: 4,
-      message_entities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
     },
   });
   await prisma.messages.create({
     data: {
+      content: 'Great idea! I can help with the database schema design.',
       conversation_id: groupConversation1.id,
       user_id: 1,
-      message_entities: { text: 'Great idea! I can help with the database schema design.' },
     },
   });
   const msg1_3 = await prisma.messages.create({
     data: {
+      content: "I'm in! I can set up the frontend with React/Next.js.",
       conversation_id: groupConversation1.id,
       user_id: 2,
-      message_entities: { text: "I'm in! I can set up the frontend with React/Next.js." },
     },
   });
 
@@ -563,11 +563,9 @@ async function main() {
 
   const privMsg1 = await prisma.messages.create({
     data: {
+      content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
       conversation_id: privateConv1.id,
       user_id: 6,
-      message_entities: {
-        text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
-      },
     },
   });
 
@@ -586,17 +584,17 @@ async function main() {
 
   await prisma.messages.create({
     data: {
+      content: 'Team, ideas for the new app redesign?',
       conversation_id: groupConversation2.id,
       user_id: 8,
-      message_entities: { text: 'Team, ideas for the new app redesign?' },
     },
   });
   const msg2_2 = await prisma.messages.create({
     data: {
+      content: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
       conversation_id: groupConversation2.id,
       user_id: 12,
       message_entities: {
-        text: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
         mentions: [
           {
             name: '@ZakiDev',
