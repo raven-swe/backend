@@ -3,9 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
-  HttpCode,
-  Post,
   Query,
   Req,
   Res,
@@ -141,6 +138,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
+  }
   @Post('refresh-token')
   @HttpCode(200)
   async refrehAccessToken(
