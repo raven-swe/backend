@@ -492,7 +492,6 @@ export class AuthService {
     const { refreshToken, hashedRefreshToken, expiresAt } =
       this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
-    const deviceType = this.deviceParser(agent);
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
         data: {
