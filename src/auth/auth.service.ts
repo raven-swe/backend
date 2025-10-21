@@ -304,15 +304,7 @@ export class AuthService {
     return null;
   }
 
-  private deviceParser(agent: UAParser.IResult) {
-    const browser = agent.browser;
-    const os = agent.os;
-    const device = agent.device;
-
-    return `${browser.name || 'Unknown'} on ${os.name || 'Unknown'} (${device.type || 'Desktop'})`;
-  }
-
-  async login(user: RequestUser, agent: UAParser.IResult, ipAddress: string) {
+  async login(user: RequestUser, deviceType: string, ipAddress: string) {
     const accessToken = this.jwtService.sign(user);
 
     const refreshToken = crypto.randomBytes(64).toString('hex');
@@ -323,7 +315,6 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
 
-    const deviceType = this.deviceParser(agent);
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
         data: {

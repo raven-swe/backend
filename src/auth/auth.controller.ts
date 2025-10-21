@@ -15,9 +15,9 @@ import type { RequestUser } from './types';
 import { User, IPAddress } from './decorators';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { UAParser } from 'ua-parser-js';
 import { Throttle } from '@nestjs/throttler';
 import { CheckIdentifierQueryDto } from './dtos';
+import { DeviceType } from './decorators/';
 
 @Controller('auth')
 export class AuthController {
@@ -75,12 +75,11 @@ export class AuthController {
   async login(
     @User() user: RequestUser,
     @IPAddress() ipAddress: string,
+    @DeviceType() deviceType: string,
     @Res({ passthrough: true }) res: Response,
-    @Headers('user-agent') agentString: string,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    const agent = UAParser(agentString);
-    const { accessToken, refreshToken } = await this.authService.login(user, agent, ipAddress);
+    const { accessToken, refreshToken } = await this.authService.login(user, deviceType, ipAddress);
     const daysToMillis = 24 * 60 * 60 * 1000;
     if (!clientType) {
       throw new UnauthorizedException();
