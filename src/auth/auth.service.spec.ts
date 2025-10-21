@@ -1192,6 +1192,7 @@ describe('AuthService with mock ConfigService', () => {
       const date = new Date();
       date.setDate(date.getDate() + 1);
       mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        id: '100',
         user: { id: BigInt('100'), username: 'username' },
         expires_at: date,
       });
