@@ -23,7 +23,6 @@ jest.mock('crypto', () => ({
 
 describe('generateAndStoreOtp', () => {
   let redisService: RedisService;
-  let emailQueue: Queue;
 
   const mockRedisService = {
     get: jest.fn(),
@@ -38,7 +37,6 @@ describe('generateAndStoreOtp', () => {
 
   beforeEach(() => {
     redisService = mockRedisService as unknown as RedisService;
-    emailQueue = mockEmailQueue as unknown as Queue;
 
     jest.clearAllMocks();
 
@@ -131,6 +129,27 @@ describe('generateAndStoreOtp', () => {
       });
     });
 
+    it('should queue email job with username for registration', async () => {
+      mockRedisService.get.mockResolvedValue(null);
+      mockRedisService.set.mockResolvedValue('OK');
+
+      const params = {
+        ...baseParams,
+        otpType: OtpType.REGISTRATION,
+        redisKey: REDIS_KEYS.REGISTRATION('mocked-token'),
+        resendKey: REDIS_KEYS.OTP_RESEND('test@gmail.com'),
+      };
+
+      await generateAndStoreOtp(params, redisService);
+
+      expect(mockEmailQueue.add).toHaveBeenCalledWith('sendOtp', {
+        type: OtpType.REGISTRATION,
+        email: baseParams.email,
+        otp: '123456',
+        username: '',
+      });
+    });
+
     it('should set verified to false', async () => {
       mockRedisService.get.mockResolvedValue(null);
       mockRedisService.set.mockResolvedValue('OK');
@@ -140,6 +159,42 @@ describe('generateAndStoreOtp', () => {
       const setCall = mockRedisService.set.mock.calls[0] as [string, string, number];
       const storedData = JSON.parse(setCall[1]) as unknown as { verified: boolean };
       expect(storedData.verified).toBe(false);
+    });
+  });
+
+  describe('rate limiting', () => {
+    it('should throw OTP_RESEND_LIMIT_EXCEEDED error when limit is reached', async () => {
+      // Arrange
+      mockRedisService.get.mockResolvedValue(AUTH_CONFIG.OTP_RESEND_LIMIT.toString());
+
+      // Act & Assert
+      await expect(generateAndStoreOtp(baseParams, redisService)).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+            code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
+      );
+
+      expect(mockRedisService.get).toHaveBeenCalledWith(baseParams.resendKey);
+      expect(mockRedisService.set).not.toHaveBeenCalled();
+      expect(mockEmailQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('should throw OTP_RESEND_LIMIT_EXCEEDED when attempts exceed limit', async () => {
+      mockRedisService.get.mockResolvedValue((AUTH_CONFIG.OTP_RESEND_LIMIT + 1).toString());
+
+      await expect(generateAndStoreOtp(baseParams, redisService)).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+            code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
+      );
     });
   });
 });
