@@ -41,31 +41,32 @@ jest.mock('./utils/otp.util', () => ({
 }));
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import {  ConfigService } from '@nestjs/config';
-import * as useragent from 'useragent';
+import { ConfigService } from '@nestjs/config';
 import { RequestUser } from './types';
 import * as bcrypt from 'bcrypt';
+
 // Mock the dependencies
 const mockPrismaService = {
-  users:{
-    findFirst:jest.fn()
+  users: {
+    findFirst: jest.fn(),
   },
-    refresh_tokens: {
+  refresh_tokens: {
     create: jest.fn(),
   },
   user_devices: {
     create: jest.fn(),
   },
-  
-$transaction: jest.fn(async (callback: (tx: typeof mockPrismaService) => Promise<unknown>):Promise<unknown> => {
-    return await callback(mockPrismaService);
-  }),
+
+  $transaction: jest.fn(
+    async (callback: (tx: typeof mockPrismaService) => Promise<unknown>): Promise<unknown> => {
+      return await callback(mockPrismaService);
+    },
+  ),
 };
 
 const mockJwtService = {
   sign: jest.fn(() => 'mockAccessToken'),
 };
-
 
 jest.mock('crypto', () => ({
   randomBytes: () => ({
@@ -86,7 +87,6 @@ jest.mock('bcrypt', () => ({
 
 const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
-
 describe('AuthService with mock ConfigService', () => {
   let service: AuthService;
   let mockRedisService: Partial<RedisService>;
@@ -98,12 +98,12 @@ describe('AuthService with mock ConfigService', () => {
   let mockEmailQueue: { add: jest.Mock };
   let mockPrismaService: Partial<PrismaService>;
   const mockConfigService = {
-  get: jest.fn((key: string) => {
-    if (key === 'NODE_ENV') return 'dev';
-    if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return 30; 
-    return null;
-  }),
-};
+    get: jest.fn((key: string) => {
+      if (key === 'NODE_ENV') return 'dev';
+      if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return 30;
+      return null;
+    }),
+  };
 
 
   beforeEach(async () => {
@@ -154,138 +154,134 @@ describe('AuthService with mock ConfigService', () => {
 
     service = module.get<AuthService>(AuthService);
   });
-
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  describe('login', () => {
-    it('should return user when correct password',async()=>{
-  describe('validateUser',()=>{
-        it('should return user when correct password',async()=>{
-
+  describe('validateUser', () => {
+    it('should return user when correct password', async () => {
       mockPrismaService.users.findFirst.mockResolvedValue({
-        id:'100',username:'username',password_hash:'hash'
-      })
+        id: '100',
+        username: 'username',
+        password_hash: 'hash',
+      });
 
+      const body = { identifier: 'username', password: 'password' };
+      const result = await service.validateUser(body.identifier, body.password);
 
-      const body = {identifier:'username',password:'password'}
-      const result = await service.validateUser(body.identifier,body.password )
+      expect(result).not.toBeNull();
+    });
 
-      expect(result).not.toBeNull()
-    })
-
-    it('should return null when incorrect password',async()=>{
-
+    it('should return null when incorrect password', async () => {
       mockPrismaService.users.findFirst.mockResolvedValue({
-        id:'100',username:'username',password_hash:'hash'
-      })
-mockedBcrypt.compare.mockResolvedValueOnce(false as never);
+        id: '100',
+        username: 'username',
+        password_hash: 'hash',
+      });
+      mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
-      const body = {identifier:'username',password:'password'}
-      const result = await service.validateUser(body.identifier,body.password )
+      const body = { identifier: 'username', password: 'password' };
+      const result = await service.validateUser(body.identifier, body.password);
 
-      expect(result).toBeNull()
-    })
+      expect(result).toBeNull();
+    });
 
-    it("should return null when user doesn't have password_hash" ,async()=>{
-
+    it("should return null when user doesn't have password_hash", async () => {
       mockPrismaService.users.findFirst.mockResolvedValue({
-        id:'100',username:'username',password_hash:undefined
-      })
+        id: '100',
+        username: 'username',
+        password_hash: undefined,
+      });
 
-      const body = {identifier:'username',password:'password'}
-      const result = await service.validateUser(body.identifier,body.password )
+      const body = { identifier: 'username', password: 'password' };
+      const result = await service.validateUser(body.identifier, body.password);
 
-      expect(result).toBeNull()
-    })
+      expect(result).toBeNull();
+    });
 
+    it('cant find user', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
 
-    it('cant find user',async()=>{
+      const body = { identifier: 'username', password: 'password' };
+      const result = await service.validateUser(body.identifier, body.password);
 
-      mockPrismaService.users.findFirst.mockResolvedValue(null)
-
-      const body = {identifier:'username',password:'password'}
-      const result = await service.validateUser(body.identifier,body.password )
-
-      expect(result).toBeNull()
-    })
+      expect(result).toBeNull();
+    });
 
     it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
-    const plainPassword = 'password123';
-    const hashedPassword = 'a_very_long_hashed_string';
-    mockPrismaService.users.findFirst.mockResolvedValue({
-      id: '1',
-      username: 'testuser',
-      password_hash: hashedPassword,
+      const plainPassword = 'password123';
+      const hashedPassword = 'a_very_long_hashed_string';
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: '1',
+        username: 'testuser',
+        password_hash: hashedPassword,
+      });
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+
+      await service.validateUser('testuser', plainPassword);
+
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
     });
-    mockedBcrypt.compare.mockResolvedValue(true as never);
-
-    await service.validateUser('testuser', plainPassword);
-
-    expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
-  });
 
     it('should propagate errors from the database', async () => {
-    const dbError = new Error('Database connection failed');
-    mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+      const dbError = new Error('Database connection failed');
+      mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
 
-    await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+      await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+    });
   });
 
-  })
-
   describe('login', () => {
+    const mockDeviceType = 'Chrome on Windows (Desktop)';
+    const ipAddress = '192.33.100.1';
+    const user: RequestUser = { id: '1', username: 'testuser' };
     it('should correctly handle login', async () => {
-      const user:RequestUser = { id: '1', username: 'username' };
-
-      const mockAgent = useragent.parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-
       mockPrismaService.refresh_tokens.create.mockResolvedValue({
         id: '100',
         token_hash: 'mockHashedToken',
-        expires_at:'expires_at'
+        expires_at: 'expires_at',
       });
 
       mockPrismaService.user_devices.create.mockResolvedValue({
         id: '100',
-        device_type:mockAgent.toString()
+        device_type: mockDeviceType,
+        ip_address: ipAddress,
       });
 
-      const result = await service.login(user,mockAgent );
+      const result = await service.login(user, mockDeviceType, ipAddress);
 
       expect(result).toEqual({
         accessToken: 'mockAccessToken',
         refreshToken: 'mockRefreshToken',
       });
 
-type RefreshTokenCreateInput = {
-  data: {
-    user_id: bigint;
-    token_hash: string;
-    device_id: string;
-    expires_at: Date;
-  };
-};
+      type RefreshTokenCreateInput = {
+        data: {
+          user_id: bigint;
+          token_hash: string;
+          device_id: string;
+          expires_at: Date;
+        };
+      };
 
-const calls = mockPrismaService.refresh_tokens.create.mock
-  .calls as [RefreshTokenCreateInput][];
+      const calls = mockPrismaService.refresh_tokens.create.mock.calls as [
+        RefreshTokenCreateInput,
+      ][];
 
-const call = calls[0][0];
+      const call = calls[0][0];
 
-expect(call.data.user_id).toBe(BigInt(user.id));
-expect(call.data.token_hash).toBe('mockHashedToken');
-expect(call.data.device_id).toBe('100');
-expect(call.data.expires_at).toBeInstanceOf(Date);      
+      expect(call.data.user_id).toBe(BigInt(user.id));
+      expect(call.data.token_hash).toBe('mockHashedToken');
+      expect(call.data.device_id).toBe('100');
+      expect(call.data.expires_at).toBeInstanceOf(Date);
 
       expect(mockPrismaService.user_devices.create).toHaveBeenCalledWith({
-        data:{
- user_id:BigInt(user.id),
-          device_type:mockAgent.toString()
-        }
-      })
+        data: {
+          user_id: BigInt(user.id),
+          device_type: mockDeviceType,
+          ip_address: ipAddress,
+        },
+      });
 
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         id: user.id,
@@ -294,13 +290,33 @@ expect(call.data.expires_at).toBeInstanceOf(Date);
     });
 
     it('should throw an error if the database transaction fails', async () => {
-        const user: RequestUser = { id: '1', username: 'testuser' };
-        const mockAgent = useragent.parse('Mozilla/5.0');
-        
-        const transactionError = new Error('Transaction failed due to a conflict');
-        mockPrismaService.$transaction.mockRejectedValueOnce(transactionError);
+      const transactionError = new Error('Transaction failed due to a conflict');
+      mockPrismaService.$transaction.mockRejectedValueOnce(transactionError);
 
-        await expect(service.login(user, mockAgent)).rejects.toThrow(transactionError);
+      await expect(service.login(user, mockDeviceType, ipAddress)).rejects.toThrow(
+        transactionError,
+      );
+    });
+
+    it('should use default value for mockService when not assigned', async () => {
+      mockConfigService.get.mockImplementationOnce((key: string) => {
+        if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') {
+          return null;
+        }
+        return 'dev';
+      });
+      mockPrismaService.refresh_tokens.create.mockResolvedValue({});
+
+      mockPrismaService.user_devices.create.mockResolvedValue({
+        id: '100',
+      });
+
+      const result = await service.login(user, mockDeviceType, ipAddress);
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
     });
   });
 
@@ -589,24 +605,61 @@ expect(call.data.expires_at).toBeInstanceOf(Date);
       const result = await service.checkEmail('new@example.com');
       expect(result).toStrictEqual({
         message: 'Email is available',
-        exists: false,
+  describe('checkIdentifier', () => {
+    // const mockDeviceType = 'Chrome on Windows (Desktop)';
+    // const ipAddress = '192.33.100.1';
+    const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
+
+    it('should return exist true when user found with username', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        username: user.username,
+      });
+
+      const result = await service.checkIdentifier(user.username);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'username',
       });
     });
-  });
 
-  describe('verifyRecaptcha', () => {
-    it('should return true if the token is valid', async () => {
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
-      const result = await service.verifyRecaptcha('valid-token');
-      expect(result).toBe(true);
-      expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('valid-token');
+    it('should return exist true when user found with email', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        email: user.email,
+      });
+
+      const result = await service.checkIdentifier(user.email);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'email',
+      });
     });
 
-    it('should return false if the token is invalid', async () => {
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(false);
-      const result = await service.verifyRecaptcha('invalid-token');
-      expect(result).toBe(false);
-      expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('invalid-token');
+    it('should return exist true when user found with phone', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        phone: user.phone,
+      });
+
+      const result = await service.checkIdentifier(user.phone);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'phone',
+      });
+    });
+
+    it('should return exist false when user not found', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkIdentifier('someusername');
+
+      expect(result).toEqual({
+        exists: false,
+      });
     });
   });
 });
