@@ -185,6 +185,9 @@ describe('AuthService with mock ConfigService', () => {
 
     service = module.get<AuthService>(AuthService);
   });
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -1187,4 +1190,61 @@ describe('AuthService with mock ConfigService', () => {
     });
   });
 
+  describe('checkIdentifier', () => {
+    // const mockDeviceType = 'Chrome on Windows (Desktop)';
+    // const ipAddress = '192.33.100.1';
+    const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
+
+    it('should return exist true when user found with username', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        username: user.username,
+      });
+
+      const result = await service.checkIdentifier(user.username);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'username',
+      });
+    });
+
+    it('should return exist true when user found with email', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        email: user.email,
+      });
+
+      const result = await service.checkIdentifier(user.email);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'email',
+      });
+    });
+
+    it('should return exist true when user found with phone', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        phone: user.phone,
+      });
+
+      const result = await service.checkIdentifier(user.phone);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'phone',
+      });
+    });
+
+    it('should return exist false when user not found', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkIdentifier('someusername');
+
+      expect(result).toEqual({
+        exists: false,
+      });
+    });
+  });
 });
