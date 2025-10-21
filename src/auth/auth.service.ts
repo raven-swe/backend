@@ -349,6 +349,10 @@ export class AuthService {
     const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
     const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email);
 
+    // Reset OTP and verified state before generating a new one
+    passwordResetData.otp = '';
+    passwordResetData.verified = false;
+
     await generateAndStoreOtp(
       {
         redisKey,
@@ -363,6 +367,6 @@ export class AuthService {
     );
 
     this.logger.log(`Resent password reset OTP for ${passwordResetData.email}`);
-    return { message: 'OTP resent successfully' };
+    return { message: 'OTP resent successfully.' };
   }
 }

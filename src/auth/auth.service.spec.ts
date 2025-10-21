@@ -31,13 +31,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let redisService: RedisService;
 
-  const mockUser = {
-    id: 1234,
-    email: 'test@gmail.com',
-    username: 'testuser',
-    password: 'hashedPassword',
-  };
-
   const mockUsersService = {
     findByIdentifier: jest.fn(),
     updatePassword: jest.fn(),
@@ -57,6 +50,20 @@ describe('AuthService', () => {
   const mockEmailQueue = {
     add: jest.fn(),
     close: jest.fn(),
+  };
+
+  const mockUser = {
+    id: 1234,
+    email: 'test@gmail.com',
+    username: 'testuser',
+    password: 'hashedPassword',
+  };
+
+  const mockPasswordResetData = {
+    email: 'test@gmail.com',
+    userId: '1234',
+    otp: 'hashedOtpValue',
+    verified: false,
   };
 
   beforeEach(async () => {
@@ -148,13 +155,6 @@ describe('AuthService', () => {
   });
 
   describe('verifyForgotPassword', () => {
-    const mockPasswordResetData = {
-      email: 'test@gmail.com',
-      userId: '1234',
-      otp: 'hashedOtpValue',
-      verified: false,
-    };
-
     const mockConfirmationToken = '';
 
     it('should verify OTP and update redis when OTP is valid', async () => {
@@ -224,13 +224,6 @@ describe('AuthService', () => {
   });
 
   describe('resetPassword', () => {
-    const mockPasswordResetData = {
-      email: 'test@gmail.com',
-      userId: '1234',
-      otp: 'hashedOtpValue',
-      verified: false,
-    };
-
     const mockConfirmationToken = '';
     it('should update password, remove devices, and cleanup redis when verified', async () => {
       // Arrange
@@ -302,6 +295,52 @@ describe('AuthService', () => {
           {
             message: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
             code: AUTH_ERROR_CODES.OTP_NOT_VERIFIED,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('resendPasswordOtp', () => {
+    it('should call generateAndStoreOtp to resend OTP', async () => {
+      // Arrange
+      mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
+
+      // Act
+      const result = await service.resendPasswordOtp({ confirmationToken: '' });
+
+      // Assert
+      expect(result).toHaveProperty('message', 'OTP resent successfully.');
+      expect(generateAndStoreOtp).toHaveBeenCalledTimes(1);
+      expect(generateAndStoreOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            email: mockPasswordResetData.email,
+            otp: '',
+            userId: mockPasswordResetData.userId,
+            verified: false,
+          },
+          email: mockPasswordResetData.email,
+          otpType: OtpType.FORGOT_PASSWORD,
+          redisKey: REDIS_KEYS.PASSWORD_RESET(''),
+          resendKey: REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(mockPasswordResetData.email),
+          ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        }),
+        redisService,
+      );
+    });
+
+    it('should throw INVALID_TOKEN when redis data does not exist', async () => {
+      // Arrange
+      mockRedisService.get.mockResolvedValue(null);
+
+      // Act
+      await expect(service.resendPasswordOtp({ confirmationToken: '' })).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+            code: AUTH_ERROR_CODES.INVALID_TOKEN,
           },
           HttpStatus.BAD_REQUEST,
         ),
