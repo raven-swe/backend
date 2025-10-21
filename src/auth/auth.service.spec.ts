@@ -8,8 +8,24 @@ import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DevicesService } from 'src/devices/devices.service';
-import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/common/constants/auth.constants';
+import {
+  AUTH_CONFIG,
+  AUTH_ERROR_CODES,
+  AUTH_ERROR_MESSAGES,
+  REDIS_KEYS,
+} from 'src/common/constants/auth.constants';
 import { OtpType } from 'src/email/email.service';
+import { generateAndStoreOtp } from './utils/otp.util';
+import * as bcrypt from 'bcrypt';
+
+jest.mock('./utils/otp.util', () => ({
+  generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
+}));
+
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -46,11 +62,6 @@ describe('AuthService', () => {
     close: jest.fn(),
   };
 
-  const mockGenerateAndStoreOtp = jest.fn().mockResolvedValue('123456');
-  jest.mock('./utils/otp.util', () => ({
-    generateAndStoreOtp: mockGenerateAndStoreOtp,
-  }));
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -86,7 +97,7 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
-    it('should throw USER_NOT_FOUND when exception does not exist', async () => {
+    it('should throw USER_NOT_FOUND when user does not exist', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(null);
 
       const forgotPasswordDto = { identifier: 'none', recaptchaToken: '' };
@@ -103,11 +114,8 @@ describe('AuthService', () => {
       expect(mockUsersService.findByIdentifier).toHaveBeenCalledWith(forgotPasswordDto.identifier);
     });
 
-    it('should generate OTP and send via email when user exists', async () => {
+    it('should generate confirmation token and call generateAndStoreOtp when user exists', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(mockUser);
-      mockRedisService.get.mockResolvedValue(null);
-      mockRedisService.set.mockResolvedValue(true);
-      mockEmailQueue.add.mockResolvedValue({});
 
       const forgotPasswordDto = { identifier: 'test@gmail.com', recaptchaToken: '' };
 
@@ -115,26 +123,113 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('confirmationToken');
       expect(result.confirmationToken).toBeTruthy();
+      expect(typeof result.confirmationToken).toBe('string');
       expect(mockUsersService.findByIdentifier).toHaveBeenCalledWith(forgotPasswordDto.identifier);
-      expect(mockEmailQueue.add).toHaveBeenCalled();
+
+      // Verify generateAndStoreOtp was called with correct parameters
+      expect(generateAndStoreOtp).toHaveBeenCalledTimes(1);
+      expect(generateAndStoreOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            email: mockUser.email,
+            otp: '',
+            userId: '1234',
+            verified: false,
+          },
+          email: mockUser.email,
+          otpType: OtpType.FORGOT_PASSWORD,
+          redisKey: REDIS_KEYS.PASSWORD_RESET(result.confirmationToken),
+          resendKey: REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(mockUser.email),
+          ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        }),
+        redisService,
+      );
     });
 
-    it('should queue email job with FORGOT_PASSWORD type', async () => {
+    it('should generate unique confirmation tokens for different requests', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(mockUser);
-      mockRedisService.get.mockResolvedValue(null);
-      mockRedisService.set.mockResolvedValue(true);
-      mockEmailQueue.add.mockResolvedValue({});
 
       const forgotPasswordDto = { identifier: mockUser.email, recaptchaToken: '' };
 
-      await service.forgotPassword(forgotPasswordDto);
+      const result1 = await service.forgotPassword(forgotPasswordDto);
+      const result2 = await service.forgotPassword(forgotPasswordDto);
 
-      expect(mockEmailQueue.add).toHaveBeenCalledWith(
-        'sendOtp',
-        expect.objectContaining({
-          type: OtpType.FORGOT_PASSWORD,
-          email: mockUser.email,
-        }),
+      expect(result1.confirmationToken).not.toBe(result2.confirmationToken);
+    });
+  });
+
+  describe('verifyForgotPassword', () => {
+    const mockPasswordResetData = {
+      email: 'test@gmail.com',
+      userId: '1234',
+      otp: 'hashedOtpValue',
+      verified: false,
+    };
+
+    const mockConfirmationToken = '';
+
+    it('should verify OTP and update redis when OTP is valid', async () => {
+      // Arrange
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
+
+      const mockVerifyForgotPasswordDto = {
+        otp: '123456',
+        confirmationToken: mockConfirmationToken,
+      };
+
+      // Act
+      const result = await service.verifyForgotPassword(mockVerifyForgotPasswordDto);
+
+      // Assert
+      expect(result).toEqual({ message: 'Password reset verified successfully.' });
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        REDIS_KEYS.PASSWORD_RESET(mockConfirmationToken),
+        expect.stringContaining('"verified":true'),
+        expect.any(Number),
+      );
+    });
+
+    it('should throw INVALID_TOKEN when redis data does not exist', async () => {
+      // Arrange
+      mockRedisService.get.mockResolvedValue(null);
+
+      const mockVerifyForgotPasswordDto = {
+        otp: '123456',
+        confirmationToken: mockConfirmationToken,
+      };
+
+      // Act
+      await expect(service.verifyForgotPassword(mockVerifyForgotPasswordDto)).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+            code: AUTH_ERROR_CODES.INVALID_TOKEN,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should throw OTP_INVALID when OTP does not match', async () => {
+      // Arrange
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+      mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
+
+      const mockVerifyForgotPasswordDto = {
+        otp: '000000',
+        confirmationToken: mockConfirmationToken,
+      };
+
+      // Act
+      await expect(service.verifyForgotPassword(mockVerifyForgotPasswordDto)).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.OTP_INVALID,
+            code: AUTH_ERROR_CODES.OTP_INVALID,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
       );
     });
   });
