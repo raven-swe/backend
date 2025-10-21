@@ -97,7 +97,6 @@
     "testEnvironment": "node"
   },
   "coveragePathIgnorePatterns": [
-    "/node_modules/",
     "main\\.ts",
     "app\\.module\\.ts",
     ".*\\.module\\.ts",
