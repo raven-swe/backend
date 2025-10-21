@@ -12,7 +12,7 @@ import { CheckIdentifierQueryDto } from './dtos';
 
 describe('AuthController with real config service', () => {
   let controller: AuthController;
-  let config:ConfigService;
+  let config: ConfigService;
 
   const mockAuthService = {
     verifyRecaptcha: jest.fn(),
@@ -370,7 +370,7 @@ describe('AuthController with mocked config service', () => {
       ),
     };
     const module: TestingModule = await Test.createTestingModule({
-      imports:[ConfigModule.forRoot({envFilePath:'.env.test',ignoreEnvFile:false})],
+      imports: [ConfigModule.forRoot({ envFilePath: '.env.test', ignoreEnvFile: false })],
       controllers: [AuthController],
       providers: [
         { provide: ConfigService, useValue: mockConfigService },
@@ -379,7 +379,7 @@ describe('AuthController with mocked config service', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    config = module.get<ConfigService>(ConfigService)
+    config = module.get<ConfigService>(ConfigService);
   });
 
   it('should be defined', () => {
@@ -427,19 +427,18 @@ describe('AuthController with mocked config service', () => {
   });
 });
 
-describe('AuthController with mocked config service',()=>{
-
+describe('AuthController with mocked config service', () => {
   const mockConfigService = {
-      get: jest.fn(),
-    };
+    get: jest.fn(),
+  };
 
   let controller: AuthController;
 
-beforeEach(async () => {
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        {provide:ConfigService,useValue:mockConfigService},
+        { provide: ConfigService, useValue: mockConfigService },
         { provide: AuthService, useValue: mockAuthService },
       ],
     }).compile();
@@ -450,37 +449,44 @@ beforeEach(async () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
+  const mockDeviceType = 'Chrome On Windows (Desktop)';
+  const mockClientType = 'web';
+  const ipAddress = '192.33.100.1';
+  const mockResponse = {
+    cookie: jest.fn(),
+    status: jest.fn().mockReturnThis(),
+  } as unknown as Response;
+  const mockUser = { id: '1', username: 'username' };
 
-    it('should fallback to default value when config serivce cant get value',async()=>{
+  it('should fallback to default value when config serivce cant get value', async () => {
+    const result = await controller.login(
+      mockUser,
+      ipAddress,
+      mockDeviceType,
+      mockResponse,
+      mockClientType,
+    );
 
-const mockUser = { id: '1', username: 'username' };
-      const mockUserAgent = useragent.parse('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-      
-      const mockResponse = {
-        cookie: jest.fn(),
-      } as unknown as Response;
+    expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
 
-      const result = await controller.login(mockUser, mockResponse, mockUserAgent.toString());
+    const daysToMillis = 24 * 60 * 60 * 1000;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'none',
+      maxAge: 30 * daysToMillis,
+    });
 
-      expect(mockAuthService.login).toHaveBeenCalledWith(
-        mockUser,
-expect.objectContaining({
-        os: expect.objectContaining({
-          family: 'Windows',
-        }) as unknown,
-      }),      );
-
-    const daysToMillis = 24*60*60*1000;
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'none',
-        maxAge: 30*daysToMillis,
+    if (mockClientType === 'web') {
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
       });
-
+    } else {
       expect(result).toEqual({
         accessToken: 'mockAccessToken',
         refreshToken: 'mockRefreshToken',
-      });    })
-})
+      });
+    }
+  });
+});
