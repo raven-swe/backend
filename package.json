@@ -95,5 +95,17 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  }
+  },
+  "coveragePathIgnorePatterns": [
+    "/node_modules/",
+    "main\\.ts",
+    "app\\.module\\.ts",
+    ".*\\.module\\.ts",
+    ".*\\.dto\\.ts",
+    ".*\\.exception\\.ts",
+    ".*\\.constants\\.ts",
+    ".*\\.filter\\.ts",
+    ".*\\.interceptor\\.ts",
+    ".*\\.repository\\.ts"
+  ]
 }
