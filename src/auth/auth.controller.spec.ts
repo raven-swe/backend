@@ -8,8 +8,8 @@ import { AUTH_CONFIG } from './constants/auth.constants';
 import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
-import { CheckIdentifierQueryDto } from './dtos';
-import { RequestWithCookies } from './types';
+import { CheckIdentifierQueryDto, LogoutDto } from './dtos';
+import { RequestUser, RequestWithCookies } from './types';
 import { RefreshTokenDto } from './dtos';
 
 function mockRequestWithCookies(
@@ -531,20 +531,32 @@ describe('AuthController with mocked config service', () => {
     it('with undefined refresh_token in body it should throw', async () => {
       mockClientType = 'mobile';
       await expect(
-        controller.refrehAccessToken(req, undefined as never, mockResponse, undefined as never),
+        controller.refrehAccessToken(req, { refresh_token: '' }, mockResponse, mockClientType),
       ).rejects.toThrow(UnauthorizedException);
     });
-
-    it('with undefined refresh_token in cookie it should throw', async () => {
-      const noCookieReq = mockRequestWithCookies({ refreshToken: undefined });
-
+  });
+  describe('logout', () => {
+    let mockClientType: 'web' | 'mobile' = 'web';
+    const refreshToken = 'old_mocked_refresh_token';
+    const req = mockRequestWithCookies({ refresh_token: refreshToken });
+    const user: RequestUser = { id: '100', username: 'username' };
+    const dto: LogoutDto = { refresh_token: refreshToken };
+    const mockResponse = {
+      cookie: jest.fn(),
+      clearCookie: jest.fn(),
+    } as unknown as Response;
+    it('should call logout and return success with client web', async () => {
+      const result = await controller.logout(req, mockResponse, user, dto, mockClientType);
+      expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+    it('should call logout and return success with client mobile', async () => {
+      mockClientType = 'mobile';
+      const result = await controller.logout(req, mockResponse, user, dto, mockClientType);
+      expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+    it('should throw UnauthorizedException when client undefined', async () => {
       await expect(
-        controller.refrehAccessToken(
-          noCookieReq,
-          undefined as never,
-          mockResponse,
-          undefined as never,
-        ),
+        controller.logout(req, mockResponse, user, dto, undefined as never),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
