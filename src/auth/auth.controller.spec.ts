@@ -9,12 +9,19 @@ import { DeviceType } from 'src/device/interfaces/device.interface';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { UnauthorizedException } from '@nestjs/common';
+import { CheckIdentifierQueryDto } from './dtos';
 
 const mockAuthService = {
   login: jest.fn(() =>
     Promise.resolve({
       accessToken: 'mockAccessToken',
       refreshToken: 'mockRefreshToken',
+    }),
+  ),
+  checkIdentifier: jest.fn(() =>
+    Promise.resolve({
+      exists: true,
+      type: 'username',
     }),
   ),
 };
@@ -158,15 +165,37 @@ describe('AuthController with real config service', () => {
 
   describe('login', () => {
     const mockDeviceType = 'Chrome On Windows (Desktop)';
-    const mockClientType = 'web';
     const ipAddress = '192.33.100.1';
+    let mockClientType: 'web' | 'mobile' = 'web';
     const mockResponse = {
       cookie: jest.fn(),
       status: jest.fn().mockReturnThis(),
     } as unknown as Response;
     const mockUser = { id: '1', username: 'username' };
 
-    it('should call authService.login, set a cookie, and return tokens', async () => {
+    it('with client type undefined should call authService.login and return refreshToken', async () => {
+      await expect(
+        controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, undefined as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('with client type mobile should call authService.login and return refreshToken', async () => {
+      mockClientType = 'mobile';
+      const result = await controller.login(
+        mockUser,
+        ipAddress,
+        mockDeviceType,
+        mockResponse,
+        mockClientType,
+      );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
+    });
+    it('with client type web should call authService.login, set a cookie', async () => {
+      const mockClientType = 'web';
       mockResponse.status(200);
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.status).toHaveBeenCalledWith(200);
@@ -190,16 +219,9 @@ describe('AuthController with real config service', () => {
         maxAge: config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis,
       });
 
-      if (mockClientType === 'web') {
-        expect(result).toEqual({
-          accessToken: 'mockAccessToken',
-        });
-      } else {
-        expect(result).toEqual({
-          accessToken: 'mockAccessToken',
-          refreshToken: 'mockRefreshToken',
-        });
-      }
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+      });
     });
 
     it('should throw an UnauthorizedException if login fails', async () => {
@@ -208,6 +230,18 @@ describe('AuthController with real config service', () => {
       await expect(
         controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, mockClientType),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('checkIdentifier', () => {
+    it('it should call the checkIdentifier', async () => {
+      const dto: CheckIdentifierQueryDto = { identifier: 'test' };
+      const result = await controller.checkIdentifier(dto);
+
+      expect(mockAuthService.checkIdentifier).toHaveBeenCalled();
+      expect(mockAuthService.checkIdentifier).toHaveBeenCalledWith(dto.identifier);
+
+      expect(result).toStrictEqual({ exists: true, type: 'username' });
     });
   });
 });
