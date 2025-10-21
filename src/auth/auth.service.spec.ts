@@ -86,7 +86,6 @@ const createMockPrismaService = () => {
   };
 };
 
-
 describe('AuthService with mock ConfigService', () => {
   let service: AuthService;
   let mockPrismaService: ReturnType<typeof createMockPrismaService>;
@@ -185,6 +184,9 @@ describe('AuthService with mock ConfigService', () => {
 
     service = module.get<AuthService>(AuthService);
   });
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -279,30 +281,32 @@ describe('AuthService with mock ConfigService', () => {
     const user: RequestUser = { id: '1', username: 'testuser' };
 
     it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
-    const plainPassword = 'password123';
-    const hashedPassword = 'a_very_long_hashed_string';
-    mockPrismaService.users.findFirst.mockResolvedValue({
-      id: '1',
-      username: 'testuser',
-      password_hash: hashedPassword,
+      const plainPassword = 'password123';
+      const hashedPassword = 'a_very_long_hashed_string';
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: '1',
+        username: 'testuser',
+        password_hash: hashedPassword,
+      });
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+
+      await service.validateUser('testuser', plainPassword);
+
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
     });
-    mockedBcrypt.compare.mockResolvedValue(true as never);
-
-    await service.validateUser('testuser', plainPassword);
-
-    expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
-  });
 
     it('should propagate errors from the database', async () => {
-    const dbError = new Error('Database connection failed');
-    mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+      const dbError = new Error('Database connection failed');
+      mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
 
-    await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+      await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+    });
   });
 
-  })
-
   describe('login', () => {
+    const mockDeviceType = 'Chrome on Windows (Desktop)';
+    const ipAddress = '192.33.100.1';
+    const user: RequestUser = { id: '1', username: 'testuser' };
     it('should correctly handle login', async () => {
       const fakeToken = {
         id: 100n,
@@ -1129,4 +1133,61 @@ describe('AuthService with mock ConfigService', () => {
     });
   });
 
+  describe('checkIdentifier', () => {
+    // const mockDeviceType = 'Chrome on Windows (Desktop)';
+    // const ipAddress = '192.33.100.1';
+    const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
+
+    it('should return exist true when user found with username', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        username: user.username,
+      });
+
+      const result = await service.checkIdentifier(user.username);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'username',
+      });
+    });
+
+    it('should return exist true when user found with email', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        email: user.email,
+      });
+
+      const result = await service.checkIdentifier(user.email);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'email',
+      });
+    });
+
+    it('should return exist true when user found with phone', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        phone: user.phone,
+      });
+
+      const result = await service.checkIdentifier(user.phone);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'phone',
+      });
+    });
+
+    it('should return exist false when user not found', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkIdentifier('someusername');
+
+      expect(result).toEqual({
+        exists: false,
+      });
+    });
+  });
 });
