@@ -5,8 +5,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { BullModule, getQueueToken } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { getQueueToken } from '@nestjs/bullmq';
 import { DevicesService } from 'src/devices/devices.service';
 import {
   AUTH_CONFIG,
@@ -31,9 +30,6 @@ jest.mock('bcrypt', () => ({
 describe('AuthService', () => {
   let service: AuthService;
   let redisService: RedisService;
-  let usersService: UsersService;
-  let devicesService: DevicesService;
-  let emailQueue: Queue;
 
   const mockUser = {
     id: 1234,
@@ -65,11 +61,6 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        BullModule.registerQueue({
-          name: 'email',
-        }),
-      ],
       providers: [
         AuthService,
         Logger,
@@ -84,13 +75,10 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     redisService = module.get<RedisService>(RedisService);
-    usersService = module.get<UsersService>(UsersService);
-    devicesService = module.get<DevicesService>(DevicesService);
-    emailQueue = module.get(getQueueToken('email'));
   });
 
-  afterAll(async () => {
-    await emailQueue.close();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
