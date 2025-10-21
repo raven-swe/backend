@@ -542,16 +542,13 @@ describe('AuthController with mocked config service', () => {
   });
   describe('refreshToken', () => {
     let mockClientType: 'web' | 'mobile' = 'web';
-    it('for client type web should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
-      const refreshToken = 'old_mocked_refresh_token';
-
-      const req = mockRequestWithCookies({ refresh_token: refreshToken });
-      const dto: RefreshTokenDto = { refresh_token: refreshToken };
-
-      const mockResponse = {
-        cookie: jest.fn(),
-      } as unknown as Response;
-
+    const refreshToken = 'old_mocked_refresh_token';
+    const req = mockRequestWithCookies({ refresh_token: refreshToken });
+    const dto: RefreshTokenDto = { refresh_token: refreshToken };
+    const mockResponse = {
+      cookie: jest.fn(),
+    } as unknown as Response;
+    it('for client type web should call authService.refreshAccessToken', async () => {
       const result = await controller.refrehAccessToken(req, dto, mockResponse, mockClientType);
 
       expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
@@ -569,15 +566,7 @@ describe('AuthController with mocked config service', () => {
       });
     });
     it('for client type mobile should call authService.refreshAccessToken, set a cookie and return tokens', async () => {
-      const refreshToken = 'old_mocked_refresh_token';
       mockClientType = 'mobile';
-
-      const req = mockRequestWithCookies({ refresh_token: refreshToken });
-      const dto: RefreshTokenDto = { refresh_token: refreshToken };
-
-      const mockResponse = {
-        cookie: jest.fn(),
-      } as unknown as Response;
 
       const result = await controller.refrehAccessToken(req, dto, mockResponse, mockClientType);
 
@@ -587,6 +576,31 @@ describe('AuthController with mocked config service', () => {
         accessToken: 'mockAccessToken',
         refreshToken: 'mockRefreshToken',
       });
+    });
+    it('with client type undefined should throw', async () => {
+      await expect(
+        controller.refrehAccessToken(req, dto, mockResponse, undefined as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('with undefined refresh_token in body it should throw', async () => {
+      mockClientType = 'mobile';
+      await expect(
+        controller.refrehAccessToken(req, undefined as never, mockResponse, undefined as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('with undefined refresh_token in cookie it should throw', async () => {
+      const noCookieReq = mockRequestWithCookies({ refresh_token: undefined });
+
+      await expect(
+        controller.refrehAccessToken(
+          noCookieReq,
+          undefined as never,
+          mockResponse,
+          undefined as never,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });
