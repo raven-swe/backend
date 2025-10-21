@@ -153,7 +153,7 @@ export class AuthController {
     } else if (clientType === 'mobile') {
       refreshToken = refreshTokenDto.refresh_token;
     }
-    if (!refreshToken) {
+    if (!refreshToken || refreshToken === '') {
       throw new UnauthorizedException('missing refresh token');
     }
     const { access_token, refresh_token } = await this.authService.refreshAccessToken(refreshToken);
