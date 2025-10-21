@@ -1,7 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
 
-export const IPAddress = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+export const getIPAddressFromContext = (data: unknown, ctx: ExecutionContext) => {
   const request: Request = ctx.switchToHttp().getRequest();
 
   const forwarded = request.headers['x-forwarded-for'];
@@ -9,4 +9,6 @@ export const IPAddress = createParamDecorator((data: unknown, ctx: ExecutionCont
     return forwarded.split(',')[0].trim();
   }
   return request.socket.remoteAddress || '';
-});
+};
+
+export const IPAddress = createParamDecorator(getIPAddressFromContext);

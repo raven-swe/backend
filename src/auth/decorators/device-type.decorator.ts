@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
 import { UAParser } from 'ua-parser-js';
 
-export const DeviceType = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+export const getDeviceTypeFromContext = (data: unknown, ctx: ExecutionContext) => {
   const request: Request = ctx.switchToHttp().getRequest();
   const agentString = request.headers['user-agent'];
   const agent = UAParser(agentString);
@@ -11,4 +11,6 @@ export const DeviceType = createParamDecorator((data: unknown, ctx: ExecutionCon
   const device = agent.device;
 
   return `${browser.name || 'Unknown'} on ${os.name || 'Unknown'} (${device.type || 'Desktop'})`;
-});
+};
+
+export const DeviceType = createParamDecorator(getDeviceTypeFromContext);
