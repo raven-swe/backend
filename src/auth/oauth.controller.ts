@@ -1,6 +1,5 @@
 import { Controller, Post, Body, Param, Headers } from '@nestjs/common';
 import { oAuthService } from './oauth.service';
-import { ConfigService } from '@nestjs/config';
 import * as useragent from 'useragent';
 import { BadRequestException } from '@nestjs/common';
 import {
@@ -12,10 +11,7 @@ import { OauthCompleteDto } from './dtos/oauth-complete.dto';
 
 @Controller('oauth')
 export class OauthController {
-  constructor(
-    private readonly oAuthService: oAuthService,
-    private readonly config: ConfigService,
-  ) {}
+  constructor(private readonly oAuthService: oAuthService) {}
 
   @Post(':provider/callback')
   async providerCallback(
