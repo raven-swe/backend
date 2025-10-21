@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpCode,
   Body,
   Controller,
   Get,
@@ -135,27 +136,6 @@ export class AuthController {
     return { accessToken };
   }
 
-  @Get('check-identifier')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
-    return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
-  }
-  @Post('refresh-token')
-  @HttpCode(200)
-  async refrehAccessToken(
-    @Req() req: RequestWithCookies,
-    @Body() refreshTokenDto: RefreshTokenDto,
-    @Res({ passthrough: true }) res: Response,
-    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
-  ) {
-    if (!clientType) {
-      throw new UnauthorizedException();
-    }
-    let refreshToken;
-    if (clientType === 'web') {
-      refreshToken = req.cookies?.refresh_token;
-    } else if (clientType === 'mobile') {
-      refreshToken = refreshTokenDto.refresh_token;
   @Post('refresh-token')
   @HttpCode(200)
   async refrehAccessToken(

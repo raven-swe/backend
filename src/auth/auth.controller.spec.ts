@@ -21,13 +21,6 @@ function mockRequestWithCookies(
 }
 
 describe('AuthController with real config service', () => {
-function mockRequestWithCookies(cookies: Record<string, string | undefined> = {}): RequestWithCookies {
-  return {
-    cookies,
-  } as unknown as RequestWithCookies;
-}
-
-describe('AuthController with real config service', () => {
   describe('AuthController', () => {
     let controller: AuthController;
     let config: ConfigService;
