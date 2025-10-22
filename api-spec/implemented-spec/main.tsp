@@ -343,4 +343,23 @@ namespace Auth {
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+      @post
+  @route("/refresh-token")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
+  op refreshToken(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @cookie("refresh_token") refreshToken?: string,
+    @body body?: {
+      refreshToken: string;
+    },
+  ):
+    | DataResponse<{
+        accessToken: string;
+        refreshToken: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
 }
