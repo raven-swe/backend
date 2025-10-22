@@ -20,7 +20,6 @@ model SetAuthCookieResponse {
   setCookie: string;
 }
 
-
 @doc("Base structure for all API responses")
 model ApiResponseBase {
   @doc("Indicates whether the request was successful")
@@ -276,4 +275,12 @@ namespace Auth {
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username or email is already taken")
+  @route("/check-identifier")
+  op checkIdentifier(@query identifier: string): DataResponse<{
+    exists: boolean;
+    type: "username" | "email";
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
