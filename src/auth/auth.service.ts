@@ -316,7 +316,7 @@ export class AuthService {
     // Update user with new password
     const userId = BigInt(passwordResetData.userId);
     const hashedPassword = await hashPassword(resetPasswordDto.newPassword);
-    await this.usersService.updatePassword(userId, hashedPassword);
+    await this.usersService.updatePasswordById(userId, hashedPassword);
 
     // Remove all devices/sessions for this user
     await this.devicesService.removeAllUserDevices(userId);
