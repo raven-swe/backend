@@ -1,27 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-
-export interface EmailOtpJob {
-  email: string;
-  otp: string;
-}
-
-export interface ForgotPasswordOtpJob {
-  email: string;
-  otp: string;
-  username: string;
-}
-
-export enum OtpType {
-  REGISTRATION = 'registration',
-  FORGOT_PASSWORD = 'forgotPassword',
-}
-
-export interface OtpEmailOptions extends EmailOtpJob {
-  type: OtpType;
-  username?: string;
-}
+import {
+  EmailOtpJob,
+  ForgotPasswordOtpJob,
+  OtpEmailOptions,
+  OtpType,
+} from './interfaces/email.interfaces';
 
 @Injectable()
 export class EmailService {

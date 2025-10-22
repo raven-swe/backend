@@ -1,11 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { EmailOtpJob, EmailService, ForgotPasswordOtpJob, OtpType } from './email.service';
+import {
+  EmailOtpJob,
+  ForgotPasswordOtpJob,
+  OtpType,
+  EmailJobData,
+} from './interfaces/email.interfaces';
 import { Job } from 'bullmq';
-
-export type EmailJobData =
-  | ({ type: OtpType.REGISTRATION } & EmailOtpJob)
-  | ({ type: OtpType.FORGOT_PASSWORD } & ForgotPasswordOtpJob);
+import { EmailService } from './email.service';
 
 @Processor('email')
 export class EmailConsumer extends WorkerHost {
