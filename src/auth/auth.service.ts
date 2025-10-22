@@ -107,6 +107,7 @@ export class AuthService {
   async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string }> {
     const redisKey = REDIS_KEYS.REGISTRATION(verifyOtpDto.creationToken);
     const data = await this.redisService.get(redisKey);
+    this.logger.log(`Verifying OTP for creation token ${verifyOtpDto.creationToken}`);
     if (!data) {
       throw new BadRequestException(
         createValidationError('creationToken', {

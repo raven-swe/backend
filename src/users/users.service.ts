@@ -1,8 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces/NewUser.interface';
+import { ChangePasswordDto } from './dtos/change-password.dto';
+import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -37,5 +41,64 @@ export class UsersService {
 
   async createUser(newUser: NewUser, tx: Prisma.TransactionClient = this.prisma) {
     return this.usersRepository.createUser(newUser, tx);
+  }
+
+  async changePassword(
+    userId: bigint,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const { currentPassword: oldPassword, newPassword } = changePasswordDto;
+
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Check if user has a password (OAuth users might not have one)
+    if (!user.password_hash) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.PASSWORD_NOT_SET,
+          code: USERS_ERROR_CODES.PASSWORD_NOT_SET,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Validate old password
+    const isOldPasswordValid = await comparePassword(oldPassword, user.password_hash);
+    if (!isOldPasswordValid) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
+          code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    // Check if new password is different from old password
+    const isSamePassword = await comparePassword(newPassword, user.password_hash);
+    if (isSamePassword) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.NEW_PASSWORD_SAME_AS_OLD,
+          code: USERS_ERROR_CODES.NEW_PASSWORD_SAME_AS_OLD,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Update password
+    const hashedNewPassword = await hashPassword(newPassword);
+    await this.usersRepository.updatePasswordById(userId, hashedNewPassword);
+
+    return { message: 'Password changed successfully.' };
   }
 }
