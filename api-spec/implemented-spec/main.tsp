@@ -318,3 +318,22 @@ namespace Auth {
     exists: boolean;
   }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
+
+@tag("Me")
+@route("/me")
+@useAuth(BearerAuth)
+namespace Me {
+  @put
+  @route("/password")
+  @summary("Change the authenticated user's password")
+  op changeMyPassword(
+    @body body: {
+      currentPassword: string;
+      newPassword: string;
+    },
+  ):
+    | MessageResponse<"Password changed successfully.">
+    | UnauthorizedResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+}
