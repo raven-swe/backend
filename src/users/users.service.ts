@@ -7,9 +7,15 @@ import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/us
 import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    @InjectQueue('email') private emailQueue: Queue,
+  ) {}
 
   async findByEmail(email: string) {
     return this.usersRepository.findByEmail(email);
@@ -63,6 +69,15 @@ export class UsersService {
     return this.usersRepository.updatePasswordById(userId, hashedPassword);
   }
 
+  /**
+   * Changes the password for a user after validating the current password and the format of the new password.
+   * Then it sends an email about the password change.
+   *
+   * @param userId - The ID of the user whose password is to be changed.
+   * @param changePasswordDto - Data Transfer Object containing the current and new passwords.
+   *
+   * @returns A message indicating the result of the password change operation.
+   */
   async changePassword(
     userId: bigint,
     changePasswordDto: ChangePasswordBasicDto,
@@ -121,7 +136,13 @@ export class UsersService {
     const hashedNewPassword = await hashPassword(newPassword);
     await this.usersRepository.updatePasswordById(userId, hashedNewPassword);
 
-    // Send an email about password change - TODO
+    // Send password change email
+    const jobData: EmailJobData = {
+      email: user.email,
+      username: user.username,
+      type: OtpType.CHANGE_PASSWORD,
+    };
+    await this.emailQueue.add('sendPasswordChangeEmail', jobData);
 
     return { message: 'Password changed successfully.' };
   }

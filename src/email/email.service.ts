@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import {
+  ChangePasswordJob,
   EmailOtpJob,
   ForgotPasswordOtpJob,
   OtpEmailOptions,
@@ -28,10 +29,10 @@ export class EmailService {
   /**
    * Generic function that returns email template according to the email type
    */
-  getOtpEmailTemplate(
-    otp: string,
+  getEmailTemplate(
     type: OtpType,
     username?: string,
+    otp?: string,
   ): { subject: string; html: string } {
     const templates: Record<OtpType, { subject: string; html: string }> = {
       [OtpType.REGISTRATION]: {
@@ -48,6 +49,12 @@ export class EmailService {
           <p><strong>${otp}</strong></p>
           <p>This code will expire in 5 minutes.</p>
           <p>If you didn't request this, please ignore this email or contact support.</p>`,
+      },
+      [OtpType.CHANGE_PASSWORD]: {
+        subject: 'Your Raven password has been changed',
+        html: `<h1>Password Changed Successfully</h1>
+          <p>You recently changed the password associated with your account ${username}.</p>
+          <p>If you did not make this change, and believe your Raven account has been compromised, please contact support.</p>`,
       },
     };
 
@@ -72,7 +79,7 @@ export class EmailService {
   }
 
   async sendOtpEmail({ email, otp, type, username }: OtpEmailOptions): Promise<void> {
-    const { subject, html } = this.getOtpEmailTemplate(otp, type, username);
+    const { subject, html } = this.getEmailTemplate(type, username, otp);
     await this.sendEmail(email, subject, html);
   }
 
@@ -82,5 +89,10 @@ export class EmailService {
 
   async sendForgotPasswordOtp({ email, otp, username }: ForgotPasswordOtpJob): Promise<void> {
     await this.sendOtpEmail({ email, otp, type: OtpType.FORGOT_PASSWORD, username });
+  }
+
+  async sendChangePasswordEmail({ email, username }: ChangePasswordJob): Promise<void> {
+    const { subject, html } = this.getEmailTemplate(OtpType.CHANGE_PASSWORD, username);
+    await this.sendEmail(email, subject, html);
   }
 }

@@ -6,7 +6,7 @@ import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
 export class MeController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Put('/password')
+  @Put('password')
   // TODO: enable after merging login functionality
   // @UseGuards(JwtAuthGuard)
   async changePassword(
