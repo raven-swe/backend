@@ -101,6 +101,7 @@ export class AuthService {
   async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string }> {
     const redisKey = REDIS_KEYS.REGISTRATION(verifyOtpDto.creationToken);
     const data = await this.redisService.get(redisKey);
+    this.logger.log(`Verifying OTP for creation token ${verifyOtpDto.creationToken}`);
     if (!data) {
       throw new HttpException(
         {
@@ -316,7 +317,7 @@ export class AuthService {
     // Update user with new password
     const userId = BigInt(passwordResetData.userId);
     const hashedPassword = await hashPassword(resetPasswordDto.newPassword);
-    await this.usersService.updatePassword(userId, hashedPassword);
+    await this.usersService.updatePasswordById(userId, hashedPassword);
 
     // Remove all devices/sessions for this user
     await this.devicesService.removeAllUserDevices(userId);

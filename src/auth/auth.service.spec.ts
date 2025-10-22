@@ -33,7 +33,7 @@ describe('AuthService', () => {
 
   const mockUsersService = {
     findByIdentifier: jest.fn(),
-    updatePassword: jest.fn(),
+    updatePasswordById: jest.fn(),
     findByEmail: jest.fn(),
   };
 
@@ -243,7 +243,7 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: 'Password has been reset successfully.' });
 
       const hashedPassword = await hashPassword(mockResetPasswordDto.newPassword);
-      expect(mockUsersService.updatePassword).toHaveBeenCalledWith(
+      expect(mockUsersService.updatePasswordById).toHaveBeenCalledWith(
         BigInt(mockPasswordResetData.userId),
         hashedPassword,
       );
