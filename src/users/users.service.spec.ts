@@ -5,10 +5,16 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
 import { NewUser } from './interfaces/NewUser.interface';
 import { LanguageCode } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 
 describe('UsersService', () => {
   let service: UsersService;
   let mockUsersRepository: Partial<UsersRepository>;
+
+  const mockEmailQueue = {
+    add: jest.fn(),
+    close: jest.fn(),
+  };
 
   beforeEach(async () => {
     mockUsersRepository = {
@@ -25,6 +31,8 @@ describe('UsersService', () => {
         UsersService,
         { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: PrismaService, useValue: {} },
+        { provide: UsersService, useClass: UsersService },
+        { provide: getQueueToken('email'), useValue: mockEmailQueue },
       ],
     }).compile();
 
