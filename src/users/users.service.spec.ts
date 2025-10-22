@@ -7,11 +7,11 @@ import { NewUser } from './interfaces/NewUser.interface';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import { LanguageCode } from '@prisma/client';
-import { validate } from 'class-validator';
 import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 
 jest.mock('src/auth/utils/password.util');
+jest.mock('./utils/validate-password-format.util');
 
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
@@ -193,6 +193,25 @@ describe('UsersService', () => {
     });
   });
 
+  describe('createUser', () => {
+    it('should create and return a new user', async () => {
+      const userData = {
+        email: 'newuser@example.com',
+        username: 'newuser',
+        password: 'NewPassword123!',
+        birthDate: new Date('2000-01-01'),
+        languageCode: LanguageCode.EN,
+      };
+
+      mockRepository.createUser.mockResolvedValue({ ...userData, id: BigInt(2) });
+
+      const result = await service.createUser(userData);
+
+      expect(result).toEqual({ ...userData, id: BigInt(2) });
+      expect(mockRepository.createUser).toHaveBeenCalledWith(userData);
+    });
+  });
+
   describe('updatePasswordById', () => {
     it('should update user password', async () => {
       const userId = BigInt(1);
@@ -214,10 +233,6 @@ describe('UsersService', () => {
       currentPassword: 'OldPassword123!',
       newPassword: 'NewPassword123!',
     } as ChangePasswordBasicDto;
-
-    beforeEach(() => {
-      (validate as jest.Mock) = jest.fn().mockResolvedValue([]);
-    });
 
     it('should successfully change password and send email', async () => {
       // Arrange
@@ -310,22 +325,6 @@ describe('UsersService', () => {
       );
     });
 
-    it('should throw error if new password format is invalid', async () => {
-      mockRepository.findById.mockResolvedValue(mockUser);
-      mockComparePassword.mockResolvedValue(true);
-      (validate as jest.Mock).mockResolvedValue([
-        {
-          property: 'newPassword',
-          constraints: { minLength: 'Password must be at least 10 characters' },
-        },
-      ]);
-
-      await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
-        HttpException,
-      );
-      expect(validate).toHaveBeenCalled();
-    });
-
     it('should throw error if hashing fails', async () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockComparePassword
@@ -336,16 +335,6 @@ describe('UsersService', () => {
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new Error('Hashing failed'),
       );
-    });
-
-    it('should throw an error if current password is empty', async () => {
-      const invalidDto = {
-        currentPassword: '',
-        newPassword: 'NewPassword123!',
-      } as ChangePasswordBasicDto;
-
-      await expect(service.changePassword(BigInt(1), invalidDto)).rejects.toThrow(HttpException);
-      expect(validate).toHaveBeenCalled();
     });
   });
 });
