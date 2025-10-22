@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
-import { EmailConsumer, EmailJobData } from './email.consumer';
-import { EmailService, OtpType } from './email.service';
+import { EmailConsumer } from './email.consumer';
+import { EmailService } from './email.service';
 import { Job } from 'bullmq';
+import { EmailJobData, OtpType } from './interfaces/email.interfaces';
 
 describe('EmailConsumer', () => {
   let consumer: EmailConsumer;
