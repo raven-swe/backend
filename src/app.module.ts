@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
@@ -10,7 +10,9 @@ import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
-import { DevicesModule } from './devices/devices.module';
+import { HttpExceptionFilter } from './common/filters/http-response.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+
 
 @Module({
   imports: [
@@ -37,13 +39,20 @@ import { DevicesModule } from './devices/devices.module';
     EmailModule,
     RecaptchaModule,
     RefreshTokensModule,
-    DevicesModule,
   ],
   controllers: [],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
     },
   ],
 })
