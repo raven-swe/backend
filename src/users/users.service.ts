@@ -1,15 +1,13 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { LanguageCode } from '@prisma/client';
-import { ChangePasswordDto } from './dtos/change-password.dto';
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
-import { plainToClass } from 'class-transformer';
-import { validate } from 'class-validator';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
+import { validateNewPasswordFormat } from './utils/validate-password-format.util';
 @Injectable()
 export class UsersService {
   constructor(
@@ -43,23 +41,6 @@ export class UsersService {
     languageCode: LanguageCode;
   }) {
     return this.usersRepository.createUser(data);
-  }
-
-  /**
-   * Validates new password format using ChangePasswordDto rules.
-   */
-  private async validateNewPasswordFormat(changePasswordDto: ChangePasswordBasicDto) {
-    const fullDto = plainToClass(ChangePasswordDto, changePasswordDto);
-    const errors = await validate(fullDto);
-
-    if (errors.length > 0) {
-      const formattedErrors = errors.map((err) => ({
-        property: err.property,
-        constraints: err.constraints || {},
-      }));
-
-      throw new HttpException({ message: formattedErrors }, HttpStatus.BAD_REQUEST);
-    }
   }
 
   /**
@@ -118,7 +99,7 @@ export class UsersService {
       );
     }
 
-    await this.validateNewPasswordFormat(changePasswordDto);
+    await validateNewPasswordFormat(changePasswordDto);
 
     // Check if new password is different from old password
     const isSamePassword = await comparePassword(newPassword, user.password_hash);
