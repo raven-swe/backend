@@ -1,6 +1,6 @@
 import { Body, Controller, Put } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
+import { UsersService } from '../users.service';
+import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('me')
