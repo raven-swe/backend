@@ -255,19 +255,14 @@ namespace Auth {
           recaptchaToken: string; // token from client side recaptcha v2
         },
       ):
-        | {
-            ...OkResponse;
-            ...Body<{
-              success: true;
-              confirmationToken: string;
-              message: "Password reset code sent to email.";
-            }>;
-          }
-        | ValidationErrorResponse
-        | NotFoundResponse
-        | RateLimitResponse
-        | InternalServerErrorResponse
-        | BadRequestResponse;
+         | DataResponse<{
+          confirmationToken: string;
+        }> 
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
       @post
       @route("/forgot/verify")

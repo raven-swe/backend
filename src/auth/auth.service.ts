@@ -213,7 +213,7 @@ export class AuthService {
 
   async forgotPassword(
     forgotPasswordDto: ForgotPasswordDto,
-  ): Promise<{ confirmationToken: string }> {
+  ): Promise<{ confirmationToken: string; message: string }> {
     const { identifier } = forgotPasswordDto;
 
     // Find user email or username
@@ -254,7 +254,7 @@ export class AuthService {
     );
 
     this.logger.log(`Password reset initiated for ${user.email}`);
-    return { confirmationToken };
+    return { confirmationToken, message: 'Password reset code sent to email' };
   }
 
   async verifyForgotPassword(
