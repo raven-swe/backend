@@ -14,6 +14,10 @@ export class UsersRepository {
     return await this.prisma.users.findUnique({ where: { username } });
   }
 
+  async findById(id: bigint) {
+    return await this.prisma.users.findUnique({ where: { id } });
+  }
+
   async findByIdentifier(identifier: string) {
     return await this.prisma.users.findFirst({
       where: {
@@ -45,7 +49,7 @@ export class UsersRepository {
     });
   }
 
-  async updatePassword(userId: bigint, hashedPassword: string) {
+  async updatePasswordById(userId: bigint, hashedPassword: string) {
     await this.prisma.users.update({
       where: { id: userId },
       data: { password_hash: hashedPassword },
