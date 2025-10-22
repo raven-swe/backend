@@ -3,7 +3,11 @@ FROM node:lts-alpine AS builder
 RUN npm install -g pnpm
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --ignore-scripts
+
+RUN pnpm config set store-dir /root/.pnpm-store
+
+RUN --mount=type=cache,target=/root/.pnpm-store \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 COPY prisma ./prisma
 RUN pnpm prisma generate
