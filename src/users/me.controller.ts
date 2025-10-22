@@ -1,6 +1,6 @@
 import { Body, Controller, Put } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { ChangePasswordDto } from './dtos/change-password.dto';
+import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
 
 @Controller('me')
 export class MeController {
@@ -10,7 +10,7 @@ export class MeController {
   // TODO: enable after merging login functionality
   // @UseGuards(JwtAuthGuard)
   async changePassword(
-    @Body() changePasswordDto: ChangePasswordDto,
+    @Body() changePasswordDto: ChangePasswordBasicDto,
     // @Request() req -- enable after merging login functionality
   ) {
     // const userId = req.user.id;
