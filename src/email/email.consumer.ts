@@ -5,6 +5,7 @@ import {
   ForgotPasswordOtpJob,
   OtpType,
   EmailJobData,
+  ChangePasswordJob,
 } from './interfaces/email.interfaces';
 import { Job } from 'bullmq';
 import { EmailService } from './email.service';
@@ -21,12 +22,14 @@ export class EmailConsumer extends WorkerHost {
   async process(job: Job<EmailJobData, void, string>): Promise<void> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
     try {
-      const { type, ...otpData } = job.data;
+      const { type, ...data } = job.data;
 
       if (type === OtpType.REGISTRATION) {
-        await this.emailService.sendRegistrationOtp(otpData as EmailOtpJob);
+        await this.emailService.sendRegistrationOtp(data as EmailOtpJob);
       } else if (type === OtpType.FORGOT_PASSWORD) {
-        await this.emailService.sendForgotPasswordOtp(otpData as ForgotPasswordOtpJob);
+        await this.emailService.sendForgotPasswordOtp(data as ForgotPasswordOtpJob);
+      } else if (type === OtpType.CHANGE_PASSWORD) {
+        await this.emailService.sendChangePasswordEmail(data as ChangePasswordJob);
       } else {
         throw new Error('Unknown OTP type');
       }
