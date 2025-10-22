@@ -1,9 +1,12 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { LanguageCode } from '@prisma/client';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
 @Injectable()
 export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
@@ -37,6 +40,23 @@ export class UsersService {
   }
 
   /**
+   * Validates new password format using ChangePasswordDto rules.
+   */
+  private async validateNewPasswordFormat(changePasswordDto: ChangePasswordBasicDto) {
+    const fullDto = plainToClass(ChangePasswordDto, changePasswordDto);
+    const errors = await validate(fullDto);
+
+    if (errors.length > 0) {
+      const formattedErrors = errors.map((err) => ({
+        property: err.property,
+        constraints: err.constraints || {},
+      }));
+
+      throw new HttpException({ message: formattedErrors }, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  /**
    * Update user's password by user id
    */
   async updatePasswordById(userId: bigint, hashedPassword: string) {
@@ -45,7 +65,7 @@ export class UsersService {
 
   async changePassword(
     userId: bigint,
-    changePasswordDto: ChangePasswordDto,
+    changePasswordDto: ChangePasswordBasicDto,
   ): Promise<{ message: string }> {
     const { currentPassword: oldPassword, newPassword } = changePasswordDto;
 
@@ -83,6 +103,8 @@ export class UsersService {
       );
     }
 
+    await this.validateNewPasswordFormat(changePasswordDto);
+
     // Check if new password is different from old password
     const isSamePassword = await comparePassword(newPassword, user.password_hash);
     if (isSamePassword) {
@@ -98,6 +120,8 @@ export class UsersService {
     // Update password
     const hashedNewPassword = await hashPassword(newPassword);
     await this.usersRepository.updatePasswordById(userId, hashedNewPassword);
+
+    // Send an email about password change - TODO
 
     return { message: 'Password changed successfully.' };
   }

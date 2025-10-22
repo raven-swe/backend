@@ -3,6 +3,7 @@ export const USERS_ERROR_CODES = {
   USER_NOT_FOUND: 'USER_NOT_FOUND',
   NEW_PASSWORD_SAME_AS_OLD: 'NEW_PASSWORD_SAME_AS_OLD',
   PASSWORD_NOT_SET: 'PASSWORD_NOT_SET',
+  INVALID_PASSWORD_FORMAT: 'INVALID_PASSWORD_FORMAT',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -11,4 +12,5 @@ export const USERS_ERROR_MESSAGES = {
   NEW_PASSWORD_SAME_AS_OLD: 'The new password must be different from the old password',
   PASSWORD_NOT_SET:
     'Password change is not available for OAuth accounts. Please use your OAuth provider to manage your account.',
+  INVALID_PASSWORD_FORMAT: 'The new password does not meet the required format',
 } as const;
