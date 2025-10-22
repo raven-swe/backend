@@ -1,12 +1,22 @@
 import { Body, Controller, Put } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('me')
 export class MeController {
+  private static readonly PASSWORD_CHANGE_LIMIT = 5; // max 5 attempts
+  private static readonly PASSWORD_CHANGE_WINDOW = 60000; // 1 minute
+
   constructor(private readonly usersService: UsersService) {}
 
   @Put('password')
+  @Throttle({
+    default: {
+      limit: MeController.PASSWORD_CHANGE_LIMIT,
+      ttl: MeController.PASSWORD_CHANGE_WINDOW,
+    },
+  })
   // TODO: enable after merging login functionality
   // @UseGuards(JwtAuthGuard)
   async changePassword(
