@@ -25,7 +25,7 @@ import { hashPassword } from './utils/password.util';
 import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { DevicesService } from 'src/devices/devices.service';
-import { OtpType } from 'src/email/email.service';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
 
 interface CachedRegistrationData {
   email: string;

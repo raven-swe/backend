@@ -2,7 +2,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { generateAndStoreOtp } from './otp.util';
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
-import { OtpType } from 'src/email/email.service';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
 import {
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,

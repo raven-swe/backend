@@ -106,8 +106,16 @@
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/$1"
     },
-    "transformIgnorePatterns": [
-      "node_modules/(?!uuid)"
+    "coveragePathIgnorePatterns": [
+      "main\\.ts",
+      "app\\.module\\.ts",
+      ".*\\.module\\.ts",
+      ".*\\.dto\\.ts",
+      ".*\\.exception\\.ts",
+      ".*\\.constants\\.ts",
+      ".*\\.filter\\.ts",
+      ".*\\.interceptor\\.ts",
+      ".*\\.repository\\.ts"
     ]
   }
 }

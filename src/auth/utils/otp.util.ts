@@ -8,8 +8,7 @@ import {
 } from 'src/common/constants/auth.constants';
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
-import { OtpType } from 'src/email/email.service';
-import { EmailJobData } from 'src/email/email.consumer';
+import { OtpType, EmailJobData } from 'src/email/interfaces/email.interfaces';
 
 interface GenerateAndStoreOtpParams<T extends { otp: string; verified: boolean }> {
   redisKey: string;
