@@ -12,7 +12,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-
+import { DevicesModule } from './devices/devices.module';
 
 @Module({
   imports: [
