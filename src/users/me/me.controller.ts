@@ -6,6 +6,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
 import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
+import { UpdateProfileDto } from '../dtos/update-profile.dto';
 
 @Controller('me')
 export class MeController {
@@ -25,5 +26,20 @@ export class MeController {
   ) {
     const userIdBigInt = BigInt(user.id);
     return this.usersService.changePassword(userIdBigInt, changePasswordDto);
+  }
+
+  @Patch('profile')
+  async updateProfile(
+    @Body() updateProfileDto: UpdateProfileDto,
+    // @Request() req -- enable after merging login functionality
+  ) {
+    // const userId = req.user.id;
+    const userId = BigInt(18); // temporary userId for testing
+    const profile = await this.usersService.updateProfile(userId, updateProfileDto);
+
+    return {
+      message: 'Profile updated successfully',
+      ...profile,
+    };
   }
 }

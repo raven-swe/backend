@@ -20,6 +20,40 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(255, { message: 'Website URL should not exceed 255 characters' })
-  @IsUrl({}, { message: 'Website URL must be a valid URL' })
+  @IsUrl(
+    {
+      require_protocol: true,
+      require_valid_protocol: true,
+      require_host: true,
+      allow_protocol_relative_urls: false,
+    },
+    { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
+  )
   websiteUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl(
+    {
+      require_protocol: true,
+      require_valid_protocol: true,
+      require_host: true,
+      allow_protocol_relative_urls: false,
+    },
+    { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
+  )
+  avatarUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl(
+    {
+      require_protocol: true,
+      require_valid_protocol: true,
+      require_host: true,
+      allow_protocol_relative_urls: false,
+    },
+    { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
+  )
+  bannerUrl?: string | null;
 }
