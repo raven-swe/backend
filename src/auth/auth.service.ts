@@ -209,6 +209,7 @@ export class AuthService {
 
   async verifyRecaptcha(token: string): Promise<boolean> {
     const valid = await this.recaptchaService.validateToken(token);
+
     return !!valid;
   }
 
