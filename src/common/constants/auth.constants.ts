@@ -24,12 +24,15 @@ export const REDIS_KEYS = {
   REGISTRATION: (token: string) => `registration:${token}`,
   OTP_RESEND: (email: string) => `otp_resend:${email}`,
   PASSWORD_RESET: (token: string) => `password_reset:${token}`,
-  OTP_RESEND_PASSWORD_RESET: (email: string) => `otp_resend:password_reset:${email}`,
+  OTP_RESEND_PASSWORD_RESET: (userId: string) => `otp_resend:password_reset:${userId}`,
+  EMAIL_UPDATE: (token: string) => `email_update:${token}`,
+  OTP_RESEND_UPDATE_EMAIL: (email: string) => `otp-resend:email_update:${email}`,
 } as const;
 
 export const AUTH_CONFIG = {
   REGISTRATION_TTL: 300, // 5 minutes
   PASSWORD_RESET_TTL: 300,
+  EMAIL_UPDATE_TTL: 300,
   OTP_RESEND_LIMIT: 5,
   OTP_RESEND_WINDOW: 600, // 10 minutes
 };
