@@ -32,6 +32,24 @@ describe('UsersService', () => {
     language_code: LanguageCode.EN,
   };
 
+  const mockUserProfile = {
+    username: 'testuser',
+    displayName: 'Test User',
+    bio: 'This is a test bio',
+    bioEntities: null,
+    location: 'Test City',
+    birthDate: new Date('2000-01-01'),
+    avatarUrl: 'https://example.com/avatar.jpg',
+    bannerUrl: 'https://example.com/banner.jpg',
+    websiteUrl: 'https://example.com',
+    joinedAt: new Date('2023-01-01'),
+    relationship: null,
+    followingCount: '100',
+    followersCount: '200',
+    mutualsCount: 2,
+    mutualNames: ['Omar', 'Tasneem'],
+  };
+
   const mockRepository = {
     findByEmail: jest.fn(),
     findByUsername: jest.fn(),
@@ -39,6 +57,8 @@ describe('UsersService', () => {
     findById: jest.fn(),
     createUser: jest.fn(),
     updatePasswordById: jest.fn(),
+    updateProfile: jest.fn(),
+    findUserProfileByUsername: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -323,6 +343,73 @@ describe('UsersService', () => {
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new Error('Hashing failed'),
       );
+    });
+  });
+
+  describe('getUserProfile', () => {
+    it('should return user profile without relationship data when currentUserId is not provided', async () => {
+      const profileWithoutRelationship = { ...mockUserProfile, relationship: null };
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithoutRelationship);
+
+      const result = await service.getUserProfile('testuser');
+
+      expect(result).toEqual(profileWithoutRelationship);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', undefined);
+    });
+
+    it('should return user profile with relationship data when currentUserId is provided', async () => {
+      const profileWithRelationship = {
+        ...mockUserProfile,
+        relationship: {
+          blocking: false,
+          blockedBy: false,
+          following: true,
+          follower: false,
+          muted: false,
+        },
+      };
+
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithRelationship);
+
+      const result = await service.getUserProfile('testuser', BigInt(2));
+
+      expect(result).toEqual(profileWithRelationship);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', BigInt(2));
+    });
+
+    it('should throw error if user profile not found', async () => {
+      mockRepository.findUserProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.getUserProfile('nonexistent')).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'nonexistent',
+        undefined,
+      );
+    });
+
+    it('should include mutual followers when currentUserId is provided', async () => {
+      const profileWithMutuals = {
+        ...mockUserProfile,
+        mutualsCount: 2,
+        mutualNames: ['Omar', 'Tasneem'],
+      };
+
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithMutuals);
+
+      const result = await service.getUserProfile('testuser', BigInt(2));
+
+      expect(result.mutualsCount).toBe(2);
+      expect(result.mutualNames).toEqual(['Omar', 'Tasneem']);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', BigInt(2));
     });
   });
 });
