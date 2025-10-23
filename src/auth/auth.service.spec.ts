@@ -9,6 +9,7 @@ import { DevicesService } from 'src/device/device.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { generateAndStoreOtp } from './utils/otp.util';
 import {
   AUTH_CONFIG,
@@ -18,9 +19,14 @@ import {
 } from 'src/common/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { getQueueToken } from '@nestjs/bullmq';
+import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
+import { DeviceType } from 'src/device/interfaces/device.interface';
+
+jest.mock('bcrypt');
 
 jest.mock('crypto', () => ({
   randomUUID: jest.fn(),
+  randomBytes: jest.fn().mockReturnValue(Buffer.from('random-bytes')),
   createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn(),
@@ -53,7 +59,11 @@ describe('AuthService', () => {
     mockRecaptchaService = {
       validateToken: jest.fn(),
     };
-    mockRedisService = {};
+    mockRedisService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+    };
     mockDeviceService = {
       createDevice: jest.fn(),
     };
@@ -153,35 +163,218 @@ describe('AuthService', () => {
       );
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
     });
+
+    it('should throw HttpException when OTP resend limit is reached', async () => {
+      const startRegistrationDto = {
+        email: 'test@gmail.com',
+        name: 'test',
+        birthDate: new Date('2000-01-01'),
+        recaptchaToken: 'token',
+      };
+
+      // arrange
+      (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      (generateAndStoreOtp as jest.Mock).mockRejectedValue(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+            code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
+      );
+
+      // act & assert
+      await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
+        new HttpException(
+          'OTP resend limit reached. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
+      );
+      expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
+    });
   });
 
-  it('should throw HttpException when OTP resend limit is reached', async () => {
-    const startRegistrationDto = {
-      email: 'test@gmail.com',
-      name: 'test',
-      birthDate: new Date('2000-01-01'),
-      recaptchaToken: 'token',
+  describe('verifyOtp', () => {
+    const dto = { creationToken: 'test-token', otp: '123456' };
+    const cachedData: CachedRegistrationData = {
+      email: 'test@email.com',
+      name: 'Test',
+      birthDate: new Date(),
+      otp: 'hashed-otp',
+      verified: false,
     };
 
-    // arrange
-    (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
-    (generateAndStoreOtp as jest.Mock).mockRejectedValue(
-      new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
-          code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      ),
-    );
+    it('should successfully verify a correct OTP', async () => {
+      (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-    // act & assert
-    await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
-      new HttpException(
-        'OTP resend limit reached. Please try again later.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      ),
-    );
-    expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
+      const result = await service.verifyOtp(dto);
+
+      expect(result).toEqual({ message: 'OTP verified successfully' });
+      const expectedUpdatedData = { ...cachedData, verified: true }; //check verified
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        REDIS_KEYS.REGISTRATION(dto.creationToken),
+        JSON.stringify(expectedUpdatedData),
+        AUTH_CONFIG.REGISTRATION_TTL,
+      );
+    });
+
+    it('should throw an error for an invalid creation token', async () => {
+      // Arrange
+      (mockRedisService.get as jest.Mock).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.verifyOtp(dto)).rejects.toThrow(
+        new HttpException(
+          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should throw an error for an incorrect OTP', async () => {
+      // Arrange
+      (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      // Act & Assert
+      await expect(service.verifyOtp(dto)).rejects.toThrow(
+        new HttpException(
+          { message: AUTH_ERROR_MESSAGES.OTP_INVALID, code: AUTH_ERROR_CODES.OTP_INVALID },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('completeRegistration', () => {
+    const dto = { creationToken: 'test-token', password: 'Password1!', deviceType: DeviceType.WEB };
+    const cachedData: CachedRegistrationData = {
+      email: 'test@email.com',
+      name: 'Test',
+      birthDate: new Date(),
+      otp: 'hashed-otp',
+      verified: true,
+    };
+
+    it('should successfully complete the registration', async () => {
+      // Arrange
+      (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
+      jest.spyOn(service as any, 'hashPassword').mockResolvedValue('hashed-password');
+      jest.spyOn(service as any, 'generateAccessToken').mockResolvedValue('access-token');
+      jest.spyOn(service as any, 'createUserAndDeviceAndToken').mockResolvedValue(BigInt(1));
+      (crypto.createHash('sha256').update('').digest as jest.Mock).mockReturnValue(
+        'hashed-refresh-token',
+      );
+
+      // Act
+      const result = await service.completeRegistration(dto, '127.0.0.1');
+
+      // Assert
+      expect(result.message).toBe('Registration completed successfully');
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).toBe('hashed-refresh-token');
+      //check that the cleanup logic was called.
+      expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.REGISTRATION(dto.creationToken));
+      expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.OTP_RESEND(cachedData.email));
+
+      // i believe testing the transaction is not unit test's job
+    });
+
+    it('should throw an error if OTP was not verified first', async () => {
+      const unverifiedData = { ...cachedData, verified: false };
+      (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(unverifiedData));
+
+      // Act & Assert
+      await expect(service.completeRegistration(dto, '127.0.0.1')).rejects.toThrow(
+        new HttpException(
+          {
+            message: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+            code: AUTH_ERROR_CODES.OTP_NOT_VERIFIED,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('resendOtp', () => {
+    const creationToken = 'test-token';
+    const cachedData: CachedRegistrationData = {
+      email: 'test@gmail.com',
+      name: 'test',
+      birthDate: new Date(),
+      otp: 'old-otp',
+      verified: false,
+    };
+
+    it('should successfully resend an OTP', async () => {
+      // Arrange
+      (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
+      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined); // success
+
+      // Act
+      const result = await service.resendOtp(creationToken);
+
+      // Assert
+      expect(result).toEqual({ message: 'OTP resent successfully' });
+      expect(generateAndStoreOtp).toHaveBeenCalledWith(
+        {
+          redisKey: REDIS_KEYS.REGISTRATION(creationToken),
+          email: cachedData.email,
+          resendKey: REDIS_KEYS.OTP_RESEND(cachedData.email),
+          ttl: AUTH_CONFIG.REGISTRATION_TTL,
+          data: {
+            ...cachedData,
+            birthDate: cachedData.birthDate.toISOString(),
+          },
+          emailQueue: mockEmailQueue,
+          otpType: OtpType.REGISTRATION,
+        },
+        mockRedisService,
+      );
+    });
+
+    it('should throw an error for an invalid creation token', async () => {
+      (mockRedisService.get as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.resendOtp(creationToken)).rejects.toThrow(
+        new HttpException(
+          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('checkEmail', () => {
+    it('should return { exists: true } if an email is found', async () => {
+      (mockUsersService.findByEmail as jest.Mock).mockResolvedValue({ id: 1 });
+      const result = await service.checkEmail('exists@example.com');
+      expect(result.exists).toBe(true);
+    });
+
+    it('should return { exists: false } if an email is not found', async () => {
+      (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      const result = await service.checkEmail('new@example.com');
+      expect(result.exists).toBe(false);
+    });
+  });
+
+  describe('verifyRecaptcha', () => {
+    it('should return true if the token is valid', async () => {
+      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
+      const result = await service.verifyRecaptcha('valid-token');
+      expect(result).toBe(true);
+      expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('valid-token');
+    });
+
+    it('should return false if the token is invalid', async () => {
+      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(false);
+      const result = await service.verifyRecaptcha('invalid-token');
+      expect(result).toBe(false);
+      expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('invalid-token');
+    });
   });
 });

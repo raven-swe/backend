@@ -95,8 +95,8 @@ export class AuthService {
     if (!data) {
       throw new HttpException(
         {
-          message: 'Invalid or expired creation token',
-          code: 'INVALID_TOKEN',
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
         },
         HttpStatus.BAD_REQUEST,
       );
