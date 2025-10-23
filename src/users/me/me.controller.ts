@@ -31,7 +31,7 @@ export class MeController {
 
   @Patch('profile')
   async updateProfile(
-    @Body() updateProfileDto: Partial<UpdateProfileDto>,
+    @Body() updateProfileDto: UpdateProfileDto,
     // @Request() req -- enable after merging login functionality
   ) {
     // const userId = req.user.id;
