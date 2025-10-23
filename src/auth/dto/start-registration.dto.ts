@@ -3,6 +3,7 @@ import {
   IsString,
   IsDate,
   IsNotEmpty,
+  MaxLength,
   ValidationOptions,
   registerDecorator,
   ValidationArguments,
@@ -10,6 +11,7 @@ import {
 export class StartRegistrationDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
   @IsEmail()
