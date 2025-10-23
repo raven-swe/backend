@@ -116,6 +116,7 @@
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
       ".*\\.repository\\.ts",
+      ".*\\.dto\\.ts",
       "prisma\\.service\\.ts",
       "oprismaservice\\.ts",
       "redis\\.service\\.ts",
