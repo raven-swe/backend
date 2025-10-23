@@ -298,6 +298,16 @@ describe('AuthService', () => {
         ),
       );
     });
+
+    it('should throw an error for an invalid creation token', async () => {
+      (mockRedisService.get as jest.Mock).mockResolvedValue(null);
+      await expect(service.completeRegistration(dto, 'string')).rejects.toThrow(
+        new HttpException(
+          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
   });
 
   describe('resendOtp', () => {
