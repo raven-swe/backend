@@ -22,11 +22,11 @@ export class UserProfileResponseDto {
   joinedAt: Date;
 
   // Won't be returned for the authenticated user's own profile
-  relationship?: UserRelationshipDto;
+  relationship?: UserRelationshipDto | null;
 
   // BigInt as string since we can't return BigInt directly in DTO
   followingCount: string;
   followersCount: string;
   mutualsCount?: number | null;
-  mutualNames: string[] | null;
+  mutualNames?: string[] | null;
 }
