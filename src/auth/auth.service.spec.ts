@@ -352,13 +352,19 @@ describe('AuthService', () => {
     it('should return { exists: true } if an email is found', async () => {
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue({ id: 1 });
       const result = await service.checkEmail('exists@example.com');
-      expect(result.exists).toBe(true);
+      expect(result).toBe({
+        message: 'Email already exists',
+        exists: true,
+      });
     });
 
     it('should return { exists: false } if an email is not found', async () => {
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
       const result = await service.checkEmail('new@example.com');
-      expect(result.exists).toBe(false);
+      expect(result.exists).toBe({
+        message: 'Email is available',
+        exists: false,
+      });
     });
   });
 

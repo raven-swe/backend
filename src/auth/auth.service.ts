@@ -29,10 +29,6 @@ import { generateAndStoreOtp } from './utils/otp.util';
 
 @Injectable()
 export class AuthService {
-  private readonly registrationTTL = 300; // 5 minutes
-  private readonly otpResendLimit = 3;
-  private readonly otpResendWindow = 600; // 10 minutes
-  private readonly saltRounds = 10; // for password hashing
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -221,7 +217,7 @@ export class AuthService {
 
   async checkEmail(email: string): Promise<{ message: string; exists: boolean }> {
     const user = await this.usersService.findByEmail(email);
-    return { message: 'email already exists', exists: !!user };
+    return { message: user ? 'Email already exists' : 'Email is available', exists: !!user };
   }
 
   async generateAccessToken(userId: bigint): Promise<string> {
@@ -235,7 +231,7 @@ export class AuthService {
   }
 
   private async hashPassword(password: string): Promise<string> {
-    return await bcrypt.hash(password, this.saltRounds);
+    return await bcrypt.hash(password, AUTH_CONFIG.SALT_ROUNDS);
   }
 
   //naming can be better ofc :)
