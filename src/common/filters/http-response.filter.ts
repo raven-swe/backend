@@ -139,6 +139,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   ): ApiErrorResponse {
     let code: string;
     let message: string = 'An unexpected error occurred';
+    let additionalInfo: Record<string, unknown> = {};
 
     switch (Number(status)) {
       case Number(HttpStatus.BAD_REQUEST):
@@ -170,6 +171,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exceptionResponse['message'] as string;
       }
     }
+    additionalInfo = Object.keys(exceptionResponse).reduce(
+      (acc, key) => {
+        if (key !== 'message' && key !== 'code') {
+          acc[key] = (exceptionResponse as Record<string, unknown>)[key];
+        }
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
 
     //if it had its own code
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
@@ -183,6 +193,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: {
         code,
         message,
+        ...additionalInfo,
       },
     };
   }
