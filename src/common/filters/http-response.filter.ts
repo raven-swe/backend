@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
+import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../validation-error-codes';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -95,14 +96,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
           error.constraints
         ) {
           const field = error.property;
+
+          // Ensure only the first error for each field is added
           if (!seen.has(field)) {
             seen.add(field);
-            // Add only the first constraint message for the field
-            const firstConstraintMessage = Object.values(error.constraints)[0];
+
+            // Get the first constraint key and message
+            const [constraintKey, message] = Object.entries(error.constraints)[0];
+
             acc.push({
               field,
-              code: 'INVALID_VALUE',
-              message: firstConstraintMessage,
+              code: CONSTRAINT_TO_ERROR_CODE_MAP[constraintKey] || constraintKey.toUpperCase(),
+              message,
             });
           }
         } else {
