@@ -357,10 +357,10 @@ model UserRelationship {
   muted: boolean;
 
   @doc("Is the user followed by the current logged-in user")
-  following: boolean | null;
+  following: boolean;
 
   @doc("Is the user following the current logged-in user")
-  follower: boolean | null;
+  follower: boolean;
 }
 
 @doc("Complete user profile with full account details and relationship context.")
@@ -368,7 +368,7 @@ model UserProfile {
   ...PublicUser;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship;
+  relationship: UserRelationship | null; // null if get my profile
 
   @doc("The number of users this user is following")
   followingCount: int64;
