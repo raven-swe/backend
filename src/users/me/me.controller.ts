@@ -1,7 +1,8 @@
-import { Body, Controller, Put } from '@nestjs/common';
+import { Body, Controller, Patch, Put } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
+import { UpdateProfileDto } from '../dtos/update-profile.dto';
 
 @Controller('me')
 export class MeController {
@@ -26,5 +27,20 @@ export class MeController {
     // const userId = req.user.id;
     const userId = BigInt(18); // temporary userId for testing
     return this.usersService.changePassword(userId, changePasswordDto);
+  }
+
+  @Patch('profile')
+  async updateProfile(
+    @Body() updateProfileDto: Partial<UpdateProfileDto>,
+    // @Request() req -- enable after merging login functionality
+  ) {
+    // const userId = req.user.id;
+    const userId = BigInt(18); // temporary userId for testing
+    const profile = await this.usersService.updateProfile(userId, updateProfileDto);
+
+    return {
+      message: 'Profile updated successfully',
+      ...profile,
+    };
   }
 }

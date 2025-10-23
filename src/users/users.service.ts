@@ -8,6 +8,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 @Injectable()
 export class UsersService {
   constructor(
@@ -126,5 +127,33 @@ export class UsersService {
     await this.emailQueue.add('sendPasswordChangeEmail', jobData);
 
     return { message: 'Password changed successfully.' };
+  }
+
+  async updateProfile(userId: bigint, data: UpdateProfileDto) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Prepare updated data
+    const updatedData: Partial<UpdateProfileDto> = {};
+
+    if (data.displayName !== undefined) updatedData.displayName = data.displayName;
+    if (data.bio !== undefined) updatedData.bio = data.bio;
+    if (data.location !== undefined) updatedData.location = data.location;
+    if (data.websiteUrl !== undefined) updatedData.websiteUrl = data.websiteUrl;
+    if (data.avatarUrl !== undefined) updatedData.avatarUrl = data.avatarUrl;
+    if (data.bannerUrl !== undefined) updatedData.bannerUrl = data.bannerUrl;
+
+    const result = await this.usersRepository.updateProfile(userId, updatedData);
+
+    // Temporarily return the updated user
+    return result;
   }
 }
