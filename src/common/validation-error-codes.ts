@@ -27,10 +27,8 @@ export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
   maxLength: VALIDATION_ERROR_CODES.TOO_LONG,
 
   // Custom password validators (if you're using @Matches() with patterns)
-  // You'll need to map these based on your actual validator names
   matches: VALIDATION_ERROR_CODES.INVALID_FORMAT,
 
-  // Minimum age validator (if custom)
-  isMinimumAge: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
-  minAge: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
+  // custom age validator
+  isMinYearsOld: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
 };
