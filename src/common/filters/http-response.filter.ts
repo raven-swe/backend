@@ -58,6 +58,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         this.logger.warn(`Validation failed: ${JSON.stringify(exceptionResponse)}`);
         const message = (exceptionResponse as { message: ValidationError[] }).message;
         errorResponse = this.formatValidationErrors(message);
+        status = HttpStatus.UNPROCESSABLE_ENTITY;
       } else {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
