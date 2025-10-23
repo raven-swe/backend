@@ -154,6 +154,15 @@ export class UsersService {
     return await this.usersRepository.updateProfile(userId, updatedData);
   }
 
+  /**
+   * Find user profile by username, including relationship status with current user if provided
+   * If currentUserId is provided, then the user is authenticated and we can check the relationship status
+   * Else we return the profile without relationship status
+   *
+   * @param username - username of the user to find
+   * @param currentUserId - optional current user ID for relationship status
+   * @returns User profile with relationship status
+   */
   async getUserProfile(username: string, currentUserId?: bigint) {
     const profile = await this.usersRepository.findUserProfileByUsername(username, currentUserId);
 
