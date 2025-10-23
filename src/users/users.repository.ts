@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LanguageCode } from '@prisma/client';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
-import { UserProfileResponseDto } from './dtos/user-profile-response.dto';
+import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 
 @Injectable()
 export class UsersRepository {
@@ -114,16 +114,11 @@ export class UsersRepository {
       },
     });
 
-    if (!user) return null;
+    // TODO: change is_deleted to deleted_at after migrating the database
+    if (!user || user.is_deleted) return null;
 
     // Get relationship if currentUserId is provided
-    let relationship = {
-      blocking: false,
-      blockedBy: false,
-      following: false,
-      follower: false,
-      muted: false,
-    };
+    let relationship: UserRelationshipDto | null = null;
 
     // TODO: convert to "let" after implementing mutual followers
     const mutualsCount: number | null = 2;

@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Put } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Put } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -29,7 +29,7 @@ export class MeController {
     return this.usersService.changePassword(userId, changePasswordDto);
   }
 
-  @Patch('profile')
+  @Patch()
   async updateProfile(
     @Body() updateProfileDto: UpdateProfileDto,
     // @Request() req -- enable after merging login functionality
@@ -43,4 +43,6 @@ export class MeController {
       ...profile,
     };
   }
+
+  // @Get
 }
