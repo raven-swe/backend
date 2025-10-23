@@ -13,7 +13,7 @@ import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { CheckEmailDto } from './dto/CheckEmailDto';
+import { CheckEmailDto } from './dto/check-email-dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import {
   AUTH_ERROR_MESSAGES,

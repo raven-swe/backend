@@ -25,7 +25,7 @@ interface GenerateAndStoreOtpParams<T extends { otp: string; verified: boolean }
  * Generates OTP, hashes it, stores to Redis, and sends via email
  * Includes rate limiting for OTP resend attempts
  *
- * @throws LimitExceeded exception if number of attempts exceeds otp resend limit
+ * @throws LimitExceeded exception if number of attempts exceeds otp resend limit and returns retryAfter in seconds
  */
 export async function generateAndStoreOtp<T extends { otp: string; verified: boolean }>(
   params: GenerateAndStoreOtpParams<T>,
@@ -37,10 +37,12 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
   const attempts = await redisService.get(resendKey);
 
   if (attempts && parseInt(attempts) >= AUTH_CONFIG.OTP_RESEND_LIMIT) {
+    const remainingTTL = await redisService.ttl(resendKey);
     throw new HttpException(
       {
         message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
         code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+        retryAfter: remainingTTL, // in seconds
       },
       HttpStatus.TOO_MANY_REQUESTS,
     );
