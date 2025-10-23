@@ -169,4 +169,20 @@ export class UsersService {
 
     return profile;
   }
+
+  async getUserProfile(username: string, currentUserId?: bigint) {
+    const profile = await this.usersRepository.findUserProfileByUsername(username, currentUserId);
+
+    if (!profile) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return profile;
+  }
 }
