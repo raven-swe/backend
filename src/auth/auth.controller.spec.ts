@@ -173,7 +173,7 @@ describe('AuthController with real config service', () => {
     } as unknown as Response;
     const mockUser = { id: '1', username: 'username' };
 
-    it('with client type undefined should call authService.login and return refreshToken', async () => {
+    it('with client type undefined should throw UnauthorizedException', async () => {
       await expect(
         controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, undefined as never),
       ).rejects.toThrow(UnauthorizedException);
