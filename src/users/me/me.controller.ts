@@ -43,5 +43,11 @@ export class MeController {
     };
   }
 
-  // @Get
+  @Get()
+  async getMyProfile() {
+    // @Request() req -- enable after merging login functionality
+    // const username = req.user.username;
+    const username = 'OmarHassan'; // temporary username for testing
+    return this.usersService.getUserProfile(username);
+  }
 }
