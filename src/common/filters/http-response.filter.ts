@@ -64,15 +64,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
       }
-    } else if (exception instanceof Error) {
-      // Handle regular errors
-      errorResponse = {
-        success: false,
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An unexpected error occurred',
-        },
-      };
     } else {
       // Handle unknown exceptions
       errorResponse = {
