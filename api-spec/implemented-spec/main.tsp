@@ -186,6 +186,224 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+@doc("Entity mention in bio")
+model MentionEntity {
+  @doc("The username of the mentioned user")
+  username: string; //we expose text but store as user id and hydrate
+
+  @doc("Start position of the mention in the bio text")
+  startPosition: int32;
+}
+
+@doc("Entity hashtag in bio")
+model HashtagEntity {
+  @doc("The hashtag text (without #)")
+  hashtag: string;
+
+  @doc("Start position of the hashtag in the bio text")
+  startPosition: int32;
+}
+
+@doc("Bio entities containing mentions and hashtags")
+model BioEntities {
+  @doc("Array of mention entities in the bio")
+  mentions?: MentionEntity[];
+
+  @doc("Array of hashtag entities in the bio")
+  hashtags?: HashtagEntity[];
+}
+
+@doc("Complete user profile with full account details and relationship context.")
+model UserProfile {
+  ...PublicUser;
+
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship | null; // null if get my profile
+
+  @doc("The number of users this user is following")
+  followingCount: int64;
+
+  @doc("The number of followers this user has")
+  followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64 | null;
+
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[] | null;
+}
+
+@doc("Compact user(followers/following) lists")
+model CompactUser {
+  @doc("The user's unique, public-facing username.")
+  @minLength(1)
+  username: string;
+
+  @doc("The user's display name.")
+  @minLength(1)
+  @maxLength(100)
+  displayName: string;
+
+  @doc("The user's bio (max 160 characters).")
+  @maxLength(160)
+  bio: string | null;
+
+  @doc("Entities in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string | null;
+}
+
+@doc("Public-facing user profile (visible to others)")
+model PublicUser {
+  ...CompactUser;
+
+  @doc("URL to the user's banner image")
+  bannerUrl: string | null;
+
+  @doc("User's location")
+  @maxLength(100)
+  location: string | null;
+
+  @doc("User's website URL")
+  @maxLength(255)
+  websiteUrl: string | null;
+
+  @doc("User's date of birth (YYYY-MM-DD)")
+  birthDate: plainDate | null;
+
+  @doc("Date when the user joined")
+  joinedAt: utcDateTime;
+}
+
+@doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
+model UserRelationship {
+  @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
+  blocking: boolean;
+
+  @doc("True if this user has blocked the current user.")
+  blockedBy: boolean;
+
+  @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
+  muted: boolean;
+
+  @doc("Is the user followed by the current logged-in user")
+  following: boolean;
+
+  @doc("Is the user following the current logged-in user")
+  follower: boolean;
+}
+
+@doc("Extended user metadata displayed in hover cards and user previews")
+model UserPreview {
+  ...UserMetadataWithBio;
+
+  @doc("The number of users this user is following")
+  followingCount: int64;
+
+  @doc("The number of followers this user has")
+  followersCount: int64;
+
+  @doc("The number of mutual followers shared with the authenticated user")
+  mutualsCount: int64 | null;
+
+  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @maxItems(3)
+  mutualNames: string[] | null;
+}
+
+@doc("Metadata for user sent in suggestions/tweets/search results/etc.")
+model UserMetadata {
+  @doc("The user's unique, public-facing username.")
+  @minLength(1)
+  username: string;
+
+  @doc("The user's display name.")
+  @minLength(1)
+  @maxLength(100)
+  displayName: string;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string;
+}
+
+model UserMetadataWithFollowInfo {
+  ...UserMetadata;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean | null;
+
+  @doc("Is the user following the current logged-in user")
+  isFollower: boolean | null;
+}
+
+@doc("User metadata with biography information")
+model UserMetadataWithBio {
+  ...UserMetadataWithFollowInfo;
+
+  @doc("The user's biography with structured entities")
+  bio: UserBio | null;
+}
+
+@doc("User's biography with structured entities")
+model UserBio {
+  @doc("The user's bio text (max 160 characters)")
+  @maxLength(160)
+  text: string | null;
+
+  @doc("Structured entities found in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+}
+
+@doc("Request body for updating profile")
+model UpdateProfileRequest {
+  @doc("The user's display name.")
+  @minLength(1)
+  @maxLength(100)
+  displayName?: string;
+
+  @doc("The user's bio (max 160 characters).")
+  @maxLength(160)
+  bio?: string | null;
+
+  @doc("User's location")
+  @maxLength(100)
+  location?: string | null;
+
+  @doc("User's website URL")
+  @maxLength(255)
+  websiteUrl?: string | null;
+}
+
+model UpdatedProfile {
+  @doc("The user's display name.")
+  displayName: string | null;
+  
+  @doc("The user's bio (max 160 characters).")
+  bio: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities: BioEntities | null;
+
+  @doc("The user's location.")
+  location: string | null;
+
+  @doc("The user's website URL.")
+  websiteUrl: string | null;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string | null;
+
+  @doc("URL to the user's banner image")
+  bannerUrl: string | null;
+
+  @doc("The timestamp when the profile was last updated.")
+  updatedAt: utcDateTime;
+}
+
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -336,4 +554,30 @@ namespace Me {
     | UnauthorizedResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
+
+  @get
+  @summary("Get the authenticated user's profile")
+  op getMyProfile(): DataResponse<UserProfile> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch(#{ implicitOptionality: true })
+  @summary("Update the authenticated user's profile")
+  op updateMyProfile(@body body: UpdateProfileRequest):
+    | DataResponse<UpdatedProfile>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Users")
+@route("/users")
+@useAuth(BearerAuth)
+namespace Users {
+  @summary("User's profile details")
+  @get
+  @route("/{username}/profile")
+  op getUserProfile(@path username: string):
+    | DataResponse<UserProfile>
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+   
 }
