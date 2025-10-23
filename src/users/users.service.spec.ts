@@ -14,6 +14,7 @@ jest.mock('./utils/validate-password-format.util');
 
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -269,6 +270,82 @@ describe('UsersService', () => {
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new Error('Hashing failed'),
       );
+    });
+  });
+
+  describe('updateProfile', () => {
+    const updateProfileDto: UpdateProfileDto = {
+      displayName: 'Updated Name',
+      bio: 'Updated bio',
+      location: 'New Location',
+      websiteUrl: 'https://newsite.com',
+      avatarUrl: 'https://example.com/new-avatar.jpg',
+      bannerUrl: 'https://example.com/new-banner.jpg',
+    };
+
+    test('should successfully update user profile with all fields provided', async () => {
+      const updatedProfile = {
+        ...updateProfileDto,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), updateProfileDto);
+
+      expect(result).toEqual(updatedProfile);
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), updateProfileDto);
+    });
+
+    test('should update only provided fields in user profile', async () => {
+      const partialUpdateDto: UpdateProfileDto = {
+        bio: 'Partially updated bio',
+      };
+
+      const updatedProfile = {
+        ...mockUserProfile,
+        ...partialUpdateDto,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), partialUpdateDto);
+      expect(result).toEqual(updatedProfile);
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), partialUpdateDto);
+    });
+
+    test('should throw error if user not found', async () => {
+      mockRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateProfile(BigInt(1), updateProfileDto)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty update data', async () => {
+      const emptyUpdateDto: UpdateProfileDto = {};
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
+
+      const result = await service.updateProfile(BigInt(1), emptyUpdateDto);
+
+      // No data to update, should return existing profile
+      expect(result).toEqual(mockUserProfile);
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), emptyUpdateDto);
     });
   });
 
