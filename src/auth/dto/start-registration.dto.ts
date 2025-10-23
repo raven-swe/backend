@@ -7,22 +7,26 @@ import {
   registerDecorator,
   ValidationArguments,
 } from 'class-validator';
+import { VALIDATION_ERROR_CODES } from 'src/common/validation-error-codes';
 export class StartRegistrationDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: VALIDATION_ERROR_CODES.NOT_A_STRING })
+  @IsNotEmpty({ context: VALIDATION_ERROR_CODES.IS_EMPTY })
   name: string;
 
-  @IsEmail()
-  @IsNotEmpty()
+  @IsEmail({}, { context: VALIDATION_ERROR_CODES.NOT_AN_EMAIL })
+  @IsNotEmpty({ context: VALIDATION_ERROR_CODES.IS_EMPTY })
   email: string;
 
-  @IsDate()
-  @IsNotEmpty()
-  @IsMinYearsOld(18, { message: 'You must be at least 18 years old to register' })
+  @IsDate({ context: VALIDATION_ERROR_CODES.NOT_A_DATE })
+  @IsNotEmpty({ context: VALIDATION_ERROR_CODES.IS_EMPTY })
+  @IsMinYearsOld(18, {
+    message: 'You must be at least 18 years old to register',
+    context: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
+  })
   birthDate: Date;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ context: VALIDATION_ERROR_CODES.NOT_A_STRING })
+  @IsNotEmpty({ context: VALIDATION_ERROR_CODES.IS_EMPTY })
   recaptchaToken: string;
 }
 
