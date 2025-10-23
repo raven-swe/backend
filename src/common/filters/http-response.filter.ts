@@ -97,11 +97,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ) {
           const field = error.property;
 
-          // Ensure only the first error for each field is added
+          // Ensure only the first error per field is added
           if (!seen.has(field)) {
             seen.add(field);
 
-            // Get the first constraint key and message
+            // Get the first constraint key and message (should only be one anyway)
             const [constraintKey, message] = Object.entries(error.constraints)[0];
 
             acc.push({
