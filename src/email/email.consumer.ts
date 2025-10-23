@@ -6,6 +6,8 @@ import {
   OtpType,
   EmailJobData,
   ChangePasswordJob,
+  UpdateEmailOtpJob,
+  UpdateEmailJob,
 } from './interfaces/email.interfaces';
 import { Job } from 'bullmq';
 import { EmailService } from './email.service';
@@ -30,6 +32,10 @@ export class EmailConsumer extends WorkerHost {
         await this.emailService.sendForgotPasswordOtp(data as ForgotPasswordOtpJob);
       } else if (type === OtpType.CHANGE_PASSWORD) {
         await this.emailService.sendChangePasswordEmail(data as ChangePasswordJob);
+      } else if (type === OtpType.CHANGE_EMAIL) {
+        await this.emailService.sendVerifyEmailUpdate(data as UpdateEmailOtpJob);
+      } else if (type === OtpType.CHANGE_EMAIL_COMPLETE) {
+        await this.emailService.sendCompleteEmailUpdate(data as UpdateEmailJob);
       } else {
         throw new Error('Unknown OTP type');
       }
