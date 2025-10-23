@@ -14,12 +14,15 @@ import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interf
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { OtpFailedException } from './exceptions/otp.exception';
 import { LanguageCode } from '@prisma/client';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
-import { RefreshTokenTTL } from './constants';
+import {
+  RefreshTokenTTL,
+  AUTH_ERROR_MESSAGES,
+  AUTH_ERROR_CODES,
+} from 'src/common/constants/auth.constants';
 
 @Injectable()
 export class AuthService {
@@ -47,8 +50,8 @@ export class AuthService {
     if (existingUser) {
       throw new HttpException(
         {
-          message: 'Email is already registered',
-          code: 'EMAIL_REGISTERED',
+          message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
+          code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -61,7 +64,10 @@ export class AuthService {
     const attempts = await this.redisService.get(resendKey);
     if (attempts && parseInt(attempts) >= this.otpResendLimit) {
       throw new HttpException(
-        'OTP resend limit reached. Please try again later.',
+        {
+          message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+          code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -96,8 +102,8 @@ export class AuthService {
     if (!data) {
       throw new HttpException(
         {
-          message: 'Invalid or expired creation token',
-          code: 'INVALID_TOKEN',
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -106,7 +112,13 @@ export class AuthService {
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     const otpValid = await bcrypt.compare(verifyOtpDto.otp, registrationData.otp);
     if (!otpValid) {
-      throw new OtpFailedException('Invalid or expired OTP token');
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.OTP_INVALID,
+          code: AUTH_ERROR_CODES.OTP_INVALID,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     registrationData.verified = true;
@@ -122,12 +134,24 @@ export class AuthService {
     const redisKey = `registration:${completeRegistrationDto.creationToken}`;
     const data = await this.redisService.get(redisKey);
     if (!data) {
-      throw new OtpFailedException('Invalid or expired OTP token');
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     if (!registrationData.verified) {
-      throw new OtpFailedException('OTP not verified');
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+          code: AUTH_ERROR_CODES.OTP_NOT_VERIFIED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const hashedPassword = await this.hashPassword(completeRegistrationDto.password);
 

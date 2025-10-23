@@ -33,3 +33,5 @@ export const AUTH_CONFIG = {
   OTP_RESEND_LIMIT: 5,
   OTP_RESEND_WINDOW: 600, // 10 minutes
 };
+
+export const RefreshTokenTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
