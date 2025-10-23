@@ -7,7 +7,10 @@ import {
   ForgotPasswordOtpJob,
   OtpEmailOptions,
   OtpType,
+  UpdateEmailOtpJob,
+  UpdateEmailJob,
 } from './interfaces/email.interfaces';
+import { maskEmail } from 'src/users/utils/mask-email.util';
 
 @Injectable()
 export class EmailService {
@@ -33,6 +36,7 @@ export class EmailService {
     type: OtpType,
     username?: string,
     otp?: string,
+    email?: string,
   ): { subject: string; html: string } {
     const templates: Record<OtpType, { subject: string; html: string }> = {
       [OtpType.REGISTRATION]: {
@@ -55,6 +59,23 @@ export class EmailService {
         html: `<h1>Password Changed Successfully</h1>
           <p>You recently changed the password associated with your account ${username}.</p>
           <p>If you did not make this change, and believe your Raven account has been compromised, please contact support.</p>`,
+      },
+      [OtpType.CHANGE_EMAIL]: {
+        subject: 'Confirm your email address',
+        html: `
+          <h1>Confirm your email address</h1>
+          <p>There's one quick step you need to complete in order to confirm your email address.</p>
+          <p>Please enter this verification code on Raven when prompted</p>
+          <p><strong>${otp}</strong></p>
+          <p>This code will expire in 5 minutes.</p>
+        `,
+      },
+      [OtpType.CHANGE_EMAIL_COMPLETE]: {
+        subject: `Email address changed`,
+        html: `
+          <h1>Your email address has been changed</h1>
+          <p>The email address on your account @${username} has changed to ${email}</p>
+        `,
       },
     };
 
@@ -94,5 +115,22 @@ export class EmailService {
   async sendChangePasswordEmail({ email, username }: ChangePasswordJob): Promise<void> {
     const { subject, html } = this.getEmailTemplate(OtpType.CHANGE_PASSWORD, username);
     await this.sendEmail(email, subject, html);
+  }
+
+  async sendVerifyEmailUpdate({ email, otp }: UpdateEmailOtpJob): Promise<void> {
+    const { subject, html } = this.getEmailTemplate(OtpType.CHANGE_EMAIL, undefined, otp);
+    await this.sendEmail(email, subject, html);
+  }
+
+  async sendCompleteEmailUpdate({ email, oldEmail, username }: UpdateEmailJob): Promise<void> {
+    const maskedEmail = maskEmail(email);
+
+    const { subject, html } = this.getEmailTemplate(
+      OtpType.CHANGE_EMAIL_COMPLETE,
+      username,
+      undefined,
+      maskedEmail,
+    );
+    await this.sendEmail(oldEmail, subject, html);
   }
 }
