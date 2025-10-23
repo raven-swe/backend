@@ -38,7 +38,6 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
 
   if (attempts && parseInt(attempts) >= AUTH_CONFIG.OTP_RESEND_LIMIT) {
     const remainingTTL = await redisService.ttl(resendKey);
-    console.log('remainingTTL is ', remainingTTL);
     throw new HttpException(
       {
         message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
