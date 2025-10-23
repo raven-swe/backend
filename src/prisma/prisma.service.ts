@@ -4,13 +4,13 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient {
-  DATABASE_URL = `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
+  static readonly DATABASE_URL = `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
   constructor(
     config: ConfigService,
     private readonly logger: Logger,
   ) {
     super({
-      datasourceUrl: config.get('DATABASE_URL'),
+      datasourceUrl: PrismaService.DATABASE_URL,
     });
   }
 
