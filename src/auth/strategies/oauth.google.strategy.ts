@@ -1,9 +1,8 @@
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
-
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 interface GoogleUserResponse {
   access_token: string;
@@ -13,6 +12,12 @@ interface GoogleUserResponse {
 }
 
 export class GoogleOAuthStrategy implements OAuthProviderStrategy {
+  private client: OAuth2Client;
+
+  constructor(private readonly config: ConfigService) {
+    this.client = new OAuth2Client(this.config.get<string>('GOOGLE_CLIENT_ID'));
+  }
+
   async validateToken(providerTokenId: string): Promise<ProviderProfile> {
     // TODO: Implement Google token validation
     const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -22,9 +27,9 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
       },
       body: new URLSearchParams({
         code: providerTokenId,
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+        client_id: this.config.get<string>('GOOGLE_CLIENT_ID')!,
+        client_secret: this.config.get<string>('GOOGLE_CLIENT_SECRET')!,
+        redirect_uri: this.config.get<string>('GOOGLE_REDIRECT_URI')!,
         grant_type: 'authorization_code',
       }),
     });
@@ -37,9 +42,9 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
 
     if (!googleData.id_token) throw new BadRequestException("Couldn't verify the token.");
 
-    const ticket = await client.verifyIdToken({
+    const ticket = await this.client.verifyIdToken({
       idToken: googleData.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: this.config.get<string>('GOOGLE_CLIENT_ID'),
     });
 
     if (!ticket) {

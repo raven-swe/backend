@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { OauthController } from './oauth.controller';
 import { oAuthService } from './oauth.service';
@@ -8,9 +9,14 @@ import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [
     UsersModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'raven',
-      signOptions: { expiresIn: '1h' },
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET') ?? 'raven',
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController, OauthController],
