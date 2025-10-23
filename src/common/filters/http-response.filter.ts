@@ -59,7 +59,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const message = (exceptionResponse as { message: ValidationError[] }).message;
         errorResponse = this.formatValidationErrors(message);
         status = HttpStatus.UNPROCESSABLE_ENTITY;
-        status = HttpStatus.UNPROCESSABLE_ENTITY;
       } else {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
