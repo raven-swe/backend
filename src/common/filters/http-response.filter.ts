@@ -59,6 +59,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const message = (exceptionResponse as { message: ValidationError[] }).message;
         errorResponse = this.formatValidationErrors(message);
         status = HttpStatus.UNPROCESSABLE_ENTITY;
+        status = HttpStatus.UNPROCESSABLE_ENTITY;
       } else {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
@@ -91,30 +92,41 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json(errorResponse);
   }
 
-  private formatValidationErrors(validationErrors: unknown[]): ApiValidationErrorResponse {
-    const formattedErrors = validationErrors.flatMap((error) => {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'property' in error &&
-        'constraints' in error &&
-        (error as ValidationError).constraints
-      ) {
-        return Object.values((error as ValidationError).constraints!).map((message) => ({
-          field: (error as ValidationError).property,
-          code: 'INVALID_VALUE',
-          message,
-        }));
-      }
-      // fallback for string errors
-      return [
-        {
-          field: 'unknown',
-          code: 'INVALID_VALUE',
-          message: typeof error === 'string' ? error : JSON.stringify(error),
-        },
-      ];
-    });
+  private formatValidationErrors(validationErrors: ValidationError[]): ApiValidationErrorResponse {
+    const seen = new Set<string>();
+
+    const formattedErrors = validationErrors.reduce(
+      (acc, error) => {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'property' in error &&
+          'constraints' in error &&
+          error.constraints
+        ) {
+          const field = error.property;
+          if (!seen.has(field)) {
+            seen.add(field);
+            // Add only the first constraint message for the field
+            const firstConstraintMessage = Object.values(error.constraints)[0];
+            acc.push({
+              field,
+              code: 'INVALID_VALUE',
+              message: firstConstraintMessage,
+            });
+          }
+        } else {
+          // Fallback for string or unknown errors
+          acc.push({
+            field: 'unknown',
+            code: 'INVALID_VALUE',
+            message: typeof error === 'string' ? error : JSON.stringify(error),
+          });
+        }
+        return acc;
+      },
+      [] as { field: string; code: string; message: string }[],
+    );
 
     return {
       success: false,
