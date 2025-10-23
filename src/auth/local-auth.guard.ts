@@ -17,11 +17,11 @@ export class LocalAuthGuard extends AuthGuard('local') {
       await validateOrReject(dto);
     } catch (errors) {
       if (Array.isArray(errors) && errors.every((e) => e instanceof ValidationError)) {
-        const messages = errors
-          .map((err: ValidationError) => (err.constraints ? Object.values(err.constraints) : []))
-          .flat();
-
-        throw new BadRequestException(messages);
+        throw new BadRequestException({
+          message: errors,
+          error: 'Bad Request',
+          statusCode: 400,
+        });
       }
       throw errors;
     }
