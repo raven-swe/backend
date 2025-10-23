@@ -1,0 +1,15 @@
+meta {
+  name: get-my-profile
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:3000/me
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
