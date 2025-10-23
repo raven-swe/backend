@@ -5,21 +5,30 @@ import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { getQueueToken } from '@nestjs/bullmq';
 import { DevicesService } from 'src/device/device.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { generateAndStoreOtp } from './utils/otp.util';
+import {
+  AUTH_CONFIG,
+  AUTH_ERROR_CODES,
+  AUTH_ERROR_MESSAGES,
+  REDIS_KEYS,
+} from 'src/common/constants/auth.constants';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { getQueueToken } from '@nestjs/bullmq';
 
-jest.mock('bcrypt');
 jest.mock('crypto', () => ({
   randomUUID: jest.fn(),
-  randomInt: jest.fn(),
   createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn(),
   }),
+}));
+
+jest.mock('./utils/otp.util', () => ({
+  generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
 }));
 
 describe('AuthService', () => {
@@ -44,20 +53,14 @@ describe('AuthService', () => {
     mockRecaptchaService = {
       validateToken: jest.fn(),
     };
-    mockRedisService = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-    };
+    mockRedisService = {};
     mockDeviceService = {
       createDevice: jest.fn(),
     };
     mockRefreshTokensService = {
       createRefreshToken: jest.fn(),
     };
-    mockEmailQueue = {
-      add: jest.fn(),
-    };
+    mockEmailQueue = { add: jest.fn() };
     mockPrismaService = {
       $transaction: jest.fn(),
     };
@@ -97,37 +100,36 @@ describe('AuthService', () => {
         recaptchaToken: 'token',
       };
 
-      // arrange
+      // Arrange
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
-      (mockRedisService.get as jest.Mock).mockResolvedValue(null);
-      (mockRedisService.set as jest.Mock).mockResolvedValue(undefined);
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
-      (crypto.randomInt as jest.Mock).mockReturnValue(123456);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-otp');
 
-      // act
+      // Act
       const result = await service.startRegistration(startRegistrationDto);
 
-      // assert
+      // Assert
       expect(result).toEqual({
         creationToken: 'test-uuid',
       });
 
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
-      expect(mockEmailQueue.add).toHaveBeenCalledWith('sendOtp', {
-        email: startRegistrationDto.email,
-        otp: '123456',
-      });
-      expect(mockRedisService.set).toHaveBeenCalledTimes(2); // registration data and resend count (by email)
-      expect(mockRedisService.set).toHaveBeenCalledWith(
-        `registration:test-uuid`,
-        expect.any(String),
-        service['registrationTTL'],
-      );
-      expect(mockRedisService.set).toHaveBeenCalledWith(
-        `otp_resend:${startRegistrationDto.email}`,
-        '1',
-        service['otpResendWindow'],
+      expect(generateAndStoreOtp).toHaveBeenCalledWith(
+        {
+          redisKey: REDIS_KEYS.REGISTRATION('test-uuid'),
+          email: startRegistrationDto.email,
+          resendKey: REDIS_KEYS.OTP_RESEND(startRegistrationDto.email),
+          ttl: AUTH_CONFIG.REGISTRATION_TTL,
+          data: {
+            email: startRegistrationDto.email,
+            name: startRegistrationDto.name,
+            birthDate: startRegistrationDto.birthDate,
+            otp: '',
+            verified: false,
+          },
+          emailQueue: mockEmailQueue,
+          otpType: OtpType.REGISTRATION,
+        },
+        mockRedisService,
       );
     });
 
@@ -163,7 +165,15 @@ describe('AuthService', () => {
 
     // arrange
     (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
-    (mockRedisService.get as jest.Mock).mockResolvedValue(String(service['otpResendLimit']));
+    (generateAndStoreOtp as jest.Mock).mockRejectedValue(
+      new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+          code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      ),
+    );
 
     // act & assert
     await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
@@ -173,6 +183,5 @@ describe('AuthService', () => {
       ),
     );
     expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
-    expect(mockRedisService.get).toHaveBeenCalledWith(`otp_resend:${startRegistrationDto.email}`);
   });
 });
