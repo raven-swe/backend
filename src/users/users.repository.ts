@@ -126,8 +126,8 @@ export class UsersRepository {
     };
 
     // TODO: convert to "let" after implementing mutual followers
-    const mutualsCount: bigint | null = null;
-    const mutualNames: string[] | null = null;
+    const mutualsCount: number | null = 2;
+    const mutualNames: string[] | null = ['Omar', 'Tasneem'];
 
     if (currentUserId) {
       // Check if current user is following this user
@@ -200,14 +200,15 @@ export class UsersRepository {
       bioEntities: null,
       location: user.profile?.location || null,
       birthDate: user.birthdate,
-      websiteUrl: user.profile?.website_url || null,
       avatarUrl: user.profile?.avatar_url || null,
       bannerUrl: user.profile?.banner_url || null,
-      followersCount: user._count.followers.toString(),
-      followingCount: user._count.following.toString(),
+      websiteUrl: user.profile?.website_url || null,
       joinedAt: user.created_at,
       relationship,
-      mutualsCount: mutualsCount !== null ? String(mutualsCount) : null,
+      followingCount: user._count.following.toString(),
+      followersCount: user._count.followers.toString(),
+
+      mutualsCount: mutualsCount ? mutualsCount : null,
       mutualNames,
     };
   }

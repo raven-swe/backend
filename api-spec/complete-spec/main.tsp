@@ -1023,7 +1023,6 @@ namespace Users {
   @route("/{username}/profile")
   op getUserProfile(@path username: string):
     | DataResponse<UserProfile>
-    | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
 
