@@ -20,9 +20,7 @@ export class RecaptchaService {
     private readonly httpService: HttpService,
     configService: ConfigService,
   ) {
-    const secret =
-      configService.get<string>('RECAPTCHA_SECRET_KEY_TEST') ||
-      '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'; // Google's test secret key
+    const secret = configService.get<string>('RECAPTCHA_SECRET_KEY_TEST');
     if (!secret) {
       throw new Error('RECAPTCHA_SECRET_KEY is not defined in configuration');
     }
