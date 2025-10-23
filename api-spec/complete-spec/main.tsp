@@ -420,7 +420,42 @@ model UpdateProfileRequest {
   @doc("User's website URL")
   @maxLength(255)
   websiteUrl?: string | null;
+
+  @doc("URL to the user's avatar image")
+  @maxLength(255)
+  avatarUrl?: string | null;
+
+  @doc("URL to the user's banner image")
+  @maxLength(255)
+  bannerUrl?: string | null;
 }
+
+model UpdatedProfile {
+  @doc("The user's display name.")
+  displayName: string | null;
+  
+  @doc("The user's bio (max 160 characters).")
+  bio: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities: BioEntities | null;
+
+  @doc("The user's location.")
+  location: string | null;
+
+  @doc("The user's website URL.")
+  websiteUrl: string | null;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string | null;
+
+  @doc("URL to the user's banner image")
+  bannerUrl: string | null;
+
+  @doc("The timestamp when the profile was last updated.")
+  updatedAt: utcDateTime;
+}
+
 
 @doc("The type of media file.")
 enum MediaType {
@@ -1126,7 +1161,7 @@ namespace Me {
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
   op updateMyProfile(@body body: UpdateProfileRequest):
-    | DataResponse<AuthenticatedUser>
+    | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
