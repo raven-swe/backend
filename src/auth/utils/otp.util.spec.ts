@@ -28,6 +28,7 @@ describe('generateAndStoreOtp', () => {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+    ttl: jest.fn().mockResolvedValue(300),
   };
 
   const mockEmailQueue = {

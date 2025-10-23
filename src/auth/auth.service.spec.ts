@@ -63,6 +63,7 @@ describe('AuthService', () => {
       get: jest.fn(),
       set: jest.fn(),
       del: jest.fn(),
+      ttl: jest.fn().mockResolvedValue(300),
     };
     mockDeviceService = {
       createDevice: jest.fn(),
@@ -349,19 +350,19 @@ describe('AuthService', () => {
   });
 
   describe('checkEmail', () => {
-    it('should return { exists: true } if an email is found', async () => {
+    it('should return { a message and exists: true } if an email is found', async () => {
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue({ id: 1 });
       const result = await service.checkEmail('exists@example.com');
-      expect(result).toBe({
+      expect(result).toStrictEqual({
         message: 'Email already exists',
         exists: true,
       });
     });
 
-    it('should return { exists: false } if an email is not found', async () => {
+    it('should return { a message and exists: false } if an email is not found', async () => {
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
       const result = await service.checkEmail('new@example.com');
-      expect(result.exists).toBe({
+      expect(result).toStrictEqual({
         message: 'Email is available',
         exists: false,
       });
