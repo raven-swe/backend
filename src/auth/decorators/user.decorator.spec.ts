@@ -1,5 +1,5 @@
 import { ExecutionContext } from '@nestjs/common';
-import { getUserFromContext } from './user.decorator'; // Import your logic function
+import { getUserFromContext } from './user.decorator';
 
 describe('User Decorator Logic', () => {
   it('should extract the user from the execution context', () => {
