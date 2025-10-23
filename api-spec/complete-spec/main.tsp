@@ -1264,7 +1264,9 @@ namespace Me {
         newEmail: string;
       },
     ):
-      | MessageResponse<"Email update initiated. Please verify the new email address.">
+      | DataResponse<{
+          confirmationToken: string;
+        }>
       | ValidationErrorResponse
       | ConflictResponse
       | UnauthorizedResponse
@@ -1275,7 +1277,7 @@ namespace Me {
     @summary("Resend the verification code to the new email address")
     op resendEmailVerificationOtp(
       @body body: {
-        newEmail: string;
+        confirmationToken: string;
       },
     ):
       | MessageResponse<"Verification code resent successfully.">
@@ -1289,7 +1291,8 @@ namespace Me {
     @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
     op verifyNewEmail(
       @body body: {
-        verificationCode: string;
+        confirmationToken: string;
+        otp: string;
       },
     ):
       | MessageResponse<"Email address updated successfully.">
