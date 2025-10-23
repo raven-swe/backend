@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
 
@@ -11,6 +12,8 @@ interface GithubUserResponse {
 }
 
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
+  constructor(private readonly config: ConfigService) {}
+
   async validateToken(provider_token_id: string): Promise<ProviderProfile> {
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
@@ -19,10 +22,10 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        client_id: process.env.GITHUB_CLIENT_ID!,
-        client_secret: process.env.GITHUB_CLIENT_SECRET!,
+        client_id: this.config.get<string>('GITHUB_CLIENT_ID')!,
+        client_secret: this.config.get<string>('GITHUB_CLIENT_SECRET')!,
         code: provider_token_id,
-        redirect_uri: process.env.GITHUB_REDIRECT_URI!,
+        redirect_uri: this.config.get<string>('GITHUB_REDIRECT_URI')!,
       }),
     });
 

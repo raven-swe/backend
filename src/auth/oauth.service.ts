@@ -14,16 +14,18 @@ import useragent from 'useragent';
 
 @Injectable()
 export class oAuthService {
+  private strategies: Record<SupportedOAuthProvider, OAuthProviderStrategy>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-  ) {}
-
-  private strategies: Record<SupportedOAuthProvider, OAuthProviderStrategy> = {
-    github: new GithubOAuthStrategy(),
-    google: new GoogleOAuthStrategy(),
-  };
+  ) {
+    this.strategies = {
+      github: new GithubOAuthStrategy(this.config),
+      google: new GoogleOAuthStrategy(this.config),
+    };
+  }
 
   async handleOauthToken(
     provider: SupportedOAuthProvider,
