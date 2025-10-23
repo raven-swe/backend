@@ -26,7 +26,9 @@ jest.mock('bcrypt');
 
 jest.mock('crypto', () => ({
   randomUUID: jest.fn(),
-  randomBytes: jest.fn().mockReturnValue(Buffer.from('random-bytes')),
+  randomBytes: jest.fn().mockReturnValue({
+    toString: jest.fn().mockReturnValue('mock-refresh-token-hex-string'),
+  }),
   createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
     digest: jest.fn(),
@@ -262,12 +264,8 @@ describe('AuthService', () => {
     it('should successfully complete the registration', async () => {
       // Arrange
       (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
-      jest.spyOn(service as any, 'hashPassword').mockResolvedValue('hashed-password');
       jest.spyOn(service as any, 'generateAccessToken').mockResolvedValue('access-token');
       jest.spyOn(service as any, 'createUserAndDeviceAndToken').mockResolvedValue(BigInt(1));
-      (crypto.createHash('sha256').update('').digest as jest.Mock).mockReturnValue(
-        'hashed-refresh-token',
-      );
 
       // Act
       const result = await service.completeRegistration(dto, '127.0.0.1');
@@ -275,7 +273,7 @@ describe('AuthService', () => {
       // Assert
       expect(result.message).toBe('Registration completed successfully');
       expect(result.accessToken).toBe('access-token');
-      expect(result.refreshToken).toBe('hashed-refresh-token');
+      expect(result.refreshToken).toBe('mock-refresh-token-hex-string');
       //check that the cleanup logic was called.
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.REGISTRATION(dto.creationToken));
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.OTP_RESEND(cachedData.email));

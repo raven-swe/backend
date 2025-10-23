@@ -26,6 +26,7 @@ import {
 } from 'src/common/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
+import { hashPassword } from './utils/password.util';
 
 @Injectable()
 export class AuthService {
@@ -146,7 +147,7 @@ export class AuthService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const hashedPassword = await this.hashPassword(completeRegistrationDto.password);
+    const hashedPassword = await hashPassword(completeRegistrationDto.password);
 
     const userData = {
       email: registrationData.email,
@@ -229,10 +230,6 @@ export class AuthService {
   async verifyRecaptcha(token: string): Promise<boolean> {
     const valid = await this.recaptchaService.validateToken(token);
     return !!valid;
-  }
-
-  private async hashPassword(password: string): Promise<string> {
-    return await bcrypt.hash(password, AUTH_CONFIG.SALT_ROUNDS);
   }
 
   //naming can be better ofc :)
