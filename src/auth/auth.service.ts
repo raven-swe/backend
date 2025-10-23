@@ -151,6 +151,7 @@ export class AuthService {
     const userData = {
       email: registrationData.email,
       username: registrationData.email,
+      name: registrationData.name,
       passwordHash: hashedPassword,
       birthDate: registrationData.birthDate,
       languageCode: LanguageCode.EN, //until we start user profiles
@@ -178,7 +179,7 @@ export class AuthService {
     return {
       message: 'Registration completed successfully',
       accessToken,
-      refreshToken: tokenHash,
+      refreshToken: randomToken,
     };
   }
 
@@ -245,13 +246,19 @@ export class AuthService {
       this.logger.log(`User created with ID: ${userId}`);
       newDevice.userId = userId;
 
+      await tx.profiles.create({
+        data: { user_id: userId, display_name: newUser.name },
+      });
+      this.logger.log(`Profile created for user ID: ${userId} with display name: ${newUser.name}`);
+
       const { id: deviceId } = await this.devicesService.createDevice(newDevice, tx);
       this.logger.log(`Device created with ID: ${deviceId}`);
+
       refreshToken.userId = userId;
       refreshToken.deviceId = deviceId;
-
       await this.refreshTokensService.createRefreshToken(refreshToken, tx);
       this.logger.log(`Refresh token created for user ID: ${userId} and device ID: ${deviceId}`);
+
       return userId;
     });
   }
