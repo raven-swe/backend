@@ -32,6 +32,6 @@ export const AUTH_CONFIG = {
   PASSWORD_RESET_TTL: 300,
   OTP_RESEND_LIMIT: 5,
   OTP_RESEND_WINDOW: 600, // 10 minutes
+  SALT_ROUNDS: 10, // for password hashing
+  REFRESH_TOKEN_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };
-
-export const RefreshTokenTTL = 7 * 24 * 60 * 60 * 1000; // 7 days in ms

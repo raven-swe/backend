@@ -16,9 +16,9 @@ import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { CheckEmailDto } from './dto/CheckEmailDto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import {
-  RefreshTokenTTL,
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
+  AUTH_CONFIG,
 } from 'src/common/constants/auth.constants';
 import type { Request, Response } from 'express';
 
@@ -62,7 +62,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: RefreshTokenTTL,
+      maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
 
     return {

@@ -19,10 +19,13 @@ import { CachedRegistrationData } from './interfaces/CachedRegistrationData.inte
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
 import {
-  RefreshTokenTTL,
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
+  AUTH_CONFIG,
+  REDIS_KEYS,
 } from 'src/common/constants/auth.constants';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { generateAndStoreOtp } from './utils/otp.util';
 
 @Injectable()
 export class AuthService {
@@ -50,60 +53,50 @@ export class AuthService {
     if (existingUser) {
       throw new HttpException(
         {
-          message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
-          code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
+          message: 'Email is already registered',
+          code: 'EMAIL_REGISTERED',
         },
         HttpStatus.BAD_REQUEST,
       );
     }
 
     const creationToken: string = crypto.randomUUID();
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const redisKey = `registration:${creationToken}`; // caching by token is easier, if user bails out and comes back a new token is issued
-    const resendKey = `otp_resend:${startRegistrationDto.email}`; // for rate-limiting by email, should be used whenever resending OTP is implemented
-    const attempts = await this.redisService.get(resendKey);
-    if (attempts && parseInt(attempts) >= this.otpResendLimit) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
-          code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    const hashedOtp = await bcrypt.hash(otp, 10);
+    const redisKey = REDIS_KEYS.REGISTRATION(creationToken); // caching by token is easier, if user bails out and comes back a new token is issued
+    const resendKey = REDIS_KEYS.OTP_RESEND(startRegistrationDto.email); // for rate-limiting by email, should be used whenever resending OTP is implemented
 
     const registrationData: CachedRegistrationData = {
       name: startRegistrationDto.name,
       email: startRegistrationDto.email,
       birthDate: startRegistrationDto.birthDate,
-      otp: hashedOtp,
+      otp: '',
       verified: false,
     };
 
-    await this.redisService.set(redisKey, JSON.stringify(registrationData), this.registrationTTL);
-    await this.redisService.set(
-      resendKey,
-      String((Number(attempts) || 0) + 1),
-      this.otpResendWindow,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: startRegistrationDto.email,
+        resendKey,
+        ttl: AUTH_CONFIG.REGISTRATION_TTL,
+        data: registrationData,
+        emailQueue: this.emailQueue,
+        otpType: OtpType.REGISTRATION,
+      },
+      this.redisService,
     );
 
-    await this.emailQueue.add('sendOtp', {
-      email: startRegistrationDto.email,
-      otp: otp,
-    });
     this.logger.log(`Started registration for ${startRegistrationDto.email}`);
     return { creationToken };
   }
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string }> {
-    const redisKey = `registration:${verifyOtpDto.creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(verifyOtpDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new HttpException(
         {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
+          message: 'Invalid or expired creation token',
+          code: 'INVALID_TOKEN',
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -122,7 +115,11 @@ export class AuthService {
     }
 
     registrationData.verified = true;
-    await this.redisService.set(redisKey, JSON.stringify(registrationData), this.registrationTTL);
+    await this.redisService.set(
+      redisKey,
+      JSON.stringify(registrationData),
+      AUTH_CONFIG.REGISTRATION_TTL,
+    );
     this.logger.log(`OTP verified for ${registrationData.email}`);
     return { message: 'OTP verified successfully' };
   }
@@ -131,7 +128,7 @@ export class AuthService {
     completeRegistrationDto: CompleteRegistrationDto,
     ipAddress: string | undefined,
   ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
-    const redisKey = `registration:${completeRegistrationDto.creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(completeRegistrationDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new HttpException(
@@ -168,7 +165,7 @@ export class AuthService {
       userId: BigInt(0), //placeholders to be set in transaction
       deviceId: BigInt(0),
       tokenHash: tokenHash,
-      expiresAt: new Date(RefreshTokenTTL + Date.now()),
+      expiresAt: new Date(AUTH_CONFIG.REFRESH_TOKEN_TTL + Date.now()),
     };
     const newDevice: Device = {
       userId: BigInt(0),
@@ -190,43 +187,34 @@ export class AuthService {
   }
 
   async resendOtp(creationToken: string): Promise<{ message: string }> {
-    const redisKey = `registration:${creationToken}`;
+    const redisKey = REDIS_KEYS.REGISTRATION(creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
       throw new HttpException(
         {
-          message: 'Invalid or expired creation token',
-          code: 'INVALID_TOKEN',
+          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
+          code: AUTH_ERROR_CODES.INVALID_TOKEN,
         },
         HttpStatus.BAD_REQUEST,
       );
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
-    const resendKey = `otp_resend:${registrationData.email}`;
-    const attempts = await this.redisService.get(resendKey);
-    if (attempts && parseInt(attempts) >= this.otpResendLimit) {
-      throw new HttpException(
-        'OTP resend limit reached. Please try again later.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
+    const resendKey = REDIS_KEYS.OTP_RESEND(registrationData.email);
 
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = await bcrypt.hash(otp, 10);
-    registrationData.otp = hashedOtp;
-
-    await this.redisService.set(redisKey, JSON.stringify(registrationData), this.registrationTTL);
-    await this.redisService.set(
-      resendKey,
-      String((Number(attempts) || 0) + 1),
-      this.otpResendWindow,
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: registrationData.email,
+        resendKey,
+        ttl: AUTH_CONFIG.REGISTRATION_TTL,
+        data: registrationData,
+        emailQueue: this.emailQueue,
+        otpType: OtpType.REGISTRATION,
+      },
+      this.redisService,
     );
 
-    await this.emailQueue.add('sendOtp', {
-      email: registrationData.email,
-      otp: otp,
-    });
     this.logger.log(`Resent OTP for ${registrationData.email}`);
     return { message: 'OTP resent successfully' };
   }
