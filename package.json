@@ -104,7 +104,11 @@
       ".*\\.constants\\.ts",
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
-      ".*\\.repository\\.ts"
+      ".*\\.repository\\.ts",
+      "prisma\\.service\\.ts",
+      "oprismaservice\\.ts",
+      "redis\\.service\\.ts",
+      "redisservice\\.ts"
     ]
   }
 }
