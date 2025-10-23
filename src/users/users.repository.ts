@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
+import { LanguageCode } from '@prisma/client';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 
 @Injectable()
 export class UsersRepository {
@@ -45,5 +47,43 @@ export class UsersRepository {
       where: { id: userId },
       data: { password_hash: hashedPassword },
     });
+  }
+
+  async updateProfile(userId: bigint, data: Partial<UpdateProfileDto>) {
+    // Prepare data for Prisma
+    const prismaData = {
+      display_name: data.displayName,
+      bio: data.bio,
+      location: data.location,
+      website_url: data.websiteUrl,
+      avatar_url: data.avatarUrl,
+      banner_url: data.bannerUrl,
+    };
+
+    const profile = await this.prisma.profiles.upsert({
+      where: { user_id: userId },
+      update: prismaData,
+      create: {
+        user_id: userId,
+        display_name: data.displayName || '',
+        bio: data.bio,
+        location: data.location,
+        website_url: data.websiteUrl,
+        avatar_url: data.avatarUrl,
+        banner_url: data.bannerUrl,
+      },
+    });
+
+    // Map profile fields to return
+    return {
+      displayName: profile.display_name,
+      bio: profile.bio,
+      bioEntities: profile.bio_entities,
+      location: profile.location,
+      websiteUrl: profile.website_url,
+      avatarUrl: profile.avatar_url,
+      bannerUrl: profile.banner_url,
+      updatedAt: profile.updated_at,
+    };
   }
 }

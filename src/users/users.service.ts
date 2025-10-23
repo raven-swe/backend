@@ -148,6 +148,9 @@ export class UsersService {
     if (data.avatarUrl !== undefined) updatedData.avatarUrl = data.avatarUrl;
     if (data.bannerUrl !== undefined) updatedData.bannerUrl = data.bannerUrl;
 
-    return await this.usersRepository.updateProfile(userId, updatedData);
+    const result = await this.usersRepository.updateProfile(userId, updatedData);
+
+    // Temporarily return the updated user
+    return result;
   }
 }
