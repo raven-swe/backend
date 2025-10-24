@@ -1,25 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpException,
-  HttpStatus,
-  Post,
-  Query,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { CheckEmailDto } from './dto/check-email-dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import {
-  AUTH_ERROR_MESSAGES,
-  AUTH_ERROR_CODES,
-  AUTH_CONFIG,
-} from 'src/common/constants/auth.constants';
+import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import type { Request, Response } from 'express';
 
 @Controller('auth')
@@ -28,16 +14,6 @@ export class AuthController {
 
   @Post('register/start')
   async startRegistration(@Body() startRegistrationDto: StartRegistrationDto) {
-    const valid = await this.authService.verifyRecaptcha(startRegistrationDto.recaptchaToken);
-    if (!valid) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
     return this.authService.startRegistration(startRegistrationDto);
   }
 

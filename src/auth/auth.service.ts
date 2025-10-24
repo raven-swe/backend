@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -27,6 +27,7 @@ import {
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { hashPassword } from './utils/password.util';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
 export class AuthService {
@@ -54,6 +55,14 @@ export class AuthService {
           code: 'EMAIL_REGISTERED',
         },
         HttpStatus.BAD_REQUEST,
+      );
+    }
+    const valid = await this.verifyRecaptcha(startRegistrationDto.recaptchaToken);
+    if (!valid) {
+      throw new BadRequestException(
+        createValidationError('recaptchaToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+        }),
       );
     }
 

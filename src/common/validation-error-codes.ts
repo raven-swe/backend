@@ -8,7 +8,8 @@ export const VALIDATION_ERROR_CODES = {
   NOT_MINIMUM_AGE: 'NOT_MINIMUM_AGE',
   TOO_SHORT: 'TOO_SHORT',
   TOO_LONG: 'TOO_LONG',
-  INVALID_FORMAT: 'INVALID_FORMAT',
+  INVALID_FORMAT: 'INVALID_FORMAT', // used for password, returns the whole regex mismatch error in one message
+  INVALID_TOKEN: 'INVALID_TOKEN',
 };
 
 export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
@@ -29,6 +30,7 @@ export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
   // Custom password validators (if you're using @Matches() with patterns)
   matches: VALIDATION_ERROR_CODES.INVALID_FORMAT,
 
-  // custom age validator
+  // custom validators
   isMinYearsOld: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
+  invalidToken: VALIDATION_ERROR_CODES.INVALID_TOKEN,
 };

@@ -18,6 +18,7 @@ export const AUTH_ERROR_MESSAGES = {
   OTP_RESEND_LIMIT_EXCEEDED: 'OTP resend limit reached. Please try again later.',
   BOTH_IDENTIFIERS_EMPTY: 'Email or username must be provided',
   INVALID_PASSWORD: 'Invalid password',
+  INVALID_RECAPTCHA_TOKEN: 'The provided reCAPTCHA token is invalid or expired',
 } as const;
 
 export const REDIS_KEYS = {
