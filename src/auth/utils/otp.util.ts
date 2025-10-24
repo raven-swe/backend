@@ -58,11 +58,13 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
 
   // Save to redis and increase number of attempts
   await redisService.set(redisKey, JSON.stringify(dataWithOtp), ttl);
-  await redisService.set(
-    resendKey,
-    String((Number(attempts) || 0) + 1),
-    AUTH_CONFIG.OTP_RESEND_WINDOW,
-  );
+
+  const newAttempts = await redisService.incr(resendKey);
+
+  // Set expiration only if it's new
+  if (newAttempts === 1) {
+    await redisService.expire(resendKey, AUTH_CONFIG.OTP_RESEND_WINDOW);
+  }
 
   // Send the otp to the user with type
   const jobData: EmailJobData = {
