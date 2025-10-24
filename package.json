@@ -118,9 +118,7 @@
       "prisma\\.service\\.ts",
       "prismaservice\\.ts",
       "redis\\.service\\.ts",
-      "redisservice\\.ts",
-      "auth.controller.ts",
-      "auth.service.ts"
+      "redisservice\\.ts"
     ]
   }
 }
