@@ -4,7 +4,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
 import * as bcrypt from 'bcrypt';
-import { UsersRepository } from 'src/users/users.repository';
+import { UsersService } from 'src/users/users.service';
 import {
   AUTH_CONFIG,
   AUTH_ERROR_CODES,
@@ -32,7 +32,7 @@ export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
   constructor(
-    private readonly usersRepo: UsersRepository,
+    private readonly usersService: UsersService,
     private readonly redisService: RedisService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
@@ -43,7 +43,7 @@ export class SettingsService {
   ): Promise<{ confirmationToken: string }> {
     const { newEmail } = inititateEmailUpdateDto;
 
-    const user = await this.usersRepo.findByEmail(newEmail);
+    const user = await this.usersService.findByEmail(newEmail);
 
     if (user) {
       throw new HttpException(
@@ -59,7 +59,7 @@ export class SettingsService {
     const redisKey = REDIS_KEYS.EMAIL_UPDATE(confirmationToken);
     const resendKey = REDIS_KEYS.OTP_RESEND_UPDATE_EMAIL(userId.toString());
 
-    const currentUser = await this.usersRepo.findById(userId);
+    const currentUser = await this.usersService.findById(userId);
 
     if (!currentUser)
       throw new HttpException(
@@ -122,7 +122,7 @@ export class SettingsService {
 
     emailUpdateData.verified = true;
 
-    await this.usersRepo.updateUserEmail(userId, emailUpdateData);
+    await this.usersService.updateUserEmail(userId, emailUpdateData);
 
     await this.redisService.del(redisKey);
     await this.redisService.del(REDIS_KEYS.OTP_RESEND_UPDATE_EMAIL(emailUpdateData.newEmail));

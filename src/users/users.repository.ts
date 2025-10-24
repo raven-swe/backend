@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LanguageCode } from '@prisma/client';
-import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
-import { AUTH_ERROR_MESSAGES } from 'src/common/constants/auth.constants';
 
 @Injectable()
 export class UsersRepository {
@@ -58,6 +56,13 @@ export class UsersRepository {
     });
   }
 
+  async updateUsernameById(userId: bigint, newUsername: string) {
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { username: newUsername },
+    });
+  }
+
   async updateUserEmail(
     userId: bigint,
     emailUpdateData: {
@@ -67,10 +72,6 @@ export class UsersRepository {
       verified: boolean;
     },
   ) {
-    if (!emailUpdateData.verified) {
-      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
-    }
-
     await this.prisma.$transaction(async (tx) => {
       await tx.user_external_accounts.deleteMany({ where: { user_id: userId } });
 
