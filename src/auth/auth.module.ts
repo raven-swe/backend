@@ -4,7 +4,6 @@ import { AuthService } from './auth.service';
 import { UsersModule } from 'src/users/users.module';
 import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
 import { JwtModule } from '@nestjs/jwt';
-import { UsersService } from 'src/users/users.service';
 import { BullModule } from '@nestjs/bullmq';
 import { DevicesModule } from 'src/devices/devices.module';
 @Module({
@@ -22,6 +21,6 @@ import { DevicesModule } from 'src/devices/devices.module';
     DevicesModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, Logger, UsersService],
+  providers: [AuthService, Logger],
 })
 export class AuthModule {}
