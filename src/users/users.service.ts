@@ -10,6 +10,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
+import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
+import { AUTH_ERROR_MESSAGES } from 'src/common/constants/auth.constants';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -123,5 +125,31 @@ export class UsersService {
 
     this.logger.log(`Password changed for user ID: ${user.id}`);
     return { message: 'Password changed successfully.' };
+  }
+
+  async updateUsernameById(userId: bigint, newUsername: string) {
+    await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    return { message: 'Username updated successfully.' };
+  }
+
+  async findById(userId: bigint) {
+    return this.usersRepository.findById(userId);
+  }
+
+  async updateUserEmail(
+    userId: bigint,
+    emailUpdateData: {
+      userId: string;
+      otp: string;
+      newEmail: string;
+      verified: boolean;
+    },
+  ) {
+    if (!emailUpdateData.verified) {
+      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
+    }
+
+    return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
 }
