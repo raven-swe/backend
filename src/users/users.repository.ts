@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 
 @Injectable()
 export class UsersRepository {
@@ -48,6 +49,27 @@ export class UsersRepository {
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    const existingUser = await this.prisma.users.findUnique({ where: { username: newUsername } });
+
+    if (existingUser)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+
     await this.prisma.users.update({
       where: { id: userId },
       data: { username: newUsername },
