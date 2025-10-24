@@ -60,41 +60,55 @@ export class UsersRepository {
   }
 
   async updateProfile(userId: bigint, data: Partial<UpdateProfileDto>) {
-    // Prepare data for Prisma
-    const prismaData = {
-      display_name: data.displayName,
-      bio: data.bio,
-      location: data.location,
-      website_url: data.websiteUrl,
-      avatar_url: data.avatarUrl,
-      banner_url: data.bannerUrl,
-    };
+    let birthDate: string | undefined = undefined;
+    return await this.prisma.$transaction(async (tx) => {
+      // Update birthDate in users table if provided
+      if (data.birthDate !== undefined) {
+        const updatedUser = await tx.users.update({
+          where: { id: userId },
+          data: { birthdate: data.birthDate },
+        });
+        birthDate = updatedUser.birthdate?.toISOString().split('T')[0];
+      }
 
-    const profile = await this.prisma.profiles.upsert({
-      where: { user_id: userId },
-      update: prismaData,
-      create: {
-        user_id: userId,
-        display_name: data.displayName || '',
+      // Prepare profile data for Prisma
+      const prismaData = {
+        display_name: data.displayName,
         bio: data.bio,
         location: data.location,
         website_url: data.websiteUrl,
         avatar_url: data.avatarUrl,
         banner_url: data.bannerUrl,
-      },
-    });
+      };
 
-    // Map profile fields to return
-    return {
-      displayName: profile.display_name,
-      bio: profile.bio,
-      bioEntities: profile.bio_entities,
-      location: profile.location,
-      websiteUrl: profile.website_url,
-      avatarUrl: profile.avatar_url,
-      bannerUrl: profile.banner_url,
-      updatedAt: profile.updated_at,
-    };
+      // Update/create profile
+      const profile = await tx.profiles.upsert({
+        where: { user_id: userId },
+        update: prismaData,
+        create: {
+          user_id: userId,
+          display_name: data.displayName || '',
+          bio: data.bio,
+          location: data.location,
+          website_url: data.websiteUrl,
+          avatar_url: data.avatarUrl,
+          banner_url: data.bannerUrl,
+        },
+      });
+
+      // Map profile fields to return
+      return {
+        displayName: profile.display_name,
+        bio: profile.bio,
+        bioEntities: profile.bio_entities,
+        location: profile.location,
+        birthDate,
+        websiteUrl: profile.website_url,
+        avatarUrl: profile.avatar_url,
+        bannerUrl: profile.banner_url,
+        updatedAt: profile.updated_at,
+      };
+    });
   }
 
   async findUserProfileByUsername(
@@ -194,7 +208,7 @@ export class UsersRepository {
       // TODO: return actual bio entities after implementing rich text bios
       bioEntities: null,
       location: user.profile?.location || null,
-      birthDate: user.birthdate,
+      birthDate: user.birthdate.toISOString().split('T')[0] || null,
       avatarUrl: user.profile?.avatar_url || null,
       bannerUrl: user.profile?.banner_url || null,
       websiteUrl: user.profile?.website_url || null,

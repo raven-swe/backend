@@ -18,7 +18,7 @@ export class UserProfileResponseDto {
   bannerUrl: string | null;
   location: string | null;
   websiteUrl: string | null;
-  birthDate: Date | null;
+  birthDate: string | null;
   joinedAt: Date;
 
   // Won't be returned for the authenticated user's own profile

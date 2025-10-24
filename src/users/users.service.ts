@@ -150,6 +150,7 @@ export class UsersService {
     if (data.websiteUrl !== undefined) updatedData.websiteUrl = data.websiteUrl;
     if (data.avatarUrl !== undefined) updatedData.avatarUrl = data.avatarUrl;
     if (data.bannerUrl !== undefined) updatedData.bannerUrl = data.bannerUrl;
+    if (data.birthDate !== undefined) updatedData.birthDate = data.birthDate;
 
     return await this.usersRepository.updateProfile(userId, updatedData);
   }
