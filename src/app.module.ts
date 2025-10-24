@@ -13,6 +13,7 @@ import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DevicesModule } from './devices/devices.module';
+import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 
 @Module({
   imports: [
@@ -20,8 +21,8 @@ import { DevicesModule } from './devices/devices.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 60_000,
-          limit: 10, // 10 requests per minute
+          ttl: RATE_LIMIT.GLOBAL.TTL,
+          limit: RATE_LIMIT.GLOBAL.LIMIT,
         },
       ],
     }),
