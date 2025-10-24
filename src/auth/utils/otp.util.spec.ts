@@ -150,7 +150,6 @@ describe('generateAndStoreOtp', () => {
         type: OtpType.REGISTRATION,
         email: baseParams.email,
         otp: '123456',
-        username: '',
       });
     });
 
