@@ -1,0 +1,36 @@
+export const VALIDATION_ERROR_CODES = {
+  NOT_A_STRING: 'NOT_A_STRING',
+  IS_EMPTY: 'IS_EMPTY',
+  INVALID_ENUM_VALUE: 'INVALID_ENUM_VALUE',
+  NOT_A_NUMBER: 'NOT_A_NUMBER',
+  NOT_A_DATE: 'NOT_A_DATE',
+  NOT_AN_EMAIL: 'NOT_AN_EMAIL',
+  NOT_MINIMUM_AGE: 'NOT_MINIMUM_AGE',
+  TOO_SHORT: 'TOO_SHORT',
+  TOO_LONG: 'TOO_LONG',
+  INVALID_FORMAT: 'INVALID_FORMAT',
+};
+
+export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
+  // Type validators
+  isString: VALIDATION_ERROR_CODES.NOT_A_STRING,
+  isNumber: VALIDATION_ERROR_CODES.NOT_A_NUMBER,
+  isDate: VALIDATION_ERROR_CODES.NOT_A_DATE,
+
+  // Common validators
+  isNotEmpty: VALIDATION_ERROR_CODES.IS_EMPTY,
+  isEmail: VALIDATION_ERROR_CODES.NOT_AN_EMAIL,
+  isEnum: VALIDATION_ERROR_CODES.INVALID_ENUM_VALUE,
+
+  // String length validators
+  minLength: VALIDATION_ERROR_CODES.TOO_SHORT,
+  maxLength: VALIDATION_ERROR_CODES.TOO_LONG,
+
+  // Custom password validators (if you're using @Matches() with patterns)
+  // You'll need to map these based on your actual validator names
+  matches: VALIDATION_ERROR_CODES.INVALID_FORMAT,
+
+  // Minimum age validator (if custom)
+  isMinimumAge: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
+  minAge: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
+};
