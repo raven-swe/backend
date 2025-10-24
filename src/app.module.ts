@@ -6,15 +6,10 @@ import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
-import { HttpExceptionFilter } from './common/filters/http-response.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
-import { HttpExceptionFilter } from './common/filters/http-response.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DevicesModule } from './devices/devices.module';
 
 @Module({
