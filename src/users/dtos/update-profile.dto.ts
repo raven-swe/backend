@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsDate, IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -16,6 +16,10 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(100, { message: 'Location should not exceed 100 characters' })
   location?: string | null;
+
+  @IsOptional()
+  @IsDate()
+  birthDate?: Date;
 
   @IsOptional()
   @IsString()
