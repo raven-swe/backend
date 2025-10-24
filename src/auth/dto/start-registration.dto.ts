@@ -21,7 +21,7 @@ export class StartRegistrationDto {
 
   @IsDate()
   @IsNotEmpty()
-  @IsMinYearsOld(18, {
+  @IsMinYearsOld(13, {
     message: 'You must be at least 18 years old to register',
   })
   birthDate: Date;
