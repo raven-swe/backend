@@ -44,6 +44,7 @@ describe('UsersService', () => {
       const newUserDto: NewUser = {
         email: 'test@gmail.com',
         username: 'omar',
+        name: 'Omar Gamal',
         passwordHash: 'hashedpassword',
         birthDate: new Date(),
         languageCode: LanguageCode.EN,
@@ -51,9 +52,9 @@ describe('UsersService', () => {
       const expectedCreatedUser = { id: BigInt(2), ...newUserDto };
       (mockUsersRepository.createUser as jest.Mock).mockResolvedValue(expectedCreatedUser);
 
-      const result = await service.createUser(newUserDto, {} as any);
+      const result = await service.createUser(newUserDto, {} as never);
 
-      expect(mockUsersRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as any);
+      expect(mockUsersRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as never);
       expect(result).toBe(expectedCreatedUser);
     });
   });

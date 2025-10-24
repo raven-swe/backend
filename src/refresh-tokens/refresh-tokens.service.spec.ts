@@ -49,11 +49,11 @@ describe('RefreshTokensService', () => {
         expectedCreatedToken,
       );
 
-      const result = await service.createRefreshToken(tokenData, {} as any);
+      const result = await service.createRefreshToken(tokenData, {} as never);
 
       expect(mockRefreshTokensRepository.createRefreshToken).toHaveBeenCalledWith(
         tokenData,
-        {} as any,
+        {} as never,
       );
       expect(result).toBe(expectedCreatedToken);
     });

@@ -264,8 +264,12 @@ describe('AuthService', () => {
     it('should successfully complete the registration', async () => {
       // Arrange
       (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(cachedData));
-      jest.spyOn(service as any, 'generateAccessToken').mockResolvedValue('access-token');
-      jest.spyOn(service as any, 'createUserAndDeviceAndToken').mockResolvedValue(BigInt(1));
+      jest
+        .spyOn(service, 'generateAccessToken' as keyof AuthService)
+        .mockResolvedValue('access-token');
+      jest
+        .spyOn(service, 'createUserAndDeviceAndToken' as keyof AuthService)
+        .mockResolvedValue(BigInt(1).toString());
 
       // Act
       const result = await service.completeRegistration(dto, '127.0.0.1');

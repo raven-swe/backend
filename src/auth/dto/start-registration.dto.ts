@@ -11,7 +11,8 @@ import {
 export class StartRegistrationDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(100)
+  @ContainsLetter()
+  @MaxLength(50)
   name: string;
 
   @IsEmail()
@@ -28,6 +29,23 @@ export class StartRegistrationDto {
   @IsString()
   @IsNotEmpty()
   recaptchaToken: string;
+}
+
+function ContainsLetter(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'containsLetter',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: {
+        validate(value: string) {
+          return /[a-zA-Z]/.test(value);
+        },
+      },
+    });
+  };
 }
 
 function IsMinYearsOld(minYears: number, validationOptions?: ValidationOptions) {
