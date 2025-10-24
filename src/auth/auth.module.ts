@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from 'src/users/users.module';
@@ -23,6 +23,6 @@ import { DevicesModule } from 'src/device/device.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, Logger],
+  providers: [AuthService],
 })
 export class AuthModule {}

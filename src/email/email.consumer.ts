@@ -6,10 +6,8 @@ import { EmailOtpJob } from './email.service';
 
 @Processor('email')
 export class EmailConsumer extends WorkerHost {
-  constructor(
-    private readonly EmailService: EmailService,
-    private readonly logger: Logger,
-  ) {
+  private readonly logger = new Logger(EmailConsumer.name);
+  constructor(private readonly EmailService: EmailService) {
     super();
   }
 

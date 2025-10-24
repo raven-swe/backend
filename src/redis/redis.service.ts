@@ -4,8 +4,9 @@ import { Redis } from 'ioredis';
 @Injectable()
 export class RedisService {
   private readonly redis: Redis;
+  private readonly logger = new Logger(RedisService.name);
 
-  constructor(private readonly logger: Logger) {
+  constructor() {
     this.redis = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
