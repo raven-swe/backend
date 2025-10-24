@@ -8,7 +8,7 @@ import {
   AUTH_ERROR_CODES,
   AUTH_CONFIG,
   REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 

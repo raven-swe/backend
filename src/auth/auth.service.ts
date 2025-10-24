@@ -18,7 +18,7 @@ import {
   AUTH_ERROR_CODES,
   REDIS_KEYS,
   AUTH_CONFIG,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { hashPassword } from './utils/password.util';

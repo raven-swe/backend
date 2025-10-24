@@ -5,7 +5,7 @@ import {
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
   AUTH_CONFIG,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
 import { OtpType, EmailJobData } from 'src/email/interfaces/email.interfaces';

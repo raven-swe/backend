@@ -12,7 +12,7 @@ import {
   AUTH_ERROR_CODES,
   AUTH_ERROR_MESSAGES,
   REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
 import * as bcrypt from 'bcrypt';
