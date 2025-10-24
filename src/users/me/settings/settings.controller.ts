@@ -1,9 +1,10 @@
-import { Body, Controller, Post, Put } from '@nestjs/common';
+import { Body, Controller, Patch, Post, Put } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
+import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -39,5 +40,13 @@ export class SettingsController {
     // const userId = req.user.id;
     const userId = BigInt(1); // temporary userId for testing
     return this.settingsService.resendEmailUpdateOtp(userId, resendEmailUpdateOtp);
+  }
+
+  @Patch('username')
+  // @UseGuards(JwtAuthGuard) // TODO: Enable after auth is ready
+  async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto) {
+    // const userId = req.user.id;
+    const userId = BigInt(1); // temporary userId for testing
+    return this.settingsService.updateUsername(userId, updateUsernameDto);
   }
 }

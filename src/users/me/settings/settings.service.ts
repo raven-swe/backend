@@ -17,6 +17,7 @@ import { generateAndStoreOtp } from 'src/auth/utils/otp.util';
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
 import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
+import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -178,5 +179,13 @@ export class SettingsService {
 
     this.logger.log(`Update email OTP for ${emailUpdateData.newEmail}`);
     return { message: 'OTP resent successfully.' };
+  }
+
+  async updateUsername(userId: bigint, updateUsernameDto: UpdateUsernameDto) {
+    const res = await this.usersService.updateUsernameById(userId, updateUsernameDto.newUsername);
+
+    this.logger.log(`Update username completed for ${updateUsernameDto.newUsername}`);
+
+    return res;
   }
 }
