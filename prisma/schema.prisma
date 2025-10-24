@@ -32,10 +32,10 @@ model users {
   profile                   profiles?
   refresh_tokens            refresh_tokens[]
   retweets                  retweets[]
+  tweet_mentions            tweet_mentions[]
   tweets                    tweets[]
   user_devices              user_devices[]
   user_external_accounts    user_external_accounts[]
-  tweet_mentions            tweet_mentions[]
 }
 
 model profiles {
@@ -52,16 +52,15 @@ model profiles {
 }
 
 model refresh_tokens {
-  id           BigInt    @id @default(autoincrement())
-  device_id    BigInt    @unique
+  id           BigInt       @id @default(autoincrement())
+  device_id    BigInt       @unique
   user_id      BigInt
-  token_hash   String    @unique
+  token_hash   String       @unique
   expires_at   DateTime
   last_used_at DateTime?
-  created_at   DateTime  @default(now())
-
-  user_device user_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user        users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_at   DateTime     @default(now())
+  user_device  user_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user         users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model user_external_accounts {
@@ -108,12 +107,12 @@ model tweets {
   retweets          retweets[]
   tweet_hashtags    tweet_hashtags[]
   tweet_media       tweet_media[]
+  tweet_mentions    tweet_mentions[]
   quoted_tweet      tweets?          @relation("tweets_quoted_tweet_idTotweets", fields: [quoted_tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quotes            tweets[]         @relation("tweets_quoted_tweet_idTotweets")
   reply_to_tweet    tweets?          @relation("tweets_reply_to_tweet_idTotweets", fields: [reply_to_tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies           tweets[]         @relation("tweets_reply_to_tweet_idTotweets")
   user              users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet_mentions    tweet_mentions[]
 
   @@index([reply_to_tweet_id])
   @@index([quoted_tweet_id])
@@ -215,9 +214,6 @@ model messages {
   conversation_with_last_message conversations?              @relation("conversations_last_message_idTomessages")
   conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user                           users                       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  media_url                      String?
-  is_deleted_sender              Boolean                     @default(false)
-  is_deleted_receiver            Boolean                     @default(false)
 
   @@index([conversation_id, created_at])
 }
