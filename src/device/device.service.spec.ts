@@ -45,9 +45,9 @@ describe('DevicesService', () => {
 
       (mockDevicesRepository.createDevice as jest.Mock).mockResolvedValue(expectedCreatedDevice);
 
-      const result = await service.createDevice(deviceData, {} as any);
+      const result = await service.createDevice(deviceData, {} as never);
 
-      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as any);
+      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
     });
   });
