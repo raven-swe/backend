@@ -41,7 +41,7 @@ describe('MeController', () => {
 
     it('should call usersService.changePassword with correct parameters', async () => {
       // Arrange
-      const expectedUserId = BigInt(18);
+      const expectedUserId = BigInt(1);
       const expectedResult = { message: 'Password changed successfully' };
 
       mockUsersService.changePassword.mockResolvedValue(expectedResult);

@@ -7,15 +7,15 @@ import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto
 
 @Controller('me/settings')
 export class SettingsController {
-  private static readonly PASSWORD_CHANGE_LIMIT = 5; // max 5 attempts
-  private static readonly PASSWORD_CHANGE_WINDOW = 60000; // 1 minute
+  private static readonly EMAIL_UPDATE_LIMIT = 5;
+  private static readonly EMAIL_UPDATE_WINDOW = 60000;
   constructor(private readonly settingsService: SettingsService) {}
 
   @Put('email')
   @Throttle({
     default: {
-      limit: SettingsController.PASSWORD_CHANGE_LIMIT,
-      ttl: SettingsController.PASSWORD_CHANGE_WINDOW,
+      limit: SettingsController.EMAIL_UPDATE_LIMIT,
+      ttl: SettingsController.EMAIL_UPDATE_WINDOW,
     },
   })
   // @UseGuards(JwtAuthGuard) // TODO: Enable after auth is ready
@@ -33,6 +33,13 @@ export class SettingsController {
     return this.settingsService.verifyEmailUpdate(userId, verifyEmailUpdateDto);
   }
 
+  @Put('email')
+  @Throttle({
+    default: {
+      limit: SettingsController.EMAIL_UPDATE_LIMIT,
+      ttl: SettingsController.EMAIL_UPDATE_WINDOW,
+    },
+  })
   @Post('email/resend-otp')
   // @UseGuards(JwtAuthGuard) // TODO: Enable after auth is ready
   async resendUpdateEmailOtp(@Body() resendEmailUpdateOtp: ResendEmailUpdateOtp) {

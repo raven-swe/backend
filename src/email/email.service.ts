@@ -16,8 +16,13 @@ import { maskEmail } from 'src/users/utils/mask-email.util';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter;
+  private from: string;
+  private name: string;
 
   constructor(configService: ConfigService) {
+    // Cast to nodemailer.TransportOptions so TypeScript recognizes SMTP-specific fields like `host`
+    this.from = configService.get<string>('MAIL_FROM')!;
+    this.name = configService.get<string>('MAIL_NAME')!;
     this.transporter = nodemailer.createTransport({
       host: configService.get<string>('SMTP_HOST'),
       port: configService.get<number>('SMTP_PORT'),
@@ -27,7 +32,7 @@ export class EmailService {
         user: configService.get<string>('SMTP_USER'),
         pass: configService.get<string>('SMTP_PASS'),
       },
-    });
+    } as nodemailer.TransportOptions);
   }
 
   /**
@@ -85,7 +90,7 @@ export class EmailService {
 
   async sendEmail(email: string, subject: string, html: string): Promise<void> {
     const mailOptions = {
-      from: '"Raven Support" <no-reply@raven.com>',
+      from: `${this.name} <${this.from}>`,
       to: email,
       subject,
       html,
