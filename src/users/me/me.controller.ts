@@ -24,7 +24,7 @@ export class MeController {
     // @Request() req -- enable after merging login functionality
   ) {
     // const userId = req.user.id;
-    const userId = BigInt(18); // temporary userId for testing
+    const userId = BigInt(1); // temporary userId for testing
     return this.usersService.changePassword(userId, changePasswordDto);
   }
 }

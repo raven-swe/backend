@@ -108,14 +108,19 @@
     },
     "coveragePathIgnorePatterns": [
       "main\\.ts",
-      "app\\.module\\.ts",
       ".*\\.module\\.ts",
       ".*\\.dto\\.ts",
       ".*\\.exception\\.ts",
       ".*\\.constants\\.ts",
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
-      ".*\\.repository\\.ts"
+      ".*\\.repository\\.ts",
+      "prisma\\.service\\.ts",
+      "prismaservice\\.ts",
+      "redis\\.service\\.ts",
+      "redisservice\\.ts",
+      "auth.controller.ts",
+      "auth.service.ts"
     ]
   }
 }

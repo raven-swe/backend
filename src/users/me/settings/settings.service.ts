@@ -136,7 +136,7 @@ export class SettingsService {
 
     await this.emailQueue.add('sendEmailChange', jobData);
 
-    this.logger.log(`Password reset completed for ${emailUpdateData.newEmail}`);
+    this.logger.log(`Email update completed for ${emailUpdateData.newEmail}`);
 
     return { message: 'Email address updated successfully.' };
   }
