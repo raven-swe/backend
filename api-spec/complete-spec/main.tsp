@@ -421,11 +421,14 @@ model UpdateProfileRequest {
   @maxLength(255)
   websiteUrl?: string | null;
 
-  @doc("URL to the user's avatar image")
+  @doc("Birth date in YYYY-MM-DD format")
+  birthDate?: plainDate | null;
+
+  @doc("URL to the user's avatar image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   avatarUrl?: string | null;
 
-  @doc("URL to the user's banner image")
+  @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   bannerUrl?: string | null;
 }
