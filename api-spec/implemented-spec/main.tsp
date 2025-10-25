@@ -479,25 +479,25 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
-  @route("/password")
-  namespace Password {
-    @post
-    @route("/forgot")
-    @summary("Initiate the password reset process")
-    op forgotPassword(
-      @body body: {
-        identifier: string;
-        recaptchaToken: string; // token from client side recaptcha v2
-      },
-    ):
-      | DataResponse<{
-          confirmationToken: string;
-        }>
-      | ValidationErrorResponse
-      | NotFoundResponse
-      | RateLimitResponse
-      | InternalServerErrorResponse
-      | BadRequestResponse;
+    @route("/password")
+    namespace Password {
+      @post
+      @route("/forgot")
+      @summary("Initiate the password reset process")
+      op forgotPassword(
+        @body body: {
+          identifier: string;
+          recaptchaToken: string; // token from client side recaptcha v2
+        },
+      ):
+        | DataResponse<{
+            confirmationToken: string;
+          }>
+        | ValidationErrorResponse
+        | NotFoundResponse
+        | RateLimitResponse
+        | InternalServerErrorResponse
+        | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
@@ -540,7 +540,7 @@ namespace Auth {
       | RateLimitResponse
       | InternalServerErrorResponse;
   }
-
+  
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
