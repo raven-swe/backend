@@ -1,0 +1,22 @@
+meta {
+  name: register-resend-otp
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/auth/register/resend-otp
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "creationToken": "{{creationToken}}"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
