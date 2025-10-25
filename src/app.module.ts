@@ -5,9 +5,14 @@ import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { DevicesModule } from './device/device.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { EmailModule } from './email/email.module';
+import { RecaptchaModule } from './recaptcha/recaptcha.module';
 
 @Module({
   imports: [
@@ -20,10 +25,20 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
         },
       ],
     }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
+      },
+    }),
     AuthModule,
     UsersModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
+    RecaptchaModule,
+    RefreshTokensModule,
+    DevicesModule,
   ],
   controllers: [],
   providers: [
