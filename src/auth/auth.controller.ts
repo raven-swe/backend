@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -26,12 +26,14 @@ export class AuthController {
   async completeRegistration(
     @Req() req: Request,
     @Body() completeRegistrationDto: CompleteRegistrationDto,
+    @Headers('X-Client-Type') clientType: string,
     @Res({ passthrough: true }) res: Response,
   ) {
     const ipAddress = req.ip;
     const { accessToken, refreshToken } = await this.authService.completeRegistration(
       completeRegistrationDto,
       ipAddress,
+      clientType,
     );
 
     res.cookie('refreshToken', refreshToken, {
