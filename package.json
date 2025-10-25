@@ -49,6 +49,7 @@
     "bullmq": "^5.61.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "google-auth-library": "^10.4.2",
     "ioredis": "^5.8.1",
     "nodemailer": "^7.0.9",
     "passport-github2": "^0.1.12",

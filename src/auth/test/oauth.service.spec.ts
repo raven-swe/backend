@@ -46,33 +46,6 @@ describe('oAuthService', () => {
   };
 
   beforeEach(async () => {
-    mockUsersService = {
-      findByEmail: jest.fn(),
-      createUser: jest.fn(),
-    };
-    mockJwtService = {
-      signAsync: jest.fn(),
-    };
-    mockRecaptchaService = {
-      validateToken: jest.fn(),
-    };
-    mockRedisService = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      ttl: jest.fn().mockResolvedValue(AUTH_CONFIG.OTP_RESEND_WINDOW),
-    };
-    mockDeviceService = {
-      createDevice: jest.fn(),
-    };
-    mockRefreshTokensService = {
-      createRefreshToken: jest.fn(),
-    };
-    mockEmailQueue = { add: jest.fn() };
-    mockPrismaService = {
-      $transaction: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         oAuthService,

@@ -1,31 +1,24 @@
 import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OauthController } from './oauth.controller';
-import { AuthService } from './auth.service';
 import { oAuthService } from './oauth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
-import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
-import { BullModule } from '@nestjs/bullmq';
-import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
-import { DevicesModule } from 'src/device/device.module';
-import { GithubStrategy } from './strategies/oauth.github.strategy';
+
 @Module({
   imports: [
     UsersModule,
-    RecaptchaModule,
-    RefreshTokensModule,
-    DevicesModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default_secret_key',
-      signOptions: { expiresIn: '30m' },
-    }),
-    JwtModule,
-    BullModule.registerQueue({
-      name: 'email',
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET') ?? 'raven',
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, OauthController],
-  providers: [AuthService, GithubStrategy, oAuthService],
+  controllers: [OauthController],
+  providers: [oAuthService],
 })
 export class OauthModule {}
