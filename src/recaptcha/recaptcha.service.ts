@@ -20,9 +20,13 @@ export class RecaptchaService {
     private readonly httpService: HttpService,
     configService: ConfigService,
   ) {
-    const secret = configService.get<string>('RECAPTCHA_SECRET_KEY_TEST');
+    const env = configService.get<string>('NODE_ENV', 'development');
+    let secret;
+    if (env === 'development') {
+      secret = configService.get<string>('RECAPTCHA_SECRET_KEY_TEST');
+    } else secret = configService.get<string>('RECAPTCHA_SECRET_KEY');
     if (!secret) {
-      throw new Error('RECAPTCHA_SECRET_KEY is not defined in configuration');
+      throw new Error('Secret key is not defined in configuration');
     }
     this.secretKey = secret;
   }
