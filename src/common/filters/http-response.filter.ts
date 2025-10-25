@@ -85,7 +85,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   private formatValidationErrors(validationErrors: ValidationError[]): ApiValidationErrorResponse {
     const seen = new Set<string>();
-    console.log('Formatting validation errors:', validationErrors);
 
     const formattedErrors = validationErrors.reduce(
       (acc, error) => {

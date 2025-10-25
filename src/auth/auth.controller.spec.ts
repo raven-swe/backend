@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -45,17 +44,8 @@ describe('AuthController', () => {
 
       const result = await controller.startRegistration(dto);
 
-      expect(mockAuthService.verifyRecaptcha).toHaveBeenCalledWith(dto.recaptchaToken);
       expect(mockAuthService.startRegistration).toHaveBeenCalledWith(dto);
       expect(result).toBe(serviceResult);
-    });
-
-    it('should throw an HttpException if reCAPTCHA is invalid', async () => {
-      (mockAuthService.verifyRecaptcha as jest.Mock).mockResolvedValue(false);
-
-      await expect(controller.startRegistration(dto)).rejects.toThrow(HttpException);
-      // no service call if recaptcha fails
-      expect(mockAuthService.startRegistration).not.toHaveBeenCalled();
     });
   });
 

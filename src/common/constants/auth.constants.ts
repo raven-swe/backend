@@ -19,6 +19,7 @@ export const AUTH_ERROR_MESSAGES = {
   BOTH_IDENTIFIERS_EMPTY: 'Email or username must be provided',
   INVALID_PASSWORD: 'Invalid password',
   INVALID_RECAPTCHA_TOKEN: 'The provided reCAPTCHA token is invalid or expired',
+  INVALID_CREATION_TOKEN: 'Invalid or expired creation token',
 } as const;
 
 export const REDIS_KEYS = {
@@ -32,7 +33,7 @@ export const AUTH_CONFIG = {
   REGISTRATION_TTL: 300, // 5 minutes
   PASSWORD_RESET_TTL: 300,
   OTP_RESEND_LIMIT: 5,
-  OTP_RESEND_WINDOW: 300, // 5 minutes
+  OTP_RESEND_WINDOW: 60,
   SALT_ROUNDS: 10, // for password hashing
   REFRESH_TOKEN_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };

@@ -18,12 +18,7 @@ import { LanguageCode } from '@prisma/client';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
-import {
-  AUTH_ERROR_MESSAGES,
-  AUTH_ERROR_CODES,
-  AUTH_CONFIG,
-  REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
+import { AUTH_ERROR_MESSAGES, AUTH_CONFIG, REDIS_KEYS } from 'src/common/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { hashPassword } from './utils/password.util';
@@ -99,24 +94,20 @@ export class AuthService {
     const redisKey = REDIS_KEYS.REGISTRATION(verifyOtpDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('creationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN,
+        }),
       );
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     const otpValid = await bcrypt.compare(verifyOtpDto.otp, registrationData.otp);
     if (!otpValid) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.OTP_INVALID,
-          code: AUTH_ERROR_CODES.OTP_INVALID,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_INVALID,
+        }),
       );
     }
 
@@ -137,23 +128,19 @@ export class AuthService {
     const redisKey = REDIS_KEYS.REGISTRATION(completeRegistrationDto.creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('creationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN,
+        }),
       );
     }
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     if (!registrationData.verified) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
-          code: AUTH_ERROR_CODES.OTP_NOT_VERIFIED,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+        }),
       );
     }
     const hashedPassword = await hashPassword(completeRegistrationDto.password);
@@ -197,12 +184,10 @@ export class AuthService {
     const redisKey = REDIS_KEYS.REGISTRATION(creationToken);
     const data = await this.redisService.get(redisKey);
     if (!data) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('creationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN,
+        }),
       );
     }
 

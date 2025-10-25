@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
@@ -21,6 +21,7 @@ import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { getQueueToken } from '@nestjs/bullmq';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/device/interfaces/device.interface';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 jest.mock('bcrypt');
 
@@ -65,7 +66,7 @@ describe('AuthService', () => {
       get: jest.fn(),
       set: jest.fn(),
       del: jest.fn(),
-      ttl: jest.fn().mockResolvedValue(300),
+      ttl: jest.fn().mockResolvedValue(AUTH_CONFIG.OTP_RESEND_WINDOW),
     };
     mockDeviceService = {
       createDevice: jest.fn(),
@@ -115,6 +116,7 @@ describe('AuthService', () => {
 
       // Arrange
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
 
       // Act
@@ -177,11 +179,13 @@ describe('AuthService', () => {
 
       // arrange
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
       (generateAndStoreOtp as jest.Mock).mockRejectedValue(
         new HttpException(
           {
             message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
             code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+            retryAfter: AUTH_CONFIG.OTP_RESEND_WINDOW,
           },
           HttpStatus.TOO_MANY_REQUESTS,
         ),
@@ -190,7 +194,14 @@ describe('AuthService', () => {
       // act & assert
       await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
         new HttpException(
-          'OTP resend limit reached. Please try again later.',
+          new HttpException(
+            {
+              message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
+              code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
+              retryAfter: AUTH_CONFIG.OTP_RESEND_WINDOW,
+            },
+            HttpStatus.TOO_MANY_REQUESTS,
+          ),
           HttpStatus.TOO_MANY_REQUESTS,
         ),
       );
@@ -229,9 +240,10 @@ describe('AuthService', () => {
 
       // Act & Assert
       await expect(service.verifyOtp(dto)).rejects.toThrow(
-        new HttpException(
-          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
-          HttpStatus.BAD_REQUEST,
+        new BadRequestException(
+          createValidationError('recaptchaToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+          }),
         ),
       );
     });
@@ -243,9 +255,10 @@ describe('AuthService', () => {
 
       // Act & Assert
       await expect(service.verifyOtp(dto)).rejects.toThrow(
-        new HttpException(
-          { message: AUTH_ERROR_MESSAGES.OTP_INVALID, code: AUTH_ERROR_CODES.OTP_INVALID },
-          HttpStatus.BAD_REQUEST,
+        new BadRequestException(
+          createValidationError('otp', {
+            invalidToken: AUTH_ERROR_MESSAGES.OTP_INVALID,
+          }),
         ),
       );
     });
@@ -291,12 +304,10 @@ describe('AuthService', () => {
 
       // Act & Assert
       await expect(service.completeRegistration(dto, '127.0.0.1')).rejects.toThrow(
-        new HttpException(
-          {
-            message: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
-            code: AUTH_ERROR_CODES.OTP_NOT_VERIFIED,
-          },
-          HttpStatus.BAD_REQUEST,
+        new BadRequestException(
+          createValidationError('otp', {
+            invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+          }),
         ),
       );
     });
@@ -304,9 +315,10 @@ describe('AuthService', () => {
     it('should throw an error for an invalid creation token', async () => {
       (mockRedisService.get as jest.Mock).mockResolvedValue(null);
       await expect(service.completeRegistration(dto, 'string')).rejects.toThrow(
-        new HttpException(
-          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
-          HttpStatus.BAD_REQUEST,
+        new BadRequestException(
+          createValidationError('recaptchaToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+          }),
         ),
       );
     });
@@ -353,9 +365,10 @@ describe('AuthService', () => {
       (mockRedisService.get as jest.Mock).mockResolvedValue(null);
 
       await expect(service.resendOtp(creationToken)).rejects.toThrow(
-        new HttpException(
-          { message: AUTH_ERROR_MESSAGES.INVALID_TOKEN, code: AUTH_ERROR_CODES.INVALID_TOKEN },
-          HttpStatus.BAD_REQUEST,
+        new BadRequestException(
+          createValidationError('recaptchaToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+          }),
         ),
       );
     });
