@@ -8,8 +8,17 @@ export class DevicesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async removeAllUserDevices(userId: bigint) {
-    const deletedCount = await this.prisma.user_devices.deleteMany({
-      where: { user_id: userId },
+    const deletedCount = await this.prisma.$transaction(async (prismaClient) => {
+      await prismaClient.refresh_tokens.deleteMany({
+        where: { user_device: { user_id: userId } },
+      });
+
+      // then delete the devices
+      const { count } = await prismaClient.user_devices.deleteMany({
+        where: { user_id: userId },
+      });
+
+      return count;
     });
 
     return deletedCount;
