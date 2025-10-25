@@ -1,16 +1,16 @@
-import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { CheckEmailDto } from './dto/CheckEmailDto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { RecaptchaFailedException } from './exceptions/recaptcha.exception';
-import type { Response } from 'express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
+import { CheckEmailDto } from './dto/check-email-dto';
+import { AUTH_CONFIG } from './constants/auth.constants';
+import type { Request, Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -18,10 +18,6 @@ export class AuthController {
 
   @Post('register/start')
   async startRegistration(@Body() startRegistrationDto: StartRegistrationDto) {
-    const valid = await this.authService.verifyRecaptcha(startRegistrationDto.recaptchaToken);
-    if (!valid) {
-      throw new RecaptchaFailedException();
-    }
     return this.authService.startRegistration(startRegistrationDto);
   }
 
@@ -32,17 +28,23 @@ export class AuthController {
 
   @Post('register/complete')
   async completeRegistration(
+    @Req() req: Request,
     @Body() completeRegistrationDto: CompleteRegistrationDto,
+    @Headers('X-Client-Type') clientType: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken } =
-      await this.authService.completeRegistration(completeRegistrationDto);
+    const ipAddress = req.ip;
+    const { accessToken, refreshToken } = await this.authService.completeRegistration(
+      completeRegistrationDto,
+      ipAddress,
+      clientType,
+    );
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
 
     return {
@@ -60,13 +62,8 @@ export class AuthController {
   async checkEmail(@Query() checkEmailDto: CheckEmailDto) {
     return await this.authService.checkEmail(checkEmailDto.email);
   }
-
   @Post('password/forgot')
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    const valid = await this.authService.verifyRecaptcha(forgotPasswordDto.recaptchaToken);
-    if (!valid) {
-      throw new RecaptchaFailedException();
-    }
     return this.authService.forgotPassword(forgotPasswordDto);
   }
 

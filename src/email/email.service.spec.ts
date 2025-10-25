@@ -50,6 +50,7 @@ describe('EmailService', () => {
           user: 'test@test.com',
           pass: 'test-password',
         },
+        tls: { rejectUnauthorized: false },
       });
     });
 

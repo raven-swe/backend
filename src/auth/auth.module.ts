@@ -6,10 +6,14 @@ import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
 import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 import { DevicesModule } from 'src/devices/devices.module';
+import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
+
 @Module({
   imports: [
     UsersModule,
     RecaptchaModule,
+    RefreshTokensModule,
+    DevicesModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'default_secret_key',
       signOptions: { expiresIn: '30m' },
@@ -18,7 +22,6 @@ import { DevicesModule } from 'src/devices/devices.module';
     BullModule.registerQueue({
       name: 'email',
     }),
-    DevicesModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, Logger],

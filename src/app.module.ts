@@ -28,8 +28,8 @@ import { RATE_LIMIT } from './common/constants/rate-limit.constants';
     }),
     BullModule.forRoot({
       connection: {
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
       },
     }),
     AuthModule,
@@ -40,6 +40,7 @@ import { RATE_LIMIT } from './common/constants/rate-limit.constants';
     EmailModule,
     RecaptchaModule,
     RefreshTokensModule,
+    DevicesModule,
   ],
   controllers: [],
   providers: [

@@ -9,6 +9,7 @@ import {
   AUTH_CONFIG,
   REDIS_KEYS,
 } from 'src/auth/constants/auth.constants';
+
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -30,6 +31,7 @@ describe('generateAndStoreOtp', () => {
     del: jest.fn(),
     incr: jest.fn(),
     expire: jest.fn(),
+    ttl: jest.fn().mockResolvedValue(300),
   };
 
   const mockEmailQueue = {
@@ -101,7 +103,7 @@ describe('generateAndStoreOtp', () => {
     });
 
     it('should increment existing resend attempt counter', async () => {
-      mockRedisService.get.mockResolvedValue('2');
+      mockRedisService.get.mockResolvedValue('0');
       mockRedisService.set.mockResolvedValue('OK');
       mockRedisService.incr.mockResolvedValue(3);
 

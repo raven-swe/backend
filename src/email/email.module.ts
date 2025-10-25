@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { EmailService } from './email.service';
 import { EmailConsumer } from './email.consumer';
-import { Logger } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -10,6 +9,7 @@ import { Logger } from '@nestjs/common';
       name: 'email',
     }),
   ],
-  providers: [EmailService, EmailConsumer, Logger],
+
+  providers: [EmailService, EmailConsumer],
 })
 export class EmailModule {}

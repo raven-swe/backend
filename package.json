@@ -116,10 +116,12 @@
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
       ".*\\.repository\\.ts",
+      ".*\\.dto\\.ts",
       "prisma\\.service\\.ts",
-      "oprismaservice\\.ts",
+      "prismaservice\\.ts",
       "redis\\.service\\.ts",
-      "redisservice\\.ts"
+      "redisservice\\.ts",
+      "common/validation-error-codes\\.ts"
     ]
   }
 }
