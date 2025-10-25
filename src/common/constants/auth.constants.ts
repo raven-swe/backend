@@ -20,6 +20,8 @@ export const AUTH_ERROR_MESSAGES = {
   INVALID_PASSWORD: 'Invalid password',
   INVALID_RECAPTCHA_TOKEN: 'The provided reCAPTCHA token is invalid or expired',
   INVALID_CREATION_TOKEN: 'Invalid or expired creation token',
+  MISSING_CLIENT_TYPE_HEADER: 'X-Client-Type header is required',
+  INVALID_CLIENT_TYPE_HEADER: 'X-Client-Type header is invalid',
 } as const;
 
 export const REDIS_KEYS = {

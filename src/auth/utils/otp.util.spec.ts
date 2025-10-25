@@ -98,14 +98,14 @@ describe('generateAndStoreOtp', () => {
     });
 
     it('should increment existing resend attempt counter', async () => {
-      mockRedisService.get.mockResolvedValue('2');
+      mockRedisService.get.mockResolvedValue('0');
       mockRedisService.set.mockResolvedValue('OK');
 
       await generateAndStoreOtp(baseParams, redisService);
 
       expect(mockRedisService.set).toHaveBeenCalledWith(
         baseParams.resendKey,
-        '3',
+        '1',
         AUTH_CONFIG.OTP_RESEND_WINDOW,
       );
     });

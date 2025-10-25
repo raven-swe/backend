@@ -10,6 +10,8 @@ export const VALIDATION_ERROR_CODES = {
   TOO_LONG: 'TOO_LONG',
   INVALID_FORMAT: 'INVALID_FORMAT', // used for password, returns the whole regex mismatch error in one message
   INVALID_TOKEN: 'INVALID_TOKEN',
+  MISSING_HEADER: 'MISSING_HEADER',
+  INVALID_VALUE: 'INVALID_VALUE',
 };
 
 export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
@@ -33,4 +35,6 @@ export const CONSTRAINT_TO_ERROR_CODE_MAP: Record<string, string> = {
   // custom validators
   isMinYearsOld: VALIDATION_ERROR_CODES.NOT_MINIMUM_AGE,
   invalidToken: VALIDATION_ERROR_CODES.INVALID_TOKEN,
+  missingHeader: VALIDATION_ERROR_CODES.MISSING_HEADER,
+  invalidValue: VALIDATION_ERROR_CODES.INVALID_VALUE,
 };

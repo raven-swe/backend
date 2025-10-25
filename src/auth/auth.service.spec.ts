@@ -273,6 +273,7 @@ describe('AuthService', () => {
       otp: 'hashed-otp',
       verified: true,
     };
+    const deviceType = DeviceType.WEB;
 
     it('should successfully complete the registration', async () => {
       // Arrange
@@ -285,7 +286,7 @@ describe('AuthService', () => {
         .mockResolvedValue(BigInt(1).toString());
 
       // Act
-      const result = await service.completeRegistration(dto, '127.0.0.1');
+      const result = await service.completeRegistration(dto, '127.0.0.1', deviceType);
 
       // Assert
       expect(result.message).toBe('Registration completed successfully');
@@ -303,7 +304,7 @@ describe('AuthService', () => {
       (mockRedisService.get as jest.Mock).mockResolvedValue(JSON.stringify(unverifiedData));
 
       // Act & Assert
-      await expect(service.completeRegistration(dto, '127.0.0.1')).rejects.toThrow(
+      await expect(service.completeRegistration(dto, '127.0.0.1', deviceType)).rejects.toThrow(
         new BadRequestException(
           createValidationError('otp', {
             invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
@@ -314,7 +315,7 @@ describe('AuthService', () => {
 
     it('should throw an error for an invalid creation token', async () => {
       (mockRedisService.get as jest.Mock).mockResolvedValue(null);
-      await expect(service.completeRegistration(dto, 'string')).rejects.toThrow(
+      await expect(service.completeRegistration(dto, 'string', deviceType)).rejects.toThrow(
         new BadRequestException(
           createValidationError('recaptchaToken', {
             invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,

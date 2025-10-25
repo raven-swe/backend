@@ -53,8 +53,9 @@ describe('AuthController', () => {
     const dto: CompleteRegistrationDto = {
       creationToken: 'test-token',
       password: 'pass',
-      deviceType: DeviceType.WEB,
     };
+
+    const deviceType = DeviceType.WEB;
 
     const mockRequest = {
       ip: '127.0.0.1',
@@ -72,9 +73,18 @@ describe('AuthController', () => {
       };
       (mockAuthService.completeRegistration as jest.Mock).mockResolvedValue(serviceResult);
 
-      const result = await controller.completeRegistration(mockRequest, dto, mockResponse);
+      const result = await controller.completeRegistration(
+        mockRequest,
+        dto,
+        deviceType,
+        mockResponse,
+      );
 
-      expect(mockAuthService.completeRegistration).toHaveBeenCalledWith(dto, mockRequest.ip);
+      expect(mockAuthService.completeRegistration).toHaveBeenCalledWith(
+        dto,
+        mockRequest.ip,
+        deviceType,
+      );
 
       expect((mockResponse.cookie as jest.Mock).mock.calls).toHaveLength(1);
       expect((mockResponse.cookie as jest.Mock).mock.calls[0]).toEqual([

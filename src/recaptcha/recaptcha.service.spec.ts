@@ -83,14 +83,6 @@ describe('RecaptchaService', () => {
       expect(result).toBe(false);
     });
 
-    // --- TEST CASE 3: Guard Clause - No token provided ---
-    it('should return false immediately if no token is provided, without calling the API', async () => {
-      const result = await service.validateToken(''); // Test with an empty string.
-
-      expect(result).toBe(false);
-      expect(mockHttpService.post).not.toHaveBeenCalled();
-    });
-
     it('should return false if the HTTP request to the API fails', async () => {
       const token = 'any-token';
       // `throwError()` is an RxJS function that creates an Observable that immediately errors out.

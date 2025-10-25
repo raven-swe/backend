@@ -26,6 +26,10 @@ describe('DevicesService', () => {
     service = module.get<DevicesService>(DevicesService);
   });
 
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
   describe('createDevice', () => {
     it('should correctly call the repository with device data and return the created device', async () => {
       const deviceData: Device = {
