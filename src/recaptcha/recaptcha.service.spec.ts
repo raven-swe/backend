@@ -42,7 +42,7 @@ describe('RecaptchaService', () => {
       expect(
         () =>
           new RecaptchaService(mockHttpService as HttpService, mockConfigService as ConfigService),
-      ).toThrow('RECAPTCHA_SECRET_KEY is not defined in configuration');
+      ).toThrow('Secret key is not defined in configuration');
     });
   });
 

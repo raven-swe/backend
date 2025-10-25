@@ -10,11 +10,14 @@ post {
   auth: inherit
 }
 
+headers {
+  X-Client-Type: ios
+}
+
 body:json {
   {
     "password":"OmarGamal3000$",
     "creationToken":"{{creationToken}}",
-    "deviceType": "WEB"
   }
 }
 
