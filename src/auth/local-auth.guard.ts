@@ -9,8 +9,9 @@ import { LoginDto } from './dtos';
 export class LocalAuthGuard extends AuthGuard('local') {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
-    const body: unknown = request.body;
 
+    const rawBody: unknown = request.body;
+    const body = rawBody && typeof rawBody === 'object' ? rawBody : {};
     const dto = plainToInstance(LoginDto, body);
 
     try {
