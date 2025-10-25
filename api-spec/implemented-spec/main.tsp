@@ -243,6 +243,7 @@ namespace Auth {
       | BadRequestResponse
       | ValidationErrorResponse
       | InternalServerErrorResponse;
+  }
     @route("/password")
     namespace Password {
       @post
@@ -304,7 +305,6 @@ namespace Auth {
         | RateLimitResponse
         | InternalServerErrorResponse;
     }
-  }
 
   @get
   @route("/check-email")
