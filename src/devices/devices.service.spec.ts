@@ -73,6 +73,7 @@ describe('DevicesService', () => {
       expect(result).toEqual(mockDeletedCount);
     });
   });
+
   describe('createDevice', () => {
     it('should correctly call the repository with device data and return the created device', async () => {
       const deviceData: Device = {

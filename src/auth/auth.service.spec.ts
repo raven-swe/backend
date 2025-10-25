@@ -24,6 +24,7 @@ import { hashPassword } from './utils/password.util';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { LanguageCode } from '@prisma/client';
 
 jest.mock('bcrypt');
 
@@ -88,9 +89,14 @@ describe('AuthService', () => {
 
   let service: AuthService;
   let mockJwtService: Partial<JwtService>;
-  let mockRecaptchaService: Partial<RecaptchaService>;
-  let mockRefreshTokensService: Partial<RefreshTokensService>;
+  let mockRecaptchaService: {
+    validateToken: jest.Mock;
+  };
   let mockPrismaService: Partial<PrismaService>;
+
+  const mockRefreshTokensService = {
+    createRefreshToken: jest.fn().mockResolvedValue({}),
+  };
 
   beforeEach(async () => {
     mockJwtService = {
@@ -98,10 +104,6 @@ describe('AuthService', () => {
     };
     mockRecaptchaService = {
       validateToken: jest.fn(),
-    };
-
-    mockRefreshTokensService = {
-      createRefreshToken: jest.fn(),
     };
 
     mockPrismaService = {
@@ -158,7 +160,7 @@ describe('AuthService', () => {
 
     it('should generate confirmation token and call generateAndStoreOtp when user exists', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(mockUser);
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
       (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined); // success
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
 
@@ -188,6 +190,27 @@ describe('AuthService', () => {
           ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
         }),
         mockRedisService,
+      );
+    });
+
+    it('should throw error when recaptcha token is invalid', async () => {
+      const forgotPasswordDto = {
+        identifier: 'test@gmail.com',
+        recaptchaToken: 'invalid-token',
+      };
+
+      mockUsersService.findByIdentifier.mockResolvedValue({
+        id: 1234,
+        email: 'test@gmail.com',
+      });
+      mockRecaptchaService.validateToken.mockResolvedValue(false);
+
+      await expect(service.forgotPassword(forgotPasswordDto)).rejects.toThrow(
+        new BadRequestException(
+          createValidationError('recaptchaToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+          }),
+        ),
       );
     });
   });
@@ -248,7 +271,7 @@ describe('AuthService', () => {
 
       // Arrange
       mockUsersService.findByEmail.mockResolvedValue(null);
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
 
       // Act
@@ -311,7 +334,7 @@ describe('AuthService', () => {
 
       // arrange
       mockUsersService.findByEmail.mockResolvedValue(null);
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
       (generateAndStoreOtp as jest.Mock).mockRejectedValue(
         new HttpException(
           {
@@ -670,17 +693,219 @@ describe('AuthService', () => {
 
   describe('verifyRecaptcha', () => {
     it('should return true if the token is valid', async () => {
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(true);
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
       const result = await service.verifyRecaptcha('valid-token');
       expect(result).toBe(true);
       expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('valid-token');
     });
 
     it('should return false if the token is invalid', async () => {
-      (mockRecaptchaService.validateToken as jest.Mock).mockResolvedValue(false);
+      mockRecaptchaService.validateToken.mockResolvedValue(false);
       const result = await service.verifyRecaptcha('invalid-token');
       expect(result).toBe(false);
       expect(mockRecaptchaService.validateToken).toHaveBeenCalledWith('invalid-token');
+    });
+  });
+
+  describe('generateAccessToken', () => {
+    it('should generate a valid access token with userId', async () => {
+      const userId = BigInt(12345);
+      const expectedToken = 'mock-jwt-token';
+
+      (mockJwtService.signAsync as jest.Mock).mockResolvedValue(expectedToken);
+
+      const result = await service.generateAccessToken(userId);
+
+      expect(result).toBe(expectedToken);
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith({
+        userId: userId.toString(),
+      });
+    });
+
+    it('should handle bigint userId correctly', async () => {
+      const userId = BigInt('999999999999999999');
+      const expectedToken = 'mock-jwt-token';
+
+      (mockJwtService.signAsync as jest.Mock).mockResolvedValue(expectedToken);
+
+      const result = await service.generateAccessToken(userId);
+
+      expect(result).toBe(expectedToken);
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith({
+        userId: '999999999999999999',
+      });
+    });
+  });
+
+  describe('validateDeviceType', () => {
+    it('should not throw error for valid device types', () => {
+      expect(() => service.validateDeviceType('web')).not.toThrow();
+      expect(() => service.validateDeviceType('WEB')).not.toThrow();
+      expect(() => service.validateDeviceType('ios')).not.toThrow();
+      expect(() => service.validateDeviceType('ANDROID')).not.toThrow();
+    });
+
+    it('should throw error when clientType is missing', () => {
+      expect(() => service.validateDeviceType('')).toThrow(
+        new BadRequestException(
+          createValidationError('X-Client-Type', {
+            missingHeader: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
+          }),
+        ),
+      );
+    });
+
+    it('should throw error when clientType is undefined', () => {
+      expect(() => service.validateDeviceType(undefined as never)).toThrow(
+        new BadRequestException(
+          createValidationError('X-Client-Type', {
+            missingHeader: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
+          }),
+        ),
+      );
+    });
+  });
+
+  describe('createUserAndDeviceAndToken (private method)', () => {
+    const mockNewUser = {
+      email: 'test@example.com',
+      username: 'test@example.com',
+      name: 'Test User',
+      passwordHash: 'hashed-password',
+      birthDate: new Date('2000-01-01'),
+      languageCode: 'EN' as LanguageCode,
+    };
+
+    const mockNewDevice = {
+      userId: BigInt(0),
+      ipAddress: '127.0.0.1',
+      deviceType: 'WEB' as DeviceType,
+    };
+
+    const mockRefreshToken = {
+      userId: BigInt(0),
+      deviceId: BigInt(0),
+      tokenHash: 'token-hash',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    };
+
+    it('should create user, profile, device and refresh token in a transaction', async () => {
+      const mockUserId = BigInt(123);
+      const mockDeviceId = BigInt(456);
+
+      const mockTx = {
+        profiles: {
+          create: jest.fn().mockResolvedValue({ id: 1 }),
+        },
+      };
+
+      mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
+      mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
+      mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
+          return await callback(mockTx);
+        },
+      );
+
+      const result = await service['createUserAndDeviceAndToken'](
+        mockNewUser,
+        mockNewDevice,
+        mockRefreshToken,
+      );
+
+      expect(result).toBe(mockUserId);
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockUsersService.createUser).toHaveBeenCalledWith(mockNewUser, mockTx);
+      expect(mockTx.profiles.create).toHaveBeenCalledWith({
+        data: { user_id: mockUserId, display_name: mockNewUser.name },
+      });
+      expect(mockDevicesService.createDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUserId,
+          ipAddress: mockNewDevice.ipAddress,
+          deviceType: mockNewDevice.deviceType,
+        }),
+        mockTx,
+      );
+      expect(mockRefreshTokensService.createRefreshToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUserId,
+          deviceId: mockDeviceId,
+          tokenHash: mockRefreshToken.tokenHash,
+          expiresAt: mockRefreshToken.expiresAt,
+        }),
+        mockTx,
+      );
+    });
+
+    it('should update device and refresh token with correct user and device IDs', async () => {
+      const mockUserId = BigInt(999);
+      const mockDeviceId = BigInt(888);
+
+      const mockTx = {
+        profiles: {
+          create: jest.fn().mockResolvedValue({ id: 1 }),
+        },
+      };
+
+      mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
+      mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
+      mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
+          return await callback(mockTx);
+        },
+      );
+      await service['createUserAndDeviceAndToken'](mockNewUser, mockNewDevice, mockRefreshToken);
+
+      // Verify device was updated with userId
+      expect(mockDevicesService.createDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUserId,
+        }),
+        mockTx,
+      );
+
+      // Verify refresh token was updated with both userId and deviceId
+      expect(mockRefreshTokensService.createRefreshToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUserId,
+          deviceId: mockDeviceId,
+        }),
+        mockTx,
+      );
+    });
+
+    it('should create profile with correct display name from user name', async () => {
+      const mockUserId = BigInt(100);
+      const mockDeviceId = BigInt(200);
+
+      const mockTx = {
+        profiles: {
+          create: jest.fn().mockResolvedValue({ id: 1 }),
+        },
+      };
+
+      mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
+      mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
+      mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
+          return await callback(mockTx);
+        },
+      );
+
+      const customUser = {
+        ...mockNewUser,
+        name: 'Custom Display Name',
+      };
+
+      await service['createUserAndDeviceAndToken'](customUser, mockNewDevice, mockRefreshToken);
+
+      expect(mockTx.profiles.create).toHaveBeenCalledWith({
+        data: { user_id: mockUserId, display_name: 'Custom Display Name' },
+      });
     });
   });
 });
