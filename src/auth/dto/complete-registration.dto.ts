@@ -1,5 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
-import { DeviceType } from 'src/device/interfaces/device.interface';
+import { IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 export class CompleteRegistrationDto {
   @IsString()
   @MinLength(10)
@@ -13,10 +12,4 @@ export class CompleteRegistrationDto {
   @IsString()
   @IsNotEmpty()
   creationToken: string;
-
-  @IsEnum(DeviceType, {
-    message: 'Invalid device type',
-  })
-  @IsNotEmpty()
-  deviceType: DeviceType;
 }

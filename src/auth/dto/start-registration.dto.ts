@@ -19,10 +19,10 @@ export class StartRegistrationDto {
   @IsNotEmpty()
   email: string;
 
-  @IsDate()
   @IsNotEmpty()
+  @IsDate()
   @IsMinYearsOld(13, {
-    message: 'You must be at least 18 years old to register',
+    message: 'You must be at least 13 years old to register',
   })
   birthDate: Date;
 
