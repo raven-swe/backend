@@ -1,5 +1,16 @@
-import { Body, Controller, Get, Headers, Post, Query, Req, Res } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
@@ -7,21 +18,21 @@ import { CheckEmailDto } from './dto/check-email-dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import type { Request, Response } from 'express';
-import { Controller, Post, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
-import type { RequestUser } from './types';
 import { User, IPAddress } from './decorators';
-import type { Response } from 'express';
-import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
+import type { RequestUser } from './types';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post('register/start')
   async startRegistration(@Body() startRegistrationDto: StartRegistrationDto) {
@@ -68,7 +79,8 @@ export class AuthController {
   @Get('check-email')
   async checkEmail(@Query() checkEmailDto: CheckEmailDto) {
     return await this.authService.checkEmail(checkEmailDto.email);
-  @UseGuards(AuthGuard('local'))
+  }
+
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('login')

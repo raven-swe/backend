@@ -6,32 +6,29 @@ import { StartRegistrationDto } from './dto/start-registration.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import { DeviceType } from 'src/device/interfaces/device.interface';
-import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { CheckIdentifierQueryDto } from './dtos';
-
-const mockAuthService = {
-  login: jest.fn(() =>
-    Promise.resolve({
-      accessToken: 'mockAccessToken',
-      refreshToken: 'mockRefreshToken',
-    }),
-  ),
-  checkIdentifier: jest.fn(() =>
-    Promise.resolve({
-      exists: true,
-      type: 'username',
-    }),
-  ),
-};
 
 describe('AuthController with real config service', () => {
   let controller: AuthController;
   let mockAuthService: Partial<AuthService>;
+  let config: ConfigService;
 
   beforeEach(async () => {
     mockAuthService = {
+      login: jest.fn(() =>
+        Promise.resolve({
+          accessToken: 'mockAccessToken',
+          refreshToken: 'mockRefreshToken',
+        }),
+      ),
+      checkIdentifier: jest.fn(() =>
+        Promise.resolve({
+          exists: true,
+          type: 'username',
+        }),
+      ),
       verifyRecaptcha: jest.fn(),
       startRegistration: jest.fn(),
       verifyOtp: jest.fn(),
@@ -39,7 +36,6 @@ describe('AuthController with real config service', () => {
       resendOtp: jest.fn(),
       checkEmail: jest.fn(),
     };
-  let config:ConfigService;
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ envFilePath: '.env.test', ignoreEnvFile: false })],
@@ -225,7 +221,7 @@ describe('AuthController with real config service', () => {
     });
 
     it('should throw an UnauthorizedException if login fails', async () => {
-      mockAuthService.login.mockRejectedValueOnce(new UnauthorizedException());
+      (mockAuthService.login as jest.Mock).mockRejectedValueOnce(new UnauthorizedException());
 
       await expect(
         controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, mockClientType),
@@ -235,6 +231,11 @@ describe('AuthController with real config service', () => {
 
   describe('checkIdentifier', () => {
     it('it should call the checkIdentifier', async () => {
+      (mockAuthService.checkIdentifier as jest.Mock).mockResolvedValue({
+        exists: true,
+        type: 'username',
+      });
+
       const dto: CheckIdentifierQueryDto = { identifier: 'test' };
       const result = await controller.checkIdentifier(dto);
 
@@ -250,10 +251,25 @@ describe('AuthController with mocked config service', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  let mockAuthService: Partial<AuthService>;
 
   let controller: AuthController;
 
   beforeEach(async () => {
+    mockAuthService = {
+      login: jest.fn(() =>
+        Promise.resolve({
+          accessToken: 'mockAccessToken',
+          refreshToken: 'mockRefreshToken',
+        }),
+      ),
+      checkIdentifier: jest.fn(() =>
+        Promise.resolve({
+          exists: true,
+          type: 'username',
+        }),
+      ),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [

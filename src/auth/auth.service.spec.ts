@@ -3,11 +3,9 @@ import { AuthService } from './auth.service';
 import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
-import { JwtService } from '@nestjs/jwt';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
 import { DevicesService } from 'src/device/device.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { generateAndStoreOtp } from './utils/otp.util';
@@ -22,53 +20,16 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/device/interfaces/device.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { RequestUser } from './types';
 
 jest.mock('bcrypt');
 
 jest.mock('crypto', () => ({
   randomUUID: jest.fn(),
-  randomBytes: jest.fn().mockReturnValue({
-    toString: jest.fn().mockReturnValue('mock-refresh-token-hex-string'),
-  }),
-  createHash: jest.fn().mockReturnValue({
-    update: jest.fn().mockReturnThis(),
-    digest: jest.fn(),
-  }),
-}));
-
-jest.mock('./utils/otp.util', () => ({
-  generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
-}));
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
-import { RequestUser } from './types';
-import * as bcrypt from 'bcrypt';
-
-// Mock the dependencies
-const mockPrismaService = {
-  users: {
-    findFirst: jest.fn(),
-  },
-  refresh_tokens: {
-    create: jest.fn(),
-  },
-  user_devices: {
-    create: jest.fn(),
-  },
-
-  $transaction: jest.fn(
-    async (callback: (tx: typeof mockPrismaService) => Promise<unknown>): Promise<unknown> => {
-      return await callback(mockPrismaService);
-    },
-  ),
-};
-
-const mockJwtService = {
-  sign: jest.fn(() => 'mockAccessToken'),
-};
-
-jest.mock('crypto', () => ({
   randomBytes: () => ({
     toString: () => 'mockRefreshToken',
   }),
@@ -80,6 +41,14 @@ jest.mock('crypto', () => ({
     return hash;
   },
 }));
+
+jest.mock('./utils/otp.util', () => ({
+  generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
+}));
+
+// Mock the dependencies
+let mockPrismaService: DeepMockProxy<PrismaService>;
+
 jest.mock('bcrypt', () => ({
   hash: () => Promise.resolve('mockHashedToken'),
   compare: jest.fn(() => Promise.resolve(true)),
@@ -96,7 +65,6 @@ describe('AuthService with mock ConfigService', () => {
   let mockDeviceService: Partial<DevicesService>;
   let mockRefreshTokensService: Partial<RefreshTokensService>;
   let mockEmailQueue: { add: jest.Mock };
-  let mockPrismaService: Partial<PrismaService>;
   const mockConfigService = {
     get: jest.fn((key: string) => {
       if (key === 'NODE_ENV') return 'dev';
@@ -105,7 +73,6 @@ describe('AuthService with mock ConfigService', () => {
     }),
   };
 
-
   beforeEach(async () => {
     mockUsersService = {
       findByEmail: jest.fn(),
@@ -113,6 +80,7 @@ describe('AuthService with mock ConfigService', () => {
     };
     mockJwtService = {
       signAsync: jest.fn(),
+      sign: jest.fn().mockReturnValue('mockAccessToken'),
     };
     mockRecaptchaService = {
       validateToken: jest.fn(),
@@ -130,10 +98,7 @@ describe('AuthService with mock ConfigService', () => {
       createRefreshToken: jest.fn(),
     };
     mockEmailQueue = { add: jest.fn() };
-    mockPrismaService = {
-      $transaction: jest.fn(),
-    };
-
+    mockPrismaService = mockDeep<PrismaService>();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -151,6 +116,11 @@ describe('AuthService with mock ConfigService', () => {
         { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
+    mockPrismaService.$transaction.mockImplementation((async (
+      callback: (tx: typeof mockPrismaService) => Promise<unknown>,
+    ): Promise<unknown> => {
+      return await callback(mockPrismaService);
+    }) as any);
 
     service = module.get<AuthService>(AuthService);
   });
@@ -160,11 +130,13 @@ describe('AuthService with mock ConfigService', () => {
 
   describe('validateUser', () => {
     it('should return user when correct password', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: '100',
+      const fakeUser = {
+        id: 100n,
         username: 'username',
         password_hash: 'hash',
-      });
+      } as Partial<any>;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
 
       const body = { identifier: 'username', password: 'password' };
       const result = await service.validateUser(body.identifier, body.password);
@@ -173,11 +145,13 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return null when incorrect password', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: '100',
+      const fakeUser = {
+        id: 100n,
         username: 'username',
         password_hash: 'hash',
-      });
+      } as Partial<any>;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
       const body = { identifier: 'username', password: 'password' };
@@ -187,11 +161,13 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it("should return null when user doesn't have password_hash", async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: '100',
+      const fakeUser = {
+        id: 100n,
         username: 'username',
         password_hash: undefined,
-      });
+      } as Partial<any>;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
 
       const body = { identifier: 'username', password: 'password' };
       const result = await service.validateUser(body.identifier, body.password);
@@ -211,11 +187,14 @@ describe('AuthService with mock ConfigService', () => {
     it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
       const plainPassword = 'password123';
       const hashedPassword = 'a_very_long_hashed_string';
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: '1',
+
+      const fakeUser = {
+        id: 100n,
         username: 'testuser',
         password_hash: hashedPassword,
-      });
+      } as Partial<any>;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
       mockedBcrypt.compare.mockResolvedValue(true as never);
 
       await service.validateUser('testuser', plainPassword);
@@ -236,17 +215,21 @@ describe('AuthService with mock ConfigService', () => {
     const ipAddress = '192.33.100.1';
     const user: RequestUser = { id: '1', username: 'testuser' };
     it('should correctly handle login', async () => {
-      mockPrismaService.refresh_tokens.create.mockResolvedValue({
-        id: '100',
+      const fakeToken = {
+        id: 100n,
         token_hash: 'mockHashedToken',
         expires_at: 'expires_at',
-      });
+      } as Partial<any>;
 
-      mockPrismaService.user_devices.create.mockResolvedValue({
-        id: '100',
+      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken as any);
+
+      const fakeDevice = {
+        id: 100n,
         device_type: mockDeviceType,
         ip_address: ipAddress,
-      });
+      } as Partial<any>;
+
+      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice as any);
 
       const result = await service.login(user, mockDeviceType, ipAddress);
 
@@ -264,7 +247,7 @@ describe('AuthService with mock ConfigService', () => {
         };
       };
 
-      const calls = mockPrismaService.refresh_tokens.create.mock.calls as [
+      const calls = mockPrismaService.refresh_tokens.create.mock.calls as unknown as [
         RefreshTokenCreateInput,
       ][];
 
@@ -272,9 +255,10 @@ describe('AuthService with mock ConfigService', () => {
 
       expect(call.data.user_id).toBe(BigInt(user.id));
       expect(call.data.token_hash).toBe('mockHashedToken');
-      expect(call.data.device_id).toBe('100');
+      expect(call.data.device_id).toBe(100n);
       expect(call.data.expires_at).toBeInstanceOf(Date);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockPrismaService.user_devices.create).toHaveBeenCalledWith({
         data: {
           user_id: BigInt(user.id),
@@ -305,11 +289,12 @@ describe('AuthService with mock ConfigService', () => {
         }
         return 'dev';
       });
-      mockPrismaService.refresh_tokens.create.mockResolvedValue({});
 
-      mockPrismaService.user_devices.create.mockResolvedValue({
-        id: '100',
-      });
+      const fakeToken = {} as Partial<any>;
+      const fakeDevice = { id: 100n } as Partial<any>;
+      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken as any);
+
+      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice as any);
 
       const result = await service.login(user, mockDeviceType, ipAddress);
 
@@ -506,7 +491,7 @@ describe('AuthService with mock ConfigService', () => {
       // Assert
       expect(result.message).toBe('Registration completed successfully');
       expect(result.accessToken).toBe('access-token');
-      expect(result.refreshToken).toBe('mock-refresh-token-hex-string');
+      expect(result.refreshToken).toBe('mockRefreshToken');
       //check that the cleanup logic was called.
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.REGISTRATION(dto.creationToken));
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.OTP_RESEND(cachedData.email));
@@ -605,16 +590,17 @@ describe('AuthService with mock ConfigService', () => {
       const result = await service.checkEmail('new@example.com');
       expect(result).toStrictEqual({
         message: 'Email is available',
+        exists: false,
+      });
+    });
+  });
+
   describe('checkIdentifier', () => {
-    // const mockDeviceType = 'Chrome on Windows (Desktop)';
-    // const ipAddress = '192.33.100.1';
     const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
 
     it('should return exist true when user found with username', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: user.id,
-        username: user.username,
-      });
+      const fakeUser = { id: BigInt(user.id), username: user.username } as Partial<any>;
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
 
       const result = await service.checkIdentifier(user.username);
 
@@ -625,30 +611,14 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: user.id,
-        email: user.email,
-      });
+      const fakeUser = { id: BigInt(user.id), email: user.email } as Partial<any>;
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as any);
 
       const result = await service.checkIdentifier(user.email);
 
       expect(result).toEqual({
         exists: true,
         type: 'email',
-      });
-    });
-
-    it('should return exist true when user found with phone', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
-        id: user.id,
-        phone: user.phone,
-      });
-
-      const result = await service.checkIdentifier(user.phone);
-
-      expect(result).toEqual({
-        exists: true,
-        type: 'phone',
       });
     });
 

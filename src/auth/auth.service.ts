@@ -23,6 +23,8 @@ import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { hashPassword } from './utils/password.util';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import type { RequestUser } from './types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +38,7 @@ export class AuthService {
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -273,21 +276,7 @@ export class AuthService {
 
       return userId;
     });
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { RequestUser } from './types';
-import * as bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from 'src/prisma/prisma.service';
-
-@Injectable()
-export class AuthService {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
-    private readonly prisma: PrismaService,
-  ) {}
+  }
 
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
     const user = await this.prisma.users.findFirst({
