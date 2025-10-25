@@ -32,7 +32,7 @@ export const REDIS_KEYS = {
 export const AUTH_CONFIG = {
   REGISTRATION_TTL: 300, // 5 minutes
   PASSWORD_RESET_TTL: 300,
-  OTP_RESEND_LIMIT: 5,
+  OTP_RESEND_LIMIT: 1,
   OTP_RESEND_WINDOW: 60,
   SALT_ROUNDS: 10, // for password hashing
   REFRESH_TOKEN_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
