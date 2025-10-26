@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MeController } from './me.controller';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
+import { RequestUser } from 'src/auth/types';
 
 describe('MeController', () => {
   let controller: MeController;
@@ -46,7 +47,8 @@ describe('MeController', () => {
       mockUsersService.changePassword.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.changePassword(changePasswordDto);
+      const user: RequestUser = { id: expectedUserId.toString(), username: 'test' };
+      const result = await controller.changePassword(changePasswordDto, user);
 
       // Assert
       expect(mockUsersService.changePassword).toHaveBeenCalledWith(
@@ -65,7 +67,8 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockResolvedValue(mockResponse);
 
-      const result = await controller.changePassword(changePasswordDto);
+      const user: RequestUser = { id: '18', username: 'test' };
+      const result = await controller.changePassword(changePasswordDto, user);
 
       expect(result).toEqual(mockResponse);
     });
@@ -75,7 +78,8 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockRejectedValue(error);
 
-      await expect(controller.changePassword(changePasswordDto)).rejects.toThrow(
+      const user: RequestUser = { id: '18', username: 'test' };
+      await expect(controller.changePassword(changePasswordDto, user)).rejects.toThrow(
         'Invalid old password',
       );
       expect(mockUsersService.changePassword).toHaveBeenCalledTimes(1);
