@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 
-export class VerifyOtpDto {
+export class VerifyForgotPasswordDto {
   @IsString()
   @Length(6, 6)
   @IsNotEmpty()
@@ -8,5 +8,5 @@ export class VerifyOtpDto {
 
   @IsString()
   @IsNotEmpty()
-  creationToken: string;
+  confirmationToken: string;
 }

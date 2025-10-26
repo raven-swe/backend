@@ -47,6 +47,13 @@ export class RedisService {
     return this.redis.del(key);
   }
 
+  async incr(key: string): Promise<number> {
+    return this.redis.incr(key);
+  }
+
+  async expire(key: string, ttlSeconds: number): Promise<number> {
+    return this.redis.expire(key, ttlSeconds);
+  }
   async ttl(key: string): Promise<number> {
     return this.redis.ttl(key);
   }

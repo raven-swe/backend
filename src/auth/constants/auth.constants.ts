@@ -1,6 +1,6 @@
 export const AUTH_ERROR_CODES = {
   EMAIL_REGISTERED: 'EMAIL_REGISTERED',
-  INVALID_TOKEN: 'INVALID_TOKEN',
+  INVALID_CONFIRMATION_TOKEN: 'INVALID_CONFIRMATION_TOKEN',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
   OTP_INVALID: 'OTP_INVALID',
   OTP_NOT_VERIFIED: 'OTP_NOT_VERIFIED',
@@ -11,7 +11,7 @@ export const AUTH_ERROR_CODES = {
 
 export const AUTH_ERROR_MESSAGES = {
   EMAIL_REGISTERED: 'Email is already registered',
-  INVALID_TOKEN: 'Invalid or expired token',
+  INVALID_CONFIRMATION_TOKEN: 'Invalid or expired confirmation token',
   USER_NOT_FOUND: 'User not found',
   OTP_INVALID: 'Invalid or expired OTP',
   OTP_NOT_VERIFIED: 'OTP not verified',
@@ -35,7 +35,7 @@ export const AUTH_CONFIG = {
   REGISTRATION_TTL: 300, // 5 minutes
   PASSWORD_RESET_TTL: 300,
   OTP_RESEND_LIMIT: 1,
-  OTP_RESEND_WINDOW: 60,
+  OTP_RESEND_WINDOW: 60, // 1 minute
   SALT_ROUNDS: 10, // for password hashing
   REFRESH_TOKEN_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
 };

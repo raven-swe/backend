@@ -1,20 +1,36 @@
 import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { EmailService } from './email.service';
+import {
+  EmailOtpJob,
+  ForgotPasswordOtpJob,
+  OtpType,
+  EmailJobData,
+} from './interfaces/email.interfaces';
 import { Job } from 'bullmq';
-import { EmailOtpJob } from './email.service';
+import { EmailService } from './email.service';
 
 @Processor('email')
 export class EmailConsumer extends WorkerHost {
-  private readonly logger = new Logger(EmailConsumer.name);
-  constructor(private readonly EmailService: EmailService) {
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly logger: Logger,
+  ) {
     super();
   }
 
-  async process(job: Job<EmailOtpJob, void, string>): Promise<void> {
+  async process(job: Job<EmailJobData, void, string>): Promise<void> {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
     try {
-      await this.EmailService.sendRegistrationOtp(job.data);
+      const { type, ...otpData } = job.data;
+
+      if (type === OtpType.REGISTRATION) {
+        await this.emailService.sendRegistrationOtp(otpData as EmailOtpJob);
+      } else if (type === OtpType.FORGOT_PASSWORD) {
+        await this.emailService.sendForgotPasswordOtp(otpData as ForgotPasswordOtpJob);
+      } else {
+        throw new Error('Unknown OTP type');
+      }
+
       this.logger.log(`Job ${job.id} completed successfully`);
     } catch (err) {
       this.logger.error(`Job ${job.id} failed`, err instanceof Error ? err.stack : String(err));

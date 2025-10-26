@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { EmailService } from './email.service';
 import { EmailConsumer } from './email.consumer';
@@ -9,6 +9,7 @@ import { EmailConsumer } from './email.consumer';
       name: 'email',
     }),
   ],
-  providers: [EmailService, EmailConsumer],
+
+  providers: [EmailService, EmailConsumer, Logger],
 })
 export class EmailModule {}
