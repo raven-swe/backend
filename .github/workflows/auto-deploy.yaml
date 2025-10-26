@@ -9,6 +9,10 @@ jobs:
     if: github.event.pull_request.merged == true
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
