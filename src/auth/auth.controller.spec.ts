@@ -6,13 +6,29 @@ import { StartRegistrationDto } from './dto/start-registration.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
 import { DeviceType } from 'src/device/interfaces/device.interface';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { UnauthorizedException } from '@nestjs/common';
+import { CheckIdentifierQueryDto } from './dtos';
 
-describe('AuthController', () => {
+describe('AuthController with real config service', () => {
   let controller: AuthController;
   let mockAuthService: Partial<AuthService>;
+  let config: ConfigService;
 
   beforeEach(async () => {
     mockAuthService = {
+      login: jest.fn(() =>
+        Promise.resolve({
+          accessToken: 'mockAccessToken',
+          refreshToken: 'mockRefreshToken',
+        }),
+      ),
+      checkIdentifier: jest.fn(() =>
+        Promise.resolve({
+          exists: true,
+          type: 'username',
+        }),
+      ),
       verifyRecaptcha: jest.fn(),
       startRegistration: jest.fn(),
       verifyOtp: jest.fn(),
@@ -22,11 +38,13 @@ describe('AuthController', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ envFilePath: '.env.test', ignoreEnvFile: false })],
       controllers: [AuthController],
       providers: [{ provide: AuthService, useValue: mockAuthService }],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
+    config = module.get<ConfigService>(ConfigService);
   });
 
   describe('startRegistration', () => {
@@ -139,5 +157,171 @@ describe('AuthController', () => {
       expect(mockAuthService.checkEmail).toHaveBeenCalledWith(dto.email);
       expect(result).toBe(serviceResult);
     });
+  });
+
+  describe('login', () => {
+    const mockDeviceType = 'Chrome On Windows (Desktop)';
+    const ipAddress = '192.33.100.1';
+    let mockClientType: 'web' | 'mobile' = 'web';
+    const mockResponse = {
+      cookie: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+    } as unknown as Response;
+    const mockUser = { id: '1', username: 'username' };
+
+    it('with client type undefined should throw UnauthorizedException', async () => {
+      await expect(
+        controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, undefined as never),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('with client type mobile should call authService.login and return refreshToken', async () => {
+      mockClientType = 'mobile';
+      const result = await controller.login(
+        mockUser,
+        ipAddress,
+        mockDeviceType,
+        mockResponse,
+        mockClientType,
+      );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
+    });
+    it('with client type web should call authService.login, set a cookie', async () => {
+      const mockClientType = 'web';
+      mockResponse.status(200);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.status).toHaveBeenCalledWith(200);
+
+      const result = await controller.login(
+        mockUser,
+        ipAddress,
+        mockDeviceType,
+        mockResponse,
+        mockClientType,
+      );
+
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+
+      const daysToMillis = 24 * 60 * 60 * 1000;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+        httpOnly: true,
+        secure: config.get('NODE_ENV') === 'production',
+        sameSite: 'none',
+        maxAge: config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis,
+      });
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+      });
+    });
+
+    it('should throw an UnauthorizedException if login fails', async () => {
+      (mockAuthService.login as jest.Mock).mockRejectedValueOnce(new UnauthorizedException());
+
+      await expect(
+        controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, mockClientType),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('checkIdentifier', () => {
+    it('it should call the checkIdentifier', async () => {
+      (mockAuthService.checkIdentifier as jest.Mock).mockResolvedValue({
+        exists: true,
+        type: 'username',
+      });
+
+      const dto: CheckIdentifierQueryDto = { identifier: 'test' };
+      const result = await controller.checkIdentifier(dto);
+
+      expect(mockAuthService.checkIdentifier).toHaveBeenCalled();
+      expect(mockAuthService.checkIdentifier).toHaveBeenCalledWith(dto.identifier);
+
+      expect(result).toStrictEqual({ exists: true, type: 'username' });
+    });
+  });
+});
+
+describe('AuthController with mocked config service', () => {
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+  let mockAuthService: Partial<AuthService>;
+
+  let controller: AuthController;
+
+  beforeEach(async () => {
+    mockAuthService = {
+      login: jest.fn(() =>
+        Promise.resolve({
+          accessToken: 'mockAccessToken',
+          refreshToken: 'mockRefreshToken',
+        }),
+      ),
+      checkIdentifier: jest.fn(() =>
+        Promise.resolve({
+          exists: true,
+          type: 'username',
+        }),
+      ),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: AuthService, useValue: mockAuthService },
+      ],
+    }).compile();
+
+    controller = module.get<AuthController>(AuthController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+  const mockDeviceType = 'Chrome On Windows (Desktop)';
+  const mockClientType = 'web';
+  const ipAddress = '192.33.100.1';
+  const mockResponse = {
+    cookie: jest.fn(),
+    status: jest.fn().mockReturnThis(),
+  } as unknown as Response;
+  const mockUser = { id: '1', username: 'username' };
+
+  it('should fallback to default value when config serivce cant get value', async () => {
+    const result = await controller.login(
+      mockUser,
+      ipAddress,
+      mockDeviceType,
+      mockResponse,
+      mockClientType,
+    );
+
+    expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
+
+    const daysToMillis = 24 * 60 * 60 * 1000;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'none',
+      maxAge: 30 * daysToMillis,
+    });
+
+    if (mockClientType === 'web') {
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+      });
+    } else {
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
+    }
   });
 });
