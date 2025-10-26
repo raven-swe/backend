@@ -1,7 +1,10 @@
-import { Body, Controller, Put } from '@nestjs/common';
+import { Body, Controller, Put, UseGuards } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { User } from 'src/auth/decorators';
+import type { RequestUser } from 'src/auth/types';
 
 @Controller('me')
 export class MeController {
@@ -17,14 +20,12 @@ export class MeController {
       ttl: MeController.PASSWORD_CHANGE_WINDOW,
     },
   })
-  // TODO: enable after merging login functionality
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async changePassword(
     @Body() changePasswordDto: ChangePasswordBasicDto,
-    // @Request() req -- enable after merging login functionality
+    @User() user: RequestUser,
   ) {
-    // const userId = req.user.id;
-    const userId = BigInt(18); // temporary userId for testing
-    return this.usersService.changePassword(userId, changePasswordDto);
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.changePassword(userIdBigInt, changePasswordDto);
   }
 }

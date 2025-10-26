@@ -319,7 +319,6 @@ export class AuthService {
     const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
     const isOtpValid = await bcrypt.compare(verifyForgotPassword.otp, passwordResetData.otp);
 
-    // TODO: Validate OTP
     if (!isOtpValid) {
       throw new BadRequestException(
         createValidationError('otp', {
@@ -469,6 +468,7 @@ export class AuthService {
         OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
       },
     });
+
     if (user && user.password_hash) {
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (isMatch) {
