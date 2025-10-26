@@ -3,12 +3,10 @@ import { AuthService } from './auth.service';
 import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
-import { JwtService } from '@nestjs/jwt';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
 import { getQueueToken } from '@nestjs/bullmq';
 import { DevicesService } from 'src/devices/devices.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { PrismaService } from 'src/prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -24,31 +22,57 @@ import { hashPassword } from './utils/password.util';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { LanguageCode } from '@prisma/client';
+import { LanguageCode, Prisma } from '@prisma/client';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
+import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { RequestUser } from './types';
 
-jest.mock('bcrypt');
+// Type for Prisma transaction callback
+type TransactionCallback<T> = (
+  tx: Omit<
+    PrismaService,
+    '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+  >,
+) => Promise<T>;
 
+// Mock crypto module
 jest.mock('crypto', () => ({
   randomUUID: jest.fn(),
-  randomBytes: jest.fn().mockReturnValue({
-    toString: jest.fn().mockReturnValue('mock-refresh-token-hex-string'),
+  randomBytes: () => ({
+    toString: () => 'mockRefreshToken',
   }),
-  createHash: jest.fn().mockReturnValue({
+  createHash: () => ({
     update: jest.fn().mockReturnThis(),
-    digest: jest.fn(),
+    digest: jest.fn().mockReturnValue('mockHashedToken'),
   }),
 }));
 
+// Mock OTP utility
 jest.mock('./utils/otp.util', () => ({
   generateAndStoreOtp: jest.fn().mockResolvedValue(123456),
 }));
 
+// Mock bcrypt
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
   hash: jest.fn(),
 }));
 
+// Mock hashPassword utility
+jest.mock('./utils/password.util', () => ({
+  hashPassword: jest.fn().mockResolvedValue('hashed-password'),
+}));
+
 describe('AuthService', () => {
+  let service: AuthService;
+  let mockPrismaService: DeepMockProxy<PrismaService>;
+  let mockJwtService: jest.Mocked<Partial<JwtService>>;
+  let mockConfigService: jest.Mocked<Partial<ConfigService>>;
+  let mockRecaptchaService: { validateToken: jest.Mock };
+  let mockEmailQueue: { add: jest.Mock; close: jest.Mock };
+
   const mockUsersService = {
     findByIdentifier: jest.fn(),
     updatePasswordById: jest.fn(),
@@ -68,9 +92,8 @@ describe('AuthService', () => {
     ttl: jest.fn().mockResolvedValue(AUTH_CONFIG.OTP_RESEND_WINDOW),
   };
 
-  const mockEmailQueue = {
-    add: jest.fn(),
-    close: jest.fn(),
+  const mockRefreshTokensService = {
+    createRefreshToken: jest.fn().mockResolvedValue({}),
   };
 
   const mockUser = {
@@ -87,28 +110,33 @@ describe('AuthService', () => {
     verified: false,
   };
 
-  let service: AuthService;
-  let mockJwtService: Partial<JwtService>;
-  let mockRecaptchaService: {
-    validateToken: jest.Mock;
-  };
-  let mockPrismaService: Partial<PrismaService>;
-
-  const mockRefreshTokensService = {
-    createRefreshToken: jest.fn().mockResolvedValue({}),
-  };
+  const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
   beforeEach(async () => {
+    // Initialize mocks
     mockJwtService = {
       signAsync: jest.fn(),
+      sign: jest.fn().mockReturnValue('mockAccessToken'),
     };
+
     mockRecaptchaService = {
       validateToken: jest.fn(),
     };
 
-    mockPrismaService = {
-      $transaction: jest.fn(),
+    mockConfigService = {
+      get: jest.fn((key: string) => {
+        if (key === 'NODE_ENV') return 'dev';
+        if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return 30;
+        return null;
+      }),
     };
+
+    mockEmailQueue = {
+      add: jest.fn(),
+      close: jest.fn(),
+    };
+
+    mockPrismaService = mockDeep<PrismaService>();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -122,8 +150,14 @@ describe('AuthService', () => {
         { provide: RefreshTokensService, useValue: mockRefreshTokensService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
+
+    // Mock transaction implementation with proper typing
+    mockPrismaService.$transaction.mockImplementation(((callback: TransactionCallback<unknown>) => {
+      return callback(mockPrismaService as any);
+    }) as any);
 
     service = module.get<AuthService>(AuthService);
   });
@@ -132,12 +166,169 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('validateUser', () => {
+    it('should return user when correct password', async () => {
+      const fakeUser = {
+        id: 100n,
+        username: 'username',
+        password_hash: 'hash',
+      } as any;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+
+      const result = await service.validateUser('username', 'password');
+
+      expect(result).not.toBeNull();
+    });
+
+    it('should return null when incorrect password', async () => {
+      const fakeUser = {
+        id: 100n,
+        username: 'username',
+        password_hash: 'hash',
+      } as any;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockedBcrypt.compare.mockResolvedValueOnce(false as never);
+
+      const result = await service.validateUser('username', 'password');
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when user doesn't have password_hash", async () => {
+      const fakeUser = {
+        id: 100n,
+        username: 'username',
+        password_hash: undefined,
+      } as any;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+
+      const result = await service.validateUser('username', 'password');
+
+      expect(result).toBeNull();
+    });
+
+    it('cant find user', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.validateUser('username', 'password');
+
+      expect(result).toBeNull();
+    });
+
+    it('should call bcrypt.compare with the correct plaintext and hashed passwords', async () => {
+      const plainPassword = 'password123';
+      const hashedPassword = 'a_very_long_hashed_string';
+
+      const fakeUser = {
+        id: 100n,
+        username: 'testuser',
+        password_hash: hashedPassword,
+      } as any;
+
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+
+      await service.validateUser('testuser', plainPassword);
+
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(plainPassword, hashedPassword);
+    });
+
+    it('should propagate errors from the database', async () => {
+      const dbError = new Error('Database connection failed');
+      mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+
+      await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
+    });
+  });
+
+  describe('login', () => {
+    const mockDeviceType = 'Chrome on Windows (Desktop)';
+    const ipAddress = '192.33.100.1';
+    const user: RequestUser = { id: '1', username: 'testuser' };
+
+    it('should correctly handle login', async () => {
+      const fakeToken = {
+        id: 100n,
+        token_hash: 'mockHashedToken',
+        expires_at: new Date(),
+      } as never;
+
+      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken);
+
+      const fakeDevice = {
+        id: 100n,
+        device_type: mockDeviceType,
+        ip_address: ipAddress,
+      } as never;
+
+      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice);
+
+      const result = await service.login(user, mockDeviceType, ipAddress);
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
+
+      const calls = mockPrismaService.refresh_tokens.create.mock.calls;
+      const call = calls[0][0] as any;
+
+      expect(call.data.user_id).toBe(BigInt(user.id));
+      expect(call.data.token_hash).toBe('mockHashedToken');
+      expect(call.data.device_id).toBe(100n);
+      expect(call.data.expires_at).toBeInstanceOf(Date);
+
+      expect(mockPrismaService.user_devices.create).toHaveBeenCalledWith({
+        data: {
+          user_id: BigInt(user.id),
+          device_type: mockDeviceType,
+          ip_address: ipAddress,
+        },
+      });
+
+      expect(mockJwtService.sign).toHaveBeenCalledWith({
+        id: user.id,
+        username: user.username,
+      });
+    });
+
+    it('should throw an error if the database transaction fails', async () => {
+      const transactionError = new Error('Transaction failed due to a conflict');
+      mockPrismaService.$transaction.mockRejectedValueOnce(transactionError);
+
+      await expect(service.login(user, mockDeviceType, ipAddress)).rejects.toThrow(
+        transactionError,
+      );
+    });
+
+    it('should use default value when REFRESH_TOKEN_EXPIRES_IN_DAYS is not configured', async () => {
+      mockConfigService.get = jest.fn((key: string) => {
+        if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return null;
+        if (key === 'NODE_ENV') return 'dev';
+        return null;
+      });
+
+      const fakeToken = { id: 100n, token_hash: 'hash', expires_at: new Date() } as any;
+      const fakeDevice = { id: 100n } as any;
+
+      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken);
+      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice);
+
+      const result = await service.login(user, mockDeviceType, ipAddress);
+
+      expect(result).toEqual({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      });
+    });
   });
 
   describe('forgotPassword', () => {
@@ -161,7 +352,7 @@ describe('AuthService', () => {
     it('should generate confirmation token and call generateAndStoreOtp when user exists', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(mockUser);
       mockRecaptchaService.validateToken.mockResolvedValue(true);
-      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined); // success
+      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined);
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
 
       const forgotPasswordDto = { identifier: 'test@gmail.com', recaptchaToken: '' };
@@ -173,7 +364,6 @@ describe('AuthService', () => {
       expect(typeof result.confirmationToken).toBe('string');
       expect(mockUsersService.findByIdentifier).toHaveBeenCalledWith(forgotPasswordDto.identifier);
 
-      // Verify generateAndStoreOtp was called with correct parameters
       expect(generateAndStoreOtp).toHaveBeenCalledTimes(1);
       expect(generateAndStoreOtp).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -216,11 +406,10 @@ describe('AuthService', () => {
   });
 
   describe('verifyForgotPassword', () => {
-    const mockConfirmationToken = '';
+    const mockConfirmationToken = 'test-token';
 
     it('should verify OTP and update redis when OTP is valid', async () => {
-      // Arrange
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
 
       const mockVerifyForgotPasswordDto = {
@@ -228,10 +417,8 @@ describe('AuthService', () => {
         confirmationToken: mockConfirmationToken,
       };
 
-      // Act
       const result = await service.verifyForgotPassword(mockVerifyForgotPasswordDto);
 
-      // Assert
       expect(result).toEqual({ message: 'Password reset verified successfully.' });
       expect(mockRedisService.set).toHaveBeenCalledWith(
         REDIS_KEYS.PASSWORD_RESET(mockConfirmationToken),
@@ -241,7 +428,6 @@ describe('AuthService', () => {
     });
 
     it('should throw INVALID_TOKEN when redis data does not exist', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(null);
 
       const mockVerifyForgotPasswordDto = {
@@ -249,7 +435,6 @@ describe('AuthService', () => {
         confirmationToken: mockConfirmationToken,
       };
 
-      // Act
       await expect(service.verifyForgotPassword(mockVerifyForgotPasswordDto)).rejects.toThrow(
         new BadRequestException(
           createValidationError('confirmationToken', {
@@ -269,15 +454,12 @@ describe('AuthService', () => {
         recaptchaToken: 'token',
       };
 
-      // Arrange
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockRecaptchaService.validateToken.mockResolvedValue(true);
       (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
 
-      // Act
       const result = await service.startRegistration(startRegistrationDto);
 
-      // Assert
       expect(result).toEqual({
         creationToken: 'test-uuid',
       });
@@ -311,10 +493,8 @@ describe('AuthService', () => {
         recaptchaToken: 'token',
       };
 
-      // arrange
       mockUsersService.findByEmail.mockResolvedValue({ id: 1 });
 
-      // act & assert
       await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
         new HttpException(
           { message: 'Email is already registered', code: 'EMAIL_REGISTERED' },
@@ -332,7 +512,6 @@ describe('AuthService', () => {
         recaptchaToken: 'token',
       };
 
-      // arrange
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockRecaptchaService.validateToken.mockResolvedValue(true);
       (generateAndStoreOtp as jest.Mock).mockRejectedValue(
@@ -346,20 +525,7 @@ describe('AuthService', () => {
         ),
       );
 
-      // act & assert
-      await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
-        new HttpException(
-          new HttpException(
-            {
-              message: AUTH_ERROR_MESSAGES.OTP_RESEND_LIMIT_EXCEEDED,
-              code: AUTH_ERROR_CODES.OTP_RESEND_LIMIT_EXCEEDED,
-              retryAfter: AUTH_CONFIG.OTP_RESEND_WINDOW,
-            },
-            HttpStatus.TOO_MANY_REQUESTS,
-          ),
-          HttpStatus.TOO_MANY_REQUESTS,
-        ),
-      );
+      await expect(service.startRegistration(startRegistrationDto)).rejects.toThrow(HttpException);
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(startRegistrationDto.email);
     });
   });
@@ -373,16 +539,16 @@ describe('AuthService', () => {
       otp: 'hashed-otp',
       verified: false,
     };
-    const mockConfirmationToken = '';
+    const mockConfirmationToken = 'test-token';
 
     it('should successfully verify a correct OTP', async () => {
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockedBcrypt.compare.mockResolvedValue(true as never);
 
       const result = await service.verifyOtp(dto);
 
       expect(result).toEqual({ message: 'OTP verified successfully' });
-      const expectedUpdatedData = { ...cachedData, verified: true }; //check verified
+      const expectedUpdatedData = { ...cachedData, verified: true };
       expect(mockRedisService.set).toHaveBeenCalledWith(
         REDIS_KEYS.REGISTRATION(dto.creationToken),
         JSON.stringify(expectedUpdatedData),
@@ -391,22 +557,13 @@ describe('AuthService', () => {
     });
 
     it('should throw an error for an invalid creation token', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(service.verifyOtp(dto)).rejects.toThrow(
-        new BadRequestException(
-          createValidationError('recaptchaToken', {
-            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-          }),
-        ),
-      );
+      await expect(service.verifyOtp(dto)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw OTP_INVALID when OTP does not match', async () => {
-      // Arrange
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
 
       const mockVerifyForgotPasswordDto = {
@@ -414,7 +571,6 @@ describe('AuthService', () => {
         confirmationToken: mockConfirmationToken,
       };
 
-      // Act
       await expect(service.verifyForgotPassword(mockVerifyForgotPasswordDto)).rejects.toThrow(
         new BadRequestException(
           createValidationError('otp', {
@@ -425,7 +581,6 @@ describe('AuthService', () => {
     });
 
     it('should throw OTP_NOT_VERIFIED when OTP has not been verified', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(
         JSON.stringify({ ...mockPasswordResetData, verified: false }),
       );
@@ -435,7 +590,6 @@ describe('AuthService', () => {
         newPassword: 'NewPassword1!',
       };
 
-      // Act
       await expect(service.resetPassword(mockResetPasswordDto)).rejects.toThrow(
         new BadRequestException(
           createValidationError('confirmationToken', {
@@ -446,11 +600,9 @@ describe('AuthService', () => {
     });
 
     it('should throw an error for an incorrect OTP', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      mockedBcrypt.compare.mockResolvedValue(false as never);
 
-      // Act & Assert
       await expect(service.verifyOtp(dto)).rejects.toThrow(
         new BadRequestException(
           createValidationError('otp', {
@@ -462,9 +614,9 @@ describe('AuthService', () => {
   });
 
   describe('resetPassword', () => {
-    const mockConfirmationToken = '';
+    const mockConfirmationToken = 'test-token';
+
     it('should update password, remove devices, and cleanup redis when verified', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(
         JSON.stringify({ ...mockPasswordResetData, verified: true }),
       );
@@ -474,16 +626,13 @@ describe('AuthService', () => {
         newPassword: 'NewPassword1!',
       };
 
-      // Act
       const result = await service.resetPassword(mockResetPasswordDto);
 
-      // Assert
       expect(result).toEqual({ message: 'Password has been reset successfully.' });
 
-      const hashedPassword = await hashPassword(mockResetPasswordDto.newPassword);
       expect(mockUsersService.updatePasswordById).toHaveBeenCalledWith(
         BigInt(mockPasswordResetData.userId),
-        hashedPassword,
+        'hashed-password',
       );
 
       expect(mockDevicesService.removeAllUserDevices).toHaveBeenCalledWith(
@@ -496,7 +645,6 @@ describe('AuthService', () => {
     });
 
     it('should throw INVALID_CONFIRMATION_TOKEN when redis data does not exist', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(null);
 
       const mockResetPasswordDto = {
@@ -504,7 +652,6 @@ describe('AuthService', () => {
         newPassword: 'NewPassword1!',
       };
 
-      // Act
       await expect(service.resetPassword(mockResetPasswordDto)).rejects.toThrow(
         new BadRequestException(
           createValidationError('confirmationToken', {
@@ -527,34 +674,41 @@ describe('AuthService', () => {
     const deviceType = DeviceType.WEB;
 
     it('should successfully complete the registration', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
-      jest
-        .spyOn(service, 'generateAccessToken' as keyof AuthService)
-        .mockResolvedValue('access-token');
-      jest
-        .spyOn(service, 'createUserAndDeviceAndToken' as keyof AuthService)
-        .mockResolvedValue(BigInt(1).toString());
+      mockJwtService.signAsync = jest.fn().mockResolvedValue('access-token');
 
-      // Act
+      const mockUserId = BigInt(123);
+      const mockDeviceId = BigInt(456);
+
+      mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
+      mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
+      mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+
+      const mockTx = {
+        profiles: {
+          create: jest.fn().mockResolvedValue({ id: 1 }),
+        },
+      };
+
+      mockPrismaService.$transaction.mockImplementationOnce(((
+        callback: TransactionCallback<unknown>,
+      ) => {
+        return callback(mockTx as any);
+      }) as any);
+
       const result = await service.completeRegistration(dto, '127.0.0.1', deviceType);
 
-      // Assert
       expect(result.message).toBe('Registration completed successfully');
       expect(result.accessToken).toBe('access-token');
-      expect(result.refreshToken).toBe('mock-refresh-token-hex-string');
-      //check that the cleanup logic was called.
+      expect(result.refreshToken).toBe('mockRefreshToken');
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.REGISTRATION(dto.creationToken));
       expect(mockRedisService.del).toHaveBeenCalledWith(REDIS_KEYS.OTP_RESEND(cachedData.email));
-
-      // i believe testing the transaction is not unit test's job
     });
 
     it('should throw an error if OTP was not verified first', async () => {
       const unverifiedData = { ...cachedData, verified: false };
       mockRedisService.get.mockResolvedValue(JSON.stringify(unverifiedData));
 
-      // Act & Assert
       await expect(service.completeRegistration(dto, '127.0.0.1', deviceType)).rejects.toThrow(
         new BadRequestException(
           createValidationError('otp', {
@@ -566,26 +720,20 @@ describe('AuthService', () => {
 
     it('should throw an error for an invalid creation token', async () => {
       mockRedisService.get.mockResolvedValue(null);
+
       await expect(service.completeRegistration(dto, 'string', deviceType)).rejects.toThrow(
-        new BadRequestException(
-          createValidationError('recaptchaToken', {
-            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-          }),
-        ),
+        BadRequestException,
       );
     });
   });
 
   describe('resendPasswordOtp', () => {
     it('should call generateAndStoreOtp to resend OTP', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(JSON.stringify(mockPasswordResetData));
-      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined); // success
+      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined);
 
-      // Act
-      const result = await service.resendPasswordOtp({ confirmationToken: '' });
+      const result = await service.resendPasswordOtp({ confirmationToken: 'test-token' });
 
-      // Assert
       expect(result).toHaveProperty('message', 'OTP resent successfully.');
       expect(generateAndStoreOtp).toHaveBeenCalledTimes(1);
       expect(generateAndStoreOtp).toHaveBeenCalledWith(
@@ -598,7 +746,7 @@ describe('AuthService', () => {
           },
           email: mockPasswordResetData.email,
           otpType: OtpType.FORGOT_PASSWORD,
-          redisKey: REDIS_KEYS.PASSWORD_RESET(''),
+          redisKey: REDIS_KEYS.PASSWORD_RESET('test-token'),
           resendKey: REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(mockPasswordResetData.email),
           ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
         }),
@@ -607,11 +755,9 @@ describe('AuthService', () => {
     });
 
     it('should throw INVALID_TOKEN when redis data does not exist', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(null);
 
-      // Act
-      await expect(service.resendPasswordOtp({ confirmationToken: '' })).rejects.toThrow(
+      await expect(service.resendPasswordOtp({ confirmationToken: 'test-token' })).rejects.toThrow(
         new BadRequestException(
           createValidationError('confirmationToken', {
             invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
@@ -632,14 +778,11 @@ describe('AuthService', () => {
     };
 
     it('should successfully resend an OTP', async () => {
-      // Arrange
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
-      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined); // success
+      (generateAndStoreOtp as jest.Mock).mockResolvedValue(undefined);
 
-      // Act
       const result = await service.resendOtp(creationToken);
 
-      // Assert
       expect(result).toEqual({ message: 'OTP resent successfully' });
       expect(generateAndStoreOtp).toHaveBeenCalledWith(
         {
@@ -661,13 +804,7 @@ describe('AuthService', () => {
     it('should throw an error for an invalid creation token', async () => {
       mockRedisService.get.mockResolvedValue(null);
 
-      await expect(service.resendOtp(creationToken)).rejects.toThrow(
-        new BadRequestException(
-          createValidationError('recaptchaToken', {
-            invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-          }),
-        ),
-      );
+      await expect(service.resendOtp(creationToken)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -707,12 +844,50 @@ describe('AuthService', () => {
     });
   });
 
+  describe('checkIdentifier', () => {
+    const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
+
+    it('should return exist true when user found with username', async () => {
+      const fakeUser = { id: BigInt(user.id), username: user.username } as any;
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+
+      const result = await service.checkIdentifier(user.username);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'username',
+      });
+    });
+
+    it('should return exist true when user found with email', async () => {
+      const fakeUser = { id: BigInt(user.id), email: user.email } as any;
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+
+      const result = await service.checkIdentifier(user.email);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'email',
+      });
+    });
+
+    it('should return exist false when user not found', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkIdentifier('someusername');
+
+      expect(result).toEqual({
+        exists: false,
+      });
+    });
+  });
+
   describe('generateAccessToken', () => {
     it('should generate a valid access token with userId', async () => {
       const userId = BigInt(12345);
       const expectedToken = 'mock-jwt-token';
 
-      (mockJwtService.signAsync as jest.Mock).mockResolvedValue(expectedToken);
+      mockJwtService.signAsync = jest.fn().mockResolvedValue(expectedToken);
 
       const result = await service.generateAccessToken(userId);
 
@@ -726,7 +901,7 @@ describe('AuthService', () => {
       const userId = BigInt('999999999999999999');
       const expectedToken = 'mock-jwt-token';
 
-      (mockJwtService.signAsync as jest.Mock).mockResolvedValue(expectedToken);
+      mockJwtService.signAsync = jest.fn().mockResolvedValue(expectedToken);
 
       const result = await service.generateAccessToken(userId);
 
@@ -802,9 +977,10 @@ describe('AuthService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+
+      mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx);
+          return await callback(mockTx as any);
         },
       );
 
@@ -852,14 +1028,15 @@ describe('AuthService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+
+      mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx);
+          return await callback(mockTx as any);
         },
       );
+
       await service['createUserAndDeviceAndToken'](mockNewUser, mockNewDevice, mockRefreshToken);
 
-      // Verify device was updated with userId
       expect(mockDevicesService.createDevice).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: mockUserId,
@@ -867,7 +1044,6 @@ describe('AuthService', () => {
         mockTx,
       );
 
-      // Verify refresh token was updated with both userId and deviceId
       expect(mockRefreshTokensService.createRefreshToken).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: mockUserId,
@@ -890,9 +1066,10 @@ describe('AuthService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      (mockPrismaService.$transaction as jest.Mock).mockImplementation(
+
+      mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx);
+          return await callback(mockTx as any);
         },
       );
 

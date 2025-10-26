@@ -33,6 +33,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
+import type { RequestUser } from './types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -46,6 +48,7 @@ export class AuthService {
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -457,5 +460,72 @@ export class AuthService {
 
       return userId;
     });
+  }
+
+  async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+    if (user && user.password_hash) {
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (isMatch) {
+        return { id: user.id.toString(), username: user.username };
+      }
+    }
+    return null;
+  }
+
+  async login(user: RequestUser, deviceType: string, ipAddress: string) {
+    const accessToken = this.jwtService.sign(user);
+
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const hash = crypto.createHash('sha256');
+    hash.update(refreshToken);
+    const hashedRefreshToken = hash.digest('hex');
+    const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
+
+    await this.prisma.$transaction(async (tx) => {
+      const userDevice = await tx.user_devices.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_type: deviceType,
+          ip_address: ipAddress,
+        },
+      });
+
+      await tx.refresh_tokens.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_id: userDevice.id,
+          token_hash: hashedRefreshToken,
+          expires_at: expiresAt,
+        },
+      });
+    });
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async checkIdentifier(identifier: string) {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+
+    if (user) {
+      return {
+        exists: true,
+        type:
+          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+      };
+    }
+    return { exists: false };
   }
 }

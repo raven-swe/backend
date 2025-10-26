@@ -883,7 +883,7 @@ namespace Auth {
     ):
       | DataResponse<{
           confirmationToken: string;
-        }> 
+        }>
       | ValidationErrorResponse
       | NotFoundResponse
       | RateLimitResponse
