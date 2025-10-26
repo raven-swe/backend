@@ -55,6 +55,15 @@ export class AuthService {
   async startRegistration(
     startRegistrationDto: StartRegistrationDto,
   ): Promise<{ creationToken: string }> {
+    const valid = await this.verifyRecaptcha(startRegistrationDto.recaptchaToken);
+    if (!valid) {
+      throw new BadRequestException(
+        createValidationError('recaptchaToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+        }),
+      );
+    }
+
     const existingUser = await this.usersService.findByEmail(startRegistrationDto.email);
     if (existingUser) {
       throw new HttpException(
@@ -63,15 +72,6 @@ export class AuthService {
           code: 'EMAIL_REGISTERED',
         },
         HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const valid = await this.verifyRecaptcha(startRegistrationDto.recaptchaToken);
-    if (!valid) {
-      throw new BadRequestException(
-        createValidationError('recaptchaToken', {
-          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-        }),
       );
     }
 
@@ -249,6 +249,16 @@ export class AuthService {
   ): Promise<{ confirmationToken: string; message: string }> {
     const { identifier } = forgotPasswordDto;
 
+    // Verify recaptcha
+    const isValid = await this.verifyRecaptcha(forgotPasswordDto.recaptchaToken);
+    if (!isValid) {
+      throw new BadRequestException(
+        createValidationError('recaptchaToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+        }),
+      );
+    }
+
     // Find user email or username
     const user = await this.usersService.findByIdentifier(identifier);
     if (!user) {
@@ -258,16 +268,6 @@ export class AuthService {
           code: AUTH_ERROR_CODES.USER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
-      );
-    }
-
-    // Verify recaptcha
-    const isValid = await this.verifyRecaptcha(forgotPasswordDto.recaptchaToken);
-    if (!isValid) {
-      throw new BadRequestException(
-        createValidationError('recaptchaToken', {
-          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-        }),
       );
     }
 

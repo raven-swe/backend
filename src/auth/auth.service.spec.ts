@@ -362,6 +362,7 @@ describe('AuthService', () => {
   describe('forgotPassword', () => {
     it('should throw USER_NOT_FOUND when user does not exist', async () => {
       mockUsersService.findByIdentifier.mockResolvedValue(null);
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
 
       const forgotPasswordDto = { identifier: 'none', recaptchaToken: '' };
 
@@ -521,6 +522,7 @@ describe('AuthService', () => {
         recaptchaToken: 'token',
       };
 
+      mockRecaptchaService.validateToken.mockResolvedValue(true);
       mockUsersService.findByEmail.mockResolvedValue({ id: 1 });
 
       await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
