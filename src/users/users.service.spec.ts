@@ -22,7 +22,6 @@ const mockHashPassword = hashPassword as jest.MockedFunction<typeof hashPassword
 
 describe('UsersService', () => {
   let service: UsersService;
-  let mockUsersRepository: Partial<UsersRepository>;
 
   const mockUser = {
     id: BigInt(1),
@@ -47,19 +46,10 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
-    mockUsersRepository = {
-      findByEmail: jest.fn(),
-      createUser: jest.fn(),
-      findByIdentifier: jest.fn(),
-      findByUsername: jest.fn(),
-      updatePasswordById: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
       providers: [
         UsersService,
-        { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: UsersRepository, useValue: mockRepository },
         { provide: PrismaService, useValue: {} },
         { provide: UsersService, useClass: UsersService },
@@ -77,11 +67,11 @@ describe('UsersService', () => {
 
     it('should call the repository with the correct username and return its result', async () => {
       const username = 'testuser';
-      (mockUsersRepository.findByUsername as jest.Mock).mockResolvedValue(mockUser);
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
 
       const result = await service.findByUsername(username);
 
-      expect(mockUsersRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(username);
       expect(result).toBe(mockUser);
     });
   });
@@ -91,11 +81,11 @@ describe('UsersService', () => {
 
     it('should call the repository with the correct identifier and return its result', async () => {
       const identifier = 'testuser';
-      (mockUsersRepository.findByIdentifier as jest.Mock).mockResolvedValue(mockUser);
+      mockRepository.findByIdentifier.mockResolvedValue(mockUser);
 
       const result = await service.findByIdentifier(identifier);
 
-      expect(mockUsersRepository.findByIdentifier).toHaveBeenCalledWith(identifier);
+      expect(mockRepository.findByIdentifier).toHaveBeenCalledWith(identifier);
       expect(result).toBe(mockUser);
     });
   });
@@ -106,14 +96,11 @@ describe('UsersService', () => {
       const newHashedPassword = 'newHashedPassword123';
       const expectedUpdatedUser = { id: userId, password_hash: newHashedPassword };
 
-      (mockUsersRepository.updatePasswordById as jest.Mock).mockResolvedValue(expectedUpdatedUser);
+      mockRepository.updatePasswordById.mockResolvedValue(expectedUpdatedUser);
 
       const result = await service.updatePasswordById(userId, newHashedPassword);
 
-      expect(mockUsersRepository.updatePasswordById).toHaveBeenCalledWith(
-        userId,
-        newHashedPassword,
-      );
+      expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(userId, newHashedPassword);
       expect(result).toEqual(expectedUpdatedUser);
     });
   });
@@ -122,11 +109,11 @@ describe('UsersService', () => {
     it('should call the repository with the correct email and return its result', async () => {
       const email = 'test@gmail.com';
       const expectedUser = { id: BigInt(1), email, password_hash: '...' };
-      (mockUsersRepository.findByEmail as jest.Mock).mockResolvedValue(expectedUser);
+      mockRepository.findByEmail.mockResolvedValue(expectedUser);
 
       const result = await service.findByEmail(email);
 
-      expect(mockUsersRepository.findByEmail).toHaveBeenCalledWith(email);
+      expect(mockRepository.findByEmail).toHaveBeenCalledWith(email);
       expect(result).toBe(expectedUser);
     });
   });
@@ -142,11 +129,11 @@ describe('UsersService', () => {
         languageCode: LanguageCode.EN,
       };
       const expectedCreatedUser = { id: BigInt(2), ...newUserDto };
-      (mockUsersRepository.createUser as jest.Mock).mockResolvedValue(expectedCreatedUser);
+      mockRepository.createUser.mockResolvedValue(expectedCreatedUser);
 
       const result = await service.createUser(newUserDto, {} as never);
 
-      expect(mockUsersRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as never);
+      expect(mockRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as never);
       expect(result).toBe(expectedCreatedUser);
     });
   });
@@ -198,17 +185,18 @@ describe('UsersService', () => {
       const userData = {
         email: 'newuser@example.com',
         username: 'newuser',
-        password: 'NewPassword123!',
+        passwordHash: 'NewPassword123!',
+        name: 'New User',
         birthDate: new Date('2000-01-01'),
         languageCode: LanguageCode.EN,
       };
 
       mockRepository.createUser.mockResolvedValue({ ...userData, id: BigInt(2) });
 
-      const result = await service.createUser(userData);
+      const result = await service.createUser(userData, {} as never);
 
       expect(result).toEqual({ ...userData, id: BigInt(2) });
-      expect(mockRepository.createUser).toHaveBeenCalledWith(userData);
+      expect(mockRepository.createUser).toHaveBeenCalledWith(userData, expect.anything());
     });
   });
 
