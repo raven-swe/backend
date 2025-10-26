@@ -18,7 +18,6 @@ import {
 } from 'src/auth/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { generateAndStoreOtp } from './utils/otp.util';
-import { hashPassword } from './utils/password.util';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
@@ -155,9 +154,9 @@ describe('AuthService', () => {
     }).compile();
 
     // Mock transaction implementation with proper typing
-    mockPrismaService.$transaction.mockImplementation(((callback: TransactionCallback<unknown>) => {
-      return callback(mockPrismaService as any);
-    }) as any);
+    mockPrismaService.$transaction.mockImplementation((callback: TransactionCallback<unknown>) => {
+      return callback(mockPrismaService as never);
+    });
 
     service = module.get<AuthService>(AuthService);
   });
@@ -172,13 +171,13 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return user when correct password', async () => {
-      const fakeUser = {
+      const fakeUser: Partial<Prisma.usersGetPayload<{}>> = {
         id: 100n,
         username: 'username',
         password_hash: 'hash',
-      } as any;
+      };
 
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as never);
       mockedBcrypt.compare.mockResolvedValue(true as never);
 
       const result = await service.validateUser('username', 'password');
@@ -191,7 +190,7 @@ describe('AuthService', () => {
         id: 100n,
         username: 'username',
         password_hash: 'hash',
-      } as any;
+      } as never;
 
       mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
@@ -206,7 +205,7 @@ describe('AuthService', () => {
         id: 100n,
         username: 'username',
         password_hash: undefined,
-      } as any;
+      } as never;
 
       mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
 
@@ -231,7 +230,7 @@ describe('AuthService', () => {
         id: 100n,
         username: 'testuser',
         password_hash: hashedPassword,
-      } as any;
+      } as never;
 
       mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
       mockedBcrypt.compare.mockResolvedValue(true as never);
@@ -279,7 +278,9 @@ describe('AuthService', () => {
       });
 
       const calls = mockPrismaService.refresh_tokens.create.mock.calls;
-      const call = calls[0][0] as any;
+      const call = calls[0][0] as {
+        data: { user_id: bigint; token_hash: string; device_id: bigint; expires_at: Date };
+      };
 
       expect(call.data.user_id).toBe(BigInt(user.id));
       expect(call.data.token_hash).toBe('mockHashedToken');
@@ -316,8 +317,8 @@ describe('AuthService', () => {
         return null;
       });
 
-      const fakeToken = { id: 100n, token_hash: 'hash', expires_at: new Date() } as any;
-      const fakeDevice = { id: 100n } as any;
+      const fakeToken = { id: 100n, token_hash: 'hash', expires_at: new Date() } as never;
+      const fakeDevice = { id: 100n } as never;
 
       mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken);
       mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice);
@@ -693,8 +694,8 @@ describe('AuthService', () => {
       mockPrismaService.$transaction.mockImplementationOnce(((
         callback: TransactionCallback<unknown>,
       ) => {
-        return callback(mockTx as any);
-      }) as any);
+        return callback(mockTx as never);
+      }) as never);
 
       const result = await service.completeRegistration(dto, '127.0.0.1', deviceType);
 
@@ -848,7 +849,7 @@ describe('AuthService', () => {
     const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
 
     it('should return exist true when user found with username', async () => {
-      const fakeUser = { id: BigInt(user.id), username: user.username } as any;
+      const fakeUser = { id: BigInt(user.id), username: user.username } as never;
       mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.username);
@@ -860,7 +861,7 @@ describe('AuthService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      const fakeUser = { id: BigInt(user.id), email: user.email } as any;
+      const fakeUser = { id: BigInt(user.id), email: user.email } as never;
       mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.email);
@@ -980,7 +981,7 @@ describe('AuthService', () => {
 
       mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as any);
+          return await callback(mockTx as never);
         },
       );
 
@@ -1031,7 +1032,7 @@ describe('AuthService', () => {
 
       mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as any);
+          return await callback(mockTx as never);
         },
       );
 
@@ -1069,7 +1070,7 @@ describe('AuthService', () => {
 
       mockPrismaService.$transaction.mockImplementation(
         async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as any);
+          return await callback(mockTx as never);
         },
       );
 
