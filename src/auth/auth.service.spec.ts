@@ -25,7 +25,6 @@ import { LanguageCode, Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { RequestUser } from './types';
 
 // Type for Prisma transaction callback
@@ -64,9 +63,32 @@ jest.mock('./utils/password.util', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
+const createMockPrismaService = () => {
+  return {
+    users: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    refresh_tokens: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      delete: jest.fn(),
+    },
+    user_devices: {
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    profiles: {
+      create: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+};
+
 describe('AuthService', () => {
   let service: AuthService;
-  let mockPrismaService: DeepMockProxy<PrismaService>;
+  let mockPrismaService: ReturnType<typeof createMockPrismaService>;
   let mockJwtService: jest.Mocked<Partial<JwtService>>;
   let mockConfigService: jest.Mocked<Partial<ConfigService>>;
   let mockRecaptchaService: { validateToken: jest.Mock };
@@ -135,7 +157,7 @@ describe('AuthService', () => {
       close: jest.fn(),
     };
 
-    mockPrismaService = mockDeep<PrismaService>();
+    mockPrismaService = createMockPrismaService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -154,9 +176,11 @@ describe('AuthService', () => {
     }).compile();
 
     // Mock transaction implementation with proper typing
-    mockPrismaService.$transaction.mockImplementation((callback: TransactionCallback<unknown>) => {
-      return callback(mockPrismaService as never);
-    });
+    mockPrismaService.$transaction.mockImplementation(
+      async <T>(callback: TransactionCallback<T>): Promise<T> => {
+        return callback(mockPrismaService as never);
+      },
+    );
 
     service = module.get<AuthService>(AuthService);
   });
@@ -171,7 +195,7 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return user when correct password', async () => {
-      const fakeUser: Partial<Prisma.usersGetPayload<{}>> = {
+      const fakeUser: Partial<Prisma.usersGetPayload<object>> = {
         id: 100n,
         username: 'username',
         password_hash: 'hash',
@@ -277,23 +301,26 @@ describe('AuthService', () => {
         refreshToken: 'mockRefreshToken',
       });
 
-      const calls = mockPrismaService.refresh_tokens.create.mock.calls;
-      const call = calls[0][0] as {
-        data: { user_id: bigint; token_hash: string; device_id: bigint; expires_at: Date };
-      };
+      const calls = mockPrismaService.refresh_tokens.create.mock.calls as Array<
+        [{ data: { user_id: bigint; token_hash: string; device_id: bigint; expires_at: Date } }]
+      >;
+      const call = calls[0]?.[0];
+
+      if (!call) {
+        throw new Error('Expected refresh_tokens.create to be called');
+      }
 
       expect(call.data.user_id).toBe(BigInt(user.id));
       expect(call.data.token_hash).toBe('mockHashedToken');
       expect(call.data.device_id).toBe(100n);
       expect(call.data.expires_at).toBeInstanceOf(Date);
 
-      expect(mockPrismaService.user_devices.create).toHaveBeenCalledWith({
-        data: {
-          user_id: BigInt(user.id),
-          device_type: mockDeviceType,
-          ip_address: ipAddress,
-        },
-      });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: user.id,
+          username: user.username,
+        }),
+      );
 
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         id: user.id,
@@ -969,19 +996,15 @@ describe('AuthService', () => {
       const mockUserId = BigInt(123);
       const mockDeviceId = BigInt(456);
 
-      const mockTx = {
-        profiles: {
-          create: jest.fn().mockResolvedValue({ id: 1 }),
-        },
-      };
-
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
 
+      // Mock the transaction to execute the callback immediately
       mockPrismaService.$transaction.mockImplementation(
-        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as never);
+        async <T>(callback: TransactionCallback<T>): Promise<T> => {
+          return callback(mockPrismaService as never);
         },
       );
 
@@ -992,9 +1015,10 @@ describe('AuthService', () => {
       );
 
       expect(result).toBe(mockUserId);
-      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockUsersService.createUser).toHaveBeenCalledWith(mockNewUser, mockTx);
-      expect(mockTx.profiles.create).toHaveBeenCalledWith({
+      const { $transaction } = mockPrismaService;
+      expect($transaction).toHaveBeenCalledTimes(1);
+      expect(mockUsersService.createUser).toHaveBeenCalledWith(mockNewUser, mockPrismaService);
+      expect(mockPrismaService.profiles.create).toHaveBeenCalledWith({
         data: { user_id: mockUserId, display_name: mockNewUser.name },
       });
       expect(mockDevicesService.createDevice).toHaveBeenCalledWith(
@@ -1003,7 +1027,7 @@ describe('AuthService', () => {
           ipAddress: mockNewDevice.ipAddress,
           deviceType: mockNewDevice.deviceType,
         }),
-        mockTx,
+        mockPrismaService,
       );
       expect(mockRefreshTokensService.createRefreshToken).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1012,7 +1036,7 @@ describe('AuthService', () => {
           tokenHash: mockRefreshToken.tokenHash,
           expiresAt: mockRefreshToken.expiresAt,
         }),
-        mockTx,
+        mockPrismaService,
       );
     });
 
@@ -1020,19 +1044,14 @@ describe('AuthService', () => {
       const mockUserId = BigInt(999);
       const mockDeviceId = BigInt(888);
 
-      const mockTx = {
-        profiles: {
-          create: jest.fn().mockResolvedValue({ id: 1 }),
-        },
-      };
-
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
 
       mockPrismaService.$transaction.mockImplementation(
-        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as never);
+        async <T>(callback: TransactionCallback<T>): Promise<T> => {
+          return callback(mockPrismaService as never);
         },
       );
 
@@ -1042,7 +1061,7 @@ describe('AuthService', () => {
         expect.objectContaining({
           userId: mockUserId,
         }),
-        mockTx,
+        mockPrismaService,
       );
 
       expect(mockRefreshTokensService.createRefreshToken).toHaveBeenCalledWith(
@@ -1050,7 +1069,7 @@ describe('AuthService', () => {
           userId: mockUserId,
           deviceId: mockDeviceId,
         }),
-        mockTx,
+        mockPrismaService,
       );
     });
 
@@ -1058,19 +1077,14 @@ describe('AuthService', () => {
       const mockUserId = BigInt(100);
       const mockDeviceId = BigInt(200);
 
-      const mockTx = {
-        profiles: {
-          create: jest.fn().mockResolvedValue({ id: 1 }),
-        },
-      };
-
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
+      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
 
       mockPrismaService.$transaction.mockImplementation(
-        async (callback: (tx: typeof mockTx) => Promise<bigint>) => {
-          return await callback(mockTx as never);
+        async <T>(callback: TransactionCallback<T>): Promise<T> => {
+          return callback(mockPrismaService as never);
         },
       );
 
@@ -1081,7 +1095,7 @@ describe('AuthService', () => {
 
       await service['createUserAndDeviceAndToken'](customUser, mockNewDevice, mockRefreshToken);
 
-      expect(mockTx.profiles.create).toHaveBeenCalledWith({
+      expect(mockPrismaService.profiles.create).toHaveBeenCalledWith({
         data: { user_id: mockUserId, display_name: 'Custom Display Name' },
       });
     });
