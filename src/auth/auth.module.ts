@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from 'src/users/users.module';
 import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
 import { BullModule } from '@nestjs/bullmq';
+import { DevicesModule } from 'src/devices/devices.module';
 import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
-import { DevicesModule } from 'src/device/device.module';
 import { LocalStrategy } from './local.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
@@ -41,6 +41,6 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, Logger],
 })
 export class AuthModule {}

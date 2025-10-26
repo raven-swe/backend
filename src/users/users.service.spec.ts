@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ConfigModule } from '@nestjs/config';
 import { NewUser } from './interfaces/NewUser.interface';
 import { LanguageCode } from '@prisma/client';
 
@@ -13,9 +14,13 @@ describe('UsersService', () => {
     mockUsersRepository = {
       findByEmail: jest.fn(),
       createUser: jest.fn(),
+      findByIdentifier: jest.fn(),
+      findByUsername: jest.fn(),
+      updatePasswordById: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot()],
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: mockUsersRepository },
@@ -24,6 +29,52 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  describe('findByUsername', () => {
+    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
+
+    it('should call the repository with the correct username and return its result', async () => {
+      const username = 'testuser';
+      (mockUsersRepository.findByUsername as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await service.findByUsername(username);
+
+      expect(mockUsersRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(result).toBe(mockUser);
+    });
+  });
+
+  describe('findByIdentifier', () => {
+    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
+
+    it('should call the repository with the correct identifier and return its result', async () => {
+      const identifier = 'testuser';
+      (mockUsersRepository.findByIdentifier as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await service.findByIdentifier(identifier);
+
+      expect(mockUsersRepository.findByIdentifier).toHaveBeenCalledWith(identifier);
+      expect(result).toBe(mockUser);
+    });
+  });
+
+  describe('updatePasswordById', () => {
+    it('should call the repository with the correct userId and new password hash', async () => {
+      const userId = BigInt(1);
+      const newHashedPassword = 'newHashedPassword123';
+      const expectedUpdatedUser = { id: userId, password_hash: newHashedPassword };
+
+      (mockUsersRepository.updatePasswordById as jest.Mock).mockResolvedValue(expectedUpdatedUser);
+
+      const result = await service.updatePasswordById(userId, newHashedPassword);
+
+      expect(mockUsersRepository.updatePasswordById).toHaveBeenCalledWith(
+        userId,
+        newHashedPassword,
+      );
+      expect(result).toEqual(expectedUpdatedUser);
+    });
   });
 
   describe('findByEmail', () => {

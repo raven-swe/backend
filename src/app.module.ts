@@ -1,18 +1,19 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
-import { DevicesModule } from './device/device.module';
-import { HttpExceptionFilter } from './common/filters/http-response.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { BullModule } from '@nestjs/bullmq';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { HttpExceptionFilter } from './common/filters/http-response.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { DevicesModule } from './devices/devices.module';
+import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 
 @Module({
   imports: [
@@ -20,8 +21,8 @@ import { RecaptchaModule } from './recaptcha/recaptcha.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 60_000,
-          limit: 60, // 60 requests per minute
+          ttl: RATE_LIMIT.GLOBAL.TTL,
+          limit: RATE_LIMIT.GLOBAL.LIMIT,
         },
       ],
     }),
@@ -33,6 +34,7 @@ import { RecaptchaModule } from './recaptcha/recaptcha.module';
     }),
     AuthModule,
     UsersModule,
+    DevicesModule,
     RedisModule,
     PrismaModule,
     EmailModule,
@@ -46,7 +48,6 @@ import { RecaptchaModule } from './recaptcha/recaptcha.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,

@@ -4,47 +4,58 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { AUTH_CONFIG } from 'src/common/constants/auth.constants';
-import { DeviceType } from 'src/device/interfaces/device.interface';
+import { AUTH_CONFIG } from './constants/auth.constants';
+import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { CheckIdentifierQueryDto } from './dtos';
 
 describe('AuthController with real config service', () => {
   let controller: AuthController;
-  let mockAuthService: Partial<AuthService>;
+
+  const mockAuthService = {
+    verifyRecaptcha: jest.fn(),
+    startRegistration: jest.fn(),
+    verifyOtp: jest.fn(),
+    completeRegistration: jest.fn(),
+    resendOtp: jest.fn(),
+    checkEmail: jest.fn(),
+    forgotPassword: jest.fn(),
+    verifyForgotPassword: jest.fn(),
+    resetPassword: jest.fn(),
+    resendPasswordOtp: jest.fn(),
+    login: jest.fn(() =>
+      Promise.resolve({
+        accessToken: 'mockAccessToken',
+        refreshToken: 'mockRefreshToken',
+      }),
+    ),
+    checkIdentifier: jest.fn(() =>
+      Promise.resolve({
+        exists: true,
+        type: 'username',
+      }),
+    ),
+  };
+
   let config: ConfigService;
 
   beforeEach(async () => {
-    mockAuthService = {
-      login: jest.fn(() =>
-        Promise.resolve({
-          accessToken: 'mockAccessToken',
-          refreshToken: 'mockRefreshToken',
-        }),
-      ),
-      checkIdentifier: jest.fn(() =>
-        Promise.resolve({
-          exists: true,
-          type: 'username',
-        }),
-      ),
-      verifyRecaptcha: jest.fn(),
-      startRegistration: jest.fn(),
-      verifyOtp: jest.fn(),
-      completeRegistration: jest.fn(),
-      resendOtp: jest.fn(),
-      checkEmail: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({ envFilePath: '.env.test', ignoreEnvFile: false })],
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: mockAuthService,
+        },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
     config = module.get<ConfigService>(ConfigService);
+
+    jest.clearAllMocks();
   });
 
   describe('startRegistration', () => {
@@ -56,9 +67,9 @@ describe('AuthController with real config service', () => {
     };
 
     it('should call the auth service and return a creation token if reCAPTCHA is valid', async () => {
-      (mockAuthService.verifyRecaptcha as jest.Mock).mockResolvedValue(true);
+      mockAuthService.verifyRecaptcha.mockResolvedValue(true);
       const serviceResult = { creationToken: 'new-token' };
-      (mockAuthService.startRegistration as jest.Mock).mockResolvedValue(serviceResult);
+      mockAuthService.startRegistration.mockResolvedValue(serviceResult);
 
       const result = await controller.startRegistration(dto);
 
@@ -89,7 +100,7 @@ describe('AuthController with real config service', () => {
         refreshToken: 'refresh-token',
         message: 'Success',
       };
-      (mockAuthService.completeRegistration as jest.Mock).mockResolvedValue(serviceResult);
+      mockAuthService.completeRegistration.mockResolvedValue(serviceResult);
 
       const result = await controller.completeRegistration(
         mockRequest,
@@ -129,7 +140,9 @@ describe('AuthController with real config service', () => {
     it('should delegate to the auth service and return its result', async () => {
       const dto = { creationToken: 'token', otp: '123456' };
       const serviceResult = { message: 'OTP verified successfully' };
-      (mockAuthService.verifyOtp as jest.Mock).mockResolvedValue(serviceResult);
+
+      mockAuthService.verifyOtp.mockResolvedValue(serviceResult);
+
       const result = await controller.verifyOtp(dto);
       expect(mockAuthService.verifyOtp).toHaveBeenCalledWith(dto);
       expect(result).toBe(serviceResult);
@@ -140,7 +153,9 @@ describe('AuthController with real config service', () => {
     it('should delegate to the auth service and return its result', async () => {
       const dto = { creationToken: 'token' };
       const serviceResult = { message: 'OTP resent successfully' };
-      (mockAuthService.resendOtp as jest.Mock).mockResolvedValue(serviceResult);
+
+      mockAuthService.resendOtp.mockResolvedValue(serviceResult);
+
       const result = await controller.resendOtp(dto);
       expect(mockAuthService.resendOtp).toHaveBeenCalledWith(dto.creationToken);
       expect(result).toBe(serviceResult);
@@ -152,10 +167,93 @@ describe('AuthController with real config service', () => {
       // ARRANGE
       const dto = { email: 'test@example.com' };
       const serviceResult = { message: 'email already exists', exists: true };
-      (mockAuthService.checkEmail as jest.Mock).mockResolvedValue(serviceResult);
+
+      mockAuthService.checkEmail.mockResolvedValue(serviceResult);
+
       const result = await controller.checkEmail(dto);
       expect(mockAuthService.checkEmail).toHaveBeenCalledWith(dto.email);
       expect(result).toBe(serviceResult);
+    });
+  });
+
+  describe('Password Reset Flow', () => {
+    describe('POST /auth/password/forgot', () => {
+      const forgotPasswordDto = {
+        identifier: 'test@example.com',
+        recaptchaToken: 'valid-recaptcha-token',
+      };
+
+      it('should initiate forgot password process', async () => {
+        // Arrange
+        const expectedResult = { confirmationToken: 'token-123' };
+        mockAuthService.forgotPassword.mockResolvedValue(expectedResult);
+
+        // Act
+        const result = await controller.forgotPassword(forgotPasswordDto);
+
+        // Assert
+        expect(mockAuthService.forgotPassword).toHaveBeenCalledWith(forgotPasswordDto);
+        expect(result).toEqual(expectedResult);
+      });
+    });
+
+    describe('POST /auth/password/forgot/verify', () => {
+      const verifyForgotPasswordDto = {
+        confirmationToken: 'token-123',
+        otp: '123456',
+      };
+
+      it('should verify OTP for password reset', async () => {
+        // Arrange
+        const expectedResult = { message: 'Password reset verified successfully.' };
+        mockAuthService.verifyForgotPassword.mockResolvedValue(expectedResult);
+
+        // Act
+        const result = await controller.verifyForgotPasswordOtp(verifyForgotPasswordDto);
+
+        // Assert
+        expect(mockAuthService.verifyForgotPassword).toHaveBeenCalledWith(verifyForgotPasswordDto);
+        expect(result).toEqual(expectedResult);
+      });
+    });
+
+    describe('POST /auth/password/reset', () => {
+      const resetPasswordDto = {
+        confirmationToken: 'token-123',
+        newPassword: 'NewSecurePassword!23',
+      };
+
+      it('should reset the password', async () => {
+        // Arrange
+        const expectedResult = { message: 'Password has been reset successfully.' };
+        mockAuthService.resetPassword.mockResolvedValue(expectedResult);
+
+        // Act
+        const result = await controller.resetPassword(resetPasswordDto);
+
+        // Assert
+        expect(mockAuthService.resetPassword).toHaveBeenCalledWith(resetPasswordDto);
+        expect(result).toEqual(expectedResult);
+      });
+    });
+
+    describe('POST /auth/password/forgot/resend-otp', () => {
+      const resendPasswordOtpDto = {
+        confirmationToken: 'token-123',
+      };
+
+      it('should resend OTP for password reset', async () => {
+        // Arrange
+        const expectedResult = { message: 'OTP has been resent successfully.' };
+        mockAuthService.resendPasswordOtp.mockResolvedValue(expectedResult);
+
+        // Act
+        const result = await controller.resendPasswordOtp(resendPasswordOtpDto);
+
+        // Assert
+        expect(mockAuthService.resendPasswordOtp).toHaveBeenCalledWith(resendPasswordOtpDto);
+        expect(result).toEqual(expectedResult);
+      });
     });
   });
 

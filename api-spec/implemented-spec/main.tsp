@@ -250,14 +250,74 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
+    @post
+    @route("/forgot/verify")
+    @summary("Verify the OTP for password reset")
+    op verifyForgotPassword(
+      @body body: {
+        confirmationToken: string;
+        otp: string;
+      },
+    ):
+      | MessageResponse<"Password reset verified successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/reset")
+    @summary("Reset the password using the confirmation token")
+    op resetPassword(
+      @body body: {
+        confirmationToken: string;
+        newPassword: string;
+      },
+    ):
+      | MessageResponse<"Password has been reset successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/resend-otp")
+    @summary("Resend the OTP for password reset")
+    op resendOtpPassword(
+      @body body: {
+        confirmationToken: string;
+      },
+    ):
+      | MessageResponse<"OTP resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse;
+  }
 
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
   }> | ValidationErrorResponse | InternalServerErrorResponse;
-  
+
   @post
   @route("/login")
   op login(

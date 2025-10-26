@@ -5,7 +5,8 @@ import {
   AUTH_ERROR_MESSAGES,
   AUTH_ERROR_CODES,
   AUTH_CONFIG,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
+
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
 import { OtpType, EmailJobData } from 'src/email/interfaces/email.interfaces';
@@ -60,11 +61,13 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
 
   // Save to redis and increase number of attempts
   await redisService.set(redisKey, JSON.stringify(dataWithOtp), ttl);
-  await redisService.set(
-    resendKey,
-    String((Number(attempts) || 0) + 1),
-    AUTH_CONFIG.OTP_RESEND_WINDOW,
-  );
+
+  const newAttempts = await redisService.incr(resendKey);
+
+  // Set expiration only if it's new
+  if (newAttempts === 1) {
+    await redisService.expire(resendKey, AUTH_CONFIG.OTP_RESEND_WINDOW);
+  }
 
   // Send the otp to the user with type
   const jobData: EmailJobData = {

@@ -8,7 +8,8 @@ import {
   AUTH_ERROR_CODES,
   AUTH_CONFIG,
   REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
+} from 'src/auth/constants/auth.constants';
+
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -28,6 +29,8 @@ describe('generateAndStoreOtp', () => {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+    incr: jest.fn(),
+    expire: jest.fn(),
     ttl: jest.fn().mockResolvedValue(300),
   };
 
@@ -85,14 +88,16 @@ describe('generateAndStoreOtp', () => {
       // Arrange
       mockRedisService.get.mockResolvedValue(null);
       mockRedisService.set.mockResolvedValue('OK');
+      mockRedisService.incr.mockResolvedValue(1);
+      mockRedisService.expire.mockResolvedValue('OK');
 
       // Act
       await generateAndStoreOtp(baseParams, redisService);
 
       // Assert
-      expect(mockRedisService.set).toHaveBeenCalledWith(
+      expect(mockRedisService.incr).toHaveBeenCalledWith(baseParams.resendKey);
+      expect(mockRedisService.expire).toHaveBeenCalledWith(
         baseParams.resendKey,
-        '1',
         AUTH_CONFIG.OTP_RESEND_WINDOW,
       );
     });
@@ -100,14 +105,12 @@ describe('generateAndStoreOtp', () => {
     it('should increment existing resend attempt counter', async () => {
       mockRedisService.get.mockResolvedValue('0');
       mockRedisService.set.mockResolvedValue('OK');
+      mockRedisService.incr.mockResolvedValue(3);
 
       await generateAndStoreOtp(baseParams, redisService);
 
-      expect(mockRedisService.set).toHaveBeenCalledWith(
-        baseParams.resendKey,
-        '1',
-        AUTH_CONFIG.OTP_RESEND_WINDOW,
-      );
+      expect(mockRedisService.incr).toHaveBeenCalledWith(baseParams.resendKey);
+      expect(mockRedisService.expire).not.toHaveBeenCalled();
     });
 
     it('should queue email job with username for forgot password', async () => {
