@@ -113,16 +113,6 @@
       "**/*.{!(module),}.(t|j)s",
       "!main.ts"
     ],
-    "coveragePathIgnorePatterns": [
-      "main\\.ts",
-      ".*\\.module\\.ts",
-      ".*\\.dto\\.ts",
-      ".*\\.excption\\.ts",
-      ".*\\.constants\\.ts",
-      ".*\\.filter\\.ts",
-      ".*\\.interceptor\\.ts",
-      ".*\\.repository\\.ts"
-    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {

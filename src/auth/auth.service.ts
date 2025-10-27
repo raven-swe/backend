@@ -36,7 +36,6 @@ import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service'
 import { Device, DeviceType } from 'src/devices/interfaces/device.interface';
 import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
@@ -531,12 +530,6 @@ export class AuthService {
       };
     }
     return { exists: false };
-  private async generateRefreshTokenWithExpiry(expiryInDays: number) {
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiryInDays);
-    return { refreshToken, hashedRefreshToken, expiresAt };
   }
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');

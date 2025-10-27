@@ -2,14 +2,15 @@ import {
   BadRequestException,
   HttpCode,
   Body,
+  Post,
   Controller,
   Get,
-  Query,
   Req,
   Query,
   Res,
   UnauthorizedException,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -25,8 +26,6 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { User, IPAddress } from './decorators';
-import { Throttle } from '@nestjs/throttler';
-import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
@@ -138,39 +137,7 @@ export class AuthController {
 
   @Post('refresh-token')
   @HttpCode(200)
-  async refrehAccessToken(
-    @Req() req: RequestWithCookies,
-    @Body() refreshTokenDto: RefreshTokenDto,
-    @Res({ passthrough: true }) res: Response,
-    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
-  ) {
-    if (!clientType) {
-      throw new UnauthorizedException();
-    }
-    let refreshToken;
-    if (clientType === 'web') {
-      refreshToken = req.cookies?.refresh_token;
-    } else if (clientType === 'mobile') {
-      refreshToken = refreshTokenDto.refresh_token;
-    }
-    if (!refreshToken || refreshToken === '') {
-      throw new UnauthorizedException('missing refresh token');
-    }
-    const { access_token, refresh_token } = await this.authService.refreshAccessToken(refreshToken);
-
-    res.cookie('refresh_token', refresh_token, {
-      httpOnly: true,
-      secure: this.config.get('NODE_ENV') === 'production',
-      sameSite: 'none',
-      maxAge: this.config.get('ACCESS_TOKEN_EXPIRES_IN_SECONDS') || 15 * 60,
-    });
-
-    return { access_token, refresh_token };
-  }
-
-  @Post('refresh-token')
-  @HttpCode(200)
-  async refrehAccessToken(
+  async refreshAccessToken(
     @Req() req: RequestWithCookies,
     @Body() refreshTokenDto: RefreshTokenDto | undefined,
     @Res({ passthrough: true }) res: Response,
