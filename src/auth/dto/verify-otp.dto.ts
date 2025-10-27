@@ -1,9 +1,8 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 export class VerifyOtpDto {
   @IsString()
-  @MinLength(6)
-  @MaxLength(6)
+  @Length(6, 6)
   @IsNotEmpty()
   otp: string;
 

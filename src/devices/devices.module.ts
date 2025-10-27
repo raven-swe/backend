@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { DevicesService } from './device.service';
-import { DevicesRepository } from './device.repository';
+import { DevicesService } from './devices.service';
+import { DevicesRepository } from './devices.repository';
 
 @Module({
   providers: [DevicesService, DevicesRepository],

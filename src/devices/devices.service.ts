@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
-import { DevicesRepository } from './device.repository';
-import { Device } from './interfaces/device.interface';
+import { DevicesRepository } from './devices.repository';
+import { Device } from '../devices/interfaces/device.interface';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -13,6 +13,12 @@ export class DevicesService {
     private readonly devicesRepository: DevicesRepository,
     private readonly prisma: PrismaService,
   ) {}
+  /**
+   * Remove all devices for a user (used during password reset)
+   */
+  async removeAllUserDevices(userId: bigint) {
+    return this.devicesRepository.removeAllUserDevices(userId);
+  }
 
   async createDevice(device: Device, tx: Prisma.TransactionClient = this.prisma) {
     const newDevice = await this.devicesRepository.createDevice(device, tx);

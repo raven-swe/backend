@@ -14,6 +14,12 @@ model BearerAuth {
   bearerFormat: "JWT";
 }
 
+model SetAuthCookieResponse {
+  @header("Set-Cookie")
+  @doc("Contains the HTTP-only refresh token cookie for web clients.")
+  setCookie: string;
+}
+
 @doc("Base structure for all API responses")
 model ApiResponseBase {
   @doc("Indicates whether the request was successful")
@@ -244,14 +250,99 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
+    @post
+    @route("/forgot/verify")
+    @summary("Verify the OTP for password reset")
+    op verifyForgotPassword(
+      @body body: {
+        confirmationToken: string;
+        otp: string;
+      },
+    ):
+      | MessageResponse<"Password reset verified successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/reset")
+    @summary("Reset the password using the confirmation token")
+    op resetPassword(
+      @body body: {
+        confirmationToken: string;
+        newPassword: string;
+      },
+    ):
+      | MessageResponse<"Password has been reset successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/resend-otp")
+    @summary("Resend the OTP for password reset")
+    op resendOtpPassword(
+      @body body: {
+        confirmationToken: string;
+      },
+    ):
+      | MessageResponse<"OTP resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse;
+  }
 
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
   }> | ValidationErrorResponse | InternalServerErrorResponse;
-  
+
+  @post
+  @route("/login")
+  op login(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @body body: {
+      identifier: string;
+      password: string;
+    },
+  ):
+    | (DataResponse<{
+        accessToken: string;
+        refreshToken: string;
+      }> &
+        SetAuthCookieResponse)
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username or email is already taken")
+  @route("/check-identifier")
+  op checkIdentifier(@query identifier: string): DataResponse<{
+    exists: boolean;
+    type: "username" | "email";
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")

@@ -26,6 +26,10 @@ describe('RefreshTokensService', () => {
     service = module.get<RefreshTokensService>(RefreshTokensService);
   });
 
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
   describe('createRefreshToken', () => {
     it('should correctly call the repository with token data and return the created token', async () => {
       const tokenData: RefreshToken = {

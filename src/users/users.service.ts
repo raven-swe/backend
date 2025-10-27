@@ -14,6 +14,27 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
+  async findByUsername(username: string) {
+    return this.usersRepository.findByUsername(username);
+  }
+
+  /**
+   * Retrieves a user by their unique identifier, which can be either their email or username.
+   *
+   * @param identifier - The user's email or username.
+   * @returns The matching user record, or `null` if no user is found.
+   */
+  async findByIdentifier(identifier: string) {
+    return this.usersRepository.findByIdentifier(identifier);
+  }
+
+  /**
+   * Update user's password by user id
+   */
+  async updatePasswordById(userId: bigint, hashedPassword: string) {
+    return this.usersRepository.updatePasswordById(userId, hashedPassword);
+  }
+
   async createUser(newUser: NewUser, tx: Prisma.TransactionClient = this.prisma) {
     return this.usersRepository.createUser(newUser, tx);
   }

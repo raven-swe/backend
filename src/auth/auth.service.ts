@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, BadRequestException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -7,22 +7,34 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { DevicesService } from 'src/device/device.service';
-import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { Device, DeviceType } from 'src/device/interfaces/device.interface';
-import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LanguageCode } from '@prisma/client';
+import {
+  AUTH_ERROR_MESSAGES,
+  AUTH_ERROR_CODES,
+  REDIS_KEYS,
+  AUTH_CONFIG,
+} from 'src/auth/constants/auth.constants';
+import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { hashPassword } from './utils/password.util';
+import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
+import { generateAndStoreOtp } from './utils/otp.util';
+import { DevicesService } from 'src/devices/devices.service';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { Device, DeviceType } from 'src/devices/interfaces/device.interface';
+import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
-import { AUTH_ERROR_MESSAGES, AUTH_CONFIG, REDIS_KEYS } from 'src/common/constants/auth.constants';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
-import { generateAndStoreOtp } from './utils/otp.util';
-import { hashPassword } from './utils/password.util';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
+import type { RequestUser } from './types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -36,12 +48,22 @@ export class AuthService {
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
   async startRegistration(
     startRegistrationDto: StartRegistrationDto,
   ): Promise<{ creationToken: string }> {
+    const valid = await this.verifyRecaptcha(startRegistrationDto.recaptchaToken);
+    if (!valid) {
+      throw new BadRequestException(
+        createValidationError('recaptchaToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+        }),
+      );
+    }
+
     const existingUser = await this.usersService.findByEmail(startRegistrationDto.email);
     if (existingUser) {
       throw new HttpException(
@@ -50,14 +72,6 @@ export class AuthService {
           code: 'EMAIL_REGISTERED',
         },
         HttpStatus.BAD_REQUEST,
-      );
-    }
-    const valid = await this.verifyRecaptcha(startRegistrationDto.recaptchaToken);
-    if (!valid) {
-      throw new BadRequestException(
-        createValidationError('recaptchaToken', {
-          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
-        }),
       );
     }
 
@@ -156,6 +170,7 @@ export class AuthService {
       birthDate: registrationData.birthDate,
       languageCode: LanguageCode.EN, //until we start user profiles
     };
+
     const randomToken = crypto.randomBytes(64).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(randomToken).digest('hex');
     const refreshToken: RefreshToken = {
@@ -229,6 +244,178 @@ export class AuthService {
     return !!valid;
   }
 
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ confirmationToken: string; message: string }> {
+    const { identifier } = forgotPasswordDto;
+
+    // Verify recaptcha
+    const isValid = await this.verifyRecaptcha(forgotPasswordDto.recaptchaToken);
+    if (!isValid) {
+      throw new BadRequestException(
+        createValidationError('recaptchaToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_RECAPTCHA_TOKEN,
+        }),
+      );
+    }
+
+    // Find user email or username
+    const user = await this.usersService.findByIdentifier(identifier);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: AUTH_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Generate otp and store to redis
+    const confirmationToken = crypto.randomUUID();
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(confirmationToken);
+    const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(user.email);
+
+    const passwordResetData: CachedPasswordResetData = {
+      email: user.email,
+      userId: user.id.toString(),
+      otp: '',
+      verified: false,
+    };
+
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: user.email,
+        resendKey,
+        ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        data: passwordResetData,
+        emailQueue: this.emailQueue,
+        otpType: OtpType.FORGOT_PASSWORD,
+      },
+      this.redisService,
+    );
+
+    this.logger.log(`Password reset initiated for ${user.email}`);
+    return { confirmationToken, message: 'Password reset code sent to email' };
+  }
+
+  async verifyForgotPassword(
+    verifyForgotPassword: VerifyForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(verifyForgotPassword.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    if (!data) {
+      throw new BadRequestException(
+        createValidationError('confirmationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+        }),
+      );
+    }
+
+    // Compare incoming otp with the stored otp
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    const isOtpValid = await bcrypt.compare(verifyForgotPassword.otp, passwordResetData.otp);
+
+    // TODO: Validate OTP
+    if (!isOtpValid) {
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_INVALID,
+        }),
+      );
+    }
+
+    // Verify otp
+    passwordResetData.verified = true;
+    await this.redisService.set(
+      redisKey,
+      JSON.stringify(passwordResetData),
+      AUTH_CONFIG.PASSWORD_RESET_TTL,
+    );
+    this.logger.log(`Password reset OTP verified for ${passwordResetData.email}`);
+
+    return { message: 'Password reset verified successfully.' };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(resetPasswordDto.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    if (!data) {
+      throw new BadRequestException(
+        createValidationError('confirmationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+        }),
+      );
+    }
+
+    // Check if user's data is verified or not
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    if (!passwordResetData.verified) {
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+        }),
+      );
+    }
+
+    // Update user with new password
+    const userId = BigInt(passwordResetData.userId);
+    const hashedPassword = await hashPassword(resetPasswordDto.newPassword);
+    await this.usersService.updatePasswordById(userId, hashedPassword);
+
+    // Remove all devices/sessions for this user
+    await this.devicesService.removeAllUserDevices(userId);
+    this.logger.log(`Logged out user ${userId} from all devices after password reset`);
+
+    // Clean up redis entries
+    await this.redisService.del(redisKey);
+    await this.redisService.del(REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email));
+
+    this.logger.log(`Password reset completed for ${passwordResetData.email}`);
+    return { message: 'Password has been reset successfully.' };
+  }
+
+  async resendPasswordOtp(
+    resendPasswordOtpDto: ResendPasswordOtpDto,
+  ): Promise<{ message: string }> {
+    const redisKey = REDIS_KEYS.PASSWORD_RESET(resendPasswordOtpDto.confirmationToken);
+    const data = await this.redisService.get(redisKey);
+
+    if (!data) {
+      throw new BadRequestException(
+        createValidationError('confirmationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+        }),
+      );
+    }
+
+    const passwordResetData = JSON.parse(data) as CachedPasswordResetData;
+    const resendKey = REDIS_KEYS.OTP_RESEND_PASSWORD_RESET(passwordResetData.email);
+
+    // Reset OTP and verified state before generating a new one
+    passwordResetData.otp = '';
+    passwordResetData.verified = false;
+
+    await generateAndStoreOtp(
+      {
+        redisKey,
+        email: passwordResetData.email,
+        resendKey,
+        ttl: AUTH_CONFIG.PASSWORD_RESET_TTL,
+        data: passwordResetData,
+        emailQueue: this.emailQueue,
+        otpType: OtpType.FORGOT_PASSWORD,
+      },
+      this.redisService,
+    );
+
+    this.logger.log(`Resent password reset OTP for ${passwordResetData.email}`);
+    return { message: 'OTP resent successfully.' };
+  }
+
   validateDeviceType(clientType: string): void {
     if (!clientType) {
       throw new BadRequestException(
@@ -273,5 +460,72 @@ export class AuthService {
 
       return userId;
     });
+  }
+
+  async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+    if (user && user.password_hash) {
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (isMatch) {
+        return { id: user.id.toString(), username: user.username };
+      }
+    }
+    return null;
+  }
+
+  async login(user: RequestUser, deviceType: string, ipAddress: string) {
+    const accessToken = this.jwtService.sign(user);
+
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const hash = crypto.createHash('sha256');
+    hash.update(refreshToken);
+    const hashedRefreshToken = hash.digest('hex');
+    const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
+
+    await this.prisma.$transaction(async (tx) => {
+      const userDevice = await tx.user_devices.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_type: deviceType,
+          ip_address: ipAddress,
+        },
+      });
+
+      await tx.refresh_tokens.create({
+        data: {
+          user_id: BigInt(user.id),
+          device_id: userDevice.id,
+          token_hash: hashedRefreshToken,
+          expires_at: expiresAt,
+        },
+      });
+    });
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async checkIdentifier(identifier: string) {
+    const user = await this.prisma.users.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+      },
+    });
+
+    if (user) {
+      return {
+        exists: true,
+        type:
+          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+      };
+    }
+    return { exists: false };
   }
 }
