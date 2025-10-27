@@ -5,19 +5,17 @@ import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
+import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
 
 @Controller('me')
 export class MeController {
-  private static readonly PASSWORD_CHANGE_LIMIT = 5; // max 5 attempts
-  private static readonly PASSWORD_CHANGE_WINDOW = 60000; // 1 minute
-
   constructor(private readonly usersService: UsersService) {}
 
   @Put('password')
   @Throttle({
     default: {
-      limit: MeController.PASSWORD_CHANGE_LIMIT,
-      ttl: MeController.PASSWORD_CHANGE_WINDOW,
+      limit: RATE_LIMIT.PASSWORD_CHANGE.LIMIT,
+      ttl: RATE_LIMIT.PASSWORD_CHANGE.WINDOW_MS,
     },
   })
   @UseGuards(JwtAuthGuard)
