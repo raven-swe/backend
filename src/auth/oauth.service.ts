@@ -11,6 +11,7 @@ import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
 import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
 import { ConfigService } from '@nestjs/config';
 import useragent from 'useragent';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
 export class oAuthService {
@@ -29,15 +30,20 @@ export class oAuthService {
 
   async handleOauthToken(
     provider: SupportedOAuthProvider,
-    providerTokenId: string,
+    providerToken: string,
     agent: useragent.Agent,
   ) {
     const strategy = this.strategies[provider];
+    // Already validated by controller, but just in case
     if (!strategy) {
-      throw new BadRequestException(`Provider ${provider} is not supported`);
+      throw new BadRequestException(
+        createValidationError('provider', {
+          invalidParam: `Unsupported OAuth provider: ${provider}`,
+        }),
+      );
     }
 
-    const providerProfile = await strategy.validateToken(providerTokenId);
+    const providerProfile = await strategy.validateToken(providerToken);
 
     return this.handleOauthProfile(providerProfile, agent);
   }
@@ -151,9 +157,26 @@ export class oAuthService {
     };
     try {
       payload = this.jwtService.verify(creationToken);
-      if (payload.type !== 'creation') throw new Error('Invalid creation token');
-    } catch {
-      throw new BadRequestException('Invalid creation token');
+
+      if (payload.type !== 'creation') {
+        throw new BadRequestException(
+          createValidationError('creationToken', {
+            invalidToken: 'The provided token is not a valid account creation token.',
+          }),
+        );
+      }
+    } catch (err: unknown) {
+      let reason = 'Invalid or malformed token. Please try again.';
+
+      if (err instanceof Error && err.name === 'TokenExpiredError') {
+        reason = 'This creation token has expired. Please restart the registration process.';
+      }
+
+      throw new BadRequestException(
+        createValidationError('creationToken', {
+          invalidToken: reason,
+        }),
+      );
     }
 
     const user = await this.prisma.users.create({
@@ -173,11 +196,6 @@ export class oAuthService {
       },
     });
 
-    // DEBUG
-    console.info(user);
-
-    // TODO set expirations
-    // TODO make unified token generation function
     return await this.login({ id: user.id.toString(), username: user.username }, useragent);
   }
 }
