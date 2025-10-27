@@ -12,11 +12,17 @@ post {
 
 body:json {
   {
-    "creationToken": "",
-    "birthDate": "2003-08-04"
+    "creationToken": {{creationToken}},
+    "birthDate": {{birthDate}}
   }
+}
+
+vars:pre-request {
+  creationToken: "sd"
+  birthDate: "2003-02-22"
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }
