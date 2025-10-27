@@ -1,7 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 interface GithubUserResponse {
   id: number | string;
@@ -14,7 +15,7 @@ interface GithubUserResponse {
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
   constructor(private readonly config: ConfigService) {}
 
-  async validateToken(provider_token_id: string): Promise<ProviderProfile> {
+  async validateToken(providerToken: string): Promise<ProviderProfile> {
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -24,18 +25,26 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       body: JSON.stringify({
         client_id: this.config.get<string>('GITHUB_CLIENT_ID')!,
         client_secret: this.config.get<string>('GITHUB_CLIENT_SECRET')!,
-        code: provider_token_id,
+        code: providerToken,
         redirect_uri: this.config.get<string>('GITHUB_REDIRECT_URI')!,
       }),
     });
 
     if (!res.ok) {
-      throw new BadRequestException('Invalid GitHub code');
+      throw new BadRequestException(
+        createValidationError('providerToken', {
+          invalidValue:
+            'The GitHub authorization token is invalid or expired. Please try logging in again.',
+        }),
+      );
     }
 
     const githubAccess = (await res.json()) as { access_token: string };
 
-    if (!githubAccess.access_token) throw new BadRequestException("Couldn't get the access token");
+    if (!githubAccess.access_token)
+      throw new BadRequestException(
+        'Failed to obtain access token from GitHub, can be an expired code.',
+      );
 
     const code = githubAccess.access_token;
 
@@ -43,9 +52,11 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       headers: { Authorization: `Bearer ${code}` },
     });
 
-    if (!userDataRes.ok) {
-      throw new BadRequestException('Invalid GitHub token');
-    }
+    if (!userDataRes.ok)
+      throw new BadRequestException(
+        'Unable to retrieve your GitHub profile. Please check your GitHub account permissions.',
+      );
+
     const githubData = (await userDataRes.json()) as GithubUserResponse;
 
     // handling email not returned from the first request
@@ -56,7 +67,9 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       });
 
       if (!emailsRes.ok) {
-        throw new BadRequestException('Failed to fetch GitHub emails');
+        throw new UnauthorizedException(
+          'Cannot find email, Please check your GitHub account permissions.',
+        );
       }
 
       const emails = (await emailsRes.json()) as Array<{
@@ -68,7 +81,9 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       const primaryVerified = emails.find((e) => e.primary && e.verified);
 
       if (!primaryVerified) {
-        throw new BadRequestException('No verified primary email found for this GitHub account');
+        throw new UnauthorizedException(
+          'No verified primary email found for this GitHub account, please verify your email on GitHub and try again.',
+        );
       }
 
       email = primaryVerified.email;
@@ -78,7 +93,7 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
       id: String(githubData.id),
       email,
       name: githubData.name,
-      avatar_url: githubData.avatar_url,
+      avatar_url: githubData.avatar_url || null,
       provider: 'github',
     };
   }
