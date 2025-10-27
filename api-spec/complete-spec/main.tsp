@@ -974,7 +974,7 @@ namespace Oauth {
   op handleOauthCallback(
     @path provider: string,
     @body body: {
-      provider_token_id: string;
+      providerToken: string;
     },
   ):
     | DataResponse<{
