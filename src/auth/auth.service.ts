@@ -1,4 +1,11 @@
-import { HttpException, BadRequestException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -35,7 +42,6 @@ import { createValidationError } from 'src/common/utils/create-validation-error.
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
-import useragent from 'useragent';
 
 @Injectable()
 export class AuthService {

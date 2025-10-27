@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
+  HttpCode,
+  Post,
   Query,
   Req,
   Res,
@@ -25,9 +28,8 @@ import { User, IPAddress } from './decorators';
 import { Throttle } from '@nestjs/throttler';
 import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
-import type { RequestUser } from './types';
+import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
-import { UAParser } from 'ua-parser-js';
 import { RefreshTokenDto } from './dtos';
 
 @Controller('auth')
@@ -136,6 +138,7 @@ export class AuthController {
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
   }
+
   @Post('refresh-token')
   @HttpCode(200)
   async refrehAccessToken(
