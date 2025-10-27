@@ -273,10 +273,10 @@ describe('UsersService', () => {
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.PASSWORD_NOT_SET,
-            code: USERS_ERROR_CODES.PASSWORD_NOT_SET,
+            message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
+            code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
           },
-          HttpStatus.BAD_REQUEST,
+          HttpStatus.UNAUTHORIZED,
         ),
       );
     });

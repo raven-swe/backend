@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,6 +12,8 @@ import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
@@ -73,19 +75,12 @@ export class UsersService {
       );
     }
 
-    // Check if user has a password (OAuth users might not have one)
-    if (!user.password_hash) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.PASSWORD_NOT_SET,
-          code: USERS_ERROR_CODES.PASSWORD_NOT_SET,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    // Validate old password (OAuth might not have password)
+    let isOldPasswordValid = false;
+    if (user.password_hash) {
+      isOldPasswordValid = await comparePassword(oldPassword, user.password_hash);
     }
 
-    // Validate old password
-    const isOldPasswordValid = await comparePassword(oldPassword, user.password_hash);
     if (!isOldPasswordValid) {
       throw new HttpException(
         {
@@ -99,7 +94,11 @@ export class UsersService {
     await validateNewPasswordFormat(changePasswordDto);
 
     // Check if new password is different from old password
-    const isSamePassword = await comparePassword(newPassword, user.password_hash);
+    let isSamePassword = false;
+    if (user.password_hash) {
+      isSamePassword = await comparePassword(newPassword, user.password_hash);
+    }
+
     if (isSamePassword) {
       throw new HttpException(
         {
@@ -122,6 +121,7 @@ export class UsersService {
     };
     await this.emailQueue.add('sendPasswordChangeEmail', jobData);
 
+    this.logger.log(`Password changed for user ID: ${user.id}`);
     return { message: 'Password changed successfully.' };
   }
 }
