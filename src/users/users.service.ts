@@ -69,7 +69,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.UNAUTHORIZED,
       );
     }
 
