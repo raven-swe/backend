@@ -42,7 +42,7 @@ describe('OauthController', () => {
   describe('providerCallback', () => {
     const mockUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
     const mockOauthCallbackDto = {
-      providerTokenId: 'mock-token-123',
+      providerToken: 'mock-token-123',
     };
 
     it('should be defined', () => {
@@ -140,17 +140,15 @@ describe('OauthController', () => {
 
       await controller.providerCallback('github', mockOauthCallbackDto, customUserAgent);
 
-      const callArgs = mockOAuthService.handleOauthToken.mock.calls[0];
-      const parsedAgent = callArgs[2];
+      const callArgs = mockOAuthService.handleOauthToken.mock.calls[0] as unknown[];
+      const parsedAgent = callArgs[2] as useragent.Agent;
 
       expect(parsedAgent).toBeInstanceOf(useragent.Agent);
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
 
     it('should handle service errors gracefully', async () => {
-      mockOAuthService.handleOauthToken.mockRejectedValue(
-        new Error('OAuth provider error'),
-      );
+      mockOAuthService.handleOauthToken.mockRejectedValue(new Error('OAuth provider error'));
 
       await expect(
         controller.providerCallback('github', mockOauthCallbackDto, mockUserAgent),
@@ -158,7 +156,6 @@ describe('OauthController', () => {
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
   });
-
 
   describe('completeOauthRegister', () => {
     const mockUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
@@ -175,10 +172,7 @@ describe('OauthController', () => {
 
       mockOAuthService.completeOauthRegister.mockResolvedValue(mockResponse);
 
-      const result = await controller.completeOauthRegister(
-        mockOauthCompleteDto,
-        mockUserAgent,
-      );
+      const result = await controller.completeOauthRegister(mockOauthCompleteDto, mockUserAgent);
 
       expect(result).toEqual(mockResponse);
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledWith(
@@ -199,8 +193,8 @@ describe('OauthController', () => {
 
       await controller.completeOauthRegister(mockOauthCompleteDto, mobileUserAgent);
 
-      const callArgs = mockOAuthService.completeOauthRegister.mock.calls[0];
-      const parsedAgent = callArgs[2];
+      const callArgs = mockOAuthService.completeOauthRegister.mock.calls[0] as unknown[];
+      const parsedAgent = callArgs[2] as useragent.Agent;
 
       expect(parsedAgent).toBeInstanceOf(useragent.Agent);
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
@@ -235,9 +229,7 @@ describe('OauthController', () => {
     });
 
     it('should handle service errors during completion', async () => {
-      mockOAuthService.completeOauthRegister.mockRejectedValue(
-        new Error('Database error'),
-      );
+      mockOAuthService.completeOauthRegister.mockRejectedValue(new Error('Database error'));
 
       await expect(
         controller.completeOauthRegister(mockOauthCompleteDto, mockUserAgent),
@@ -270,7 +262,7 @@ describe('OauthController', () => {
 
   describe('Edge Cases', () => {
     it('should handle missing user-agent header gracefully', async () => {
-      const mockOauthCallbackDto = { providerTokenId: 'token-123' };
+      const mockOauthCallbackDto = { providerToken: 'token-123' };
 
       mockOAuthService.handleOauthToken.mockResolvedValue({
         access_token: 'token',
@@ -281,13 +273,13 @@ describe('OauthController', () => {
       await controller.providerCallback('github', mockOauthCallbackDto, '');
 
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
-      const parsedAgent = mockOAuthService.handleOauthToken.mock.calls[0][2];
+      const parsedAgent = (mockOAuthService.handleOauthToken.mock.calls[0] as unknown[])[2];
       expect(parsedAgent).toBeDefined();
     });
 
     it('should handle malformed user-agent string', async () => {
       const malformedUserAgent = 'not-a-real-user-agent!!!@@@###';
-      const mockOauthCallbackDto = { providerTokenId: 'token-123' };
+      const mockOauthCallbackDto = { providerToken: 'token-123' };
 
       mockOAuthService.handleOauthToken.mockResolvedValue({
         access_token: 'token',
