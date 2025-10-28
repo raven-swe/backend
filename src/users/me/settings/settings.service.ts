@@ -112,7 +112,7 @@ export class SettingsService {
     if (!isOtpValid) {
       throw new BadRequestException(
         createValidationError('otp', {
-          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_INVALID,
         }),
       );
     }
