@@ -946,8 +946,8 @@ describe('AuthService', () => {
     it('should not throw error for valid device types', () => {
       expect(() => service.validateDeviceType('web')).not.toThrow();
       expect(() => service.validateDeviceType('WEB')).not.toThrow();
-      expect(() => service.validateDeviceType('ios')).not.toThrow();
-      expect(() => service.validateDeviceType('ANDROID')).not.toThrow();
+      expect(() => service.validateDeviceType('mobile')).not.toThrow();
+      expect(() => service.validateDeviceType('MOBILE')).not.toThrow();
     });
 
     it('should throw error when clientType is missing', () => {

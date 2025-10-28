@@ -79,7 +79,7 @@ describe('DevicesService', () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
-        deviceType: DeviceType.ANDROID,
+        deviceType: DeviceType.MOBILE,
       };
 
       const expectedCreatedDevice = {
@@ -105,7 +105,7 @@ describe('DevicesService', () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
-        deviceType: DeviceType.ANDROID,
+        deviceType: DeviceType.WEB,
       };
 
       const expectedCreatedDevice = {

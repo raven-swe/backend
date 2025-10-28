@@ -5,7 +5,6 @@ export interface Device {
 }
 
 export enum DeviceType {
-  IOS = 'IOS',
-  ANDROID = 'ANDROID',
+  MOBILE = 'MOBILE',
   WEB = 'WEB',
 }
