@@ -40,13 +40,6 @@ export class SettingsController {
     return this.settingsService.verifyEmailUpdate(userId, verifyEmailUpdateDto);
   }
 
-  @Put('email')
-  @Throttle({
-    default: {
-      limit: SettingsController.EMAIL_UPDATE_LIMIT,
-      ttl: SettingsController.EMAIL_UPDATE_WINDOW,
-    },
-  })
   @Post('email/resend-otp')
   @UseGuards(JwtAuthGuard)
   async resendUpdateEmailOtp(
