@@ -550,7 +550,6 @@ export class AuthService {
 
   async refreshAccessToken(refreshToken: string) {
     const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-
     const oldToken = await this.prisma.refresh_tokens.findUnique({
       where: {
         token_hash: hashedRefreshToken,

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -31,6 +32,9 @@ import { DeviceType } from './decorators/';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenDto } from './dtos';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Controller('auth')
 export class AuthController {
@@ -124,7 +128,7 @@ export class AuthController {
     if (clientType === 'mobile') {
       return { accessToken, refreshToken };
     }
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
@@ -143,7 +147,7 @@ export class AuthController {
   @HttpCode(200)
   async refrehAccessToken(
     @Req() req: RequestWithCookies,
-    @Body() refreshTokenDto: RefreshTokenDto,
+    @Body() refreshTokenDto: RefreshTokenDto | undefined,
     @Res({ passthrough: true }) res: Response,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
@@ -152,9 +156,18 @@ export class AuthController {
     }
     let refreshToken;
     if (clientType === 'web') {
-      refreshToken = req.cookies?.refresh_token;
+      refreshToken = req.cookies?.refreshToken;
     } else if (clientType === 'mobile') {
-      refreshToken = refreshTokenDto.refresh_token;
+      const body = refreshTokenDto && typeof refreshTokenDto === 'object' ? refreshTokenDto : {};
+      const dto = plainToClass(RefreshTokenDto, body);
+      const errors = await validate(dto);
+
+      if (errors.length > 0) {
+        throw new BadRequestException(
+          createValidationError('refreshToken', { isString: 'refreshToken must be a string' }),
+        );
+      }
+      refreshToken = dto.refreshToken;
     }
     if (!refreshToken) {
       throw new UnauthorizedException('missing refresh token');
@@ -167,7 +180,7 @@ export class AuthController {
     if (clientType == 'mobile') {
       return { accessToken, refreshToken: newRefreshToken };
     }
-    res.cookie('refresh_token', newRefreshToken, {
+    res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
