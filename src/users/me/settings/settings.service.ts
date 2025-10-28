@@ -122,7 +122,7 @@ export class SettingsService {
     await this.usersService.updateUserEmail(userId, emailUpdateData);
 
     await this.redisService.del(redisKey);
-    await this.redisService.del(REDIS_KEYS.OTP_RESEND_UPDATE_EMAIL(emailUpdateData.newEmail));
+    await this.redisService.del(REDIS_KEYS.OTP_RESEND_UPDATE_EMAIL(userId.toString()));
 
     const jobData: EmailJobData = {
       email: emailUpdateData.newEmail,

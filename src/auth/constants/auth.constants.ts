@@ -28,9 +28,9 @@ export const REDIS_KEYS = {
   REGISTRATION: (token: string) => `registration:${token}`,
   OTP_RESEND: (email: string) => `otp_resend:${email}`,
   PASSWORD_RESET: (token: string) => `password_reset:${token}`,
-  OTP_RESEND_PASSWORD_RESET: (userId: string) => `otp_resend:password_reset:${userId}`,
+  OTP_RESEND_PASSWORD_RESET: (email: string) => `otp_resend:password_reset:${email}`,
   EMAIL_UPDATE: (token: string) => `email_update:${token}`,
-  OTP_RESEND_UPDATE_EMAIL: (email: string) => `otp-resend:email_update:${email}`,
+  OTP_RESEND_UPDATE_EMAIL: (userId: string) => `otp-resend:email_update:${userId}`,
 } as const;
 
 export const AUTH_CONFIG = {
