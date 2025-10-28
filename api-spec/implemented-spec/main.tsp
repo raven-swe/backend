@@ -343,7 +343,7 @@ namespace Auth {
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
-      @post
+
   @post
   @route("/refresh-token")
   @doc("refresh token is required in cookie from web clints and in body from mobile clients")
