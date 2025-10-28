@@ -170,10 +170,10 @@ describe('EmailService', () => {
     });
   });
 
-  describe('getOtpEmailTemplate', () => {
+  describe('getEmailTemplate', () => {
     it('should return correct template for REGISTRATION OTP', () => {
       // Act
-      const template = service.getOtpEmailTemplate('123456', OtpType.REGISTRATION);
+      const template = service.getEmailTemplate(OtpType.REGISTRATION, undefined, '123456');
 
       // Assert
       expect(template.subject).toBe('Your One-Time Password (OTP) - Welcome to Raven');
@@ -183,7 +183,7 @@ describe('EmailService', () => {
 
     it('should return correct template for FORGOT_PASSWORD OTP', () => {
       // Act
-      const template = service.getOtpEmailTemplate('654321', OtpType.FORGOT_PASSWORD, 'test-user');
+      const template = service.getEmailTemplate(OtpType.FORGOT_PASSWORD, 'test-user', '654321');
 
       // Assert
       expect(template.subject).toBe('Your One-Time Password (OTP) - Password Reset');

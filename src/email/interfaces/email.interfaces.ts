@@ -9,9 +9,15 @@ export interface ForgotPasswordOtpJob {
   username: string;
 }
 
+export interface ChangePasswordJob {
+  email: string;
+  username: string;
+}
+
 export enum OtpType {
   REGISTRATION = 'registration',
   FORGOT_PASSWORD = 'forgotPassword',
+  CHANGE_PASSWORD = 'changePassword',
 }
 
 export interface OtpEmailOptions extends EmailOtpJob {
@@ -21,4 +27,5 @@ export interface OtpEmailOptions extends EmailOtpJob {
 
 export type EmailJobData =
   | ({ type: OtpType.REGISTRATION } & EmailOtpJob)
-  | ({ type: OtpType.FORGOT_PASSWORD } & ForgotPasswordOtpJob);
+  | ({ type: OtpType.FORGOT_PASSWORD } & ForgotPasswordOtpJob)
+  | ({ type: OtpType.CHANGE_PASSWORD } & ChangePasswordJob);
