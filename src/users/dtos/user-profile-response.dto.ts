@@ -6,7 +6,7 @@ export class UserRelationshipDto {
   muted: boolean;
 }
 
-export class UserProfileDto {
+export class UserProfileResponseDto {
   username: string;
   displayName: string;
   bio: string | null;

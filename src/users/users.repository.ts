@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
 import { LanguageCode } from '@prisma/client';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { UserProfileResponseDto } from './dtos/user-profile-response.dto';
 
 @Injectable()
 export class UsersRepository {
@@ -84,6 +85,129 @@ export class UsersRepository {
       avatarUrl: profile.avatar_url,
       bannerUrl: profile.banner_url,
       updatedAt: profile.updated_at,
+    };
+  }
+
+  /**
+   * Find user profile by username, including relationship status with current user if provided
+   * If currentUserId is provided, then the user is authenticated and we can check the relationship status
+   *
+   * @param username - username of the user to find
+   * @param currentUserId - optional current user ID for relationship status
+   * @returns User profile with relationship status
+   */
+  async findUserProfileByUsername(
+    username: string,
+    currentUserId?: bigint,
+  ): Promise<UserProfileResponseDto | null> {
+    const user = await this.prisma.users.findUnique({
+      where: { username },
+      include: {
+        profile: true,
+        _count: {
+          select: {
+            following: true,
+            followers: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    // Get relationship if currentUserId is provided
+    let relationship = {
+      blocking: false,
+      blockedBy: false,
+      following: false,
+      follower: false,
+      muted: false,
+    };
+
+    // TODO: convert to "let" after implementing mutual followers
+    const mutualsCount: bigint | null = null;
+    const mutualNames: string[] | null = null;
+
+    if (currentUserId) {
+      // Check if current user is following this user
+      const isFollowing = await this.prisma.follows.findUnique({
+        where: {
+          follower_id_followed_id: {
+            follower_id: currentUserId,
+            followed_id: user.id,
+          },
+        },
+      });
+
+      // Check if this user is following current user
+      const isFollower = await this.prisma.follows.findUnique({
+        where: {
+          follower_id_followed_id: {
+            follower_id: user.id,
+            followed_id: currentUserId,
+          },
+        },
+      });
+
+      // Check if current user is blocking this user
+      const isBlocking = await this.prisma.blocks.findUnique({
+        where: {
+          user_id_blocked_id: {
+            user_id: currentUserId,
+            blocked_id: user.id,
+          },
+        },
+      });
+
+      // Check if the user is blocking current user
+      const isBlockedBy = await this.prisma.blocks.findUnique({
+        where: {
+          user_id_blocked_id: {
+            user_id: user.id,
+            blocked_id: currentUserId,
+          },
+        },
+      });
+
+      // Check if the current user has muted this user
+      const isMuted = await this.prisma.mutes.findUnique({
+        where: {
+          user_id_muted_id: {
+            user_id: currentUserId,
+            muted_id: user.id,
+          },
+        },
+      });
+
+      relationship = {
+        blocking: !!isBlocking,
+        blockedBy: !!isBlockedBy,
+        following: !!isFollowing,
+        follower: !!isFollower,
+        muted: !!isMuted,
+      };
+
+      // TODO: Get mutual followers count and names
+    }
+
+    return {
+      username: user.username,
+      // TODO: profile should be created automatically on user creation
+      displayName: user.profile?.display_name || '',
+      bio: user.profile?.bio || null,
+      // TODO: return actual bio entities after implementing rich text bios
+      bioEntities: null,
+      location: user.profile?.location || null,
+      birthDate: user.birthdate,
+      websiteUrl: user.profile?.website_url || null,
+      avatarUrl: user.profile?.avatar_url || null,
+      bannerUrl: user.profile?.banner_url || null,
+      followersCount: user._count.followers.toString(),
+      followingCount: user._count.following.toString(),
+      joinedAt: user.created_at,
+      relationship,
+      mutualsCount: mutualsCount !== null ? String(mutualsCount) : null,
+      mutualNames,
     };
   }
 }

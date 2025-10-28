@@ -153,4 +153,20 @@ export class UsersService {
     // Temporarily return the updated user
     return result;
   }
+
+  async getUserProfile(username: string, currentUserId?: bigint) {
+    const profile = await this.usersRepository.findUserProfileByUsername(username, currentUserId);
+
+    if (!profile) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return profile;
+  }
 }
