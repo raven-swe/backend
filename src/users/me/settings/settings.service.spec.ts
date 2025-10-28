@@ -4,16 +4,16 @@ import { UsersService } from 'src/users/users.service';
 import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
 import { getQueueToken } from '@nestjs/bullmq';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/common/constants/auth.constants';
-import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import * as bcrypt from 'bcrypt';
 import * as otpUtil from 'src/auth/utils/otp.util';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 jest.mock('src/auth/utils/otp.util');
 
@@ -223,13 +223,13 @@ describe('SettingsService', () => {
       mockRedisService.get.mockResolvedValue(null);
 
       await expect(service.verifyEmailUpdate(userId, dto)).rejects.toThrow(HttpException);
-      await expect(service.verifyEmailUpdate(userId, dto)).rejects.toMatchObject({
-        response: {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        status: HttpStatus.BAD_REQUEST,
-      });
+      await expect(service.verifyEmailUpdate(userId, dto)).rejects.toThrow(
+        new BadRequestException(
+          createValidationError('confirmationToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+          }),
+        ),
+      );
 
       expect(mockRedisService.get).toHaveBeenCalled();
       expect(mockUsersService.updateUserEmail).not.toHaveBeenCalled();
@@ -248,9 +248,15 @@ describe('SettingsService', () => {
 
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
 
-      await expect(service.verifyEmailUpdate(userId, dto)).rejects.toThrow(OtpFailedException);
+      await expect(service.verifyEmailUpdate(userId, dto)).rejects.toThrow(
+        new BadRequestException(
+          createValidationError('confirmationToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+          }),
+        ),
+      );
       await expect(service.verifyEmailUpdate(userId, dto)).rejects.toMatchObject({
-        message: AUTH_ERROR_MESSAGES.OTP_INVALID,
+        message: 'Bad Request Exception',
       });
 
       expect(mockRedisService.get).toHaveBeenCalled();
@@ -320,13 +326,13 @@ describe('SettingsService', () => {
       mockRedisService.get.mockResolvedValue(null);
 
       await expect(service.resendEmailUpdateOtp(userId, dto)).rejects.toThrow(HttpException);
-      await expect(service.resendEmailUpdateOtp(userId, dto)).rejects.toMatchObject({
-        response: {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        status: HttpStatus.BAD_REQUEST,
-      });
+      await expect(service.resendEmailUpdateOtp(userId, dto)).rejects.toThrow(
+        new BadRequestException(
+          createValidationError('confirmationToken', {
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+          }),
+        ),
+      );
 
       expect(mockRedisService.get).toHaveBeenCalled();
       expect(otpUtil.generateAndStoreOtp).not.toHaveBeenCalled();

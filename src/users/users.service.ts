@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -10,8 +10,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
-import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
-import { AUTH_ERROR_MESSAGES } from 'src/common/constants/auth.constants';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -147,7 +147,11 @@ export class UsersService {
     },
   ) {
     if (!emailUpdateData.verified) {
-      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED);
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+        }),
+      );
     }
 
     return this.usersRepository.updateUserEmail(userId, emailUpdateData);

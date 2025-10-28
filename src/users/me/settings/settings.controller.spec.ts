@@ -4,6 +4,7 @@ import { SettingsService } from './settings.service';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
+import { RequestUser } from 'src/auth/types';
 
 describe('SettingsController', () => {
   let controller: SettingsController;
@@ -41,14 +42,18 @@ describe('SettingsController', () => {
       const dto: InititateEmailUpdateDto = {
         newEmail: 'newemail@example.com',
       };
-      const userId = BigInt(1);
       const expectedResult = { confirmationToken: 'test-token-123' };
 
       mockSettingsService.checkNewEmail.mockResolvedValue(expectedResult);
 
-      const result = await controller.inititateEmailUpdate(dto);
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
 
-      expect(mockSettingsService.checkNewEmail).toHaveBeenCalledWith(userId, dto);
+      const result = await controller.inititateEmailUpdate(dto, mockRequestUser);
+
+      expect(mockSettingsService.checkNewEmail).toHaveBeenCalledWith(BigInt(1), dto);
       expect(result).toEqual(expectedResult);
     });
 
@@ -58,9 +63,14 @@ describe('SettingsController', () => {
       };
       const error = new Error('Email already in use');
 
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       mockSettingsService.checkNewEmail.mockRejectedValue(error);
 
-      await expect(controller.inititateEmailUpdate(dto)).rejects.toThrow(error);
+      await expect(controller.inititateEmailUpdate(dto, mockRequestUser)).rejects.toThrow(error);
     });
   });
 
@@ -70,14 +80,19 @@ describe('SettingsController', () => {
         confirmationToken: 'test-token-123',
         otp: '123456',
       };
-      const userId = BigInt(1);
+
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       const expectedResult = { message: 'Email address updated successfully.' };
 
       mockSettingsService.verifyEmailUpdate.mockResolvedValue(expectedResult);
 
-      const result = await controller.verifyUpdateEmailOtp(dto);
+      const result = await controller.verifyUpdateEmailOtp(dto, mockRequestUser);
 
-      expect(mockSettingsService.verifyEmailUpdate).toHaveBeenCalledWith(userId, dto);
+      expect(mockSettingsService.verifyEmailUpdate).toHaveBeenCalledWith(BigInt(1), dto);
       expect(result).toEqual(expectedResult);
     });
 
@@ -88,9 +103,14 @@ describe('SettingsController', () => {
       };
       const error = new Error('Invalid OTP');
 
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       mockSettingsService.verifyEmailUpdate.mockRejectedValue(error);
 
-      await expect(controller.verifyUpdateEmailOtp(dto)).rejects.toThrow(error);
+      await expect(controller.verifyUpdateEmailOtp(dto, mockRequestUser)).rejects.toThrow(error);
     });
 
     it('should handle invalid confirmation token', async () => {
@@ -100,9 +120,14 @@ describe('SettingsController', () => {
       };
       const error = new Error('Invalid token');
 
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       mockSettingsService.verifyEmailUpdate.mockRejectedValue(error);
 
-      await expect(controller.verifyUpdateEmailOtp(dto)).rejects.toThrow(error);
+      await expect(controller.verifyUpdateEmailOtp(dto, mockRequestUser)).rejects.toThrow(error);
     });
   });
 
@@ -111,14 +136,19 @@ describe('SettingsController', () => {
       const dto: ResendEmailUpdateOtp = {
         confirmationToken: 'test-token-123',
       };
-      const userId = BigInt(1);
+
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       const expectedResult = { message: 'OTP resent successfully' };
 
       mockSettingsService.resendEmailUpdateOtp.mockResolvedValue(expectedResult);
 
-      const result = await controller.resendUpdateEmailOtp(dto);
+      const result = await controller.resendUpdateEmailOtp(dto, mockRequestUser);
 
-      expect(mockSettingsService.resendEmailUpdateOtp).toHaveBeenCalledWith(userId, dto);
+      expect(mockSettingsService.resendEmailUpdateOtp).toHaveBeenCalledWith(BigInt(1), dto);
       expect(result).toEqual(expectedResult);
     });
 
@@ -128,9 +158,14 @@ describe('SettingsController', () => {
       };
       const error = new Error('Token expired');
 
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       mockSettingsService.resendEmailUpdateOtp.mockRejectedValue(error);
 
-      await expect(controller.resendUpdateEmailOtp(dto)).rejects.toThrow(error);
+      await expect(controller.resendUpdateEmailOtp(dto, mockRequestUser)).rejects.toThrow(error);
     });
 
     it('should handle rate limiting scenarios', async () => {
@@ -139,9 +174,14 @@ describe('SettingsController', () => {
       };
       const error = new Error('Too many requests');
 
+      const mockRequestUser = {
+        id: '1',
+        username: 'omarhassan',
+      } as RequestUser;
+
       mockSettingsService.resendEmailUpdateOtp.mockRejectedValue(error);
 
-      await expect(controller.resendUpdateEmailOtp(dto)).rejects.toThrow(error);
+      await expect(controller.resendUpdateEmailOtp(dto, mockRequestUser)).rejects.toThrow(error);
     });
   });
 

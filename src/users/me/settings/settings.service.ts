@@ -1,22 +1,17 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
-import {
-  AUTH_CONFIG,
-  AUTH_ERROR_CODES,
-  AUTH_ERROR_MESSAGES,
-  REDIS_KEYS,
-} from 'src/common/constants/auth.constants';
+import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants/auth.constants';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { RedisService } from 'src/redis/redis.service';
 import { generateAndStoreOtp } from 'src/auth/utils/otp.util';
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { OtpFailedException } from 'src/auth/exceptions/otp.exception';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -104,12 +99,10 @@ export class SettingsService {
     const data = await this.redisService.get(redisKey);
 
     if (!data) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('confirmationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+        }),
       );
     }
 
@@ -117,7 +110,11 @@ export class SettingsService {
     const isOtpValid = await bcrypt.compare(verifyEmailUpdateDto.otp, emailUpdateData.otp);
 
     if (!isOtpValid) {
-      throw new OtpFailedException(AUTH_ERROR_MESSAGES.OTP_INVALID);
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+        }),
+      );
     }
 
     emailUpdateData.verified = true;
@@ -147,12 +144,10 @@ export class SettingsService {
     const data = await this.redisService.get(redisKey);
 
     if (!data) {
-      throw new HttpException(
-        {
-          message: AUTH_ERROR_MESSAGES.INVALID_TOKEN,
-          code: AUTH_ERROR_CODES.INVALID_TOKEN,
-        },
-        HttpStatus.BAD_REQUEST,
+      throw new BadRequestException(
+        createValidationError('confirmationToken', {
+          invalidToken: AUTH_ERROR_MESSAGES.INVALID_CONFIRMATION_TOKEN,
+        }),
       );
     }
 
