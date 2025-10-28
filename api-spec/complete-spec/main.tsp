@@ -1264,6 +1264,7 @@ namespace Me {
         }>
       | ValidationErrorResponse
       | ConflictResponse
+      | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
@@ -1279,7 +1280,8 @@ namespace Me {
       | BadRequestResponse
       | RateLimitResponse
       | UnauthorizedResponse
-      | InternalServerErrorResponse;
+      | InternalServerErrorResponse
+      | ValidationErrorResponse;
 
     @post
     @route("/email/verify")
