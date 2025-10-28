@@ -9,7 +9,7 @@ import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dt
 import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
 import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import * as bcrypt from 'bcrypt';
 import * as otpUtil from 'src/auth/utils/otp.util';
