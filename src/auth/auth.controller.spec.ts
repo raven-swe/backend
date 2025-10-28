@@ -315,7 +315,7 @@ describe('AuthController with real config service', () => {
 
       const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: config.get('NODE_ENV') === 'production',
         sameSite: 'none',
@@ -417,7 +417,7 @@ describe('AuthController with mocked config service', () => {
 
       const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: false,
         sameSite: 'none',
@@ -432,8 +432,8 @@ describe('AuthController with mocked config service', () => {
   describe('refreshToken', () => {
     let mockClientType: 'web' | 'mobile' = 'web';
     const refreshToken = 'old_mocked_refresh_token';
-    const req = mockRequestWithCookies({ refresh_token: refreshToken });
-    const dto: RefreshTokenDto = { refresh_token: refreshToken };
+    const req = mockRequestWithCookies({ refreshToken: refreshToken });
+    const dto: RefreshTokenDto = { refreshToken: refreshToken };
     const mockResponse = {
       cookie: jest.fn(),
     } as unknown as Response;
@@ -443,7 +443,7 @@ describe('AuthController with mocked config service', () => {
       expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
       const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockResponse.cookie).toHaveBeenCalledWith('refresh_token', 'mockRefreshToken', {
+      expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: false,
         sameSite: 'none',
@@ -480,7 +480,7 @@ describe('AuthController with mocked config service', () => {
     });
 
     it('with undefined refresh_token in cookie it should throw', async () => {
-      const noCookieReq = mockRequestWithCookies({ refresh_token: undefined });
+      const noCookieReq = mockRequestWithCookies({ refreshToken: undefined });
 
       await expect(
         controller.refrehAccessToken(
