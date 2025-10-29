@@ -1247,6 +1247,7 @@ namespace Me {
     ):
       | MessageResponse<"Username changed successfully.">
       | ValidationErrorResponse
+      | NotFoundResponse
       | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
