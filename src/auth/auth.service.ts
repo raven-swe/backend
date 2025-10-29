@@ -33,7 +33,7 @@ import { generateAndStoreOtp } from './utils/otp.util';
 import { DevicesService } from 'src/devices/devices.service';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { Device, DeviceType } from 'src/devices/interfaces/device.interface';
+import { Device } from 'src/devices/interfaces/device.interface';
 import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -146,7 +146,7 @@ export class AuthService {
   async completeRegistration(
     completeRegistrationDto: CompleteRegistrationDto,
     ipAddress: string | undefined,
-    clientType: string,
+    deviceType: string,
   ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
     const redisKey = REDIS_KEYS.REGISTRATION(completeRegistrationDto.creationToken);
     const data = await this.redisService.get(redisKey);
@@ -157,8 +157,6 @@ export class AuthService {
         }),
       );
     }
-
-    this.validateDeviceType(clientType);
 
     const registrationData = JSON.parse(data) as CachedRegistrationData;
     if (!registrationData.verified) {
@@ -190,7 +188,7 @@ export class AuthService {
     const newDevice: Device = {
       userId: BigInt(0),
       ipAddress: ipAddress || 'unknown',
-      deviceType: clientType as DeviceType,
+      deviceType: deviceType,
     };
     const userId = await this.createUserAndDeviceAndToken(userData, newDevice, refreshToken);
     const accessToken = await this.jwtService.signAsync({ id: userId.toString() });
@@ -417,24 +415,6 @@ export class AuthService {
 
     this.logger.log(`Resent password reset OTP for ${passwordResetData.email}`);
     return { message: 'OTP resent successfully.' };
-  }
-
-  validateDeviceType(clientType: string): void {
-    if (!clientType) {
-      throw new BadRequestException(
-        createValidationError('X-Client-Type', {
-          missingHeader: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
-        }),
-      );
-    }
-    const upper = clientType.toUpperCase();
-    if (!(upper in DeviceType)) {
-      throw new BadRequestException(
-        createValidationError('X-Client-Type', {
-          invalidValue: AUTH_ERROR_MESSAGES.INVALID_CLIENT_TYPE_HEADER,
-        }),
-      );
-    }
   }
 
   //naming can be better ofc :)
