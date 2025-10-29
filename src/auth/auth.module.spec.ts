@@ -1,13 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthModule } from './auth.module';
 
-// const mockConfigService = {
-//   get: jest.fn((key: string) => {
-//     if (key === 'JWT_SECRET') return 'test-secret';
-//     return null;
-//   }),
-// };
-
 describe('AuthModule', () => {
   let authModule: AuthModule;
 
