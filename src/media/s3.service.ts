@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeleteObjectCommand, S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  S3Client,
+  HeadObjectCommand,
+  PutObjectCommand,
+  PutObjectCommandInput,
+} from '@aws-sdk/client-s3';
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Upload } from '@aws-sdk/lib-storage';
 
 @Injectable()
 export class S3Service {
@@ -11,10 +16,12 @@ export class S3Service {
   private readonly bucketName: string;
   private readonly region: string;
   private readonly logger = new Logger(S3Service.name);
+  private readonly cdnUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName = this.configService.get<string>('SPACES_BUCKET') || '';
     this.region = this.configService.get<string>('SPACES_REGION') || '';
+    this.cdnUrl = this.configService.get<string>('CDN_URL') || '';
     const endpoint = this.configService.get<string>('SPACES_ENDPOINT');
     const accessKeyId = this.configService.get<string>('SPACES_KEY');
     const secretAccessKey = this.configService.get<string>('SPACES_SECRET');
@@ -42,13 +49,14 @@ export class S3Service {
 
   /**
    * Upload a file to DigitalOcean Spaces
+   * Note: If the key is duplicated (already exists in the bucket), it'll overwrite the old one silently
    *
    * @param file - The file buffer to upload
    * @param folder - The folder path in Spaces (e.g., 'avatars', 'banners')
    * @param fileName - Optional custom filename (will generate UUID if not provided)
    * @param isPublic - Whether the file should be publicly accessible
    *
-   * @returns The key of the uploaded file
+   * @returns Object containing the key and public URL of the uploaded file
    */
   async uploadFile({
     file,
@@ -58,35 +66,33 @@ export class S3Service {
     file: Express.Multer.File;
     folder: string;
     fileName?: string;
-  }): Promise<string> {
+  }): Promise<{ key: string; url: string }> {
     try {
       const fileExtension = file.originalname.split('.').pop();
       const uniqueFileName = fileName || randomUUID();
       const key = `${folder}/${uniqueFileName}.${fileExtension}`;
 
-      const upload = new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: this.bucketName,
-          Key: key,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-          // Make file publicly readable
-          ACL: 'public-read',
-          // Cache control for 1 year
-          CacheControl: 'public, max-age=31536000',
-        },
-      });
+      const uploadParams: PutObjectCommandInput = {
+        Bucket: this.bucketName,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        // Make file publicly readable
+        ACL: 'public-read',
+        // Cache control for 1 year
+        CacheControl: 'public, max-age=31536000',
+      };
 
-      await upload.done();
+      await this.s3Client.send(new PutObjectCommand(uploadParams));
+
+      // Serve link to frontend
+      const fileUrl = `${this.cdnUrl}/${key}`;
 
       this.logger.log(`File uploaded successfully to ${key}`);
-      this.logger.log(
-        `File URL: https://${this.bucketName}.${this.region}.digitaloceanspaces.com/${key}`,
-      );
+      this.logger.log(`File URL: ${fileUrl}`);
 
       // Return the file URL
-      return key;
+      return { key: key, url: fileUrl };
     } catch (error) {
       this.logger.error('File upload failed', error);
       throw error;
@@ -136,14 +142,12 @@ export class S3Service {
   }
 
   /**
-   * Get the public URL for a file
+   * Get the public URL for a file using CDN
    *
    * @param key - The key of the file
-   * @returns Public URL
+   * @returns Public URL via CDN
    */
   getPublicUrl(key: string): string {
-    // Direct Spaces URL format
-    // https://bucket-name.region.digitaloceanspaces.com/key
-    return `https://${this.bucketName}.${this.region}.digitaloceanspaces.com/${key}`;
+    return `${this.cdnUrl}/${key}`;
   }
 }
