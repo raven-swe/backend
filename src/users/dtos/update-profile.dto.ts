@@ -1,9 +1,21 @@
-import { IsDate, IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import {
+  IsDate,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsOptionalDate } from '../decorators/is-optional-date.decorator';
+import { VALIDATION_ERROR_CODES } from 'src/common/validation-error-codes';
 
 export class UpdateProfileDto {
+  @Transform(({ value }: { value: string | null }) => (value === null ? '' : value?.trim()))
   @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  @MinLength(1, { message: 'Display name should be at least 1 character' })
   @MaxLength(100, { message: 'Display name should not exceed 100 characters' })
   displayName?: string;
 
@@ -17,8 +29,7 @@ export class UpdateProfileDto {
   @MaxLength(100, { message: 'Location should not exceed 100 characters' })
   location?: string | null;
 
-  @IsOptional()
-  @IsDate()
+  @IsOptionalDate(VALIDATION_ERROR_CODES.NOT_A_DATE)
   birthDate?: Date;
 
   @IsOptional()
@@ -38,27 +49,9 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
-  @IsUrl(
-    {
-      require_protocol: true,
-      require_valid_protocol: true,
-      require_host: true,
-      allow_protocol_relative_urls: false,
-    },
-    { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
-  )
   avatarUrl?: string | null;
 
   @IsOptional()
   @IsString()
-  @IsUrl(
-    {
-      require_protocol: true,
-      require_valid_protocol: true,
-      require_host: true,
-      allow_protocol_relative_urls: false,
-    },
-    { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
-  )
   bannerUrl?: string | null;
 }

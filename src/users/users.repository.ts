@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, profiles, users } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
-import { LanguageCode } from '@prisma/client';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
+import { DEFAULT_PROFILE_PICTURE } from './constants/users';
 
 @Injectable()
 export class UsersRepository {
@@ -50,9 +50,10 @@ export class UsersRepository {
     });
   }
 
-  async updateProfile(userId: bigint, data: Partial<UpdateProfileDto>) {
-    let birthDate: string | undefined = undefined;
+  async updateProfile(userId: bigint, data: UpdateProfileDto) {
     return await this.prisma.$transaction(async (tx) => {
+      let birthDate: string | undefined = undefined;
+
       // Update birthDate in users table if provided
       if (data.birthDate !== undefined) {
         const updatedUser = await tx.users.update({
@@ -62,30 +63,34 @@ export class UsersRepository {
         birthDate = updatedUser.birthdate?.toISOString().split('T')[0];
       }
 
-      // Prepare profile data for Prisma
-      const prismaData = {
-        display_name: data.displayName,
-        bio: data.bio,
-        location: data.location,
-        website_url: data.websiteUrl,
-        avatar_url: data.avatarUrl,
-        banner_url: data.bannerUrl,
-      };
+      // Build prismaData conditionally
+      const prismaData: Prisma.profilesUpdateInput = {};
+      if (data.displayName !== undefined) prismaData.display_name = data.displayName;
+      if (data.bio !== undefined) prismaData.bio = data.bio;
+      if (data.location !== undefined) prismaData.location = data.location;
+      if (data.websiteUrl !== undefined) prismaData.website_url = data.websiteUrl;
+      if (data.avatarUrl !== undefined) prismaData.avatar_url = data.avatarUrl;
+      if (data.bannerUrl !== undefined) prismaData.banner_url = data.bannerUrl;
 
-      // Update/create profile
-      const profile = await tx.profiles.upsert({
-        where: { user_id: userId },
-        update: prismaData,
-        create: {
-          user_id: userId,
-          display_name: data.displayName || '',
-          bio: data.bio,
-          location: data.location,
-          website_url: data.websiteUrl,
-          avatar_url: data.avatarUrl,
-          banner_url: data.bannerUrl,
-        },
-      });
+      console.log('Prisma Data to be updated:', prismaData);
+
+      // Only update if there are fields to update
+      let profile;
+      if (Object.keys(prismaData).length > 0) {
+        profile = await tx.profiles.update({
+          where: { user_id: userId },
+          data: prismaData,
+        });
+      } else {
+        // If no profile fields to update, just fetch the existing profile
+        profile = await tx.profiles.findUnique({
+          where: { user_id: userId },
+        });
+      }
+
+      if (!profile) {
+        throw new Error(`Profile not found for user ${userId}`);
+      }
 
       // Map profile fields to return
       return {
@@ -95,7 +100,7 @@ export class UsersRepository {
         location: profile.location,
         birthDate,
         websiteUrl: profile.website_url,
-        avatarUrl: profile.avatar_url,
+        avatarUrl: profile.avatar_url || DEFAULT_PROFILE_PICTURE,
         bannerUrl: profile.banner_url,
         updatedAt: profile.updated_at,
       };
@@ -200,13 +205,13 @@ export class UsersRepository {
       bioEntities: null,
       location: user.profile?.location || null,
       birthDate: user.birthdate.toISOString().split('T')[0] || null,
-      avatarUrl: user.profile?.avatar_url || null,
+      avatarUrl: user.profile?.avatar_url || DEFAULT_PROFILE_PICTURE,
       bannerUrl: user.profile?.banner_url || null,
       websiteUrl: user.profile?.website_url || null,
       joinedAt: user.created_at,
       relationship,
-      followingCount: user._count.following.toString(),
-      followersCount: user._count.followers.toString(),
+      followingCount: user._count.following,
+      followersCount: user._count.followers,
 
       mutualsCount: mutualsCount ? mutualsCount : null,
       mutualNames,

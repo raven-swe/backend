@@ -29,12 +29,9 @@ export class MeController {
   }
 
   @Patch()
-  async updateProfile(
-    @Body() updateProfileDto: Partial<UpdateProfileDto>,
-    // @Request() req -- enable after merging login functionality
-  ) {
-    // const userId = req.user.id;
-    const userId = BigInt(18); // temporary userId for testing
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(@Body() updateProfileDto: UpdateProfileDto, @User() user: RequestUser) {
+    const userId = BigInt(user.id);
     const profile = await this.usersService.updateProfile(userId, updateProfileDto);
 
     return {
@@ -44,10 +41,9 @@ export class MeController {
   }
 
   @Get()
-  async getMyProfile() {
-    // @Request() req -- enable after merging login functionality
-    // const username = req.user.username;
-    const username = 'OmarHassan'; // temporary username for testing
+  @UseGuards(JwtAuthGuard)
+  async getMyProfile(@User() user: RequestUser) {
+    const username = user.username;
     return this.usersService.getUserProfile(username);
   }
 }

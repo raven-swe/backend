@@ -138,37 +138,7 @@ export class UsersService {
       );
     }
 
-    // Prepare updated data
-    const updatedData: Partial<UpdateProfileDto> = {};
-
-    if (data.displayName !== undefined) updatedData.displayName = data.displayName;
-    if (data.bio !== undefined) updatedData.bio = data.bio;
-    if (data.location !== undefined) updatedData.location = data.location;
-    if (data.websiteUrl !== undefined) updatedData.websiteUrl = data.websiteUrl;
-    if (data.avatarUrl !== undefined) updatedData.avatarUrl = data.avatarUrl;
-    if (data.bannerUrl !== undefined) updatedData.bannerUrl = data.bannerUrl;
-    if (data.birthDate !== undefined) updatedData.birthDate = data.birthDate;
-
-    const result = await this.usersRepository.updateProfile(userId, updatedData);
-
-    // Temporarily return the updated user
-    return result;
-  }
-
-  async getUserProfile(username: string, currentUserId?: bigint) {
-    const profile = await this.usersRepository.findUserProfileByUsername(username, currentUserId);
-
-    if (!profile) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return profile;
+    return await this.usersRepository.updateProfile(userId, data);
   }
 
   /**

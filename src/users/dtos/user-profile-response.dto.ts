@@ -25,8 +25,8 @@ export class UserProfileResponseDto {
   relationship?: UserRelationshipDto | null;
 
   // BigInt as string since we can't return BigInt directly in DTO
-  followingCount: string;
-  followersCount: string;
+  followingCount: number;
+  followersCount: number;
   mutualsCount?: number | null;
   mutualNames?: string[] | null;
 }

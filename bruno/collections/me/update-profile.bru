@@ -7,12 +7,17 @@ meta {
 patch {
   url: http://localhost:3000/me
   body: json
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMiLCJ1c2VybmFtZSI6IlRhc25lZW0iLCJpYXQiOjE3NjE3NjE1MDQsImV4cCI6MTc2MTc2MjQwNH0.OaUUopb2J5Sx6z0B3Ew25FLBL96PViZgv6MAs_3Ohdk
 }
 
 body:json {
   {
-    "displayName": "Test"
+    "displayName": "hiiii"
+    "birthDate": null
   }
 }
 
