@@ -100,7 +100,10 @@ describe('MeController', () => {
       mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.getMyProfile();
+      const result = await controller.getMyProfile({
+        id: '18',
+        username: expectedUsername,
+      });
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(expectedUsername);
@@ -123,7 +126,10 @@ describe('MeController', () => {
       mockUsersService.updateProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.updateProfile(updateProfileDto);
+      const result = await controller.updateProfile(updateProfileDto, {
+        id: '18',
+        username: 'OmarHassan',
+      });
 
       // Assert
       expect(mockUsersService.updateProfile).toHaveBeenCalledWith(expectedUserId, updateProfileDto);

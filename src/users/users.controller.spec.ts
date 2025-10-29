@@ -40,7 +40,10 @@ describe('UsersController', () => {
       mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.getUserProfile(username);
+      const result = await controller.getUserProfile(username, {
+        id: currentUserId.toString(),
+        username,
+      });
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, currentUserId);
