@@ -485,7 +485,7 @@ export class AuthService {
   }
 
   async login(user: RequestUser, deviceType: string, ipAddress: string) {
-    const accessToken = this.jwtService.sign(user);
+    const accessToken = await this.jwtService.signAsync({ userId: user.id });
 
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
@@ -568,7 +568,7 @@ export class AuthService {
     }
 
     const user: RequestUser = { id: oldToken.user.id.toString(), username: oldToken.user.username };
-    const accessToken = this.jwtService.sign(user);
+    const accessToken = await this.jwtService.signAsync({ userId: user.id });
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
       10,
