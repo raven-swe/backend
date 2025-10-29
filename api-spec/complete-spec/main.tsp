@@ -1237,7 +1237,6 @@ namespace Me {
       | InternalServerErrorResponse
       | ForbiddenResponse;
 
-    @patch(#{ implicitOptionality: true })
     @route("/username")
     @summary("Change the authenticated user's username")
     op updateUsername(

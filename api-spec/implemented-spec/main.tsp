@@ -430,7 +430,6 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
-    @patch(#{ implicitOptionality: true })
     @route("/username")
     @summary("Change the authenticated user's username")
     op updateUsername(
