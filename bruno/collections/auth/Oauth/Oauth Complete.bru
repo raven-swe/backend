@@ -10,6 +10,10 @@ post {
   auth: inherit
 }
 
+headers {
+  X-Client-Type: "web"
+}
+
 body:json {
   {
     "creationToken": {{creationToken}},
@@ -18,7 +22,7 @@ body:json {
 }
 
 vars:pre-request {
-  creationToken: "sd"
+  creationToken: ""
   birthDate: "2003-02-22"
 }
 

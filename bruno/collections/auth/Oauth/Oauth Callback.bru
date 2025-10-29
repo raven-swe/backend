@@ -10,10 +10,18 @@ post {
   auth: inherit
 }
 
+headers {
+  X-Client-Type: "web"
+}
+
 body:json {
   {
     "providerToken": {{providerToken}}
   }
+}
+
+vars:pre-request {
+  providerToken: ""
 }
 
 settings {
