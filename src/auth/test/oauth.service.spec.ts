@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { oAuthService } from '../oauth.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { OAuthRepository } from '../oauth.repository';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
@@ -9,22 +9,12 @@ import { AuthService } from '../auth.service';
 describe('oAuthService', () => {
   let service: oAuthService;
 
-  const mockPrismaService = {
-    user_external_accounts: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-    users: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-    user_devices: {
-      create: jest.fn(),
-    },
-    refresh_tokens: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn(),
+  const mockOAuthRepository = {
+    findExternalAccountWithUser: jest.fn(),
+    findUserByEmail: jest.fn(),
+    findUserByEmailWithExternalAccounts: jest.fn(),
+    createExternalAccount: jest.fn(),
+    createUserWithProfileAndExternalAccount: jest.fn(),
   };
 
   const mockJwtService = {
@@ -45,8 +35,8 @@ describe('oAuthService', () => {
       providers: [
         oAuthService,
         {
-          provide: PrismaService,
-          useValue: mockPrismaService,
+          provide: OAuthRepository,
+          useValue: mockOAuthRepository,
         },
         {
           provide: JwtService,
@@ -101,7 +91,7 @@ describe('oAuthService', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (service as any).strategies.github = mockStrategy;
 
-      mockPrismaService.user_external_accounts.findUnique.mockResolvedValue({
+      mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue({
         user: {
           id: BigInt(1),
           username: 'testuser',
@@ -136,7 +126,7 @@ describe('oAuthService', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (service as any).strategies.google = mockStrategy;
 
-      mockPrismaService.user_external_accounts.findUnique.mockResolvedValue({
+      mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue({
         user: {
           id: BigInt(1),
           username: 'testuser',
@@ -176,7 +166,7 @@ describe('oAuthService', () => {
     };
 
     it('should login existing user with external account (Already existing external Account)', async () => {
-      mockPrismaService.user_external_accounts.findUnique.mockResolvedValue({
+      mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue({
         user: {
           id: BigInt(1),
           username: 'existinguser',
@@ -196,15 +186,10 @@ describe('oAuthService', () => {
         mockIpAddress,
       );
 
-      expect(mockPrismaService.user_external_accounts.findUnique).toHaveBeenCalledWith({
-        where: {
-          provider_provider_user_id: {
-            provider: 'github',
-            provider_user_id: 'github-123',
-          },
-        },
-        include: { user: true },
-      });
+      expect(mockOAuthRepository.findExternalAccountWithUser).toHaveBeenCalledWith(
+        'github',
+        'github-123',
+      );
       expect(mockAuthService.login).toHaveBeenCalledWith(
         { username: 'existinguser', id: '1' },
         mockDeviceType,
@@ -217,15 +202,15 @@ describe('oAuthService', () => {
     });
 
     it('should link external account to existing user by email (not existing external Account)', async () => {
-      mockPrismaService.user_external_accounts.findUnique.mockResolvedValue(null);
-      mockPrismaService.users.findUnique.mockResolvedValue({
+      mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue(null);
+      mockOAuthRepository.findUserByEmail.mockResolvedValue({
         id: BigInt(1),
         username: 'existinguser',
         email: 'test@example.com',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockPrismaService.user_external_accounts.create.mockResolvedValue({} as any);
+      mockOAuthRepository.createExternalAccount.mockResolvedValue({} as any);
 
       mockAuthService.login.mockResolvedValue({
         accessToken: 'mock-access-token',
@@ -238,16 +223,12 @@ describe('oAuthService', () => {
         mockIpAddress,
       );
 
-      expect(mockPrismaService.users.findUnique).toHaveBeenCalledWith({
-        where: { email: 'test@example.com' },
-      });
-      expect(mockPrismaService.user_external_accounts.create).toHaveBeenCalledWith({
-        data: {
-          user_id: BigInt(1),
-          provider_user_id: 'github-123',
-          provider: 'github',
-        },
-      });
+      expect(mockOAuthRepository.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockOAuthRepository.createExternalAccount).toHaveBeenCalledWith(
+        BigInt(1),
+        'github',
+        'github-123',
+      );
       expect(mockAuthService.login).toHaveBeenCalledWith(
         { id: '1', username: 'existinguser' },
         mockDeviceType,
@@ -260,8 +241,8 @@ describe('oAuthService', () => {
     });
 
     it('should return creation token for new user', async () => {
-      mockPrismaService.user_external_accounts.findUnique.mockResolvedValue(null);
-      mockPrismaService.users.findUnique.mockResolvedValue(null);
+      mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue(null);
+      mockOAuthRepository.findUserByEmail.mockResolvedValue(null);
       mockJwtService.sign.mockReturnValue('mock-creation-token');
 
       const result = await service.handleOauthProfile(
@@ -301,7 +282,8 @@ describe('oAuthService', () => {
 
     it('should successfully complete registration', async () => {
       mockJwtService.verify.mockReturnValue(mockPayload);
-      mockPrismaService.users.create.mockResolvedValue({
+      mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
+      mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
         id: BigInt(1),
         username: 'newuser@example.com',
         email: 'newuser@example.com',
@@ -355,7 +337,8 @@ describe('oAuthService', () => {
 
     it('should create user with correct data', async () => {
       mockJwtService.verify.mockReturnValue(mockPayload);
-      mockPrismaService.users.create.mockResolvedValue({
+      mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
+      mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
         id: BigInt(1),
         username: 'newuser@example.com',
         email: 'newuser@example.com',
@@ -374,26 +357,16 @@ describe('oAuthService', () => {
         mockIpAddress,
       );
 
-      expect(mockPrismaService.users.create).toHaveBeenCalledWith({
-        data: {
-          email: 'newuser@example.com',
-          username: 'newuser@example.com',
-          birthdate: new Date(mockBirthDate),
-          profile: {
-            create: {
-              display_name: 'New User',
-              avatar_url: 'https://avatar.url',
-            },
-          },
-          user_external_accounts: {
-            create: {
-              provider: 'github',
-              provider_user_id: 'github-123',
-            },
-          },
-        },
-      });
-      expect(mockPrismaService.users.create).toHaveBeenCalledTimes(1);
+      expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledWith(
+        'newuser@example.com',
+        'newuser@example.com',
+        new Date(mockBirthDate),
+        'New User',
+        'https://avatar.url',
+        'github',
+        'github-123',
+      );
+      expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledTimes(1);
     });
 
     it('should throw BadRequestException for invalid token', async () => {
@@ -450,7 +423,8 @@ describe('oAuthService', () => {
 
     it('should parse birthdate correctly', async () => {
       mockJwtService.verify.mockReturnValue(mockPayload);
-      mockPrismaService.users.create.mockResolvedValue({
+      mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
+      mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
         id: BigInt(1),
         username: 'newuser@example.com',
         email: 'newuser@example.com',
@@ -469,9 +443,9 @@ describe('oAuthService', () => {
         mockIpAddress,
       );
 
-      const createCall = mockPrismaService.users.create.mock.calls[0] as unknown[];
-      const createData = createCall[0] as { data: { birthdate: Date } };
-      expect(createData.data.birthdate).toEqual(new Date('1995-06-15'));
+      const createCall = mockOAuthRepository.createUserWithProfileAndExternalAccount.mock
+        .calls[0] as unknown[];
+      expect(createCall[2]).toEqual(new Date('1995-06-15'));
     });
   });
 });

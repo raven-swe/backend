@@ -5,6 +5,7 @@ import { oAuthService } from './oauth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
 import { AuthModule } from './auth.module';
+import { OAuthRepository } from './oauth.repository';
 
 @Module({
   imports: [
@@ -21,6 +22,6 @@ import { AuthModule } from './auth.module';
     }),
   ],
   controllers: [OauthController],
-  providers: [oAuthService],
+  providers: [oAuthService, OAuthRepository],
 })
 export class OauthModule {}

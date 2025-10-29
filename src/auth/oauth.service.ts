@@ -1,5 +1,4 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ProviderProfile } from './types/oauth.type';
 import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
@@ -9,16 +8,17 @@ import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
 import { ConfigService } from '@nestjs/config';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AuthService } from './auth.service';
+import { OAuthRepository } from './oauth.repository';
 
 @Injectable()
 export class oAuthService {
   private strategies: Record<SupportedOAuthProvider, OAuthProviderStrategy>;
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly authService: AuthService,
+    private readonly oauthRepository: OAuthRepository,
   ) {
     this.strategies = {
       github: new GithubOAuthStrategy(this.config),
@@ -52,15 +52,10 @@ export class oAuthService {
     ipAddress: string,
   ) {
     // Check if this user already registered with this external account
-    const externalAccount = await this.prisma.user_external_accounts.findUnique({
-      where: {
-        provider_provider_user_id: {
-          provider: providerProfile.provider,
-          provider_user_id: providerProfile.id,
-        },
-      },
-      include: { user: true },
-    });
+    const externalAccount = await this.oauthRepository.findExternalAccountWithUser(
+      providerProfile.provider,
+      providerProfile.id,
+    );
 
     if (externalAccount) {
       return await this.authService.login(
@@ -69,18 +64,14 @@ export class oAuthService {
         ipAddress,
       );
     } else {
-      const userAccount = await this.prisma.users.findUnique({
-        where: { email: providerProfile.email },
-      });
+      const userAccount = await this.oauthRepository.findUserByEmail(providerProfile.email);
 
       if (userAccount) {
-        await this.prisma.user_external_accounts.create({
-          data: {
-            user_id: userAccount.id,
-            provider_user_id: providerProfile.id,
-            provider: providerProfile.provider,
-          },
-        });
+        await this.oauthRepository.createExternalAccount(
+          userAccount.id,
+          providerProfile.provider,
+          providerProfile.id,
+        );
 
         const user = {
           id: userAccount.id.toString(),
@@ -118,6 +109,7 @@ export class oAuthService {
       type: string;
       avatar_url: string;
     };
+
     try {
       payload = this.jwtService.verify(creationToken);
 
@@ -142,24 +134,48 @@ export class oAuthService {
       );
     }
 
-    console.log(payload);
+    // Check if user already exists (safety check to avoid duplicates)
+    const existingUser = await this.oauthRepository.findUserByEmailWithExternalAccounts(
+      payload.email,
+    );
 
-    const user = await this.prisma.users.create({
-      data: {
-        email: payload.email,
-        username: payload.email, // TODO generate username correctly (suggestions)
-        birthdate: new Date(birthDate),
-        profile: {
-          create: { display_name: payload.name, avatar_url: payload.avatar_url },
-        },
-        user_external_accounts: {
-          create: {
-            provider: payload.provider,
-            provider_user_id: payload.providerId,
-          },
-        },
-      },
-    });
+    // If user exists and has the external account, just log them in
+    if (existingUser) {
+      const hasExternalAccount = existingUser.user_external_accounts.some(
+        (account) =>
+          account.provider === payload.provider && account.provider_user_id === payload.providerId, // checking providerId case its the only reliable constant -- github account email might actually change later.
+      );
+
+      if (hasExternalAccount) {
+        // User already completed registration, just log them in
+        // TODO change: until middleware added to idempotency update birthdate if a new request comes in
+        await this.oauthRepository.updateUserBirthdate(existingUser.id, new Date(birthDate));
+
+        return await this.authService.login(
+          { id: existingUser.id.toString(), username: existingUser.username },
+          deviceType,
+          ipAddress,
+        );
+      }
+
+      // User exists but doesn't have this external account (Should not reach here normally)
+      throw new BadRequestException(
+        createValidationError('creationToken', {
+          invalidToken:
+            'An account with this email already exists. Please log in using your existing credentials.',
+        }),
+      );
+    }
+
+    const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
+      payload.email,
+      payload.email, // TODO USERNAME STRATEGY
+      new Date(birthDate),
+      payload.name,
+      payload.avatar_url,
+      payload.provider,
+      payload.providerId,
+    );
 
     return await this.authService.login(
       { id: user.id.toString(), username: user.username },
