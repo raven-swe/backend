@@ -197,7 +197,7 @@ export class AuthController {
     @Req() req: RequestWithCookies,
     @Res({ passthrough: true }) res: Response,
     @User() user: RequestUser,
-    @Body() logoutDto: LogoutDto,
+    @Body() logoutDto: LogoutDto | undefined,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
     if (!clientType) {
@@ -205,14 +205,14 @@ export class AuthController {
     }
     let refreshToken;
     if (clientType === 'web') {
-      refreshToken = req.cookies?.refresh_token;
-      res.clearCookie('refresh_token', {
+      refreshToken = req.cookies?.refreshToken;
+      res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: this.config.get('NODE_ENV') === 'production',
         sameSite: 'none',
       });
     } else if (clientType === 'mobile') {
-      refreshToken = logoutDto.refreshToken;
+      refreshToken = logoutDto?.refreshToken;
     }
     if (refreshToken) {
       await this.authService.clearRefreshToken(user.id, refreshToken);
