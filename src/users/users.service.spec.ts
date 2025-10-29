@@ -349,7 +349,6 @@ describe('UsersService', () => {
     });
   });
 
-
   describe('updateProfile', () => {
     const updateProfileDto: UpdateProfileDto = {
       displayName: 'Updated Name',

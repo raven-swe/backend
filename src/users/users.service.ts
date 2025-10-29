@@ -145,16 +145,26 @@ export class UsersService {
   }
 
   /**
-   * Find user profile by username, including relationship status with current user if provided
-   * If currentUserId is provided, then the user is authenticated and we can check the relationship status
-   * Else we return the profile without relationship status
+   * Fetches the public profile data for a given user by their username.
    *
-   * @param username - username of the user to find
-   * @param currentUserId - optional current user ID for relationship status
-   * @returns User profile with relationship status
+   * If a `currentUserId` is provided, the method also includes relationship metadata
+   * between the current user and the target user (e.g. following status, mutuals, etc.).
+   *
+   * The `isMyProfile` flag can be set to `true` to indicate that the request
+   * is for the authenticated user's own profile, then the user profile will be returned with the relationship metadata set to null.
+   *
+   * @param username - The unique username of the user whose profile is being requested.
+   * @param currentUserId - (Optional) The ID of the authenticated user, used to fetch relationship context.
+   * @param isMyProfile - (Optional) Whether the profile being requested belongs to the authenticated user.
+   *
+   * @returns A user profile object, optionally enriched with relationship data.
    */
-  async getUserProfile(username: string, currentUserId?: bigint) {
-    const profile = await this.usersRepository.findUserProfileByUsername(username, currentUserId);
+  async getUserProfile(username: string, currentUserId?: bigint, isMyProfile: boolean = false) {
+    const profile = await this.usersRepository.findUserProfileByUsername(
+      username,
+      currentUserId,
+      isMyProfile,
+    );
 
     if (!profile) {
       throw new HttpException(

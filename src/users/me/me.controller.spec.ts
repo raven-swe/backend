@@ -49,7 +49,7 @@ describe('MeController', () => {
       mockUsersService.changePassword.mockResolvedValue(expectedResult);
 
       // Act
-      const user: RequestUser = { id: expectedUserId.toString(), username: 'test' };
+      const user: RequestUser = { id: expectedUserId.toString() };
       const result = await controller.changePassword(changePasswordDto, user);
 
       // Assert
@@ -69,7 +69,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockResolvedValue(mockResponse);
 
-      const user: RequestUser = { id: '18', username: 'test' };
+      const user: RequestUser = { id: '18' };
       const result = await controller.changePassword(changePasswordDto, user);
 
       expect(result).toEqual(mockResponse);
@@ -80,7 +80,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockRejectedValue(error);
 
-      const user: RequestUser = { id: '18', username: 'test' };
+      const user: RequestUser = { id: '18' };
       await expect(controller.changePassword(changePasswordDto, user)).rejects.toThrow(
         'Invalid old password',
       );
@@ -91,7 +91,6 @@ describe('MeController', () => {
   describe('GET /me', () => {
     it('should call usersService.getUserProfile with correct parameters', async () => {
       // Arrange
-      const expectedUsername = 'OmarHassan';
       const expectedResult = {
         displayName: 'Omar Hassan',
         bio: 'Software Developer',
@@ -102,11 +101,10 @@ describe('MeController', () => {
       // Act
       const result = await controller.getMyProfile({
         id: '18',
-        username: expectedUsername,
       });
 
       // Assert
-      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(expectedUsername);
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith('18', BigInt(18));
       expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
     });
@@ -128,7 +126,6 @@ describe('MeController', () => {
       // Act
       const result = await controller.updateProfile(updateProfileDto, {
         id: '18',
-        username: 'OmarHassan',
       });
 
       // Assert

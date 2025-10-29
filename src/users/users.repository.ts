@@ -108,9 +108,13 @@ export class UsersRepository {
   async findUserProfileByUsername(
     username: string,
     currentUserId?: bigint,
+    isMyProfile: boolean = false,
   ): Promise<UserProfileResponseDto | null> {
+    // Build the where clause based on whether it's the user's own profile
+    const whereClause = isMyProfile && currentUserId ? { id: currentUserId } : { username };
+
     const user = await this.prisma.users.findUnique({
-      where: { username },
+      where: whereClause,
       include: {
         profile: true,
         _count: {
@@ -133,7 +137,7 @@ export class UsersRepository {
     const mutualNames: string[] | null = ['Omar', 'Tasneem'];
 
     // Get relationship status only if currentUserId is provided and is different from the profile user
-    if (currentUserId && currentUserId !== user.id) {
+    if (currentUserId && !isMyProfile) {
       // Check if current user is following this user
       const isFollowing = await this.prisma.follows.findUnique({
         where: {

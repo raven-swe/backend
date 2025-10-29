@@ -42,7 +42,6 @@ describe('UsersController', () => {
       // Act
       const result = await controller.getUserProfile(username, {
         id: currentUserId.toString(),
-        username,
       });
 
       // Assert

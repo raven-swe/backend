@@ -43,7 +43,6 @@ export class MeController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@User() user: RequestUser) {
-    const username = user.id;
-    return this.usersService.getUserProfile(username, BigInt(user.id));
+    return this.usersService.getUserProfile('', BigInt(user.id), true);
   }
 }
