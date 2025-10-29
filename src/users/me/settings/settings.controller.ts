@@ -52,10 +52,9 @@ export class SettingsController {
   }
 
   @Patch('username')
-  // @UseGuards(JwtAuthGuard) // TODO: Enable after auth is ready
-  async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto) {
-    // const userId = req.user.id;
-    const userId = BigInt(1); // temporary userId for testing
+  @UseGuards(JwtAuthGuard)
+  async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto, @User() user: RequestUser) {
+    const userId = BigInt(user.id);
     return this.settingsService.updateUsername(userId, updateUsernameDto);
   }
 }
