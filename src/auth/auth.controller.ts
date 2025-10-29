@@ -29,10 +29,12 @@ import { User, IPAddress } from './decorators';
 import { DeviceType } from './decorators/';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
-import { RefreshTokenDto } from './dtos';
+import { CheckIdentifierQueryDto, LogoutDto, RefreshTokenDto } from './dtos';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {

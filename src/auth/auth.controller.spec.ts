@@ -484,7 +484,7 @@ describe('AuthController with mocked config service', () => {
     it('with undefined refresh_token in body it should throw', async () => {
       mockClientType = 'mobile';
       await expect(
-        controller.refreshAccessToken(req, { refresh_token: '' }, mockResponse, mockClientType),
+        controller.refreshAccessToken(req, { refreshToken: '' }, mockResponse, mockClientType),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
