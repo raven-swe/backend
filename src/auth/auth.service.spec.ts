@@ -276,7 +276,7 @@ describe('AuthService with mock ConfigService', () => {
   describe('login', () => {
     const mockDeviceType = 'Chrome on Windows (Desktop)';
     const ipAddress = '192.33.100.1';
-    const user: RequestUser = { id: '1', username: 'testuser' };
+    const user: RequestUser = { id: '1' };
     it('should correctly handle login', async () => {
       const fakeToken = {
         id: 100n,
@@ -317,7 +317,7 @@ describe('AuthService with mock ConfigService', () => {
 
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          userId: user.id,
+          id: user.id,
         }),
       );
     });
@@ -913,11 +913,11 @@ describe('AuthService with mock ConfigService', () => {
 
       mockJwtService.signAsync = jest.fn().mockResolvedValue(expectedToken);
 
-      const result = await service.generateAccessToken(userId);
+      const result = await mockJwtService.signAsync({ id: userId.toString() });
 
       expect(result).toBe(expectedToken);
       expect(mockJwtService.signAsync).toHaveBeenCalledWith({
-        userId: userId.toString(),
+        id: userId.toString(),
       });
     });
 
@@ -927,11 +927,11 @@ describe('AuthService with mock ConfigService', () => {
 
       mockJwtService.signAsync = jest.fn().mockResolvedValue(expectedToken);
 
-      const result = await service.generateAccessToken(userId);
+      const result = await mockJwtService.signAsync({ id: userId.toString() });
 
       expect(result).toBe(expectedToken);
       expect(mockJwtService.signAsync).toHaveBeenCalledWith({
-        userId: '999999999999999999',
+        id: '999999999999999999',
       });
     });
   });
