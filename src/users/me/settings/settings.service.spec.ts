@@ -26,6 +26,7 @@ describe('SettingsService', () => {
     findByEmail: jest.fn(),
     findById: jest.fn(),
     updateUserEmail: jest.fn(),
+    updateUsernameById: jest.fn(),
   };
 
   const mockRedisService = {
@@ -394,6 +395,79 @@ describe('SettingsService', () => {
         }),
         redisService,
       );
+    });
+  });
+
+  describe('updateUsername', () => {
+    const userId = BigInt(1);
+    const newUsername = 'newusername';
+    const dto = {
+      newUsername,
+    };
+
+    it('should successfully update username', async () => {
+      const expectedResponse = { message: 'Username updated successfully.' };
+      mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+      const result = await service.updateUsername(userId, dto);
+
+      expect(result).toEqual(expectedResponse);
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, newUsername);
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call updateUsernameById with correct parameters', async () => {
+      const expectedResponse = { message: 'Username updated successfully.' };
+      mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+      await service.updateUsername(userId, dto);
+
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, newUsername);
+    });
+
+    it('should return the response from usersService.updateUsernameById', async () => {
+      const customResponse = { message: 'Custom success message' };
+      mockUsersService.updateUsernameById.mockResolvedValue(customResponse);
+
+      const result = await service.updateUsername(userId, dto);
+
+      expect(result).toBe(customResponse);
+    });
+
+    it('should propagate errors from usersService.updateUsernameById', async () => {
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+
+      mockUsersService.updateUsernameById.mockRejectedValue(error);
+
+      await expect(service.updateUsername(userId, dto)).rejects.toThrow(error);
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, newUsername);
+    });
+
+    it('should handle different username values', async () => {
+      const testCases = [
+        'user123',
+        'test_user',
+        'NewUser2024',
+        'a',
+        'very_long_username_with_numbers_123',
+      ];
+
+      for (const username of testCases) {
+        const testDto = { newUsername: username };
+        const expectedResponse = { message: 'Username updated successfully.' };
+        mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+        await service.updateUsername(userId, testDto);
+
+        expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, username);
+        jest.clearAllMocks();
+      }
     });
   });
 });
