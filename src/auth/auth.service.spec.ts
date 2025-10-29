@@ -686,7 +686,7 @@ describe('AuthService with mock ConfigService', () => {
   });
 
   describe('completeRegistration', () => {
-    const dto = { creationToken: 'test-token', password: 'Password1!', deviceType: '' };
+    const dto = { creationToken: 'test-token', password: 'Password1!' };
     const cachedData: CachedRegistrationData = {
       email: 'test@email.com',
       name: 'Test',

@@ -117,7 +117,7 @@ describe('AuthController with real config service', () => {
       mockAuthService.completeRegistration.mockResolvedValue(serviceResult);
 
       const result = await controller.completeRegistration(
-        mockRequest,
+        '127.0.0.1',
         dto,
         'web',
         deviceType,

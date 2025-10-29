@@ -55,14 +55,13 @@ export class AuthController {
 
   @Post('register/complete')
   async completeRegistration(
-    @Req() req: Request,
+    @IPAddress() ipAddress: string,
     @Body() completeRegistrationDto: CompleteRegistrationDto,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
     @DeviceType() deviceType: string,
     @Res({ passthrough: true }) res: Response,
   ) {
     this.validateClientType(clientType);
-    const ipAddress = req.ip;
     const { accessToken, refreshToken } = await this.authService.completeRegistration(
       completeRegistrationDto,
       ipAddress,
