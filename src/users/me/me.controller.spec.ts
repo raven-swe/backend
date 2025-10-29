@@ -104,7 +104,7 @@ describe('MeController', () => {
       });
 
       // Assert
-      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith('18', BigInt(18));
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith('', BigInt(18), true);
       expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
     });

@@ -433,7 +433,11 @@ describe('UsersService', () => {
       const result = await service.getUserProfile('testuser');
 
       expect(result).toEqual(profileWithoutRelationship);
-      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', undefined);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        undefined,
+        false,
+      );
     });
 
     it('should return user profile with relationship data when currentUserId is provided', async () => {
@@ -453,7 +457,11 @@ describe('UsersService', () => {
       const result = await service.getUserProfile('testuser', BigInt(2));
 
       expect(result).toEqual(profileWithRelationship);
-      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', BigInt(2));
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        BigInt(2),
+        false,
+      );
     });
 
     it('should throw error if user profile not found', async () => {
@@ -472,6 +480,7 @@ describe('UsersService', () => {
       expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
         'nonexistent',
         undefined,
+        false,
       );
     });
 
@@ -488,7 +497,11 @@ describe('UsersService', () => {
 
       expect(result.mutualsCount).toBe(2);
       expect(result.mutualNames).toEqual(['Omar', 'Tasneem']);
-      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith('testuser', BigInt(2));
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        BigInt(2),
+        false,
+      );
     });
   });
 
