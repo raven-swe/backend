@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -28,8 +29,12 @@ import { User, IPAddress } from './decorators';
 import { Throttle } from '@nestjs/throttler';
 import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
-import type { RequestUser } from './types';
+import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
+import { RefreshTokenDto } from './dtos';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Controller('auth')
 export class AuthController {
@@ -123,7 +128,7 @@ export class AuthController {
     if (clientType === 'mobile') {
       return { accessToken, refreshToken };
     }
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
@@ -136,5 +141,52 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
     return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
+  }
+
+  @Post('refresh-token')
+  @HttpCode(200)
+  async refrehAccessToken(
+    @Req() req: RequestWithCookies,
+    @Body() refreshTokenDto: RefreshTokenDto | undefined,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
+  ) {
+    if (!clientType) {
+      throw new UnauthorizedException();
+    }
+    let refreshToken;
+    if (clientType === 'web') {
+      refreshToken = req.cookies?.refreshToken;
+    } else if (clientType === 'mobile') {
+      const body = refreshTokenDto && typeof refreshTokenDto === 'object' ? refreshTokenDto : {};
+      const dto = plainToClass(RefreshTokenDto, body);
+      const errors = await validate(dto);
+
+      if (errors.length > 0) {
+        throw new BadRequestException(
+          createValidationError('refreshToken', { isString: 'Refresh token must be a string' }),
+        );
+      }
+      refreshToken = dto.refreshToken;
+    }
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not provided, please log in again.');
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.authService.refreshAccessToken(refreshToken);
+
+    const daysToMillis = 24 * 60 * 60 * 1000;
+    if (clientType == 'mobile') {
+      return { accessToken, refreshToken: newRefreshToken };
+    }
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: this.config.get('NODE_ENV') === 'production',
+      sameSite: 'none',
+      maxAge:
+        this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
+    });
+    return { accessToken };
   }
 }

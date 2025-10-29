@@ -9,23 +9,23 @@ import { DevicesService } from 'src/devices/devices.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-
+import { UnauthorizedException } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import {
   AUTH_CONFIG,
   AUTH_ERROR_CODES,
   AUTH_ERROR_MESSAGES,
   REDIS_KEYS,
-} from 'src/auth/constants/auth.constants';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
+} from './constants/auth.constants';
+import { LanguageCode, Prisma } from '@prisma/client';
+import { RequestUser } from './types';
 import { generateAndStoreOtp } from './utils/otp.util';
+import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
 import { DeviceType } from 'src/devices/interfaces/device.interface';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { LanguageCode, Prisma } from '@prisma/client';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
-import { RequestUser } from './types';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (
@@ -74,6 +74,8 @@ const createMockPrismaService = () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       delete: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
     user_devices: {
       create: jest.fn(),
@@ -86,7 +88,7 @@ const createMockPrismaService = () => {
   };
 };
 
-describe('AuthService', () => {
+describe('AuthService with mock ConfigService', () => {
   let service: AuthService;
   let mockPrismaService: ReturnType<typeof createMockPrismaService>;
   let mockJwtService: jest.Mocked<Partial<JwtService>>;
@@ -136,8 +138,7 @@ describe('AuthService', () => {
   beforeEach(async () => {
     // Initialize mocks
     mockJwtService = {
-      signAsync: jest.fn(),
-      sign: jest.fn().mockReturnValue('mockAccessToken'),
+      signAsync: jest.fn().mockReturnValue('mockAccessToken'),
     };
 
     mockRecaptchaService = {
@@ -276,7 +277,6 @@ describe('AuthService', () => {
     const mockDeviceType = 'Chrome on Windows (Desktop)';
     const ipAddress = '192.33.100.1';
     const user: RequestUser = { id: '1', username: 'testuser' };
-
     it('should correctly handle login', async () => {
       const fakeToken = {
         id: 100n,
@@ -315,17 +315,11 @@ describe('AuthService', () => {
       expect(call.data.device_id).toBe(100n);
       expect(call.data.expires_at).toBeInstanceOf(Date);
 
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: user.id,
-          username: user.username,
+          userId: user.id,
         }),
       );
-
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        id: user.id,
-        username: user.username,
-      });
     });
 
     it('should throw an error if the database transaction fails', async () => {
@@ -1100,6 +1094,96 @@ describe('AuthService', () => {
       expect(mockPrismaService.profiles.create).toHaveBeenCalledWith({
         data: { user_id: mockUserId, display_name: 'Custom Display Name' },
       });
+    });
+  });
+
+  describe('checkIdentifier', () => {
+    const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
+
+    it('should return exist true when user found with username', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        username: user.username,
+      });
+
+      const result = await service.checkIdentifier(user.username);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'username',
+      });
+    });
+
+    it('should return exist true when user found with email', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        email: user.email,
+      });
+
+      const result = await service.checkIdentifier(user.email);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'email',
+      });
+    });
+
+    it('should return exist true when user found with phone', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue({
+        id: user.id,
+        phone: user.phone,
+      });
+
+      const result = await service.checkIdentifier(user.phone);
+
+      expect(result).toEqual({
+        exists: true,
+        type: 'phone',
+      });
+    });
+
+    it('should return exist false when user not found', async () => {
+      mockPrismaService.users.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkIdentifier('someusername');
+
+      expect(result).toEqual({
+        exists: false,
+      });
+    });
+  });
+  describe('refrehAccessToken', () => {
+    it('should validate old token and return new accessToken and refreshToken', async () => {
+      const oldToken = 'oldRefreshToken';
+      const date = new Date();
+      date.setDate(date.getDate() + 1);
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        id: '100',
+        user: { id: BigInt('100'), username: 'username' },
+        expires_at: date,
+      });
+      const result = await service.refreshAccessToken(oldToken);
+
+      expect(result).toEqual({
+        refreshToken: 'mockRefreshToken',
+        accessToken: 'mockAccessToken',
+      });
+    });
+    it('should throw UnauthorizedException if token not found', async () => {
+      const oldToken = 'oldRefreshToken';
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue(null);
+
+      await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
+    });
+    it('should throw UnauthorizedException if token expired', async () => {
+      const oldToken = 'oldRefreshToken';
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        expires_at: date,
+      });
+
+      await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
     });
   });
 });
