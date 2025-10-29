@@ -362,7 +362,6 @@ namespace Auth {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Me")
@@ -428,6 +427,21 @@ namespace Me {
       | MessageResponse<"Email address updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @patch(#{ implicitOptionality: true })
+    @route("/username")
+    @summary("Change the authenticated user's username")
+    op updateUsername(
+      @body body: {
+        newUsername: string;
+      },
+    ):
+      | MessageResponse<"Username changed successfully.">
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
