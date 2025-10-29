@@ -428,8 +428,8 @@ export class AuthService {
       this.logger.log(`User created with ID: ${userId}`);
       newDevice.userId = userId;
 
-      await tx.profiles.create({
-        data: { user_id: userId, display_name: newUser.name },
+      await tx.profile.create({
+        data: { userId, displayName: newUser.name },
       });
       this.logger.log(`Profile created for user ID: ${userId} with display name: ${newUser.name}`);
 
@@ -446,14 +446,14 @@ export class AuthService {
   }
 
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
-    const user = await this.prisma.users.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
       },
     });
 
-    if (user && user.password_hash) {
-      const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (user && user.passwordHash) {
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (isMatch) {
         return { id: user.id.toString() };
       }
@@ -472,20 +472,20 @@ export class AuthService {
       this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
-      const userDevice = await tx.user_devices.create({
+      const userDevice = await tx.userDevice.create({
         data: {
-          user_id: BigInt(user.id),
-          device_type: deviceType,
-          ip_address: ipAddress,
+          userId: BigInt(user.id),
+          deviceType: deviceType,
+          ipAddress: ipAddress,
         },
       });
 
-      await tx.refresh_tokens.create({
+      await tx.refreshToken.create({
         data: {
-          user_id: BigInt(user.id),
-          device_id: userDevice.id,
-          token_hash: hashedRefreshToken,
-          expires_at: expiresAt,
+          userId: BigInt(user.id),
+          deviceId: userDevice.id,
+          tokenHash: hashedRefreshToken,
+          expiresAt: expiresAt,
         },
       });
     });
@@ -496,7 +496,7 @@ export class AuthService {
   }
 
   async checkIdentifier(identifier: string) {
-    const user = await this.prisma.users.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
       },
