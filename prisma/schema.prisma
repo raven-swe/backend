@@ -130,8 +130,8 @@ model Tweet {
 }
 
 model Block {
-  userId      BigInt
-  blockedId   BigInt
+  userId      BigInt   @map("user_id")
+  blockedId   BigInt   @map("blocked_id")
   createdAt   DateTime @default(now()) @map("created_at")
   blockedUser User     @relation("blocks_blocked_idTousers", fields: [blockedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   blocker     User     @relation("blocks_user_idTousers", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -141,8 +141,8 @@ model Block {
 }
 
 model Mute {
-  userId    BigInt
-  mutedId   BigInt
+  userId    BigInt   @map("user_id")
+  mutedId   BigInt   @map("muted_id")
   createdAt DateTime @default(now()) @map("created_at")
   mutedUser User     @relation("mutes_muted_idTousers", fields: [mutedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   muterUser User     @relation("mutes_user_idTousers", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -152,8 +152,8 @@ model Mute {
 }
 
 model Follow {
-  followerId        BigInt
-  followedId        BigInt
+  followerId        BigInt   @map("follower_id")
+  followedId        BigInt   @map("followed_id")
   createdAt         DateTime @default(now()) @map("created_at")
   withNotifications Boolean  @default(false) @map("with_notifications")
   followedUser      User     @relation("follows_followed_idTousers", fields: [followedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -165,8 +165,8 @@ model Follow {
 }
 
 model Retweet {
-  userId    BigInt
-  tweetId   BigInt
+  userId    BigInt   @map("user_id")
+  tweetId   BigInt   @map("tweet_id")
   createdAt DateTime @default(now()) @map("created_at")
   tweet     Tweet    @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -177,8 +177,8 @@ model Retweet {
 }
 
 model Like {
-  userId    BigInt
-  tweetId   BigInt
+  userId    BigInt   @map("user_id")
+  tweetId   BigInt   @map("tweet_id")
   createdAt DateTime @default(now()) @map("created_at")
   tweet     Tweet    @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -199,9 +199,9 @@ model Hashtag {
 }
 
 model TweetHashtag {
-  tweetId       BigInt
-  hashtagId     BigInt
-  startingIndex Int
+  tweetId       BigInt  @map("tweet_id")
+  hashtagId     BigInt  @map("hashtag_id")
+  startingIndex Int     @map("starting_index")
   hashtag       Hashtag @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet         Tweet   @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -211,9 +211,9 @@ model TweetHashtag {
 }
 
 model TweetMention {
-  tweetId       BigInt
-  userId        BigInt
-  startingIndex Int
+  tweetId       BigInt @map("tweet_id")
+  userId        BigInt @map("user_id")
+  startingIndex Int    @map("starting_index")
   tweet         Tweet  @relation(fields: [tweetId], references: [id])
   user          User   @relation(fields: [userId], references: [id])
 
@@ -272,7 +272,7 @@ model Notification {
   actorId    BigInt           @map("actor_id")
   receiverId BigInt           @map("receiver_id")
   type       NotificationType
-  tweetId    BigInt?
+  tweetId    BigInt?          @map("tweet_id")
   seen       Boolean          @default(false)
   createdAt  DateTime         @default(now()) @map("created_at")
   actor      User             @relation("notifications_actor_idTousers", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -302,8 +302,8 @@ model Media {
 }
 
 model TweetMedia {
-  tweetId BigInt
-  mediaId BigInt
+  tweetId BigInt @map("tweet_id")
+  mediaId BigInt @map("media_id")
   order   Int?
   media   Media  @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet   Tweet  @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
