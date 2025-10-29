@@ -64,24 +64,24 @@ jest.mock('./utils/password.util', () => ({
 
 const createMockPrismaService = () => {
   return {
-    users: {
+    User: {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
-    refresh_tokens: {
+    RefreshToken: {
       create: jest.fn(),
       findFirst: jest.fn(),
       delete: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
-    user_devices: {
+    UserDevice: {
       create: jest.fn(),
       deleteMany: jest.fn(),
       delete: jest.fn(),
     },
-    profiles: {
+    Profile: {
       create: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -199,13 +199,13 @@ describe('AuthService with mock ConfigService', () => {
 
   describe('validateUser', () => {
     it('should return user when correct password', async () => {
-      const fakeUser: Partial<Prisma.usersGetPayload<object>> = {
+      const fakeUser: Partial<Prisma.UserGetPayload<object>> = {
         id: 100n,
         username: 'username',
-        password_hash: 'hash',
+        passwordHash: 'hash',
       };
 
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser as never);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser as never);
       mockedBcrypt.compare.mockResolvedValue(true as never);
 
       const result = await service.validateUser('username', 'password');
@@ -220,7 +220,7 @@ describe('AuthService with mock ConfigService', () => {
         password_hash: 'hash',
       } as never;
 
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
       const result = await service.validateUser('username', 'password');
@@ -232,10 +232,10 @@ describe('AuthService with mock ConfigService', () => {
       const fakeUser = {
         id: 100n,
         username: 'username',
-        password_hash: undefined,
+        passwordHash: undefined,
       } as never;
 
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.validateUser('username', 'password');
 
@@ -243,7 +243,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('cant find user', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue(null);
+      mockPrismaService.User.findFirst.mockResolvedValue(null);
 
       const result = await service.validateUser('username', 'password');
 
@@ -257,10 +257,10 @@ describe('AuthService with mock ConfigService', () => {
       const fakeUser = {
         id: 100n,
         username: 'testuser',
-        password_hash: hashedPassword,
+        passwordHash: hashedPassword,
       } as never;
 
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser);
       mockedBcrypt.compare.mockResolvedValue(true as never);
 
       await service.validateUser('testuser', plainPassword);
@@ -270,7 +270,7 @@ describe('AuthService with mock ConfigService', () => {
 
     it('should propagate errors from the database', async () => {
       const dbError = new Error('Database connection failed');
-      mockPrismaService.users.findFirst.mockRejectedValueOnce(dbError);
+      mockPrismaService.User.findFirst.mockRejectedValueOnce(dbError);
 
       await expect(service.validateUser('testuser', 'password')).rejects.toThrow(dbError);
     });
@@ -287,15 +287,15 @@ describe('AuthService with mock ConfigService', () => {
         expires_at: new Date(),
       } as never;
 
-      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken);
+      mockPrismaService.RefreshToken.create.mockResolvedValue(fakeToken);
 
       const fakeDevice = {
         id: 100n,
-        device_type: mockDeviceType,
-        ip_address: ipAddress,
+        deviceType: mockDeviceType,
+        ipAddress: ipAddress,
       } as never;
 
-      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice);
+      mockPrismaService.UserDevice.create.mockResolvedValue(fakeDevice);
 
       const result = await service.login(user, mockDeviceType, ipAddress);
 
@@ -304,7 +304,7 @@ describe('AuthService with mock ConfigService', () => {
         refreshToken: 'mockRefreshToken',
       });
 
-      const calls = mockPrismaService.refresh_tokens.create.mock.calls as Array<
+      const calls = mockPrismaService.RefreshToken.create.mock.calls as Array<
         [{ data: { user_id: bigint; token_hash: string; device_id: bigint; expires_at: Date } }]
       >;
       const call = calls[0]?.[0];
@@ -344,8 +344,8 @@ describe('AuthService with mock ConfigService', () => {
       const fakeToken = { id: 100n, token_hash: 'hash', expires_at: new Date() } as never;
       const fakeDevice = { id: 100n } as never;
 
-      mockPrismaService.refresh_tokens.create.mockResolvedValue(fakeToken);
-      mockPrismaService.user_devices.create.mockResolvedValue(fakeDevice);
+      mockPrismaService.RefreshToken.create.mockResolvedValue(fakeToken);
+      mockPrismaService.UserDevice.create.mockResolvedValue(fakeDevice);
 
       const result = await service.login(user, mockDeviceType, ipAddress);
 
@@ -876,7 +876,7 @@ describe('AuthService with mock ConfigService', () => {
 
     it('should return exist true when user found with username', async () => {
       const fakeUser = { id: BigInt(user.id), username: user.username } as never;
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.username);
 
@@ -888,7 +888,7 @@ describe('AuthService with mock ConfigService', () => {
 
     it('should return exist true when user found with email', async () => {
       const fakeUser = { id: BigInt(user.id), email: user.email } as never;
-      mockPrismaService.users.findFirst.mockResolvedValue(fakeUser);
+      mockPrismaService.User.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.email);
 
@@ -899,7 +899,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist false when user not found', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue(null);
+      mockPrismaService.User.findFirst.mockResolvedValue(null);
 
       const result = await service.checkIdentifier('someusername');
 
@@ -969,7 +969,7 @@ describe('AuthService with mock ConfigService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
+      mockPrismaService.Profile.create.mockResolvedValue({ id: 1 } as never);
 
       // Mock the transaction to execute the callback immediately
       mockPrismaService.$transaction.mockImplementation(
@@ -988,8 +988,8 @@ describe('AuthService with mock ConfigService', () => {
       const { $transaction } = mockPrismaService;
       expect($transaction).toHaveBeenCalledTimes(1);
       expect(mockUsersService.createUser).toHaveBeenCalledWith(mockNewUser, mockPrismaService);
-      expect(mockPrismaService.profiles.create).toHaveBeenCalledWith({
-        data: { user_id: mockUserId, display_name: mockNewUser.name },
+      expect(mockPrismaService.Profile.create).toHaveBeenCalledWith({
+        data: { userId: mockUserId, displayName: mockNewUser.name },
       });
       expect(mockDevicesService.createDevice).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1017,7 +1017,7 @@ describe('AuthService with mock ConfigService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
+      mockPrismaService.Profile.create.mockResolvedValue({ id: 1 } as never);
 
       mockPrismaService.$transaction.mockImplementation(
         async <T>(callback: TransactionCallback<T>): Promise<T> => {
@@ -1050,7 +1050,7 @@ describe('AuthService with mock ConfigService', () => {
       mockUsersService.createUser.mockResolvedValue({ id: mockUserId });
       mockDevicesService.createDevice.mockResolvedValue({ id: mockDeviceId });
       mockRefreshTokensService.createRefreshToken.mockResolvedValue({});
-      mockPrismaService.profiles.create.mockResolvedValue({ id: 1 } as never);
+      mockPrismaService.Profile.create.mockResolvedValue({ id: 1 } as never);
 
       mockPrismaService.$transaction.mockImplementation(
         async <T>(callback: TransactionCallback<T>): Promise<T> => {
@@ -1065,8 +1065,8 @@ describe('AuthService with mock ConfigService', () => {
 
       await service['createUserAndDeviceAndToken'](customUser, mockNewDevice, mockRefreshToken);
 
-      expect(mockPrismaService.profiles.create).toHaveBeenCalledWith({
-        data: { user_id: mockUserId, display_name: 'Custom Display Name' },
+      expect(mockPrismaService.Profile.create).toHaveBeenCalledWith({
+        data: { userId: mockUserId, displayName: 'Custom Display Name' },
       });
     });
   });
