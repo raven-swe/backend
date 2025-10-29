@@ -846,7 +846,7 @@ namespace Auth {
   @useAuth(BearerAuth)
   op logout(
     @header("X-Client-Type") clientType: "web" | "mobile",
-    @cookie("refresh_token") refreshToken?: string,
+    @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
     },
@@ -858,7 +858,7 @@ namespace Auth {
   @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   op refreshToken(
     @header("X-Client-Type") clientType: "web" | "mobile",
-    @cookie("refresh_token") refreshToken?: string,
+    @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
     },

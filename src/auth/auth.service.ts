@@ -1,4 +1,11 @@
-import { HttpException, BadRequestException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -480,15 +487,14 @@ export class AuthService {
   }
 
   async login(user: RequestUser, deviceType: string, ipAddress: string) {
-    const accessToken = this.jwtService.sign(user);
+    const accessToken = await this.jwtService.signAsync({ userId: user.id });
 
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hash = crypto.createHash('sha256');
-    hash.update(refreshToken);
-    const hashedRefreshToken = hash.digest('hex');
-    const refreshTokenExpiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30';
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + parseInt(refreshTokenExpiresIn, 10));
+    const refreshTokenExpiresIn = parseInt(
+      this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
+      10,
+    );
+    const { refreshToken, hashedRefreshToken, expiresAt } =
+      this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
       const userDevice = await tx.user_devices.create({
@@ -529,5 +535,56 @@ export class AuthService {
       };
     }
     return { exists: false };
+  }
+  private generateRefreshTokenWithExpiry(expiryInDays: number) {
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const expiresAt = new Date();
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    expiresAt.setDate(expiresAt.getDate() + expiryInDays);
+    return { refreshToken, hashedRefreshToken, expiresAt };
+  }
+
+  private hashStringDeterministic(str: string) {
+    const hash = crypto.createHash('sha256');
+    hash.update(str);
+    return hash.digest('hex');
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const oldToken = await this.prisma.refresh_tokens.findUnique({
+      where: {
+        token_hash: hashedRefreshToken,
+      },
+      include: {
+        user: { select: { id: true, username: true } },
+      },
+    });
+
+    if (!oldToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (oldToken.expires_at < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    const user: RequestUser = { id: oldToken.user.id.toString(), username: oldToken.user.username };
+    const accessToken = await this.jwtService.signAsync({ userId: user.id });
+    const refreshTokenExpiresIn = parseInt(
+      this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
+      10,
+    );
+    const {
+      refreshToken: newRefreshToken,
+      hashedRefreshToken: newHashedRefreshToken,
+      expiresAt,
+    } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
+
+    await this.prisma.refresh_tokens.update({
+      where: { id: oldToken.id },
+      data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
+    });
+    return { refreshToken: newRefreshToken, accessToken };
   }
 }
