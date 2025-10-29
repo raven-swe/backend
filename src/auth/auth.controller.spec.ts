@@ -110,8 +110,8 @@ describe('AuthController with real config service', () => {
 
     it('should call the service, set a cookie, and return the tokens', async () => {
       const serviceResult = {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
+        accessToken: 'accessToken',
+        refreshToken: 'refreshToken',
         message: 'Success',
       };
       mockAuthService.completeRegistration.mockResolvedValue(serviceResult);
@@ -133,7 +133,7 @@ describe('AuthController with real config service', () => {
       expect((mockResponse.cookie as jest.Mock).mock.calls).toHaveLength(1);
       expect((mockResponse.cookie as jest.Mock).mock.calls[0]).toEqual([
         'refreshToken',
-        'refresh-token',
+        'refreshToken',
         {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
