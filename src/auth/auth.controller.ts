@@ -212,7 +212,7 @@ export class AuthController {
         sameSite: 'none',
       });
     } else if (clientType === 'mobile') {
-      refreshToken = logoutDto.refresh_token;
+      refreshToken = logoutDto.refreshToken;
     }
     if (refreshToken) {
       await this.authService.clearRefreshToken(user.id, refreshToken);

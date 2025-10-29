@@ -1,6 +1,3 @@
-import { IsString } from 'class-validator';
+import { RefreshTokenDto } from './refresh-token.dto';
 
-export class LogoutDto {
-  @IsString()
-  refresh_token: string;
-}
+export class LogoutDto extends RefreshTokenDto {}
