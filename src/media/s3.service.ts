@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { Upload } from '@aws-sdk/lib-storage';
 
 @Injectable()
 export class S3Service {
@@ -36,5 +38,112 @@ export class S3Service {
         secretAccessKey: secretAccessKey,
       },
     });
+  }
+
+  /**
+   * Upload a file to DigitalOcean Spaces
+   *
+   * @param file - The file buffer to upload
+   * @param folder - The folder path in Spaces (e.g., 'avatars', 'banners')
+   * @param fileName - Optional custom filename (will generate UUID if not provided)
+   * @param isPublic - Whether the file should be publicly accessible
+   *
+   * @returns The key of the uploaded file
+   */
+  async uploadFile({
+    file,
+    folder,
+    fileName,
+  }: {
+    file: Express.Multer.File;
+    folder: string;
+    fileName?: string;
+  }): Promise<string> {
+    try {
+      const fileExtension = file.originalname.split('.').pop();
+      const uniqueFileName = fileName || randomUUID();
+      const key = `${folder}/${uniqueFileName}.${fileExtension}`;
+
+      const upload = new Upload({
+        client: this.s3Client,
+        params: {
+          Bucket: this.bucketName,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          // Make file publicly readable
+          ACL: 'public-read',
+          // Cache control for 1 year
+          CacheControl: 'public, max-age=31536000',
+        },
+      });
+
+      await upload.done();
+
+      this.logger.log(`File uploaded successfully to ${key}`);
+      this.logger.log(
+        `File URL: https://${this.bucketName}.${this.region}.digitaloceanspaces.com/${key}`,
+      );
+
+      // Return the file URL
+      return key;
+    } catch (error) {
+      this.logger.error('File upload failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a file from DigitalOcean Spaces
+   *
+   * @param key - The key of the file to delete
+   */
+  async deleteFile(key: string): Promise<void> {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      await this.s3Client.send(command);
+      this.logger.log(`File deleted successfully from ${key}`);
+    } catch (error) {
+      this.logger.error('File deletion failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a file exists in Spaces
+   *
+   * @param key - The key of the file to check
+   * @returns True if file exists, false otherwise
+   */
+  async fileExists(key: string): Promise<boolean> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      await this.s3Client.send(command);
+      return true;
+    } catch (error: unknown) {
+      this.logger.error('Error checking file existence in Spaces', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to check file existence: ${message}`);
+    }
+  }
+
+  /**
+   * Get the public URL for a file
+   *
+   * @param key - The key of the file
+   * @returns Public URL
+   */
+  getPublicUrl(key: string): string {
+    // Direct Spaces URL format
+    // https://bucket-name.region.digitaloceanspaces.com/key
+    return `https://${this.bucketName}.${this.region}.digitaloceanspaces.com/${key}`;
   }
 }
