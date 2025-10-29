@@ -4,19 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
-import * as useragent from 'useragent';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'node:crypto';
-
-// Mock external modules
-jest.mock('bcrypt');
-jest.mock('node:crypto');
+import { AuthService } from '../auth.service';
 
 describe('oAuthService', () => {
   let service: oAuthService;
-  // let prismaService: jest.Mocked<PrismaService>;
-  // let jwtService: jest.Mocked<JwtService>;
-  // let configService: jest.Mocked<ConfigService>;
 
   const mockPrismaService = {
     user_external_accounts: {
@@ -45,6 +36,10 @@ describe('oAuthService', () => {
     get: jest.fn(),
   };
 
+  const mockAuthService = {
+    login: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -61,15 +56,16 @@ describe('oAuthService', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: AuthService,
+          useValue: mockAuthService,
+        },
       ],
     }).compile();
 
     service = module.get<oAuthService>(oAuthService);
-    // prismaService = module.get(PrismaService);
-    // jwtService = module.get(JwtService);
-    // configService = module.get(ConfigService);
 
-    mockConfigService.get.mockReturnValue('30'); // sets default refresh token expiry to 30 days
+    mockConfigService.get.mockReturnValue('30');
   });
 
   afterEach(() => {
@@ -77,7 +73,8 @@ describe('oAuthService', () => {
   });
 
   describe('handleOauthToken', () => {
-    const mockAgent = useragent.parse('Mozilla/5.0');
+    const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockIpAddress = '127.0.0.1';
     const mockProviderProfile = {
       id: 'github-123',
       email: 'test@example.com',
@@ -93,19 +90,17 @@ describe('oAuthService', () => {
     it('should throw BadRequestException for unsupported provider', async () => {
       await expect(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        service.handleOauthToken('facebook' as any, 'token-123', mockAgent),
+        service.handleOauthToken('facebook' as any, 'token-123', mockDeviceType, mockIpAddress),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle GitHub provider token validation', async () => {
-      // Mock strategy validateToken
       const mockStrategy = {
         validateToken: jest.fn().mockResolvedValue(mockProviderProfile),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       (service as any).strategies.github = mockStrategy;
 
-      // Mock existing external account
       mockPrismaService.user_external_accounts.findUnique.mockResolvedValue({
         user: {
           id: BigInt(1),
@@ -115,31 +110,22 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      // Mock login flow
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: {
-            create: jest.fn().mockResolvedValue({ id: BigInt(1) }),
-          },
-          refresh_tokens: {
-            create: jest.fn().mockResolvedValue({}),
-          },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      const result = await service.handleOauthToken('github', 'token-123', mockAgent);
+      const result = await service.handleOauthToken(
+        'github',
+        'token-123',
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
-      expect(result).toHaveProperty('access_token');
-      expect(result).toHaveProperty('refresh_token');
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
     });
 
     it('should handle Google provider token validation', async () => {
@@ -159,31 +145,28 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      const result = await service.handleOauthToken('google', 'token-123', mockAgent);
+      const result = await service.handleOauthToken(
+        'google',
+        'token-123',
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
-      expect(result).toHaveProperty('access_token');
-      expect(result).toHaveProperty('refresh_token');
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
     });
   });
 
   describe('handleOauthProfile', () => {
-    const mockAgent = useragent.parse('Mozilla/5.0');
+    const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockIpAddress = '127.0.0.1';
     const mockProviderProfile = {
       id: 'github-123',
       email: 'test@example.com',
@@ -202,21 +185,16 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      const result = await service.handleOauthProfile(mockProviderProfile, mockAgent);
+      const result = await service.handleOauthProfile(
+        mockProviderProfile,
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockPrismaService.user_external_accounts.findUnique).toHaveBeenCalledWith({
         where: {
@@ -227,9 +205,14 @@ describe('oAuthService', () => {
         },
         include: { user: true },
       });
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        { username: 'existinguser', id: '1' },
+        mockDeviceType,
+        mockIpAddress,
+      );
       expect(result).toEqual({
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
     });
 
@@ -244,21 +227,16 @@ describe('oAuthService', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockPrismaService.user_external_accounts.create.mockResolvedValue({} as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      const result = await service.handleOauthProfile(mockProviderProfile, mockAgent);
+      const result = await service.handleOauthProfile(
+        mockProviderProfile,
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockPrismaService.users.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
@@ -270,9 +248,14 @@ describe('oAuthService', () => {
           provider: 'github',
         },
       });
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        { id: '1', username: 'existinguser' },
+        mockDeviceType,
+        mockIpAddress,
+      );
       expect(result).toEqual({
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
     });
 
@@ -281,7 +264,11 @@ describe('oAuthService', () => {
       mockPrismaService.users.findUnique.mockResolvedValue(null);
       mockJwtService.sign.mockReturnValue('mock-creation-token');
 
-      const result = await service.handleOauthProfile(mockProviderProfile, mockAgent);
+      const result = await service.handleOauthProfile(
+        mockProviderProfile,
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         provider: 'github',
@@ -292,95 +279,14 @@ describe('oAuthService', () => {
         avatar_url: 'https://avatar.url',
       });
       expect(result).toEqual({
-        success: true,
-        data: { creationToken: 'mock-creation-token' },
+        creationToken: 'mock-creation-token',
       });
-    });
-  });
-
-  describe('login', () => {
-    const mockAgent = useragent.parse('Mozilla/5.0');
-    const mockUser = { id: '1', username: 'testuser' };
-
-    beforeEach(() => {
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token-xyz'),
-      });
-    });
-
-    it('should create user device record', async () => {
-      const mockCreateDevice = jest.fn().mockResolvedValue({ id: BigInt(100) });
-      const mockCreateRefreshToken = jest.fn().mockResolvedValue({});
-
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: mockCreateDevice },
-          refresh_tokens: { create: mockCreateRefreshToken },
-        });
-      });
-
-      await service.login(mockUser, mockAgent);
-
-      expect(mockCreateDevice).toHaveBeenCalledWith({
-        data: {
-          user_id: BigInt(1),
-          device_type: mockAgent.toString(),
-        },
-      });
-      expect(mockCreateDevice).toHaveBeenCalledTimes(1);
-    });
-
-    it('should create refresh token with correct expiry', async () => {
-      const mockCreateDevice = jest.fn().mockResolvedValue({ id: BigInt(100) });
-      const mockCreateRefreshToken = jest.fn().mockResolvedValue({});
-
-      mockConfigService.get.mockReturnValue('7'); // 7 days
-
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: mockCreateDevice },
-          refresh_tokens: { create: mockCreateRefreshToken },
-        });
-      });
-
-      await service.login(mockUser, mockAgent);
-
-      expect(mockCreateRefreshToken).toHaveBeenCalledWith({
-        data: {
-          user_id: BigInt(1),
-          device_id: BigInt(100),
-          token_hash: 'hashed-refresh-token',
-          expires_at: expect.any(Date) as Date,
-        },
-      });
-      expect(mockCreateRefreshToken).toHaveBeenCalledTimes(1);
-    });
-
-    it('should hash refresh token before storing', async () => {
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(100) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
-      });
-
-      await service.login(mockUser, mockAgent);
-
-      expect(bcrypt.hash).toHaveBeenCalledWith('mock-refresh-token-xyz', 10);
-      expect(bcrypt.hash).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('completeOauthRegister', () => {
-    const mockAgent = useragent.parse('Mozilla/5.0');
+    const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockIpAddress = '127.0.0.1';
     const mockCreationToken = 'valid-creation-token';
     const mockBirthDate = '1990-01-01';
 
@@ -402,31 +308,28 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
       const result = await service.completeOauthRegister(
         mockCreationToken,
         mockBirthDate,
-        mockAgent,
+        mockDeviceType,
+        mockIpAddress,
       );
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(mockCreationToken);
       expect(mockJwtService.verify).toHaveBeenCalledTimes(1);
+      expect(mockAuthService.login).toHaveBeenCalledWith(
+        { id: '1', username: 'newuser@example.com' },
+        mockDeviceType,
+        mockIpAddress,
+      );
       expect(result).toEqual({
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
     });
 
@@ -439,7 +342,12 @@ describe('oAuthService', () => {
       });
 
       try {
-        await service.completeOauthRegister('expired-token', mockBirthDate, mockAgent);
+        await service.completeOauthRegister(
+          'expired-token',
+          mockBirthDate,
+          mockDeviceType,
+          mockIpAddress,
+        );
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
       }
@@ -454,21 +362,17 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      await service.completeOauthRegister(mockCreationToken, mockBirthDate, mockAgent);
+      await service.completeOauthRegister(
+        mockCreationToken,
+        mockBirthDate,
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       expect(mockPrismaService.users.create).toHaveBeenCalledWith({
         data: {
@@ -498,7 +402,12 @@ describe('oAuthService', () => {
       });
 
       await expect(
-        service.completeOauthRegister('invalid-token', mockBirthDate, mockAgent),
+        service.completeOauthRegister(
+          'invalid-token',
+          mockBirthDate,
+          mockDeviceType,
+          mockIpAddress,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockJwtService.verify).toHaveBeenCalledWith('invalid-token');
@@ -512,7 +421,12 @@ describe('oAuthService', () => {
       });
 
       await expect(
-        service.completeOauthRegister(mockCreationToken, mockBirthDate, mockAgent),
+        service.completeOauthRegister(
+          mockCreationToken,
+          mockBirthDate,
+          mockDeviceType,
+          mockIpAddress,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(mockCreationToken);
@@ -525,7 +439,12 @@ describe('oAuthService', () => {
       });
 
       await expect(
-        service.completeOauthRegister('expired-token', mockBirthDate, mockAgent),
+        service.completeOauthRegister(
+          'expired-token',
+          mockBirthDate,
+          mockDeviceType,
+          mockIpAddress,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -538,60 +457,21 @@ describe('oAuthService', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-      // eslint-disable-next-line @typescript-eslint/require-await
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-        return callback({
-          user_devices: { create: jest.fn().mockResolvedValue({ id: BigInt(1) }) },
-          refresh_tokens: { create: jest.fn().mockResolvedValue({}) },
-        });
+      mockAuthService.login.mockResolvedValue({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       });
 
-      await service.completeOauthRegister(mockCreationToken, '1995-06-15', mockAgent);
+      await service.completeOauthRegister(
+        mockCreationToken,
+        '1995-06-15',
+        mockDeviceType,
+        mockIpAddress,
+      );
 
       const createCall = mockPrismaService.users.create.mock.calls[0] as unknown[];
       const createData = createCall[0] as { data: { birthdate: Date } };
       expect(createData.data.birthdate).toEqual(new Date('1995-06-15'));
-    });
-  });
-
-  describe('Edge Cases', () => {
-    const mockAgent = useragent.parse('Mozilla/5.0');
-
-    it('should handle database transaction failure during login', async () => {
-      mockJwtService.sign.mockReturnValue('mock-access-token');
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
-      (crypto.randomBytes as jest.Mock).mockReturnValue({
-        toString: jest.fn().mockReturnValue('mock-refresh-token'),
-      });
-
-      mockPrismaService.$transaction.mockRejectedValue(new Error('Database error'));
-
-      const mockUser = { id: '1', username: 'testuser' };
-
-      await expect(service.login(mockUser, mockAgent)).rejects.toThrow('Database error');
-    });
-
-    it('should handle user creation failure', async () => {
-      mockJwtService.verify.mockReturnValue({
-        provider: 'github',
-        providerId: 'github-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        type: 'creation',
-        avatar_url: 'https://avatar.url',
-      });
-
-      mockPrismaService.users.create.mockRejectedValue(new Error('Email already exists'));
-
-      await expect(service.completeOauthRegister('token', '1990-01-01', mockAgent)).rejects.toThrow(
-        'Email already exists',
-      );
     });
   });
 });

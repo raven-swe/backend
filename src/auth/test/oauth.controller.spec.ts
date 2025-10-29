@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OauthController } from '../oauth.controller';
 import { oAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException } from '@nestjs/common';
-import * as useragent from 'useragent';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import type { Response } from 'express';
 
 describe('OauthController', () => {
   let controller: OauthController;
@@ -14,8 +14,20 @@ describe('OauthController', () => {
   };
 
   const mockConfigService = {
-    get: jest.fn(),
+    get: jest.fn((key: string) => {
+      if (key === 'NODE_ENV') return 'development';
+      if (key === 'REFRESH_TOKEN_EXPIRES_IN_DAYS') return 30;
+      return undefined;
+    }),
   };
+
+  const createMockResponse = (): Partial<Response> => ({
+    cookie: jest.fn(),
+    clearCookie: jest.fn(),
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn().mockReturnThis(),
+    send: jest.fn().mockReturnThis(),
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -40,7 +52,8 @@ describe('OauthController', () => {
   });
 
   describe('providerCallback', () => {
-    const mockUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockIpAddress = '127.0.0.1';
     const mockOauthCallbackDto = {
       providerToken: 'mock-token-123',
     };
@@ -49,246 +62,358 @@ describe('OauthController', () => {
       expect(controller).toBeDefined();
     });
 
-    it('should successfully handle GitHub OAuth callback', async () => {
-      const mockResponse = {
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+    it('should successfully handle GitHub OAuth callback for existing user (web client)', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       };
 
-      mockOAuthService.handleOauthToken.mockResolvedValue(mockResponse);
+      mockOAuthService.handleOauthToken.mockResolvedValue(mockLoginResponse);
 
       const result = await controller.providerCallback(
         'github',
         mockOauthCallbackDto,
-        mockUserAgent,
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        'web',
       );
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({ accessToken: 'mock-access-token' });
+      expect(mockResponse.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        'mock-refresh-token',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: false, // development mode
+          sameSite: 'none',
+        }),
+      );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledWith(
         'github',
         'mock-token-123',
-        expect.any(Object), // useragent parsed object
+        mockDeviceType,
+        mockIpAddress,
       );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
 
-    it('should successfully handle Google OAuth callback', async () => {
-      const mockResponse = {
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+    it('should successfully handle GitHub OAuth callback for existing user (mobile client)', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       };
 
-      mockOAuthService.handleOauthToken.mockResolvedValue(mockResponse);
+      mockOAuthService.handleOauthToken.mockResolvedValue(mockLoginResponse);
 
       const result = await controller.providerCallback(
-        'google',
+        'github',
         mockOauthCallbackDto,
-        mockUserAgent,
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        'mobile',
       );
 
-      expect(result).toEqual(mockResponse);
-      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledWith(
-        'google',
-        'mock-token-123',
-        expect.any(Object),
-      );
+      expect(result).toEqual({
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+      });
+      expect(mockResponse.cookie).not.toHaveBeenCalled();
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
 
     it('should return creation token for new user', async () => {
-      const mockResponse = {
-        success: true,
-        data: { creationToken: 'mock-creation-token' },
+      const mockResponse = createMockResponse();
+      const mockCreationResponse = {
+        creationToken: 'mock-creation-token-abc123',
       };
 
-      mockOAuthService.handleOauthToken.mockResolvedValue(mockResponse);
+      mockOAuthService.handleOauthToken.mockResolvedValue(mockCreationResponse);
 
       const result = await controller.providerCallback(
         'github',
         mockOauthCallbackDto,
-        mockUserAgent,
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        'web',
       );
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({ creationToken: 'mock-creation-token-abc123' });
+      expect(mockResponse.cookie).not.toHaveBeenCalled();
+      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('should successfully handle Google OAuth callback', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+      };
+
+      mockOAuthService.handleOauthToken.mockResolvedValue(mockLoginResponse);
+
+      const result = await controller.providerCallback(
+        'google',
+        mockOauthCallbackDto,
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        'mobile',
+      );
+
+      expect(result).toEqual(mockLoginResponse);
+      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledWith(
+        'google',
+        'mock-token-123',
+        mockDeviceType,
+        mockIpAddress,
+      );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
 
     it('should throw BadRequestException for unsupported provider', async () => {
+      const mockResponse = createMockResponse();
+
       await expect(
-        controller.providerCallback('facebook', mockOauthCallbackDto, mockUserAgent),
+        controller.providerCallback(
+          'facebook',
+          mockOauthCallbackDto,
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          'web',
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockOAuthService.handleOauthToken).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for empty provider', async () => {
+      const mockResponse = createMockResponse();
+
       await expect(
-        controller.providerCallback('', mockOauthCallbackDto, mockUserAgent),
+        controller.providerCallback(
+          '',
+          mockOauthCallbackDto,
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          'web',
+        ),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockOAuthService.handleOauthToken).not.toHaveBeenCalled();
     });
 
-    it('should parse user agent correctly', async () => {
-      const customUserAgent =
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15';
+    it('should throw UnauthorizedException when clientType header is missing', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+      };
 
-      mockOAuthService.handleOauthToken.mockResolvedValue({
-        access_token: 'token',
-        refresh_token: 'refresh',
-      });
+      mockOAuthService.handleOauthToken.mockResolvedValue(mockLoginResponse);
 
-      await controller.providerCallback('github', mockOauthCallbackDto, customUserAgent);
-
-      const callArgs = mockOAuthService.handleOauthToken.mock.calls[0] as unknown[];
-      const parsedAgent = callArgs[2] as useragent.Agent;
-
-      expect(parsedAgent).toBeInstanceOf(useragent.Agent);
-      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
+      await expect(
+        controller.providerCallback(
+          'github',
+          mockOauthCallbackDto,
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          null as unknown as 'web',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should handle service errors gracefully', async () => {
+      const mockResponse = createMockResponse();
       mockOAuthService.handleOauthToken.mockRejectedValue(new Error('OAuth provider error'));
 
       await expect(
-        controller.providerCallback('github', mockOauthCallbackDto, mockUserAgent),
+        controller.providerCallback(
+          'github',
+          mockOauthCallbackDto,
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          'web',
+        ),
       ).rejects.toThrow('OAuth provider error');
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('completeOauthRegister', () => {
-    const mockUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+    const mockIpAddress = '192.168.1.1';
+    const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
     const mockOauthCompleteDto = {
       creationToken: 'mock-creation-token',
       birthDate: '2005-01-10',
     };
 
-    it('should successfully complete OAuth registration', async () => {
-      const mockResponse = {
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+    it('should successfully complete OAuth registration (web client)', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
       };
 
-      mockOAuthService.completeOauthRegister.mockResolvedValue(mockResponse);
+      mockOAuthService.completeOauthRegister.mockResolvedValue(mockLoginResponse);
 
-      const result = await controller.completeOauthRegister(mockOauthCompleteDto, mockUserAgent);
+      const result = await controller.completeOauthRegister(
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        mockOauthCompleteDto,
+        'web',
+      );
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({ accessToken: 'mock-access-token' });
+      expect(mockResponse.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        'mock-refresh-token',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: false,
+          sameSite: 'none',
+        }),
+      );
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledWith(
         'mock-creation-token',
         '2005-01-10',
-        expect.any(Object), // useragent parsed object
+        mockDeviceType,
+        mockIpAddress,
       );
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
-    it('should parse user agent when completing registration', async () => {
-      const mobileUserAgent = 'Mozilla/5.0 (Linux; Android 10; SM-G973F)';
+    it('should successfully complete OAuth registration (mobile client)', async () => {
+      const mockResponse = createMockResponse();
+      const mockLoginResponse = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+      };
 
-      mockOAuthService.completeOauthRegister.mockResolvedValue({
-        access_token: 'token',
-        refresh_token: 'refresh',
-      });
+      mockOAuthService.completeOauthRegister.mockResolvedValue(mockLoginResponse);
 
-      await controller.completeOauthRegister(mockOauthCompleteDto, mobileUserAgent);
+      const result = await controller.completeOauthRegister(
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
+        mockOauthCompleteDto,
+        'mobile',
+      );
 
-      const callArgs = mockOAuthService.completeOauthRegister.mock.calls[0] as unknown[];
-      const parsedAgent = callArgs[2] as useragent.Agent;
-
-      expect(parsedAgent).toBeInstanceOf(useragent.Agent);
+      expect(result).toEqual(mockLoginResponse);
+      expect(mockResponse.cookie).not.toHaveBeenCalled();
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
     it('should handle invalid creation token', async () => {
+      const mockResponse = createMockResponse();
       mockOAuthService.completeOauthRegister.mockRejectedValue(
         new BadRequestException('Invalid creation token'),
       );
 
       await expect(
         controller.completeOauthRegister(
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
           { creationToken: 'invalid-token', birthDate: '1990-01-01' },
-          mockUserAgent,
+          'web',
         ),
       ).rejects.toThrow(BadRequestException);
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
     it('should handle invalid birthdate format', async () => {
+      const mockResponse = createMockResponse();
       mockOAuthService.completeOauthRegister.mockRejectedValue(
         new BadRequestException('Invalid birth date'),
       );
 
       await expect(
         controller.completeOauthRegister(
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
           { creationToken: 'valid-token', birthDate: 'invalid-date' },
-          mockUserAgent,
+          'web',
         ),
       ).rejects.toThrow(BadRequestException);
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
     it('should handle service errors during completion', async () => {
+      const mockResponse = createMockResponse();
       mockOAuthService.completeOauthRegister.mockRejectedValue(new Error('Database error'));
 
       await expect(
-        controller.completeOauthRegister(mockOauthCompleteDto, mockUserAgent),
+        controller.completeOauthRegister(
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          mockOauthCompleteDto,
+          'web',
+        ),
       ).rejects.toThrow('Database error');
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
     it('should pass all parameters correctly to service', async () => {
+      const mockResponse = createMockResponse();
       mockOAuthService.completeOauthRegister.mockResolvedValue({
-        access_token: 'token',
-        refresh_token: 'refresh',
+        accessToken: 'token',
+        refreshToken: 'refresh',
       });
 
       await controller.completeOauthRegister(
+        mockIpAddress,
+        mockDeviceType,
+        mockResponse as Response,
         {
           creationToken: 'specific-token-123',
           birthDate: '1995-06-15',
         },
-        mockUserAgent,
+        'mobile',
       );
 
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledWith(
         'specific-token-123',
         '1995-06-15',
-        expect.any(Object),
+        mockDeviceType,
+        mockIpAddress,
       );
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle missing user-agent header gracefully', async () => {
+    it('should handle missing X-Client-Type header', async () => {
+      const mockResponse = createMockResponse();
       const mockOauthCallbackDto = { providerToken: 'token-123' };
 
       mockOAuthService.handleOauthToken.mockResolvedValue({
-        access_token: 'token',
-        refresh_token: 'refresh',
+        accessToken: 'token',
+        refreshToken: 'refresh',
       });
 
-      // Empty string simulates missing header
-      await controller.providerCallback('github', mockOauthCallbackDto, '');
-
-      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
-      const parsedAgent = (mockOAuthService.handleOauthToken.mock.calls[0] as unknown[])[2];
-      expect(parsedAgent).toBeDefined();
-    });
-
-    it('should handle malformed user-agent string', async () => {
-      const malformedUserAgent = 'not-a-real-user-agent!!!@@@###';
-      const mockOauthCallbackDto = { providerToken: 'token-123' };
-
-      mockOAuthService.handleOauthToken.mockResolvedValue({
-        access_token: 'token',
-        refresh_token: 'refresh',
-      });
-
-      await controller.providerCallback('github', mockOauthCallbackDto, malformedUserAgent);
-
-      expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
+      await expect(
+        controller.providerCallback(
+          'github',
+          mockOauthCallbackDto,
+          '127.0.0.1',
+          'device-type',
+          mockResponse as Response,
+          '' as 'web',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });
