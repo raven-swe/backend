@@ -1,17 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { RequestUser } from './types/user.type';
-import { hash } from 'bcrypt';
-import crypto from 'node:crypto';
 import { ProviderProfile } from './types/oauth.type';
 import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
 import { GithubOAuthStrategy } from './strategies/oauth.github.strategy';
 import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
 import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
 import { ConfigService } from '@nestjs/config';
-import useragent from 'useragent';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class oAuthService {
@@ -21,6 +18,7 @@ export class oAuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly authService: AuthService,
   ) {
     this.strategies = {
       github: new GithubOAuthStrategy(this.config),
@@ -31,10 +29,10 @@ export class oAuthService {
   async handleOauthToken(
     provider: SupportedOAuthProvider,
     providerToken: string,
-    agent: useragent.Agent,
+    deviceType: string,
+    ipAddress: string,
   ) {
     const strategy = this.strategies[provider];
-    // Already validated by controller, but just in case
     if (!strategy) {
       throw new BadRequestException(
         createValidationError('provider', {
@@ -45,50 +43,14 @@ export class oAuthService {
 
     const providerProfile = await strategy.validateToken(providerToken);
 
-    return this.handleOauthProfile(providerProfile, agent);
+    return this.handleOauthProfile(providerProfile, deviceType, ipAddress);
   }
 
-  async login(user: RequestUser, agent: useragent.Agent) {
-    const accessToken = this.jwtService.sign(user);
-    const refreshTokenExpiresIn = parseInt(
-      this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
-      10,
-    );
-    const { refreshToken, hashedRefreshToken, expiresAt } =
-      await this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
-
-    await this.prisma.$transaction(async (tx) => {
-      const user_device = await tx.user_devices.create({
-        data: {
-          user_id: BigInt(user.id),
-          device_type: agent.toString(),
-        },
-      });
-
-      await tx.refresh_tokens.create({
-        data: {
-          user_id: BigInt(user.id),
-          device_id: user_device.id,
-          token_hash: hashedRefreshToken,
-          expires_at: expiresAt,
-        },
-      });
-    });
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    };
-  }
-
-  private async generateRefreshTokenWithExpiry(expiryInDays: number) {
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const hashedRefreshToken = await hash(refreshToken, 10);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiryInDays);
-    return { refreshToken, hashedRefreshToken, expiresAt };
-  }
-
-  async handleOauthProfile(providerProfile: ProviderProfile, agent: useragent.Agent) {
+  async handleOauthProfile(
+    providerProfile: ProviderProfile,
+    deviceType: string,
+    ipAddress: string,
+  ) {
     // Check if this user already registered with this external account
     const externalAccount = await this.prisma.user_external_accounts.findUnique({
       where: {
@@ -101,9 +63,10 @@ export class oAuthService {
     });
 
     if (externalAccount) {
-      return await this.login(
+      return await this.authService.login(
         { username: externalAccount.user.username, id: externalAccount.user.id.toString() },
-        agent,
+        deviceType,
+        ipAddress,
       );
     } else {
       const userAccount = await this.prisma.users.findUnique({
@@ -124,7 +87,7 @@ export class oAuthService {
           username: userAccount.username,
         };
 
-        return await this.login(user, agent);
+        return await this.authService.login(user, deviceType, ipAddress);
       } else {
         const creationToken = this.jwtService.sign({
           provider: providerProfile.provider,
@@ -135,8 +98,7 @@ export class oAuthService {
           avatar_url: providerProfile.avatar_url,
         });
         return {
-          success: true,
-          data: { creationToken },
+          creationToken,
         };
       }
     }
@@ -145,7 +107,8 @@ export class oAuthService {
   async completeOauthRegister(
     creationToken: string,
     birthDate: string,
-    useragent: useragent.Agent,
+    deviceType: string,
+    ipAddress: string,
   ) {
     let payload: {
       provider: string;
@@ -179,6 +142,8 @@ export class oAuthService {
       );
     }
 
+    console.log(payload);
+
     const user = await this.prisma.users.create({
       data: {
         email: payload.email,
@@ -196,6 +161,10 @@ export class oAuthService {
       },
     });
 
-    return await this.login({ id: user.id.toString(), username: user.username }, useragent);
+    return await this.authService.login(
+      { id: user.id.toString(), username: user.username },
+      deviceType,
+      ipAddress,
+    );
   }
 }
