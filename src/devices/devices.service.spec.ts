@@ -105,7 +105,7 @@ describe('DevicesService', () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
-        deviceType: DeviceType.WEB,
+        deviceType: DeviceType.MOBILE,
       };
 
       const expectedCreatedDevice = {
