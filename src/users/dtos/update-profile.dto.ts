@@ -1,15 +1,6 @@
-import {
-  IsDate,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { IsOptionalDate } from '../decorators/is-optional-date.decorator';
-import { VALIDATION_ERROR_CODES } from 'src/common/validation-error-codes';
+import { IsDate, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsMinYearsOld } from 'src/auth/dto/start-registration.dto';
 
 export class UpdateProfileDto {
   @Transform(({ value }: { value: string | null }) => (value === null ? '' : value?.trim()))
@@ -29,7 +20,11 @@ export class UpdateProfileDto {
   @MaxLength(100, { message: 'Location should not exceed 100 characters' })
   location?: string | null;
 
-  @IsOptionalDate(VALIDATION_ERROR_CODES.NOT_A_DATE)
+  @IsOptional()
+  @Transform(({ value }: { value: string | null }) => (value === null ? '' : value))
+  @IsNotEmpty({ message: 'birthDate must not be empty if provided' })
+  @IsMinYearsOld(13, { message: 'You must be at least 13 years old' })
+  @IsDate()
   birthDate?: Date;
 
   @IsOptional()
