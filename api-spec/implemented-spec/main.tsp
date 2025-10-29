@@ -382,4 +382,53 @@ namespace Me {
     | UnauthorizedResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
+
+  @useAuth(BearerAuth)
+  @route("/settings")
+  namespace Settings {
+    @put
+    @route("/email")
+    @summary("Initiates update of the authenticated user's email address")
+    op updateEmail(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/resend-otp")
+    @summary("Resend the verification code to the new email address")
+    op resendEmailVerificationOtp(
+      @body body: {
+        confirmationToken: string;
+      },
+    ):
+      | MessageResponse<"Verification code resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/verify")
+    @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
+    op verifyNewEmail(
+      @body body: {
+        confirmationToken: string;
+        otp: string;
+      },
+    ):
+      | MessageResponse<"Email address updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
 }

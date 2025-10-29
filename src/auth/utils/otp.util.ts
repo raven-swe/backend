@@ -70,12 +70,24 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
   }
 
   // Send the otp to the user with type
-  const jobData: EmailJobData = {
-    type: otpType,
-    email,
-    otp,
-    username: username || '',
-  };
+  // Note: This function is only called for REGISTRATION, FORGOT_PASSWORD, and CHANGE_EMAIL
+  let jobData: EmailJobData;
+
+  if (otpType === OtpType.FORGOT_PASSWORD) {
+    jobData = {
+      type: OtpType.FORGOT_PASSWORD,
+      email,
+      otp,
+      username: username || '',
+    };
+  } else {
+    // REGISTRATION or CHANGE_EMAIL
+    jobData = {
+      type: otpType as OtpType.REGISTRATION | OtpType.CHANGE_EMAIL,
+      email,
+      otp,
+    };
+  }
 
   await emailQueue.add('sendOtp', jobData);
 

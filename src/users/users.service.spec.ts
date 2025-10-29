@@ -39,6 +39,8 @@ describe('UsersService', () => {
     findById: jest.fn(),
     createUser: jest.fn(),
     updatePasswordById: jest.fn(),
+    updateUsernameById: jest.fn(),
+    updateUserEmail: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -322,6 +324,117 @@ describe('UsersService', () => {
 
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new Error('Hashing failed'),
+      );
+    });
+  });
+
+  describe('updateUsernameById', () => {
+    it('should successfully update username', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const newUsername = 'newusername';
+      mockRepository.updateUsernameById.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateUsernameById(userId, newUsername);
+
+      // Assert
+      expect(result).toEqual({ message: 'Username updated successfully.' });
+      expect(mockRepository.updateUsernameById).toHaveBeenCalledWith(userId, newUsername);
+      expect(mockRepository.updateUsernameById).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error if repository update fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const newUsername = 'newusername';
+      const error = new Error('Database error');
+      mockRepository.updateUsernameById.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.updateUsernameById(userId, newUsername)).rejects.toThrow(
+        'Database error',
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('should return a user by id', async () => {
+      // Arrange
+      mockRepository.findById.mockResolvedValue(mockUser);
+
+      // Act
+      const result = await service.findById(BigInt(1));
+
+      // Assert
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.findById).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return null if user not found', async () => {
+      // Arrange
+      mockRepository.findById.mockResolvedValue(null);
+
+      // Act
+      const result = await service.findById(BigInt(999));
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(999));
+    });
+  });
+
+  describe('updateUserEmail', () => {
+    it('should successfully update user email when verified', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const emailUpdateData = {
+        userId: '1',
+        otp: 'hashedOtp',
+        newEmail: 'newemail@example.com',
+        verified: true,
+      };
+      mockRepository.updateUserEmail.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateUserEmail(userId, emailUpdateData);
+
+      // Assert
+      expect(result).toBeUndefined();
+      expect(mockRepository.updateUserEmail).toHaveBeenCalledWith(userId, emailUpdateData);
+      expect(mockRepository.updateUserEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw OtpFailedException if email update is not verified', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const emailUpdateData = {
+        userId: '1',
+        otp: 'hashedOtp',
+        newEmail: 'newemail@example.com',
+        verified: false,
+      };
+
+      // Act & Assert
+      await expect(service.updateUserEmail(userId, emailUpdateData)).rejects.toThrow();
+    });
+
+    it('should throw error if repository update fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const emailUpdateData = {
+        userId: '1',
+        otp: 'hashedOtp',
+        newEmail: 'newemail@example.com',
+        verified: true,
+      };
+      const error = new Error('Database error');
+      mockRepository.updateUserEmail.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.updateUserEmail(userId, emailUpdateData)).rejects.toThrow(
+        'Database error',
       );
     });
   });
