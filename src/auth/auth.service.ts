@@ -560,11 +560,11 @@ export class AuthService {
     });
 
     if (!oldToken) {
-      throw new UnauthorizedException('invalid refresh token');
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
     if (oldToken.expires_at < new Date()) {
-      throw new UnauthorizedException('refresh token expired');
+      throw new UnauthorizedException('Refresh token expired');
     }
 
     const user: RequestUser = { id: oldToken.user.id.toString(), username: oldToken.user.username };

@@ -164,13 +164,13 @@ export class AuthController {
 
       if (errors.length > 0) {
         throw new BadRequestException(
-          createValidationError('refreshToken', { isString: 'refreshToken must be a string' }),
+          createValidationError('refreshToken', { isString: 'Refresh token must be a string' }),
         );
       }
       refreshToken = dto.refreshToken;
     }
     if (!refreshToken) {
-      throw new UnauthorizedException('missing refresh token');
+      throw new UnauthorizedException('Refresh token not provided, please log in again.');
     }
 
     const { accessToken, refreshToken: newRefreshToken } =
