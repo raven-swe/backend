@@ -193,7 +193,7 @@ export class AuthService {
       deviceType: clientType as DeviceType,
     };
     const userId = await this.createUserAndDeviceAndToken(userData, newDevice, refreshToken);
-    const accessToken = await this.generateAccessToken(userId);
+    const accessToken = await this.jwtService.signAsync({ id: userId.toString() });
 
     // clean up redis entry
     await this.redisService.del(redisKey);
@@ -240,11 +240,6 @@ export class AuthService {
   async checkEmail(email: string): Promise<{ message: string; exists: boolean }> {
     const user = await this.usersService.findByEmail(email);
     return { message: user ? 'Email already exists' : 'Email is available', exists: !!user };
-  }
-
-  async generateAccessToken(userId: bigint): Promise<string> {
-    const payload = { userId: userId.toString() };
-    return this.jwtService.signAsync(payload);
   }
 
   async verifyRecaptcha(token: string): Promise<boolean> {
@@ -480,14 +475,14 @@ export class AuthService {
     if (user && user.password_hash) {
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (isMatch) {
-        return { id: user.id.toString(), username: user.username };
+        return { id: user.id.toString() };
       }
     }
     return null;
   }
 
   async login(user: RequestUser, deviceType: string, ipAddress: string) {
-    const accessToken = await this.jwtService.signAsync({ userId: user.id });
+    const accessToken = await this.jwtService.signAsync({ id: user.id });
 
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
@@ -569,8 +564,8 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    const user: RequestUser = { id: oldToken.user.id.toString(), username: oldToken.user.username };
-    const accessToken = await this.jwtService.signAsync({ userId: user.id });
+    const user: RequestUser = { id: oldToken.user.id.toString() };
+    const accessToken = await this.jwtService.signAsync({ id: user.id });
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
       10,
