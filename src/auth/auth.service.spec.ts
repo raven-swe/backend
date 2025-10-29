@@ -217,7 +217,7 @@ describe('AuthService with mock ConfigService', () => {
       const fakeUser = {
         id: 100n,
         username: 'username',
-        password_hash: 'hash',
+        passwordHash: 'hash',
       } as never;
 
       mockPrismaService.user.findFirst.mockResolvedValue(fakeUser);
@@ -321,7 +321,7 @@ describe('AuthService with mock ConfigService', () => {
         return null;
       });
 
-      const fakeToken = { id: 100n, token_hash: 'hash', expires_at: new Date() } as never;
+      const fakeToken = { id: 100n, tokenHash: 'hash', expiresAt: new Date() } as never;
       const fakeDevice = { id: 100n } as never;
 
       mockPrismaService.refreshToken.create.mockResolvedValue(fakeToken);
@@ -1055,7 +1055,7 @@ describe('AuthService with mock ConfigService', () => {
     const user = { id: '1', username: 'testuser', phone: 'mockedPhone', email: 'mockedEmail' };
 
     it('should return exist true when user found with username', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
+      mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         username: user.username,
       });
@@ -1069,7 +1069,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
+      mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         email: user.email,
       });
@@ -1083,7 +1083,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with phone', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue({
+      mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         phone: user.phone,
       });
@@ -1097,7 +1097,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist false when user not found', async () => {
-      mockPrismaService.users.findFirst.mockResolvedValue(null);
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
 
       const result = await service.checkIdentifier('someusername');
 
@@ -1111,10 +1111,10 @@ describe('AuthService with mock ConfigService', () => {
       const oldToken = 'oldRefreshToken';
       const date = new Date();
       date.setDate(date.getDate() + 1);
-      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
         id: '100',
         user: { id: BigInt('100'), username: 'username' },
-        expires_at: date,
+        expiresAt: date,
       });
       const result = await service.refreshAccessToken(oldToken);
 
@@ -1125,7 +1125,7 @@ describe('AuthService with mock ConfigService', () => {
     });
     it('should throw UnauthorizedException if token not found', async () => {
       const oldToken = 'oldRefreshToken';
-      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue(null);
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue(null);
 
       await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
     });
@@ -1133,8 +1133,8 @@ describe('AuthService with mock ConfigService', () => {
       const oldToken = 'oldRefreshToken';
       const date = new Date();
       date.setDate(date.getDate() - 1);
-      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
-        expires_at: date,
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        expiresAt: date,
       });
 
       await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);

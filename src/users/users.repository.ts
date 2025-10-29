@@ -48,7 +48,7 @@ export class UsersRepository {
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {
-    await this.prisma.users.update({
+    await this.prisma.user.update({
       where: { id: userId },
       data: { username: newUsername },
     });
@@ -64,9 +64,9 @@ export class UsersRepository {
     },
   ) {
     await this.prisma.$transaction(async (tx) => {
-      await tx.user_external_accounts.deleteMany({ where: { user_id: userId } });
+      await tx.userExternalAccount.deleteMany({ where: { userId } });
 
-      await tx.users.update({
+      await tx.user.update({
         where: { id: userId },
         data: {
           email: emailUpdateData.newEmail,

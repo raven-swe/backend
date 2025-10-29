@@ -33,7 +33,7 @@ describe('LocalStrategy', () => {
 
   describe('validate', () => {
     it('should return the user if validation is successful', async () => {
-      const mockUser: RequestUser = { id: '1', username: 'test' };
+      const mockUser: RequestUser = { id: '1' };
       const username = 'test';
       const password = 'password';
 

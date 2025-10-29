@@ -544,7 +544,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    if (oldToken.expires_at < new Date()) {
+    if (oldToken.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token expired');
     }
 
@@ -560,9 +560,9 @@ export class AuthService {
       expiresAt,
     } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
-    await this.prisma.refresh_tokens.update({
-      where: { id: BigInt(oldToken.id) },
-      data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
+    await this.prisma.refreshToken.update({
+      where: { id: oldToken.id },
+      data: { tokenHash: newHashedRefreshToken, expiresAt: expiresAt },
     });
     return { refreshToken: newRefreshToken, accessToken };
   }
