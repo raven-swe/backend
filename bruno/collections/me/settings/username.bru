@@ -7,9 +7,14 @@ meta {
 patch {
   url: http://localhost:3000/me/settings/username
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }
