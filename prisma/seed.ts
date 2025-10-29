@@ -3,35 +3,35 @@ import { PrismaClient, MediaType, NotificationType } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.tweets.updateMany({
-    data: { quoted_tweet_id: null, reply_to_tweet_id: null },
+  await prisma.tweet.updateMany({
+    data: { quotedTweetId: null, replyToTweetId: null },
   });
-  await prisma.conversations.updateMany({
-    data: { last_message_id: null },
+  await prisma.conversation.updateMany({
+    data: { lastMessageId: null },
   });
-  await prisma.conversation_participants.updateMany({
-    data: { last_seen_message_id: null },
+  await prisma.conversationParticipant.updateMany({
+    data: { lastSeenMessageId: null },
   });
-  await prisma.notifications.deleteMany();
-  await prisma.conversation_participants.deleteMany();
-  await prisma.messages.deleteMany();
-  await prisma.conversations.deleteMany();
-  await prisma.likes.deleteMany();
-  await prisma.retweets.deleteMany();
-  await prisma.tweet_media.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.conversationParticipant.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
+  await prisma.like.deleteMany();
+  await prisma.retweet.deleteMany();
+  await prisma.tweetMedia.deleteMany();
   await prisma.media.deleteMany();
-  await prisma.tweet_hashtags.deleteMany();
-  await prisma.hashtags.deleteMany();
-  await prisma.tweet_mentions.deleteMany();
-  await prisma.tweets.deleteMany();
-  await prisma.mutes.deleteMany();
-  await prisma.blocks.deleteMany();
-  await prisma.follows.deleteMany();
-  await prisma.refresh_tokens.deleteMany();
-  await prisma.user_devices.deleteMany();
-  await prisma.user_external_accounts.deleteMany();
-  await prisma.profiles.deleteMany();
-  await prisma.users.deleteMany();
+  await prisma.tweetHashtag.deleteMany();
+  await prisma.hashtag.deleteMany();
+  await prisma.tweetMention.deleteMany();
+  await prisma.tweet.deleteMany();
+  await prisma.mute.deleteMany();
+  await prisma.block.deleteMany();
+  await prisma.follow.deleteMany();
+  await prisma.refreshToken.deleteMany();
+  await prisma.userDevice.deleteMany();
+  await prisma.userExternalAccount.deleteMany();
+  await prisma.profile.deleteMany();
+  await prisma.user.deleteMany();
 
   await prisma.$executeRaw`ALTER SEQUENCE "users_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "refresh_tokens_id_seq" RESTART WITH 1;`;
@@ -48,18 +48,18 @@ async function main() {
     {
       username: 'OmarHassan',
       email: 'omar@gmail.com',
-      password_hash: '$2a$10$skJLBvUxlf0KBnUGNAG0BuDb.v6mUbKgGlVfWaTEsHNJtk00qvBNS',
+      passwordHash: '$2a$10$skJLBvUxlf0KBnUGNAG0BuDb.v6mUbKgGlVfWaTEsHNJtk00qvBNS',
       birthdate: new Date('2003-08-04'),
-      profile: { create: { display_name: 'Omar Hassan' } },
+      profile: { create: { displayName: 'Omar Hassan' } },
     },
     {
       username: 'notnowomar',
       email: 'omarg@gmail.com',
-      password_hash: '$2a$10$OQw7ZoP7SETenCXbALgfD.eAKegNI0FUMwpqpPS977X017JaMG6dC',
+      passwordHash: '$2a$10$OQw7ZoP7SETenCXbALgfD.eAKegNI0FUMwpqpPS977X017JaMG6dC',
       birthdate: new Date('2003-12-04'),
       profile: {
         create: {
-          display_name: 'Omar Gamal',
+          displayName: 'Omar Gamal',
           bio: 'Frontend enthusiast.',
           location: 'Alexandria, Egypt',
         },
@@ -68,142 +68,142 @@ async function main() {
     {
       username: 'Tasneem',
       email: 'tasneem@gmail.com',
-      password_hash: '$2a$10$SAgbBSiZOk8LW/9IaD2PzOtlQi39JWaLLkmRrTobcLWqZIRoNptYu',
+      passwordHash: '$2a$10$SAgbBSiZOk8LW/9IaD2PzOtlQi39JWaLLkmRrTobcLWqZIRoNptYu',
       birthdate: new Date('2004-08-04'),
       phone: '01001013205',
-      profile: { create: { display_name: 'Tasneem', bio: 'Life is good.' } },
+      profile: { create: { displayName: 'Tasneem', bio: 'Life is good.' } },
     },
     {
       username: 'anasbrahim',
       email: 'anas@gmail.com',
-      password_hash: '$2a$10$F.6W9pCnJ9PNq1X7ExOZ1OcF1RIke/nqVxCUbgi.FDl.jrCBdC7wq',
+      passwordHash: '$2a$10$F.6W9pCnJ9PNq1X7ExOZ1OcF1RIke/nqVxCUbgi.FDl.jrCBdC7wq',
       birthdate: new Date('2004-08-04'),
       phone: '01005013203',
-      profile: { create: { display_name: 'Anas' } },
+      profile: { create: { displayName: 'Anas' } },
     },
     {
       username: 'gelgel',
       email: 'mostafa@gmail.com',
-      password_hash: '$2a$10$QHBO7om6Al91AXUn7kzVf.ftg3fMhQBDUAKUn5q7X3ymjmT5f68R2',
+      passwordHash: '$2a$10$QHBO7om6Al91AXUn7kzVf.ftg3fMhQBDUAKUn5q7X3ymjmT5f68R2',
       birthdate: new Date('2003-12-05'),
       phone: '01005013209',
-      profile: { create: { display_name: 'Mostafa' } },
+      profile: { create: { displayName: 'Mostafa' } },
     },
     {
       username: 'Layla',
       email: 'layla@gmail.com',
-      password_hash: '$2a$10$bE.9Z9.E1c.g2k4Z3H1fO.B5n1X2w3V4u5s6t7y8Z9A0B1c2d3E4',
+      passwordHash: '$2a$10$bE.9Z9.E1c.g2k4Z3H1fO.B5n1X2w3V4u5s6t7y8Z9A0B1c2d3E4',
       birthdate: new Date('2002-05-15'),
-      profile: { create: { display_name: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
+      profile: { create: { displayName: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
     },
     {
       username: 'kimo',
       email: 'karim@gmail.com',
-      password_hash: '$2a$10$fG.8h7j6K5L4M3N2P1q0R.o9s8d7f6g5h4j3k2l1I0E9F8d7c6b5',
+      passwordHash: '$2a$10$fG.8h7j6K5L4M3N2P1q0R.o9s8d7f6g5h4j3k2l1I0E9F8d7c6b5',
       birthdate: new Date('2003-11-20'),
-      profile: { create: { display_name: 'karim', bio: 'Just here for the memes.' } },
+      profile: { create: { displayName: 'karim', bio: 'Just here for the memes.' } },
     },
     {
       username: 'SaraA',
       email: 'sara@gmail.com',
-      password_hash: '$2a$10$aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIjKlMnOp',
+      passwordHash: '$2a$10$aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIjKlMnOp',
       birthdate: new Date('2001-03-10'),
       phone: '01001234567',
-      profile: { create: { display_name: 'Sara Ahmed', bio: 'Backend dev & coffee addict ☕' } },
+      profile: { create: { displayName: 'Sara Ahmed', bio: 'Backend dev & coffee addict ☕' } },
     },
     {
       username: 'ZakiDev',
       email: 'ahmedz@gmail.com',
-      password_hash: '$2a$10$QrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz012345',
+      passwordHash: '$2a$10$QrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz012345',
       birthdate: new Date('2004-07-22'),
-      profile: { create: { display_name: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
+      profile: { create: { displayName: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
     },
     {
       username: 'NourCodes',
       email: 'nour@gmail.com',
-      password_hash: '$2a$10$1234567890AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCdEfG',
+      passwordHash: '$2a$10$1234567890AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCdEfG',
       birthdate: new Date('2002-09-18'),
-      profile: { create: { display_name: 'Nour', bio: 'Full-stack explorer.' } },
+      profile: { create: { displayName: 'Nour', bio: 'Full-stack explorer.' } },
     },
     {
       username: 'YoussefTech',
       email: 'youssef@gmail.com',
-      password_hash: '$2a$10$hIjKlMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvW',
+      passwordHash: '$2a$10$hIjKlMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvW',
       birthdate: new Date('2003-02-14'),
       phone: '01009876543',
-      profile: { create: { display_name: 'Youssef', bio: 'AI enthusiast 🤖' } },
+      profile: { create: { displayName: 'Youssef', bio: 'AI enthusiast 🤖' } },
     },
     {
       username: 'FatmaDesign',
       email: 'fatma@gmail.com',
-      password_hash: '$2a$10$xYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd',
+      passwordHash: '$2a$10$xYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd',
       birthdate: new Date('2004-11-30'),
-      profile: { create: { display_name: 'Fatma', bio: 'UI/UX magic maker.' } },
+      profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
     },
   ];
   for (const user of usersToCreate) {
-    await prisma.users.create({ data: user });
+    await prisma.user.create({ data: user });
   }
 
-  await prisma.follows.createMany({
+  await prisma.follow.createMany({
     data: [
-      { follower_id: 1, followed_id: 2, with_notifications: true },
-      { follower_id: 1, followed_id: 4 },
-      { follower_id: 1, followed_id: 6 },
-      { follower_id: 1, followed_id: 8 },
-      { follower_id: 1, followed_id: 10 },
-      { follower_id: 2, followed_id: 1 },
-      { follower_id: 2, followed_id: 3 },
-      { follower_id: 2, followed_id: 4 },
-      { follower_id: 2, followed_id: 9 },
-      { follower_id: 3, followed_id: 2 },
-      { follower_id: 3, followed_id: 6 },
-      { follower_id: 3, followed_id: 11 },
-      { follower_id: 4, followed_id: 1 },
-      { follower_id: 4, followed_id: 2 },
-      { follower_id: 4, followed_id: 5 },
-      { follower_id: 4, followed_id: 12 },
-      { follower_id: 5, followed_id: 4 },
-      { follower_id: 5, followed_id: 7 },
-      { follower_id: 5, followed_id: 8 },
-      { follower_id: 6, followed_id: 1 },
-      { follower_id: 6, followed_id: 3 },
-      { follower_id: 6, followed_id: 10 },
-      { follower_id: 7, followed_id: 2 },
-      { follower_id: 7, followed_id: 5 },
-      { follower_id: 7, followed_id: 9 },
-      { follower_id: 8, followed_id: 1, with_notifications: true },
-      { follower_id: 8, followed_id: 4 },
-      { follower_id: 8, followed_id: 6 },
-      { follower_id: 9, followed_id: 2 },
-      { follower_id: 9, followed_id: 7 },
-      { follower_id: 10, followed_id: 1 },
-      { follower_id: 10, followed_id: 6 },
-      { follower_id: 11, followed_id: 3 },
-      { follower_id: 11, followed_id: 4 },
-      { follower_id: 12, followed_id: 6 },
-      { follower_id: 12, followed_id: 8 },
+      { followerId: 1, followedId: 2, withNotifications: true },
+      { followerId: 1, followedId: 4 },
+      { followerId: 1, followedId: 6 },
+      { followerId: 1, followedId: 8 },
+      { followerId: 1, followedId: 10 },
+      { followerId: 2, followedId: 1 },
+      { followerId: 2, followedId: 3 },
+      { followerId: 2, followedId: 4 },
+      { followerId: 2, followedId: 9 },
+      { followerId: 3, followedId: 2 },
+      { followerId: 3, followedId: 6 },
+      { followerId: 3, followedId: 11 },
+      { followerId: 4, followedId: 1 },
+      { followerId: 4, followedId: 2 },
+      { followerId: 4, followedId: 5 },
+      { followerId: 4, followedId: 12 },
+      { followerId: 5, followedId: 4 },
+      { followerId: 5, followedId: 7 },
+      { followerId: 5, followedId: 8 },
+      { followerId: 6, followedId: 1 },
+      { followerId: 6, followedId: 3 },
+      { followerId: 6, followedId: 10 },
+      { followerId: 7, followedId: 2 },
+      { followerId: 7, followedId: 5 },
+      { followerId: 7, followedId: 9 },
+      { followerId: 8, followedId: 1, withNotifications: true },
+      { followerId: 8, followedId: 4 },
+      { followerId: 8, followedId: 6 },
+      { followerId: 9, followedId: 2 },
+      { followerId: 9, followedId: 7 },
+      { followerId: 10, followedId: 1 },
+      { followerId: 10, followedId: 6 },
+      { followerId: 11, followedId: 3 },
+      { followerId: 11, followedId: 4 },
+      { followerId: 12, followedId: 6 },
+      { followerId: 12, followedId: 8 },
     ],
   });
 
-  await prisma.blocks.createMany({
+  await prisma.block.createMany({
     data: [
-      { user_id: 3, blocked_id: 5 },
-      { user_id: 7, blocked_id: 11 },
-      { user_id: 9, blocked_id: 12 },
+      { userId: 3, blockedId: 5 },
+      { userId: 7, blockedId: 11 },
+      { userId: 9, blockedId: 12 },
     ],
   });
 
-  await prisma.mutes.createMany({
+  await prisma.mute.createMany({
     data: [
-      { user_id: 1, muted_id: 7 },
-      { user_id: 6, muted_id: 10 },
-      { user_id: 4, muted_id: 2 },
+      { userId: 1, mutedId: 7 },
+      { userId: 6, mutedId: 10 },
+      { userId: 4, mutedId: 2 },
     ],
   });
 
   const getHashtag = async (tag: string) =>
-    prisma.hashtags.upsert({
+    prisma.hashtag.upsert({
       where: { tag },
       update: { count: { increment: 1 } },
       create: { tag, count: 1 },
@@ -213,66 +213,66 @@ async function main() {
   const nestHashtag = await getHashtag('nestjs');
   const authHashtag = await getHashtag('auth');
 
-  const anasTweet1 = await prisma.tweets.create({
+  const anasTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 4,
+      userId: 4,
       content:
         'Just deployed my first app with #nestjs. The developer experience is amazing compared to Express. #typescript @OmarHassan what do you think?',
-      has_hashtags: true,
-      has_mentions: true,
-      tweet_hashtags: {
+      hasHashtags: true,
+      hasMentions: true,
+      tweetHashtags: {
         create: [
-          { hashtag_id: nestHashtag.id, starting_index: 31 },
-          { hashtag_id: tsHashtag.id, starting_index: 88 },
+          { hashtagId: nestHashtag.id, startingIndex: 31 },
+          { hashtagId: tsHashtag.id, startingIndex: 88 },
         ],
       },
-      tweet_mentions: {
-        create: [{ user_id: 1, starting_index: 118 }],
+      tweetMentions: {
+        create: [{ userId: 1, startingIndex: 118 }],
       },
     },
   });
 
-  const omarGReply1 = await prisma.tweets.create({
+  const omarGReply1 = await prisma.tweet.create({
     data: {
-      user_id: 2,
+      userId: 2,
       content: 'Totally agree! The module system keeps everything so clean. @anasbrahim',
-      reply_to_tweet_id: anasTweet1.id,
-      has_mentions: true,
-      tweet_mentions: {
-        create: [{ user_id: 4, starting_index: 65 }],
+      replyToTweetId: anasTweet1.id,
+      hasMentions: true,
+      tweetMentions: {
+        create: [{ userId: 4, startingIndex: 65 }],
       },
     },
   });
 
-  const omarHReply1 = await prisma.tweets.create({
+  const omarHReply1 = await prisma.tweet.create({
     data: {
-      user_id: 1,
+      userId: 1,
       content: 'How are you handling authentication? Passport.js strategies? #auth',
-      reply_to_tweet_id: anasTweet1.id,
-      has_hashtags: true,
-      tweet_hashtags: {
-        create: [{ hashtag_id: authHashtag.id, starting_index: 72 }],
+      replyToTweetId: anasTweet1.id,
+      hasHashtags: true,
+      tweetHashtags: {
+        create: [{ hashtagId: authHashtag.id, startingIndex: 72 }],
       },
     },
   });
 
-  const anasReply2 = await prisma.tweets.create({
+  const anasReply2 = await prisma.tweet.create({
     data: {
-      user_id: 4,
+      userId: 4,
       content: 'Yep, using passport-jwt. It integrated surprisingly easily. Thanks @OmarHassan!',
-      reply_to_tweet_id: omarHReply1.id,
-      has_mentions: true,
-      tweet_mentions: {
-        create: [{ user_id: 1, starting_index: 52 }],
+      replyToTweetId: omarHReply1.id,
+      hasMentions: true,
+      tweetMentions: {
+        create: [{ userId: 1, startingIndex: 52 }],
       },
     },
   });
 
-  const saraReply1 = await prisma.tweets.create({
+  const saraReply1 = await prisma.tweet.create({
     data: {
-      user_id: 8,
+      userId: 8,
       content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
-      reply_to_tweet_id: anasTweet1.id,
+      replyToTweetId: anasTweet1.id,
     },
   });
 
@@ -280,30 +280,30 @@ async function main() {
   const cairoHashtag = await getHashtag('cairo');
   const egyptHashtag = await getHashtag('egypt');
 
-  const laylaTweet1 = await prisma.tweets.create({
+  const laylaTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 6,
+      userId: 6,
       content:
         'Found the best koshary place in downtown #cairo! Must-visit for every #foodie in #egypt 🤤 @Tasneem',
-      has_media: true,
-      has_hashtags: true,
-      has_mentions: true,
-      tweet_hashtags: {
+      hasMedia: true,
+      hasHashtags: true,
+      hasMentions: true,
+      tweetHashtags: {
         create: [
-          { hashtag_id: cairoHashtag.id, starting_index: 41 },
-          { hashtag_id: foodHashtag.id, starting_index: 64 },
-          { hashtag_id: egyptHashtag.id, starting_index: 78 },
+          { hashtagId: cairoHashtag.id, startingIndex: 41 },
+          { hashtagId: foodHashtag.id, startingIndex: 64 },
+          { hashtagId: egyptHashtag.id, startingIndex: 78 },
         ],
       },
-      tweet_mentions: {
-        create: [{ user_id: 3, starting_index: 92 }],
+      tweetMentions: {
+        create: [{ userId: 3, startingIndex: 92 }],
       },
       media: {
         create: {
-          user_id: 6,
+          userId: 6,
           type: MediaType.IMAGE,
           url: 'https://i.imgur.com/examplekoshary.jpg',
-          alt_text: 'A delicious bowl of koshary',
+          altText: 'A delicious bowl of koshary',
           width: 800,
           height: 600,
         },
@@ -311,297 +311,297 @@ async function main() {
     },
   });
 
-  const tasneemReply1 = await prisma.tweets.create({
+  const tasneemReply1 = await prisma.tweet.create({
     data: {
-      user_id: 3,
+      userId: 3,
       content: 'Omg where is this?? Looks incredible! @Layla tag me next time!',
-      reply_to_tweet_id: laylaTweet1.id,
-      has_mentions: true,
-      tweet_mentions: {
-        create: [{ user_id: 6, starting_index: 40 }],
+      replyToTweetId: laylaTweet1.id,
+      hasMentions: true,
+      tweetMentions: {
+        create: [{ userId: 6, startingIndex: 40 }],
       },
     },
   });
 
-  const fatmaReply1 = await prisma.tweets.create({
+  const fatmaReply1 = await prisma.tweet.create({
     data: {
-      user_id: 12,
+      userId: 12,
       content: 'Koshary is life! Adding to my list. 😍',
-      reply_to_tweet_id: laylaTweet1.id,
+      replyToTweetId: laylaTweet1.id,
     },
   });
 
   const memeHashtag = await getHashtag('memes');
   const internetHashtag = await getHashtag('internet');
 
-  const karimTweet1 = await prisma.tweets.create({
+  const karimTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 7,
+      userId: 7,
       content: 'Is it just me or is the #internet extra slow today? Share your pain! #memes',
-      has_hashtags: true,
-      tweet_hashtags: {
+      hasHashtags: true,
+      tweetHashtags: {
         create: [
-          { hashtag_id: internetHashtag.id, starting_index: 25 },
-          { hashtag_id: memeHashtag.id, starting_index: 58 },
+          { hashtagId: internetHashtag.id, startingIndex: 25 },
+          { hashtagId: memeHashtag.id, startingIndex: 58 },
         ],
       },
     },
   });
 
-  const gelgelQuoteTweet = await prisma.tweets.create({
+  const gelgelQuoteTweet = await prisma.tweet.create({
     data: {
-      user_id: 5,
+      userId: 5,
       content: 'Definitely not just you. My downloads are crawling. @Kimo this is your fault! 😂',
-      quoted_tweet_id: karimTweet1.id,
-      has_mentions: true,
-      tweet_mentions: {
-        create: [{ user_id: 7, starting_index: 58 }],
+      quotedTweetId: karimTweet1.id,
+      hasMentions: true,
+      tweetMentions: {
+        create: [{ userId: 7, startingIndex: 58 }],
       },
     },
   });
 
-  const youssefReply1 = await prisma.tweets.create({
+  const youssefReply1 = await prisma.tweet.create({
     data: {
-      user_id: 11,
+      userId: 11,
       content: 'ISP woes unite us all. Time for Starlink? 🚀',
-      reply_to_tweet_id: karimTweet1.id,
+      replyToTweetId: karimTweet1.id,
     },
   });
 
   const uiuxHashtag = await getHashtag('uiux');
   const designHashtag = await getHashtag('design');
 
-  const fatmaTweet1 = await prisma.tweets.create({
+  const fatmaTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 12,
+      userId: 12,
       content:
         'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design @ZakiDev',
-      has_hashtags: true,
-      has_mentions: true,
-      tweet_hashtags: {
+      hasHashtags: true,
+      hasMentions: true,
+      tweetHashtags: {
         create: [
-          { hashtag_id: uiuxHashtag.id, starting_index: 22 },
-          { hashtag_id: designHashtag.id, starting_index: 60 },
+          { hashtagId: uiuxHashtag.id, startingIndex: 22 },
+          { hashtagId: designHashtag.id, startingIndex: 60 },
         ],
       },
-      tweet_mentions: {
-        create: [{ user_id: 9, starting_index: 74 }],
+      tweetMentions: {
+        create: [{ userId: 9, startingIndex: 74 }],
       },
     },
   });
 
-  const ahmedZReply1 = await prisma.tweets.create({
+  const ahmedZReply1 = await prisma.tweet.create({
     data: {
-      user_id: 9,
+      userId: 9,
       content: 'Figma all the way, but user testing is overrated sometimes. @FatmaDesign',
-      reply_to_tweet_id: fatmaTweet1.id,
-      has_mentions: true,
-      tweet_mentions: {
-        create: [{ user_id: 12, starting_index: 52 }],
+      replyToTweetId: fatmaTweet1.id,
+      hasMentions: true,
+      tweetMentions: {
+        create: [{ userId: 12, startingIndex: 52 }],
       },
     },
   });
 
   const aiHashtag = await getHashtag('ai');
 
-  const youssefTweet1 = await prisma.tweets.create({
+  const youssefTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 11,
+      userId: 11,
       content: 'AI is changing everything. Excited for the future! #ai @YoussefTech self-promo 😏',
-      has_hashtags: true,
-      tweet_hashtags: {
-        create: [{ hashtag_id: aiHashtag.id, starting_index: 38 }],
+      hasHashtags: true,
+      tweetHashtags: {
+        create: [{ hashtagId: aiHashtag.id, startingIndex: 38 }],
       },
     },
   });
 
   const graphqlHashtag = await getHashtag('graphql');
 
-  const nourTweet1 = await prisma.tweets.create({
+  const nourTweet1 = await prisma.tweet.create({
     data: {
-      user_id: 10,
+      userId: 10,
       content: 'Diving deep into #graphql today. Resolvers got me hooked! @NourCodes',
-      has_hashtags: true,
-      tweet_hashtags: {
-        create: [{ hashtag_id: graphqlHashtag.id, starting_index: 15 }],
+      hasHashtags: true,
+      tweetHashtags: {
+        create: [{ hashtagId: graphqlHashtag.id, startingIndex: 15 }],
       },
     },
   });
 
-  await prisma.likes.createMany({
+  await prisma.like.createMany({
     data: [
-      { user_id: 1, tweet_id: anasTweet1.id },
-      { user_id: 2, tweet_id: anasTweet1.id },
-      { user_id: 5, tweet_id: anasTweet1.id },
-      { user_id: 8, tweet_id: anasTweet1.id },
-      { user_id: 4, tweet_id: omarGReply1.id },
-      { user_id: 1, tweet_id: omarGReply1.id },
-      { user_id: 10, tweet_id: omarHReply1.id },
-      { user_id: 4, tweet_id: anasReply2.id },
-      { user_id: 1, tweet_id: anasReply2.id },
-      { user_id: 8, tweet_id: saraReply1.id },
-      { user_id: 1, tweet_id: laylaTweet1.id },
-      { user_id: 2, tweet_id: laylaTweet1.id },
-      { user_id: 3, tweet_id: laylaTweet1.id },
-      { user_id: 7, tweet_id: laylaTweet1.id },
-      { user_id: 4, tweet_id: tasneemReply1.id },
-      { user_id: 6, tweet_id: tasneemReply1.id },
-      { user_id: 12, tweet_id: fatmaReply1.id },
-      { user_id: 2, tweet_id: karimTweet1.id },
-      { user_id: 4, tweet_id: karimTweet1.id },
-      { user_id: 5, tweet_id: karimTweet1.id },
-      { user_id: 9, tweet_id: karimTweet1.id },
-      { user_id: 7, tweet_id: gelgelQuoteTweet.id },
-      { user_id: 3, tweet_id: youssefReply1.id },
-      { user_id: 6, tweet_id: fatmaTweet1.id },
-      { user_id: 1, tweet_id: fatmaTweet1.id },
-      { user_id: 9, tweet_id: ahmedZReply1.id },
-      { user_id: 12, tweet_id: ahmedZReply1.id },
-      { user_id: 2, tweet_id: youssefTweet1.id },
-      { user_id: 8, tweet_id: youssefTweet1.id },
-      { user_id: 4, tweet_id: nourTweet1.id },
-      { user_id: 11, tweet_id: nourTweet1.id },
+      { userId: 1, tweetId: anasTweet1.id },
+      { userId: 2, tweetId: anasTweet1.id },
+      { userId: 5, tweetId: anasTweet1.id },
+      { userId: 8, tweetId: anasTweet1.id },
+      { userId: 4, tweetId: omarGReply1.id },
+      { userId: 1, tweetId: omarGReply1.id },
+      { userId: 10, tweetId: omarHReply1.id },
+      { userId: 4, tweetId: anasReply2.id },
+      { userId: 1, tweetId: anasReply2.id },
+      { userId: 8, tweetId: saraReply1.id },
+      { userId: 1, tweetId: laylaTweet1.id },
+      { userId: 2, tweetId: laylaTweet1.id },
+      { userId: 3, tweetId: laylaTweet1.id },
+      { userId: 7, tweetId: laylaTweet1.id },
+      { userId: 4, tweetId: tasneemReply1.id },
+      { userId: 6, tweetId: tasneemReply1.id },
+      { userId: 12, tweetId: fatmaReply1.id },
+      { userId: 2, tweetId: karimTweet1.id },
+      { userId: 4, tweetId: karimTweet1.id },
+      { userId: 5, tweetId: karimTweet1.id },
+      { userId: 9, tweetId: karimTweet1.id },
+      { userId: 7, tweetId: gelgelQuoteTweet.id },
+      { userId: 3, tweetId: youssefReply1.id },
+      { userId: 6, tweetId: fatmaTweet1.id },
+      { userId: 1, tweetId: fatmaTweet1.id },
+      { userId: 9, tweetId: ahmedZReply1.id },
+      { userId: 12, tweetId: ahmedZReply1.id },
+      { userId: 2, tweetId: youssefTweet1.id },
+      { userId: 8, tweetId: youssefTweet1.id },
+      { userId: 4, tweetId: nourTweet1.id },
+      { userId: 11, tweetId: nourTweet1.id },
     ],
   });
 
-  await prisma.retweets.createMany({
+  await prisma.retweet.createMany({
     data: [
-      { user_id: 2, tweet_id: laylaTweet1.id },
-      { user_id: 3, tweet_id: anasTweet1.id },
-      { user_id: 8, tweet_id: anasTweet1.id },
-      { user_id: 5, tweet_id: karimTweet1.id },
-      { user_id: 10, tweet_id: fatmaTweet1.id },
+      { userId: 2, tweetId: laylaTweet1.id },
+      { userId: 3, tweetId: anasTweet1.id },
+      { userId: 8, tweetId: anasTweet1.id },
+      { userId: 5, tweetId: karimTweet1.id },
+      { userId: 10, tweetId: fatmaTweet1.id },
     ],
   });
 
-  await prisma.tweets.updateMany({
+  await prisma.tweet.updateMany({
     where: {
       id: { in: [anasTweet1.id, omarGReply1.id, omarHReply1.id, anasReply2.id, saraReply1.id] },
     },
-    data: { like_count: { increment: 1 } },
+    data: { likeCount: { increment: 1 } },
   });
-  await prisma.tweets.update({
+  await prisma.tweet.update({
     where: { id: anasTweet1.id },
-    data: { like_count: 4, retweet_count: 2, reply_count: 4 },
+    data: { likeCount: 4, retweetCount: 2, replyCount: 4 },
   });
-  await prisma.tweets.update({
+  await prisma.tweet.update({
     where: { id: omarGReply1.id },
-    data: { like_count: 2, reply_count: 0 },
+    data: { likeCount: 2, replyCount: 0 },
   });
-  await prisma.tweets.update({
+  await prisma.tweet.update({
     where: { id: omarHReply1.id },
-    data: { like_count: 1, reply_count: 1 },
+    data: { likeCount: 1, replyCount: 1 },
   });
-  await prisma.tweets.update({ where: { id: anasReply2.id }, data: { like_count: 2 } });
-  await prisma.tweets.update({ where: { id: saraReply1.id }, data: { like_count: 1 } });
-  await prisma.tweets.update({
+  await prisma.tweet.update({ where: { id: anasReply2.id }, data: { likeCount: 2 } });
+  await prisma.tweet.update({ where: { id: saraReply1.id }, data: { likeCount: 1 } });
+  await prisma.tweet.update({
     where: { id: laylaTweet1.id },
-    data: { like_count: 4, retweet_count: 1, reply_count: 2 },
+    data: { likeCount: 4, retweetCount: 1, replyCount: 2 },
   });
-  await prisma.tweets.update({ where: { id: tasneemReply1.id }, data: { like_count: 2 } });
-  await prisma.tweets.update({ where: { id: fatmaReply1.id }, data: { like_count: 1 } });
-  await prisma.tweets.update({
+  await prisma.tweet.update({ where: { id: tasneemReply1.id }, data: { likeCount: 2 } });
+  await prisma.tweet.update({ where: { id: fatmaReply1.id }, data: { likeCount: 1 } });
+  await prisma.tweet.update({
     where: { id: karimTweet1.id },
-    data: { like_count: 4, retweet_count: 1 },
+    data: { likeCount: 4, retweetCount: 1 },
   });
-  await prisma.tweets.update({ where: { id: gelgelQuoteTweet.id }, data: { like_count: 1 } });
-  await prisma.tweets.update({ where: { id: youssefReply1.id }, data: { like_count: 1 } });
-  await prisma.tweets.update({
+  await prisma.tweet.update({ where: { id: gelgelQuoteTweet.id }, data: { likeCount: 1 } });
+  await prisma.tweet.update({ where: { id: youssefReply1.id }, data: { likeCount: 1 } });
+  await prisma.tweet.update({
     where: { id: fatmaTweet1.id },
-    data: { like_count: 2, reply_count: 1 },
+    data: { likeCount: 2, replyCount: 1 },
   });
-  await prisma.tweets.update({ where: { id: ahmedZReply1.id }, data: { like_count: 2 } });
-  await prisma.tweets.update({ where: { id: youssefTweet1.id }, data: { like_count: 2 } });
-  await prisma.tweets.update({ where: { id: nourTweet1.id }, data: { like_count: 2 } });
+  await prisma.tweet.update({ where: { id: ahmedZReply1.id }, data: { likeCount: 2 } });
+  await prisma.tweet.update({ where: { id: youssefTweet1.id }, data: { likeCount: 2 } });
+  await prisma.tweet.update({ where: { id: nourTweet1.id }, data: { likeCount: 2 } });
 
-  const groupConversation1 = await prisma.conversations.create({
+  const groupConversation1 = await prisma.conversation.create({
     data: {
-      conversation_participants: {
+      conversationParticipants: {
         create: [
-          { user_id: 4, notifications_muted: false },
-          { user_id: 1, notifications_muted: true },
-          { user_id: 2, last_seen_message_id: null },
+          { userId: 4, notificationsMuted: false },
+          { userId: 1, notificationsMuted: true },
+          { userId: 2, lastSeenMessageId: null },
         ],
       },
     },
   });
 
-  await prisma.messages.create({
+  await prisma.message.create({
     data: {
       content: 'Hey guys, thinking of making that NestJS project open source.',
-      conversation_id: groupConversation1.id,
-      user_id: 4,
-      message_entities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
+      conversationId: groupConversation1.id,
+      userId: 4,
+      messageEntities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
     },
   });
-  await prisma.messages.create({
+  await prisma.message.create({
     data: {
       content: 'Great idea! I can help with the database schema design.',
-      conversation_id: groupConversation1.id,
-      user_id: 1,
-      message_entities: { text: 'Great idea! I can help with the database schema design.' },
+      conversationId: groupConversation1.id,
+      userId: 1,
+      messageEntities: { text: 'Great idea! I can help with the database schema design.' },
     },
   });
-  const msg1_3 = await prisma.messages.create({
+  const msg1_3 = await prisma.message.create({
     data: {
       content: "I'm in! I can set up the frontend with React/Next.js.",
-      conversation_id: groupConversation1.id,
-      user_id: 2,
-      message_entities: { text: "I'm in! I can set up the frontend with React/Next.js." },
+      conversationId: groupConversation1.id,
+      userId: 2,
+      messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
     },
   });
 
-  await prisma.conversations.update({
+  await prisma.conversation.update({
     where: { id: groupConversation1.id },
-    data: { last_message_id: msg1_3.id },
+    data: { lastMessageId: msg1_3.id },
   });
 
-  const privateConv1 = await prisma.conversations.create({
+  const privateConv1 = await prisma.conversation.create({
     data: {
-      conversation_participants: {
-        create: [{ user_id: 6 }, { user_id: 3, last_seen_message_id: null }],
+      conversationParticipants: {
+        create: [{ userId: 6 }, { userId: 3, lastSeenMessageId: null }],
       },
     },
   });
 
-  const privMsg1 = await prisma.messages.create({
+  const privMsg1 = await prisma.message.create({
     data: {
       content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
-      conversation_id: privateConv1.id,
-      user_id: 6,
-      message_entities: {
+      conversationId: privateConv1.id,
+      userId: 6,
+      messageEntities: {
         text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
       },
     },
   });
 
-  await prisma.conversations.update({
+  await prisma.conversation.update({
     where: { id: privateConv1.id },
-    data: { last_message_id: privMsg1.id },
+    data: { lastMessageId: privMsg1.id },
   });
 
-  const groupConversation2 = await prisma.conversations.create({
+  const groupConversation2 = await prisma.conversation.create({
     data: {
-      conversation_participants: {
-        create: [{ user_id: 8 }, { user_id: 12, notifications_muted: false }, { user_id: 9 }],
+      conversationParticipants: {
+        create: [{ userId: 8 }, { userId: 12, notificationsMuted: false }, { userId: 9 }],
       },
     },
   });
 
-  await prisma.messages.create({
+  await prisma.message.create({
     data: {
       content: 'Team, ideas for the new app redesign?',
-      conversation_id: groupConversation2.id,
-      user_id: 8,
-      message_entities: { text: 'Team, ideas for the new app redesign?' },
+      conversationId: groupConversation2.id,
+      userId: 8,
+      messageEntities: { text: 'Team, ideas for the new app redesign?' },
     },
   });
-  const msg2_2 = await prisma.messages.create({
+  const msg2_2 = await prisma.message.create({
     data: {
       content: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
-      conversation_id: groupConversation2.id,
-      user_id: 12,
-      message_entities: {
+      conversationId: groupConversation2.id,
+      userId: 12,
+      messageEntities: {
         text: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
         mentions: [
           {
@@ -613,60 +613,60 @@ async function main() {
     },
   });
 
-  await prisma.conversations.update({
+  await prisma.conversation.update({
     where: { id: groupConversation2.id },
-    data: { last_message_id: msg2_2.id },
+    data: { lastMessageId: msg2_2.id },
   });
 
-  await prisma.notifications.createMany({
+  await prisma.notification.createMany({
     data: [
-      { actor_id: 1, receiver_id: 2, type: NotificationType.FOLLOW, seen: true },
-      { actor_id: 1, receiver_id: 4, type: NotificationType.FOLLOW },
-      { actor_id: 1, receiver_id: 6, type: NotificationType.FOLLOW },
-      { actor_id: 1, receiver_id: 8, type: NotificationType.FOLLOW },
-      { actor_id: 2, receiver_id: 1, type: NotificationType.FOLLOW },
-      { actor_id: 2, receiver_id: 3, type: NotificationType.FOLLOW },
-      { actor_id: 2, receiver_id: 4, type: NotificationType.FOLLOW },
-      { actor_id: 2, receiver_id: 9, type: NotificationType.FOLLOW },
-      { actor_id: 3, receiver_id: 2, type: NotificationType.FOLLOW },
-      { actor_id: 3, receiver_id: 6, type: NotificationType.FOLLOW },
-      { actor_id: 3, receiver_id: 11, type: NotificationType.FOLLOW },
-      { actor_id: 1, receiver_id: 4, type: NotificationType.LIKE, tweet_id: anasTweet1.id },
-      { actor_id: 2, receiver_id: 4, type: NotificationType.LIKE, tweet_id: anasTweet1.id },
-      { actor_id: 5, receiver_id: 4, type: NotificationType.LIKE, tweet_id: anasTweet1.id },
-      { actor_id: 8, receiver_id: 4, type: NotificationType.LIKE, tweet_id: anasTweet1.id },
-      { actor_id: 1, receiver_id: 2, type: NotificationType.LIKE, tweet_id: omarGReply1.id },
-      { actor_id: 4, receiver_id: 2, type: NotificationType.LIKE, tweet_id: omarGReply1.id },
-      { actor_id: 10, receiver_id: 1, type: NotificationType.LIKE, tweet_id: omarHReply1.id },
-      { actor_id: 1, receiver_id: 6, type: NotificationType.LIKE, tweet_id: laylaTweet1.id },
-      { actor_id: 3, receiver_id: 6, type: NotificationType.LIKE, tweet_id: laylaTweet1.id },
-      { actor_id: 7, receiver_id: 6, type: NotificationType.LIKE, tweet_id: laylaTweet1.id },
-      { actor_id: 2, receiver_id: 4, type: NotificationType.REPLY, tweet_id: omarGReply1.id },
-      { actor_id: 1, receiver_id: 4, type: NotificationType.REPLY, tweet_id: omarHReply1.id },
-      { actor_id: 4, receiver_id: 1, type: NotificationType.REPLY, tweet_id: anasReply2.id },
-      { actor_id: 8, receiver_id: 4, type: NotificationType.REPLY, tweet_id: saraReply1.id },
-      { actor_id: 3, receiver_id: 6, type: NotificationType.REPLY, tweet_id: tasneemReply1.id },
-      { actor_id: 12, receiver_id: 6, type: NotificationType.REPLY, tweet_id: fatmaReply1.id },
-      { actor_id: 1, receiver_id: 4, type: NotificationType.MENTION, tweet_id: anasTweet1.id },
-      { actor_id: 2, receiver_id: 4, type: NotificationType.MENTION, tweet_id: omarGReply1.id },
-      { actor_id: 4, receiver_id: 1, type: NotificationType.MENTION, tweet_id: anasReply2.id },
-      { actor_id: 3, receiver_id: 6, type: NotificationType.MENTION, tweet_id: laylaTweet1.id },
-      { actor_id: 2, receiver_id: 6, type: NotificationType.RETWEET, tweet_id: laylaTweet1.id },
-      { actor_id: 3, receiver_id: 4, type: NotificationType.RETWEET, tweet_id: anasTweet1.id },
-      { actor_id: 8, receiver_id: 4, type: NotificationType.RETWEET, tweet_id: anasTweet1.id },
-      { actor_id: 5, receiver_id: 7, type: NotificationType.QUOTE, tweet_id: gelgelQuoteTweet.id },
-      { actor_id: 10, receiver_id: 12, type: NotificationType.RETWEET, tweet_id: fatmaTweet1.id },
-      { actor_id: 4, receiver_id: 1, type: NotificationType.MESSAGE },
-      { actor_id: 4, receiver_id: 2, type: NotificationType.MESSAGE },
-      { actor_id: 1, receiver_id: 4, type: NotificationType.MESSAGE },
-      { actor_id: 1, receiver_id: 2, type: NotificationType.MESSAGE },
-      { actor_id: 2, receiver_id: 4, type: NotificationType.MESSAGE },
-      { actor_id: 2, receiver_id: 1, type: NotificationType.MESSAGE },
-      { actor_id: 6, receiver_id: 3, type: NotificationType.MESSAGE },
-      { actor_id: 8, receiver_id: 12, type: NotificationType.MESSAGE },
-      { actor_id: 8, receiver_id: 9, type: NotificationType.MESSAGE },
-      { actor_id: 12, receiver_id: 8, type: NotificationType.MESSAGE },
-      { actor_id: 12, receiver_id: 9, type: NotificationType.MENTION },
+      { actorId: 1, receiverId: 2, type: NotificationType.FOLLOW, seen: true },
+      { actorId: 1, receiverId: 4, type: NotificationType.FOLLOW },
+      { actorId: 1, receiverId: 6, type: NotificationType.FOLLOW },
+      { actorId: 1, receiverId: 8, type: NotificationType.FOLLOW },
+      { actorId: 2, receiverId: 1, type: NotificationType.FOLLOW },
+      { actorId: 2, receiverId: 3, type: NotificationType.FOLLOW },
+      { actorId: 2, receiverId: 4, type: NotificationType.FOLLOW },
+      { actorId: 2, receiverId: 9, type: NotificationType.FOLLOW },
+      { actorId: 3, receiverId: 2, type: NotificationType.FOLLOW },
+      { actorId: 3, receiverId: 6, type: NotificationType.FOLLOW },
+      { actorId: 3, receiverId: 11, type: NotificationType.FOLLOW },
+      { actorId: 1, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+      { actorId: 2, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+      { actorId: 5, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+      { actorId: 8, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+      { actorId: 1, receiverId: 2, type: NotificationType.LIKE, tweetId: omarGReply1.id },
+      { actorId: 4, receiverId: 2, type: NotificationType.LIKE, tweetId: omarGReply1.id },
+      { actorId: 10, receiverId: 1, type: NotificationType.LIKE, tweetId: omarHReply1.id },
+      { actorId: 1, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+      { actorId: 3, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+      { actorId: 7, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+      { actorId: 2, receiverId: 4, type: NotificationType.REPLY, tweetId: omarGReply1.id },
+      { actorId: 1, receiverId: 4, type: NotificationType.REPLY, tweetId: omarHReply1.id },
+      { actorId: 4, receiverId: 1, type: NotificationType.REPLY, tweetId: anasReply2.id },
+      { actorId: 8, receiverId: 4, type: NotificationType.REPLY, tweetId: saraReply1.id },
+      { actorId: 3, receiverId: 6, type: NotificationType.REPLY, tweetId: tasneemReply1.id },
+      { actorId: 12, receiverId: 6, type: NotificationType.REPLY, tweetId: fatmaReply1.id },
+      { actorId: 1, receiverId: 4, type: NotificationType.MENTION, tweetId: anasTweet1.id },
+      { actorId: 2, receiverId: 4, type: NotificationType.MENTION, tweetId: omarGReply1.id },
+      { actorId: 4, receiverId: 1, type: NotificationType.MENTION, tweetId: anasReply2.id },
+      { actorId: 3, receiverId: 6, type: NotificationType.MENTION, tweetId: laylaTweet1.id },
+      { actorId: 2, receiverId: 6, type: NotificationType.RETWEET, tweetId: laylaTweet1.id },
+      { actorId: 3, receiverId: 4, type: NotificationType.RETWEET, tweetId: anasTweet1.id },
+      { actorId: 8, receiverId: 4, type: NotificationType.RETWEET, tweetId: anasTweet1.id },
+      { actorId: 5, receiverId: 7, type: NotificationType.QUOTE, tweetId: gelgelQuoteTweet.id },
+      { actorId: 10, receiverId: 12, type: NotificationType.RETWEET, tweetId: fatmaTweet1.id },
+      { actorId: 4, receiverId: 1, type: NotificationType.MESSAGE },
+      { actorId: 4, receiverId: 2, type: NotificationType.MESSAGE },
+      { actorId: 1, receiverId: 4, type: NotificationType.MESSAGE },
+      { actorId: 1, receiverId: 2, type: NotificationType.MESSAGE },
+      { actorId: 2, receiverId: 4, type: NotificationType.MESSAGE },
+      { actorId: 2, receiverId: 1, type: NotificationType.MESSAGE },
+      { actorId: 6, receiverId: 3, type: NotificationType.MESSAGE },
+      { actorId: 8, receiverId: 12, type: NotificationType.MESSAGE },
+      { actorId: 8, receiverId: 9, type: NotificationType.MESSAGE },
+      { actorId: 12, receiverId: 8, type: NotificationType.MESSAGE },
+      { actorId: 12, receiverId: 9, type: NotificationType.MENTION },
     ],
   });
 }
