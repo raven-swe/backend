@@ -5,9 +5,8 @@ import { AuthService } from './auth.service';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { AUTH_CONFIG } from './constants/auth.constants';
-import { DeviceType } from 'src/devices/interfaces/device.interface';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { CheckIdentifierQueryDto } from './dtos';
 import { RequestWithCookies } from './types';
 import { RefreshTokenDto } from './dtos';
@@ -99,7 +98,7 @@ describe('AuthController with real config service', () => {
       password: 'pass',
     };
 
-    const deviceType = DeviceType.WEB;
+    const deviceType = 'Chrome on Windows (Desktop)';
 
     const mockRequest = {
       ip: '127.0.0.1',
@@ -120,6 +119,7 @@ describe('AuthController with real config service', () => {
       const result = await controller.completeRegistration(
         mockRequest,
         dto,
+        'web',
         deviceType,
         mockResponse,
       );
@@ -133,18 +133,17 @@ describe('AuthController with real config service', () => {
       expect((mockResponse.cookie as jest.Mock).mock.calls).toHaveLength(1);
       expect((mockResponse.cookie as jest.Mock).mock.calls[0]).toEqual([
         'refreshToken',
-        serviceResult.refreshToken,
+        'refresh-token',
         {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
+          sameSite: 'none',
           maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
         },
       ]);
 
       expect(result).toEqual({
         accessToken: serviceResult.accessToken,
-        refreshToken: serviceResult.refreshToken,
       });
     });
   });
@@ -313,13 +312,12 @@ describe('AuthController with real config service', () => {
 
       expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
 
-      const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: config.get('NODE_ENV') === 'production',
         sameSite: 'none',
-        maxAge: config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis,
+        maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
       });
 
       expect(result).toEqual({
@@ -415,13 +413,12 @@ describe('AuthController with mocked config service', () => {
 
       expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, ipAddress);
 
-      const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: false,
         sameSite: 'none',
-        maxAge: 30 * daysToMillis,
+        maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
       });
 
       expect(result).toEqual({
@@ -441,13 +438,12 @@ describe('AuthController with mocked config service', () => {
       const result = await controller.refrehAccessToken(req, dto, mockResponse, mockClientType);
 
       expect(mockAuthService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
-      const daysToMillis = 24 * 60 * 60 * 1000;
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockResponse.cookie).toHaveBeenCalledWith('refreshToken', 'mockRefreshToken', {
         httpOnly: true,
         secure: false,
         sameSite: 'none',
-        maxAge: 30 * daysToMillis,
+        maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
       });
 
       expect(result).toEqual({
@@ -469,26 +465,21 @@ describe('AuthController with mocked config service', () => {
     it('with client type undefined should throw', async () => {
       await expect(
         controller.refrehAccessToken(req, dto, mockResponse, undefined as never),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('with undefined refresh_token in body it should throw', async () => {
       mockClientType = 'mobile';
       await expect(
-        controller.refrehAccessToken(req, undefined as never, mockResponse, undefined as never),
-      ).rejects.toThrow(UnauthorizedException);
+        controller.refrehAccessToken(req, undefined as never, mockResponse, mockClientType),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('with undefined refresh_token in cookie it should throw', async () => {
       const noCookieReq = mockRequestWithCookies({ refreshToken: undefined });
 
       await expect(
-        controller.refrehAccessToken(
-          noCookieReq,
-          undefined as never,
-          mockResponse,
-          undefined as never,
-        ),
+        controller.refrehAccessToken(noCookieReq, undefined as never, mockResponse, 'web'),
       ).rejects.toThrow(UnauthorizedException);
     });
   });

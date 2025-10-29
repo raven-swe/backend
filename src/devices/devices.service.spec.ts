@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DevicesService } from './devices.service';
 import { DevicesRepository } from './devices.repository';
-import { Device, DeviceType } from '../devices/interfaces/device.interface';
+import { Device } from '../devices/interfaces/device.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('DevicesService', () => {
@@ -79,7 +79,7 @@ describe('DevicesService', () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
-        deviceType: DeviceType.MOBILE,
+        deviceType: 'Chrome on Window',
       };
 
       const expectedCreatedDevice = {
@@ -105,7 +105,7 @@ describe('DevicesService', () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
-        deviceType: DeviceType.MOBILE,
+        deviceType: 'Chrome on Window',
       };
 
       const expectedCreatedDevice = {
