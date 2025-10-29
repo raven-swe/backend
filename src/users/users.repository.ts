@@ -46,4 +46,32 @@ export class UsersRepository {
       data: { password_hash: hashedPassword },
     });
   }
+
+  async updateUsernameById(userId: bigint, newUsername: string) {
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { username: newUsername },
+    });
+  }
+
+  async updateUserEmail(
+    userId: bigint,
+    emailUpdateData: {
+      userId: string;
+      otp: string;
+      newEmail: string;
+      verified: boolean;
+    },
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user_external_accounts.deleteMany({ where: { user_id: userId } });
+
+      await tx.users.update({
+        where: { id: userId },
+        data: {
+          email: emailUpdateData.newEmail,
+        },
+      });
+    });
+  }
 }

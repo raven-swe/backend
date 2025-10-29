@@ -29,6 +29,8 @@ export const REDIS_KEYS = {
   OTP_RESEND: (email: string) => `otp_resend:${email}`,
   PASSWORD_RESET: (token: string) => `password_reset:${token}`,
   OTP_RESEND_PASSWORD_RESET: (email: string) => `otp_resend:password_reset:${email}`,
+  EMAIL_UPDATE: (token: string) => `email_update:${token}`,
+  OTP_RESEND_UPDATE_EMAIL: (userId: string) => `otp-resend:email_update:${userId}`,
 } as const;
 
 export const AUTH_CONFIG = {
@@ -38,4 +40,5 @@ export const AUTH_CONFIG = {
   OTP_RESEND_WINDOW: 60, // 1 minute
   SALT_ROUNDS: 10, // for password hashing
   REFRESH_TOKEN_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  EMAIL_UPDATE_TTL: 300,
 };

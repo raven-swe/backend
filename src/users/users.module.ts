@@ -3,15 +3,21 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { MeController } from './me/me.controller';
+import { SettingsController } from './me/settings/settings.controller';
+import { SettingsService } from './me/settings/settings.service';
 import { BullModule } from '@nestjs/bullmq';
+import { RedisModule } from 'src/redis/redis.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
 @Module({
-  controllers: [UsersController, MeController],
-  providers: [UsersService, UsersRepository],
+  controllers: [UsersController, MeController, SettingsController],
+  providers: [UsersService, UsersRepository, SettingsService],
   exports: [UsersService, UsersRepository],
   imports: [
     BullModule.registerQueue({
       name: 'email',
     }),
+    RedisModule,
+    PrismaModule,
   ],
 })
 export class UsersModule {}
