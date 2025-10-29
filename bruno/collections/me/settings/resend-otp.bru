@@ -1,0 +1,22 @@
+meta {
+  name: resend-otp
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/me/settings/email/resend-otp
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "confirmationToken": "39e19184-ea82-4dde-b48c-4c4dceb50b5f"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

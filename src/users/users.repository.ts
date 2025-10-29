@@ -72,8 +72,6 @@ export class UsersRepository {
       if (data.avatarUrl !== undefined) prismaData.avatar_url = data.avatarUrl;
       if (data.bannerUrl !== undefined) prismaData.banner_url = data.bannerUrl;
 
-      console.log('Prisma Data to be updated:', prismaData);
-
       // Only update if there are fields to update
       let profile;
       if (Object.keys(prismaData).length > 0) {
@@ -134,7 +132,8 @@ export class UsersRepository {
     const mutualsCount: number | null = 2;
     const mutualNames: string[] | null = ['Omar', 'Tasneem'];
 
-    if (currentUserId) {
+    // Get relationship status only if currentUserId is provided and is different from the profile user
+    if (currentUserId && currentUserId !== user.id) {
       // Check if current user is following this user
       const isFollowing = await this.prisma.follows.findUnique({
         where: {
@@ -216,5 +215,33 @@ export class UsersRepository {
       mutualsCount: mutualsCount ? mutualsCount : null,
       mutualNames,
     };
+  }
+
+  async updateUsernameById(userId: bigint, newUsername: string) {
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { username: newUsername },
+    });
+  }
+
+  async updateUserEmail(
+    userId: bigint,
+    emailUpdateData: {
+      userId: string;
+      otp: string;
+      newEmail: string;
+      verified: boolean;
+    },
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user_external_accounts.deleteMany({ where: { user_id: userId } });
+
+      await tx.users.update({
+        where: { id: userId },
+        data: {
+          email: emailUpdateData.newEmail,
+        },
+      });
+    });
   }
 }

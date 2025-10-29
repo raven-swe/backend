@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -11,6 +11,9 @@ import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -164,5 +167,35 @@ export class UsersService {
     }
 
     return profile;
+  }
+
+  async updateUsernameById(userId: bigint, newUsername: string) {
+    await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    return { message: 'Username updated successfully.' };
+  }
+
+  async findById(userId: bigint) {
+    return this.usersRepository.findById(userId);
+  }
+
+  async updateUserEmail(
+    userId: bigint,
+    emailUpdateData: {
+      userId: string;
+      otp: string;
+      newEmail: string;
+      verified: boolean;
+    },
+  ) {
+    if (!emailUpdateData.verified) {
+      throw new BadRequestException(
+        createValidationError('otp', {
+          invalidToken: AUTH_ERROR_MESSAGES.OTP_NOT_VERIFIED,
+        }),
+      );
+    }
+
+    return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
 }
