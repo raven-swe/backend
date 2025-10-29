@@ -138,8 +138,7 @@ describe('AuthService with mock ConfigService', () => {
   beforeEach(async () => {
     // Initialize mocks
     mockJwtService = {
-      signAsync: jest.fn(),
-      sign: jest.fn().mockReturnValue('mockAccessToken'),
+      signAsync: jest.fn().mockReturnValue('mockAccessToken'),
     };
 
     mockRecaptchaService = {
@@ -316,17 +315,11 @@ describe('AuthService with mock ConfigService', () => {
       expect(call.data.device_id).toBe(100n);
       expect(call.data.expires_at).toBeInstanceOf(Date);
 
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: user.id,
-          username: user.username,
+          userId: user.id,
         }),
       );
-
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        id: user.id,
-        username: user.username,
-      });
     });
 
     it('should throw an error if the database transaction fails', async () => {
