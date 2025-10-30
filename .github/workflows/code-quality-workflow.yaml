@@ -22,7 +22,7 @@ jobs:
         run: corepack enable
 
       - name: Setup pnpm
-        run: corepack prepare pnpm@latest --activate
+        run: corepack prepare pnpm@10.18.0 --activate
 
       - uses: actions/setup-node@v4
         with:
