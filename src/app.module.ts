@@ -39,6 +39,7 @@ import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { SessionsModule } from './sessions/sessions.module';
     TweetAnalyzeModule,
     EventsModule,
     SessionsModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [
