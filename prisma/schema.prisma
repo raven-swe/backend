@@ -262,12 +262,14 @@ model notifications {
 model media {
   id          BigInt        @id @default(autoincrement())
   user_id     BigInt
+  tweet_id    BigInt
   type        MediaType
   url         String
   alt_text    String?
   width       Float?
   height      Float?
   created_at  DateTime      @default(now())
+  tweet       tweets       @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet_media tweet_media[]
 
