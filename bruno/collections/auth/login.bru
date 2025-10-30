@@ -1,0 +1,37 @@
+meta {
+  name: login
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/auth/login
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-Client-Type: web
+}
+
+body:json {
+  {
+    "identifier":"gelgel",
+    "password":"test1234"
+  }
+}
+
+script:post-response {
+  const responseBody = res.getBody();
+  if (responseBody && typeof responseBody === 'object') {
+    const token = responseBody.data.accessToken;
+    if (token) {
+      bru.setEnvVar('access_token', token);
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

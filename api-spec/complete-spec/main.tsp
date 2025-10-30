@@ -855,7 +855,7 @@ namespace Auth {
   @useAuth(BearerAuth)
   op logout(
     @header("X-Client-Type") clientType: "web" | "mobile",
-    @cookie("refresh_token") refreshToken?: string,
+    @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
     },
@@ -867,7 +867,7 @@ namespace Auth {
   @summary("refresh token is required in cookie from web clints and in body from mobile clients")
   op refreshToken(
     @header("X-Client-Type") clientType: "web" | "mobile",
-    @cookie("refresh_token") refreshToken?: string,
+    @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
     },
@@ -886,28 +886,24 @@ namespace Auth {
     @route("/forgot")
     op forgotPassword(
       @body body: {
-        email: string;
+        identifier: string;
         recaptchaToken: string; // token from client side recaptcha v2
       },
     ):
-      | {
-          ...OkResponse;
-          ...Body<{
-            success: true;
-            token: string;
-            message: "Password reset code sent to email.";
-          }>;
-        }
+      | DataResponse<{
+          confirmationToken: string;
+        }>
       | ValidationErrorResponse
       | NotFoundResponse
       | RateLimitResponse
-      | InternalServerErrorResponse;
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
     op verifyForgotPassword(
       @body body: {
-        token: string;
+        confirmationToken: string;
         otp: string;
       },
     ):
@@ -920,11 +916,11 @@ namespace Auth {
     @route("/reset")
     op resetPassword(
       @body body: {
-        token: string;
+        confirmationToken: string;
         newPassword: string;
       },
     ):
-      | MessageResponse<"Password reset successfully.">
+      | MessageResponse<"Password has been reset successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
       | InternalServerErrorResponse;
@@ -946,10 +942,10 @@ namespace Auth {
     @route("/resend-otp")
     op resendOtpPassword(
       @body body: {
-        token: string;
+        confirmationToken: string;
       },
     ):
-      | MessageResponse<"otp resent successfully.">
+      | MessageResponse<"OTP resent successfully.">
       | BadRequestResponse
       | RateLimitResponse
       | InternalServerErrorResponse;
@@ -1272,9 +1268,12 @@ namespace Me {
         newEmail: string;
       },
     ):
-      | MessageResponse<"Email update initiated. Please verify the new email address.">
+      | DataResponse<{
+          confirmationToken: string;
+        }>
       | ValidationErrorResponse
       | ConflictResponse
+      | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
@@ -1283,21 +1282,23 @@ namespace Me {
     @summary("Resend the verification code to the new email address")
     op resendEmailVerificationOtp(
       @body body: {
-        newEmail: string;
+        confirmationToken: string;
       },
     ):
       | MessageResponse<"Verification code resent successfully.">
       | BadRequestResponse
       | RateLimitResponse
       | UnauthorizedResponse
-      | InternalServerErrorResponse;
+      | InternalServerErrorResponse
+      | ValidationErrorResponse;
 
     @post
     @route("/email/verify")
     @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
     op verifyNewEmail(
       @body body: {
-        verificationCode: string;
+        confirmationToken: string;
+        otp: string;
       },
     ):
       | MessageResponse<"Email address updated successfully.">

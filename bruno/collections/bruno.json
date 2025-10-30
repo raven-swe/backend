@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "auth",
+  "name": "raven",
   "type": "collection",
   "ignore": ["node_modules", ".git"]
 }

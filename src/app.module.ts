@@ -1,13 +1,19 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { EmailModule } from './email/email.module';
+import { RecaptchaModule } from './recaptcha/recaptcha.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { DevicesModule } from './devices/devices.module';
+import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 
 @Module({
   imports: [
@@ -15,15 +21,26 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: 60_000,
-          limit: 60, // 60 requests per minute
+          ttl: RATE_LIMIT.GLOBAL.TTL,
+          limit: RATE_LIMIT.GLOBAL.LIMIT,
         },
       ],
     }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
+      },
+    }),
     AuthModule,
     UsersModule,
+    DevicesModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
+    RecaptchaModule,
+    RefreshTokensModule,
+    DevicesModule,
   ],
   controllers: [],
   providers: [
@@ -31,7 +48,6 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,

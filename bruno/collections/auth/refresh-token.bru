@@ -1,0 +1,26 @@
+meta {
+  name: refresh-token
+  type: http
+  seq: 13
+}
+
+post {
+  url: http://localhost:3000/auth/refresh-token
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-Client-Type: web
+}
+
+body:json {
+  {
+  "refreshToken":"3635092f1da643b9f15a469fd4b838f0f33348c3afa1f150e8c9ec2dae202209be51730d931a48c2d6e8f9664fad60d08d36c6b59b764c125e6b2deb5a9092a2"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

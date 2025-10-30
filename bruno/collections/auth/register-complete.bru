@@ -1,0 +1,27 @@
+meta {
+  name: register-complete
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:3000/auth/register/complete
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-Client-Type: ios
+}
+
+body:json {
+  {
+    "password":"OmarGamal3000",
+    "creationToken":"{{creationToken}}"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
