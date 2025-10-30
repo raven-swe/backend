@@ -713,7 +713,7 @@ model MessageResponse<TMessage extends string> {
   ...OkResponse;
   ...Body<{
     success: true;
-    message: TMessage;
+    message?: TMessage; // optional message field on success
   }>;
 }
 
@@ -1191,7 +1191,9 @@ namespace Me {
       banner: HttpPart<File>;
     },
   ):
-    | MessageResponse<"Banner updated successfully.">
+    | DataResponse<{
+        bannerUrl: string;
+      }>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
