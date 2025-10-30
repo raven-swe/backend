@@ -962,6 +962,27 @@ namespace Auth {
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username is already taken")
+  @doc("""
+    This endpoint checks whether a given username is already taken in the system.
+    """)
+  @route("/check-username")
+  op checkUsername(@query username: string): DataResponse<{
+    exists: boolean;
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+
+  @get
+  @summary("Check if a email is already taken")
+  @doc("""
+    This endpoint checks whether a given email is already taken in the system.
+    """)
+  @route("/check-email")
+  op checkEmail(@query email: string): DataResponse<{
+    exists: boolean;
+    }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
@@ -1481,26 +1502,6 @@ namespace Me {
       | InternalServerErrorResponse;
   }
 
-    @get
-    @summary("Check if a username is already taken")
-    @doc("""
-      This endpoint checks whether a given username is already taken in the system.
-      """)
-    @route("/check-username")
-    op checkUsername(@query username: string): DataResponse<{
-      exists: boolean;
-    }> | ValidationErrorResponse | InternalServerErrorResponse;
-
-
-    @get
-    @summary("Check if a email is already taken")
-    @doc("""
-      This endpoint checks whether a given email is already taken in the system.
-      """)
-    @route("/check-email")
-    op checkEmail(@query email: string): DataResponse<{
-      exists: boolean;
-    }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("Timeline")
