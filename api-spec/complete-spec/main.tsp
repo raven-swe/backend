@@ -422,9 +422,6 @@ model UpdateProfileRequest {
   @maxLength(160)
   bio?: string | null;
 
-  @doc("Entities in the bio (mentions and hashtags)")
-  bioEntities?: BioEntities | null;
-
   @doc("User's location")
   @maxLength(100)
   location?: string | null;
@@ -1864,7 +1861,7 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Get top 3 relevant hastags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
   @route("/hashtags/top")
   op getTopHashtags(
