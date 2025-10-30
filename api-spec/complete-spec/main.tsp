@@ -952,7 +952,7 @@ namespace Auth {
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
     type: "username" | "email";
-  }> | ValidationErrorResponse | InternalServerErrorResponse;
+  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
 
   @get
   @summary("Check if a username is already taken")
@@ -962,7 +962,7 @@ namespace Auth {
   @route("/check-username")
   op checkUsername(@query username: string): DataResponse<{
     exists: boolean;
-  }> | ValidationErrorResponse | InternalServerErrorResponse;
+  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
 
 
   @get
@@ -973,7 +973,7 @@ namespace Auth {
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
-    }> | ValidationErrorResponse | InternalServerErrorResponse;
+    }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
 }
 
 @tag("OAuth")

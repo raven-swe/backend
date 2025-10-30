@@ -314,10 +314,14 @@ namespace Auth {
   }
 
   @get
+  @summary("Check if a email is already taken")
+  @doc("""
+    This endpoint checks whether a given email is already taken in the system.
+    """)
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
-  }> | ValidationErrorResponse | InternalServerErrorResponse;
+    }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
 
   @post
   @route("/login")
@@ -347,7 +351,7 @@ namespace Auth {
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
     type: "username" | "email";
-  }> | ValidationErrorResponse | InternalServerErrorResponse;
+  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
 
   @post
   @route("/logout")
