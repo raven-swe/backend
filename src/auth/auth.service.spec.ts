@@ -1193,7 +1193,7 @@ describe('AuthService with mock ConfigService', () => {
   describe('clearRefreshToken', () => {
     const oldToken = 'oldRefreshToken';
 
-    const user: RequestUser = { id: '200', username: 'username' };
+    const user: RequestUser = { id: '200' };
     it('should call prisma $transaction', async () => {
       mockPrismaService.$transaction.mockImplementation(
         async <T>(arg: TransactionCallback<T> | unknown[]): Promise<T | unknown[]> => {

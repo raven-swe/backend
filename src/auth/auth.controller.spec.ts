@@ -492,7 +492,7 @@ describe('AuthController with mocked config service', () => {
     let mockClientType: 'web' | 'mobile' = 'web';
     const refreshToken = 'old_mocked_refresh_token';
     const req = mockRequestWithCookies({ refreshToken: refreshToken });
-    const user: RequestUser = { id: '100', username: 'username' };
+    const user: RequestUser = { id: '100' };
     const dto: LogoutDto = { refreshToken };
     const mockResponse = {
       cookie: jest.fn(),
