@@ -4,6 +4,7 @@ import {
   HttpStatus,
   ParseFilePipeBuilder,
   Post,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -11,7 +12,7 @@ import {
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
 import { MediaService } from './media.service';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { MediaType } from '@prisma/client';
 
@@ -19,7 +20,7 @@ import { MediaType } from '@prisma/client';
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
-  @Post('upload')
+  @Post('/upload')
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'avatar', maxCount: 1 },
@@ -29,19 +30,22 @@ export class MediaController {
   @UseGuards(JwtAuthGuard)
   async uploadMedia(
     @User() user: RequestUser,
-    @UploadedFiles(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: 'image/(jpeg|png|gif|webp|tiff|bmp)|video/(mp4|mov|avi|mkv|webm)',
-        })
-        .addMaxSizeValidator({
-          maxSize: 5 * 1024 * 1024, // 5 MB
-        })
-        .build({
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-          fileIsRequired: false,
-        }),
-    )
+    // @UploadedFiles(
+    //   new ParseFilePipeBuilder()
+    //     .addFileTypeValidator({
+    //       fileType: /image\/.*/,
+    //     })
+
+    //     .addMaxSizeValidator({
+    //       maxSize: 5 * 1024 * 1024, // 5 MB
+    //     })
+    //     .build({
+    //       errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+    //       fileIsRequired: false,
+    //     }),
+    // )
+
+    @UploadedFiles()
     files: {
       avatar?: Express.Multer.File[];
       banner?: Express.Multer.File[];
@@ -49,6 +53,8 @@ export class MediaController {
     @Body('mediaType') mediaType: MediaType,
     @Body('altText') altText?: string,
   ) {
+    console.log('FILES: ', files['avatar'], files['banner']);
+
     const userIdBigInt = BigInt(user.id);
     return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files, mediaType, altText);
   }

@@ -7,283 +7,305 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model users {
-  id                        BigInt                      @id @default(autoincrement())
-  username                  String                      @unique @db.VarChar(50)
-  email                     String                      @unique @db.VarChar(100)
-  password_hash             String?
-  birthdate                 DateTime                    @db.Date
-  phone                     String?                     @db.VarChar(20)
-  created_at                DateTime                    @default(now())
-  language_code             LanguageCode                @default(EN)
-  is_deleted                Boolean                     @default(false)
-  blocked_by                blocks[]                    @relation("blocks_blocked_idTousers")
-  blocked_users             blocks[]                    @relation("blocks_user_idTousers")
-  conversation_participants conversation_participants[]
-  followers                 follows[]                   @relation("follows_followed_idTousers")
-  following                 follows[]                   @relation("follows_follower_idTousers")
-  likes                     likes[]
-  media                     media[]
-  messages                  messages[]
-  muted_by                  mutes[]                     @relation("mutes_muted_idTousers")
-  muted_users               mutes[]                     @relation("mutes_user_idTousers")
-  sent_notifications        notifications[]             @relation("notifications_actor_idTousers")
-  received_notifications    notifications[]             @relation("notifications_receiver_idTousers")
-  profile                   profiles?
-  refresh_tokens            refresh_tokens[]
-  retweets                  retweets[]
-  tweet_mentions            tweet_mentions[]
-  tweets                    tweets[]
-  user_devices              user_devices[]
-  user_external_accounts    user_external_accounts[]
+model User {
+  id                       BigInt                    @id @default(autoincrement())
+  username                 String                    @unique @db.VarChar(50)
+  email                    String                    @unique @db.VarChar(100)
+  passwordHash             String?                   @map("password_hash")
+  birthdate                DateTime                  @db.Date
+  phone                    String?                   @unique @db.VarChar(20)
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  languageCode             LanguageCode              @default(EN) @map("language_code")
+  deletedAt                DateTime?                 @map("deleted_at")
+  blockedBy                Block[]                   @relation("blocks_blocked_idTousers")
+  blockedUsers             Block[]                   @relation("blocks_user_idTousers")
+  conversationParticipants ConversationParticipant[]
+  followers                Follow[]                  @relation("follows_followed_idTousers")
+  following                Follow[]                  @relation("follows_follower_idTousers")
+  likes                    Like[]
+  media                    Media[]
+  messages                 Message[]
+  mutedBy                  Mute[]                    @relation("mutes_muted_idTousers")
+  mutedUsers               Mute[]                    @relation("mutes_user_idTousers")
+  sentNotifications        Notification[]            @relation("notifications_actor_idTousers")
+  receivedNotifications    Notification[]            @relation("notifications_receiver_idTousers")
+  profile                  Profile?
+  refreshTokens            RefreshToken[]
+  retweets                 Retweet[]
+  tweetMentions            TweetMention[]
+  tweets                   Tweet[]
+  userDevices              UserDevice[]
+  userExternalAccounts     UserExternalAccount[]
+
+  @@map("users")
 }
 
-model profiles {
-  user_id      BigInt   @id
-  display_name String   @db.VarChar(100)
-  bio          String?  @db.VarChar(160)
-  bio_entities Json?
-  avatar_url   String?
-  banner_url   String?
-  location     String?
-  website_url  String?
-  updated_at   DateTime @updatedAt
-  user         users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Profile {
+  userId      BigInt   @id @map("user_id")
+  displayName String   @map("display_name") @db.VarChar(100)
+  bio         String?  @db.VarChar(160)
+  bioEntities Json?    @map("bio_entities")
+  avatarUrl   String?  @map("avatar_url") @db.VarChar(255)
+  bannerUrl   String?  @map("banner_url") @db.VarChar(255)
+  location    String?  @db.VarChar(255)
+  websiteUrl  String?  @map("website_url") @db.VarChar(255)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("profiles")
 }
 
-model refresh_tokens {
-  id           BigInt       @id @default(autoincrement())
-  device_id    BigInt       @unique
-  user_id      BigInt
-  token_hash   String       @unique
-  expires_at   DateTime
-  last_used_at DateTime?
-  created_at   DateTime     @default(now())
-  user_device  user_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user         users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model RefreshToken {
+  id         BigInt     @id @default(autoincrement())
+  deviceId   BigInt     @unique @map("device_id")
+  userId     BigInt     @map("user_id")
+  tokenHash  String     @unique @map("token_hash")
+  expiresAt  DateTime   @map("expires_at")
+  lastUsedAt DateTime?  @map("last_used_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  userDevice UserDevice @relation(fields: [deviceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("refresh_tokens")
 }
 
-model user_external_accounts {
-  provider         String   @db.VarChar(50)
-  provider_user_id String
-  user_id          BigInt
-  created_at       DateTime @default(now())
-  user             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model UserExternalAccount {
+  provider       String   @db.VarChar(50)
+  providerUserId String   @map("provider_user_id")
+  userId         BigInt   @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([provider, provider_user_id])
-  @@unique([user_id, provider], map: "user_external_accounts_user_id_provider_idx")
+  @@id([provider, providerUserId])
+  @@unique([userId, provider], map: "user_external_accounts_user_id_provider_idx")
+  @@map("user_external_accounts")
 }
 
-model user_devices {
-  id            BigInt          @id @default(autoincrement())
-  user_id       BigInt
-  fcm_token     String?         @unique
-  ip_address    String?         @db.Inet
-  device_type   String?
-  last_used_at  DateTime        @default(now())
-  created_at    DateTime        @default(now())
-  refresh_token refresh_tokens?
-  user          users           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model UserDevice {
+  id           BigInt        @id @default(autoincrement())
+  userId       BigInt        @map("user_id")
+  fcmToken     String?       @map("fcm_token")
+  ipAddress    String?       @map("ip_address") @db.Inet
+  deviceType   String?       @map("device_type")
+  lastUsedAt   DateTime      @default(now()) @map("last_used_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  refreshToken RefreshToken?
+  user         User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("user_devices")
 }
 
-model tweets {
-  id                BigInt           @id @default(autoincrement())
-  user_id           BigInt
-  content           String?          @db.VarChar(280)
-  has_media         Boolean          @default(false)
-  has_hashtags      Boolean          @default(false)
-  has_mentions      Boolean          @default(false)
-  reply_to_tweet_id BigInt?
-  quoted_tweet_id   BigInt?
-  like_count        Int              @default(0)
-  retweet_count     Int              @default(0)
-  reply_count       Int              @default(0)
-  is_deleted        Boolean          @default(false)
-  created_at        DateTime         @default(now())
-  updated_at        DateTime         @updatedAt
-  likes             likes[]
-  media             media[]
-  notifications     notifications[]
-  retweets          retweets[]
-  tweet_hashtags    tweet_hashtags[]
-  tweet_media       tweet_media[]
-  tweet_mentions    tweet_mentions[]
-  quoted_tweet      tweets?          @relation("tweets_quoted_tweet_idTotweets", fields: [quoted_tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  quotes            tweets[]         @relation("tweets_quoted_tweet_idTotweets")
-  reply_to_tweet    tweets?          @relation("tweets_reply_to_tweet_idTotweets", fields: [reply_to_tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies           tweets[]         @relation("tweets_reply_to_tweet_idTotweets")
-  user              users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Tweet {
+  id             BigInt         @id @default(autoincrement())
+  userId         BigInt         @map("user_id")
+  content        String?        @db.VarChar(280)
+  hasMedia       Boolean        @default(false) @map("has_media")
+  hasHashtags    Boolean        @default(false) @map("has_hashtags")
+  hasMentions    Boolean        @default(false) @map("has_mentions")
+  replyToTweetId BigInt?        @map("reply_to_tweet_id")
+  quotedTweetId  BigInt?        @map("quoted_tweet_id")
+  likeCount      Int            @default(0) @map("like_count")
+  retweetCount   Int            @default(0) @map("retweet_count")
+  replyCount     Int            @default(0) @map("reply_count")
+  isDeleted      Boolean        @default(false) @map("is_deleted")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  likes          Like[]
+  notifications  Notification[]
+  retweets       Retweet[]
+  tweetHashtags  TweetHashtag[]
+  tweetMedia     TweetMedia[]
+  tweetMentions  TweetMention[]
+  quotedTweet    Tweet?         @relation("tweets_quoted_tweet_idTotweets", fields: [quotedTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quotes         Tweet[]        @relation("tweets_quoted_tweet_idTotweets")
+  replyToTweet   Tweet?         @relation("tweets_reply_to_tweet_idTotweets", fields: [replyToTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies        Tweet[]        @relation("tweets_reply_to_tweet_idTotweets")
+  user           User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([reply_to_tweet_id])
-  @@index([quoted_tweet_id])
-  @@index([user_id, created_at])
+  @@index([replyToTweetId], map: "tweets_reply_to_tweet_id_idx")
+  @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
+  @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
+  @@map("tweets")
 }
 
-model blocks {
-  user_id      BigInt
-  blocked_id   BigInt
-  created_at   DateTime @default(now())
-  blocked_user users    @relation("blocks_blocked_idTousers", fields: [blocked_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  blocker      users    @relation("blocks_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Block {
+  userId      BigInt   @map("user_id")
+  blockedId   BigInt   @map("blocked_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  blockedUser User     @relation("blocks_blocked_idTousers", fields: [blockedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  blocker     User     @relation("blocks_user_idTousers", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([user_id, blocked_id])
+  @@id([userId, blockedId])
+  @@map("blocks")
 }
 
-model mutes {
-  user_id    BigInt
-  muted_id   BigInt
-  created_at DateTime @default(now())
-  muted_user users    @relation("mutes_muted_idTousers", fields: [muted_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  muter_user users    @relation("mutes_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Mute {
+  userId    BigInt   @map("user_id")
+  mutedId   BigInt   @map("muted_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  mutedUser User     @relation("mutes_muted_idTousers", fields: [mutedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  muterUser User     @relation("mutes_user_idTousers", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([user_id, muted_id])
+  @@id([userId, mutedId])
+  @@map("mutes")
 }
 
-model follows {
-  follower_id        BigInt
-  followed_id        BigInt
-  created_at         DateTime @default(now())
-  with_notifications Boolean  @default(false)
-  followed_user      users    @relation("follows_followed_idTousers", fields: [followed_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  follower_user      users    @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Follow {
+  followerId        BigInt   @map("follower_id")
+  followedId        BigInt   @map("followed_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  withNotifications Boolean  @default(false) @map("with_notifications")
+  followedUser      User     @relation("follows_followed_idTousers", fields: [followedId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  followerUser      User     @relation("follows_follower_idTousers", fields: [followerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([follower_id, followed_id])
-  @@index([followed_id, follower_id])
+  @@id([followerId, followedId])
+  @@index([followedId, followerId])
+  @@map("follows")
 }
 
-model retweets {
-  user_id    BigInt
-  tweet_id   BigInt
-  created_at DateTime @default(now())
-  tweet      tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user       users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Retweet {
+  userId    BigInt   @map("user_id")
+  tweetId   BigInt   @map("tweet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  tweet     Tweet    @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([user_id, tweet_id])
-  @@index([tweet_id])
+  @@id([userId, tweetId])
+  @@index([tweetId])
+  @@map("retweets")
 }
 
-model likes {
-  user_id    BigInt
-  tweet_id   BigInt
-  created_at DateTime @default(now())
-  tweet      tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user       users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Like {
+  userId    BigInt   @map("user_id")
+  tweetId   BigInt   @map("tweet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  tweet     Tweet    @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([user_id, tweet_id])
-  @@index([tweet_id, user_id])
+  @@id([userId, tweetId])
+  @@index([tweetId, userId])
+  @@map("likes")
 }
 
-model hashtags {
-  id             BigInt           @id @default(autoincrement())
-  tag            String?          @unique @db.VarChar(100)
-  created_at     DateTime         @default(now())
-  count          Int              @default(0)
-  tweet_hashtags tweet_hashtags[]
+model Hashtag {
+  id            BigInt         @id @default(autoincrement())
+  tag           String?        @unique @db.VarChar(100)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  count         Int            @default(0)
+  tweetHashtags TweetHashtag[]
+
+  @@map("hashtags")
 }
 
-model tweet_hashtags {
-  tweet_id       BigInt
-  hashtag_id     BigInt
-  starting_index Int
-  hashtag        hashtags @relation(fields: [hashtag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet          tweets   @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model TweetHashtag {
+  tweetId       BigInt  @map("tweet_id")
+  hashtagId     BigInt  @map("hashtag_id")
+  startingIndex Int     @map("starting_index")
+  hashtag       Hashtag @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet         Tweet   @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([hashtag_id, tweet_id])
-  @@index([tweet_id, hashtag_id])
+  @@id([hashtagId, tweetId])
+  @@index([tweetId, hashtagId])
+  @@map("tweet_hashtags")
 }
 
-model tweet_mentions {
-  tweet_id       BigInt
-  user_id        BigInt
-  starting_index Int
-  tweet          tweets @relation(fields: [tweet_id], references: [id])
-  user           users  @relation(fields: [user_id], references: [id])
+model TweetMention {
+  tweetId       BigInt @map("tweet_id")
+  userId        BigInt @map("user_id")
+  startingIndex Int    @map("starting_index")
+  tweet         Tweet  @relation(fields: [tweetId], references: [id])
+  user          User   @relation(fields: [userId], references: [id])
 
-  @@id([tweet_id, user_id])
-  @@index([user_id, tweet_id])
+  @@id([tweetId, userId])
+  @@index([userId, tweetId])
+  @@map("tweet_mentions")
 }
 
-model messages {
-  id                             BigInt                      @id @default(autoincrement())
-  user_id                        BigInt
-  conversation_id                BigInt
-  content                        String
-  message_entities               Json?
-  created_at                     DateTime                    @default(now())
-  conversation_participants      conversation_participants[]
-  conversation_with_last_message conversations?              @relation("conversations_last_message_idTomessages")
-  conversation                   conversations               @relation("messages_conversation_idToconversations", fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user                           users                       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  media_url                      String?
-  is_deleted_sender              Boolean                     @default(false)
-  is_deleted_receiver            Boolean                     @default(false)
+model Message {
+  id                          BigInt                    @id @default(autoincrement())
+  userId                      BigInt                    @map("user_id")
+  conversationId              BigInt                    @map("conversation_id")
+  content                     String
+  messageEntities             Json?                     @map("message_entities")
+  createdAt                   DateTime                  @default(now()) @map("created_at")
+  conversationParticipants    ConversationParticipant[]
+  conversationWithLastMessage Conversation?             @relation("conversations_last_message_idTomessages")
+  conversation                Conversation              @relation("messages_conversation_idToconversations", fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user                        User                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mediaUrl                    String?                   @map("media_url")
+  isDeletedSender             Boolean                   @default(false) @map("is_deleted_sender")
+  isDeletedReceiver           Boolean                   @default(false) @map("is_deleted_receiver")
 
-  @@index([conversation_id, created_at])
+  @@index([conversationId, createdAt])
+  @@map("messages")
 }
 
-model conversations {
-  id                        BigInt                      @id @default(autoincrement())
-  last_message_id           BigInt?                     @unique
-  created_at                DateTime                    @default(now())
-  conversation_participants conversation_participants[]
-  last_message              messages?                   @relation("conversations_last_message_idTomessages", fields: [last_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  messages                  messages[]                  @relation("messages_conversation_idToconversations")
+model Conversation {
+  id                       BigInt                    @id @default(autoincrement())
+  lastMessageId            BigInt?                   @unique @map("last_message_id")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  conversationParticipants ConversationParticipant[]
+  lastMessage              Message?                  @relation("conversations_last_message_idTomessages", fields: [lastMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages                 Message[]                 @relation("messages_conversation_idToconversations")
+
+  @@map("conversations")
 }
 
-model conversation_participants {
-  id                   BigInt        @id @default(autoincrement())
-  conversation_id      BigInt
-  user_id              BigInt
-  last_seen_message_id BigInt?
-  notifications_muted  Boolean       @default(false)
-  conversations        conversations @relation(fields: [conversation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  messages             messages?     @relation(fields: [last_seen_message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user                 users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model ConversationParticipant {
+  conversationId     BigInt       @map("conversation_id")
+  userId             BigInt       @map("user_id")
+  lastSeenMessageId  BigInt?      @map("last_seen_message_id")
+  notificationsMuted Boolean      @default(false) @map("notifications_muted")
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages           Message?     @relation(fields: [lastSeenMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user               User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([conversation_id, user_id], map: "conversation_participants_conversation_id_user_id_idx")
-  @@index([user_id, conversation_id])
+  @@id([conversationId, userId], map: "conversation_participants_conversation_id_user_id_idx")
+  @@index([userId, conversationId])
+  @@map("conversation_participants")
 }
 
-model notifications {
-  id          BigInt           @id @default(autoincrement())
-  actor_id    BigInt
-  receiver_id BigInt
-  type        NotificationType
-  tweet_id    BigInt?
-  seen        Boolean          @default(false)
-  created_at  DateTime         @default(now())
-  actor       users            @relation("notifications_actor_idTousers", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  receiver    users            @relation("notifications_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet       tweets?          @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Notification {
+  id         BigInt           @id @default(autoincrement())
+  actorId    BigInt           @map("actor_id")
+  receiverId BigInt           @map("receiver_id")
+  type       NotificationType
+  tweetId    BigInt?          @map("tweet_id")
+  seen       Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  actor      User             @relation("notifications_actor_idTousers", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiver   User             @relation("notifications_receiver_idTousers", fields: [receiverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet      Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([receiver_id, created_at])
+  @@index([receiverId, createdAt])
+  @@map("notifications")
 }
 
-model media {
-  id          BigInt        @id @default(autoincrement())
-  user_id     BigInt
-  tweet_id    BigInt
-  type        MediaType
-  url         String
-  alt_text    String?
-  width       Float?
-  height      Float?
-  created_at  DateTime      @default(now())
-  tweet       tweets       @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user        users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet_media tweet_media[]
+model Media {
+  id         BigInt       @id @default(autoincrement())
+  userId     BigInt       @map("user_id")
+  type       MediaType
+  url        String       @db.VarChar(255)
+  altText    String?      @map("alt_text")
+  width      Int?
+  height     Int?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  user       User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweetMedia TweetMedia[]
 
-  @@index([user_id])
+  @@index([userId])
+  @@map("media")
 }
 
-model tweet_media {
-  tweet_id BigInt
-  media_id BigInt
-  order    Int?
-  media    media  @relation(fields: [media_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet    tweets @relation(fields: [tweet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model TweetMedia {
+  tweetId BigInt @map("tweet_id")
+  mediaId BigInt @map("media_id")
+  order   Int?
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet   Tweet  @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@id([tweet_id, media_id])
+  @@id([tweetId, mediaId])
+  @@map("tweet_media")
 }
 
 enum MediaType {

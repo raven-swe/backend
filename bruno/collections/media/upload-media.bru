@@ -6,10 +6,24 @@ meta {
 
 post {
   url: http://localhost:3000/media/upload
-  body: none
-  auth: inherit
+  body: multipartForm
+  auth: bearer
+}
+
+headers {
+  Content-Type: multipart/form-data
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMiLCJpYXQiOjE3NjE4MzE5MDgsImV4cCI6MTc2MTgzMjgwOH0.YuxDCMBjwqzMkKArWZWgdJTT7lZsSB4Mu-qRnKC3jUE
+}
+
+body:multipart-form {
+  avatar: @file(/home/tasneem/OpenApi Spec - Brainstorming.pdf) @contentType(File)
+  mediaType: IMAGE @contentType(text)
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

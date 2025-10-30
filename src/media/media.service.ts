@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { S3Service } from './s3.service';
 import { MediaRepository } from './media.repository';
@@ -26,7 +26,9 @@ export class MediaService {
    * @param mediaType - The type of media being uploaded
    * @param altText - Optional alt text for the media
    *
-   * @returns The saved MediaDto object andor throws an error if operation fails
+   * @returns The URL of the uploaded media
+   *
+   * @throws HttpException if upload or save fails
    */
   async uploadAndSaveMedia(
     file: Express.Multer.File,
@@ -34,7 +36,7 @@ export class MediaService {
     folder: MediaFolder,
     mediaType: MediaType,
     altText?: string,
-  ): Promise<MediaDto> {
+  ): Promise<string> {
     let uploadedKey: string | null = null;
 
     try {
@@ -59,7 +61,7 @@ export class MediaService {
 
       this.logger.log(`Media metadata saved with ID: ${savedMedia.id}`);
 
-      return savedMedia as MediaDto;
+      return url;
     } catch (error) {
       this.logger.error('Failed to upload media', error);
 
@@ -75,7 +77,14 @@ export class MediaService {
       }
 
       this.logger.error('Upload and save media operation failed', error);
-      throw error;
+
+      throw new HttpException(
+        {
+          message: 'Failed to upload and save media',
+          code: 'MEDIA_UPLOAD_SAVE_FAILED',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -107,13 +116,29 @@ export class MediaService {
     altText?: string,
   ) {
     const { avatar, banner } = files;
+    let avatarUrl: string | null = null;
+    let bannerUrl: string | null = null;
 
     if (avatar) {
-      await this.uploadAndSaveMedia(avatar[0], userId, MediaFolder.AVATARS, mediaType, altText);
+      avatarUrl = await this.uploadAndSaveMedia(
+        avatar[0],
+        userId,
+        MediaFolder.AVATARS,
+        mediaType,
+        altText,
+      );
     }
 
     if (banner) {
-      await this.uploadAndSaveMedia(banner[0], userId, MediaFolder.BANNERS, mediaType, altText);
+      bannerUrl = await this.uploadAndSaveMedia(
+        banner[0],
+        userId,
+        MediaFolder.BANNERS,
+        mediaType,
+        altText,
+      );
     }
+
+    return { message: 'Avatar and/or banner uploaded successfully', avatarUrl, bannerUrl };
   }
 }
