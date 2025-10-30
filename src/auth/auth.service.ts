@@ -526,9 +526,9 @@ export class AuthService {
   }
 
   private async getTokenByHash(hash: string) {
-    return await this.prisma.refresh_tokens.findUnique({
+    return await this.prisma.refreshToken.findUnique({
       where: {
-        token_hash: hash,
+        tokenHash: hash,
       },
       include: {
         user: { select: { id: true, username: true } },
@@ -572,10 +572,10 @@ export class AuthService {
     const token = await this.getTokenByHash(hashedRefreshToken);
     if (token) {
       await this.prisma.$transaction([
-        this.prisma.refresh_tokens.delete({
-          where: { id: BigInt(token.id), user_id: BigInt(userId) },
+        this.prisma.refreshToken.delete({
+          where: { id: BigInt(token.id), userId: BigInt(userId) },
         }),
-        this.prisma.user_devices.delete({ where: { id: BigInt(token.device_id) } }),
+        this.prisma.userDevice.delete({ where: { id: BigInt(token.deviceId) } }),
       ]);
     }
   }

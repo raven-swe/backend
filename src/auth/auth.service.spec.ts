@@ -1158,10 +1158,10 @@ describe('AuthService with mock ConfigService', () => {
           throw new Error('Invalid $transaction argument');
         },
       );
-      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
         id: '100',
         user: { id: BigInt('100'), username: 'username' },
-        device_id: '1000',
+        deviceId: '1000',
       });
       await service.clearRefreshToken(user.id, oldToken);
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
