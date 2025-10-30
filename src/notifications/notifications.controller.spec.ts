@@ -6,6 +6,9 @@ describe('NotificationsController', () => {
   let controller: NotificationsController;
   const mockNotificationsSerivce: jest.Mocked<Partial<NotificationsService>> = {
     trigger: jest.fn(),
+    markAllAsSeen: jest.fn(),
+    markAsSeen: jest.fn(),
+    getUnreadCount: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -19,5 +22,38 @@ describe('NotificationsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('getUnreadCount', () => {
+    it('should return unread count from the service', async () => {
+      (mockNotificationsSerivce.getUnreadCount as jest.Mock).mockResolvedValue(5);
+
+      const result = await controller.getUnreadCount({ id: 'user1' });
+
+      expect(mockNotificationsSerivce.getUnreadCount).toHaveBeenCalledWith('user1');
+      expect(result).toBe(5);
+    });
+  });
+
+  describe('markAllAsSeen', () => {
+    it('should call the service to mark all as seen', async () => {
+      (mockNotificationsSerivce.markAllAsSeen as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await controller.markAllAsSeen({ id: 'user1' });
+
+      expect(mockNotificationsSerivce.markAllAsSeen).toHaveBeenCalledWith('user1');
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('markAsSeen', () => {
+    it('should call the service to mark a notification as seen', async () => {
+      (mockNotificationsSerivce.markAsSeen as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await controller.markAsSeen({ id: 'user1' }, 'notification123');
+
+      expect(mockNotificationsSerivce.markAsSeen).toHaveBeenCalledWith('notification123', 'user1');
+      expect(result).toBeUndefined();
+    });
   });
 });
