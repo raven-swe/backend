@@ -16,7 +16,7 @@
     "format": "prettier --write \"{src,test,apps,libs,prisma}/**/*.ts\" \"*.yml\"",
     "format:check": "prettier --check \"{src,test,apps,libs,prisma}/**/*.ts\" \"*.yml\"",
     "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix",
-    "lint:check": "eslint {src,apps,libs,test,prisma}/**/*.ts",
+    "lint:check": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
