@@ -332,6 +332,25 @@ describe('OauthController', () => {
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
     });
 
+    // should reject users under 13 years old
+    it('should handle underage birthdate', async () => {
+      const mockResponse = createMockResponse();
+      mockOAuthService.completeOauthRegister.mockRejectedValue(
+        new BadRequestException('User must be at least 13 years old'),
+      );
+
+      await expect(
+        controller.completeOauthRegister(
+          mockIpAddress,
+          mockDeviceType,
+          mockResponse as Response,
+          { creationToken: 'valid-token', birthDate: '2015-05-20' },
+          'web',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
+    });
+
     it('should handle invalid birthdate format', async () => {
       const mockResponse = createMockResponse();
       mockOAuthService.completeOauthRegister.mockRejectedValue(
