@@ -90,7 +90,7 @@ describe('S3Service', () => {
       };
 
       expect(() => {
-        new S3Service(invalidConfigService as any);
+        new S3Service(invalidConfigService as never);
       }).toThrow(
         'S3 credentials (endpoint, access key, or secret key) are not configured properly.',
       );
