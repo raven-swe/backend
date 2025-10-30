@@ -39,16 +39,6 @@ export class MediaService {
   ): Promise<string> {
     let uploadedKey: string | null = null;
 
-    if (file == null) {
-      throw new HttpException(
-        {
-          message: 'No file provided for upload',
-          code: 'NO_FILE_PROVIDED',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     try {
       const mediaType = detectMediaType(file);
 
@@ -143,11 +133,11 @@ export class MediaService {
       );
     }
 
-    if (avatar) {
+    if (avatar && avatar.length > 0) {
       avatarUrl = await this.uploadAndSaveMedia(avatar[0], userId, MediaFolder.AVATARS, altText);
     }
 
-    if (banner) {
+    if (banner && banner.length > 0) {
       bannerUrl = await this.uploadAndSaveMedia(banner[0], userId, MediaFolder.BANNERS, altText);
     }
 
