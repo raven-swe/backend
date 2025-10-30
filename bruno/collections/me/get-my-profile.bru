@@ -7,9 +7,14 @@ meta {
 get {
   url: http://localhost:3000/me
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }
