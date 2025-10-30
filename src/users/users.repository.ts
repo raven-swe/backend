@@ -56,7 +56,7 @@ export class UsersRepository {
 
       // Update birthDate in users table if provided
       if (data.birthDate !== undefined) {
-        const updatedUser = await tx.users.update({
+        const updatedUser = await tx.user.update({
           where: { id: userId },
           data: { birthdate: data.birthDate },
         });
@@ -64,25 +64,25 @@ export class UsersRepository {
       }
 
       // Build prismaData conditionally
-      const prismaData: Prisma.profilesUpdateInput = {};
-      if (data.displayName !== undefined) prismaData.display_name = data.displayName;
+      const prismaData: Prisma.ProfileUpdateInput = {};
+      if (data.displayName !== undefined) prismaData.displayName = data.displayName;
       if (data.bio !== undefined) prismaData.bio = data.bio;
       if (data.location !== undefined) prismaData.location = data.location;
-      if (data.websiteUrl !== undefined) prismaData.website_url = data.websiteUrl;
-      if (data.avatarUrl !== undefined) prismaData.avatar_url = data.avatarUrl;
-      if (data.bannerUrl !== undefined) prismaData.banner_url = data.bannerUrl;
+      if (data.websiteUrl !== undefined) prismaData.websiteUrl = data.websiteUrl;
+      if (data.avatarUrl !== undefined) prismaData.avatarUrl = data.avatarUrl;
+      if (data.bannerUrl !== undefined) prismaData.bannerUrl = data.bannerUrl;
 
       // Only update if there are fields to update
       let profile;
       if (Object.keys(prismaData).length > 0) {
-        profile = await tx.profiles.update({
-          where: { user_id: userId },
+        profile = await tx.profile.update({
+          where: { userId: userId },
           data: prismaData,
         });
       } else {
         // If no profile fields to update, just fetch the existing profile
-        profile = await tx.profiles.findUnique({
-          where: { user_id: userId },
+        profile = await tx.profile.findUnique({
+          where: { userId: userId },
         });
       }
 
@@ -92,15 +92,15 @@ export class UsersRepository {
 
       // Map profile fields to return
       return {
-        displayName: profile.display_name,
+        displayName: profile.displayName,
         bio: profile.bio,
-        bioEntities: profile.bio_entities,
+        bioEntities: profile.bioEntities,
         location: profile.location,
         birthDate,
-        websiteUrl: profile.website_url,
-        avatarUrl: profile.avatar_url || DEFAULT_PROFILE_PICTURE,
-        bannerUrl: profile.banner_url,
-        updatedAt: profile.updated_at,
+        websiteUrl: profile.websiteUrl,
+        avatarUrl: profile.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        bannerUrl: profile.bannerUrl,
+        updatedAt: profile.updatedAt,
       };
     });
   }
@@ -113,7 +113,7 @@ export class UsersRepository {
     // Build the where clause based on whether it's the user's own profile
     const whereClause = isMyProfile && currentUserId ? { id: currentUserId } : { username };
 
-    const user = await this.prisma.users.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: whereClause,
       include: {
         profile: true,
@@ -127,7 +127,7 @@ export class UsersRepository {
     });
 
     // TODO: change is_deleted to deleted_at after migrating the database
-    if (!user || user.is_deleted) return null;
+    if (!user || user.deletedAt) return null;
 
     // Get relationship if currentUserId is provided
     let relationship: UserRelationshipDto | null = null;
@@ -139,51 +139,51 @@ export class UsersRepository {
     // Get relationship status only if currentUserId is provided and is different from the profile user
     if (currentUserId && !isMyProfile) {
       // Check if current user is following this user
-      const isFollowing = await this.prisma.follows.findUnique({
+      const isFollowing = await this.prisma.follow.findUnique({
         where: {
-          follower_id_followed_id: {
-            follower_id: currentUserId,
-            followed_id: user.id,
+          followerId_followedId: {
+            followerId: currentUserId,
+            followedId: user.id,
           },
         },
       });
 
       // Check if this user is following current user
-      const isFollower = await this.prisma.follows.findUnique({
+      const isFollower = await this.prisma.follow.findUnique({
         where: {
-          follower_id_followed_id: {
-            follower_id: user.id,
-            followed_id: currentUserId,
+          followerId_followedId: {
+            followerId: user.id,
+            followedId: currentUserId,
           },
         },
       });
 
       // Check if current user is blocking this user
-      const isBlocking = await this.prisma.blocks.findUnique({
+      const isBlocking = await this.prisma.block.findUnique({
         where: {
-          user_id_blocked_id: {
-            user_id: currentUserId,
-            blocked_id: user.id,
+          userId_blockedId: {
+            userId: currentUserId,
+            blockedId: user.id,
           },
         },
       });
 
       // Check if the user is blocking current user
-      const isBlockedBy = await this.prisma.blocks.findUnique({
+      const isBlockedBy = await this.prisma.block.findUnique({
         where: {
-          user_id_blocked_id: {
-            user_id: user.id,
-            blocked_id: currentUserId,
+          userId_blockedId: {
+            userId: user.id,
+            blockedId: currentUserId,
           },
         },
       });
 
       // Check if the current user has muted this user
-      const isMuted = await this.prisma.mutes.findUnique({
+      const isMuted = await this.prisma.mute.findUnique({
         where: {
-          user_id_muted_id: {
-            user_id: currentUserId,
-            muted_id: user.id,
+          userId_mutedId: {
+            userId: currentUserId,
+            mutedId: user.id,
           },
         },
       });
@@ -202,16 +202,16 @@ export class UsersRepository {
     return {
       username: user.username,
       // TODO: profile should be created automatically on user creation
-      displayName: user.profile?.display_name || '',
+      displayName: user.profile?.displayName || '',
       bio: user.profile?.bio || null,
       // TODO: return actual bio entities after implementing rich text bios
       bioEntities: null,
       location: user.profile?.location || null,
       birthDate: user.birthdate.toISOString().split('T')[0] || null,
-      avatarUrl: user.profile?.avatar_url || DEFAULT_PROFILE_PICTURE,
-      bannerUrl: user.profile?.banner_url || null,
-      websiteUrl: user.profile?.website_url || null,
-      joinedAt: user.created_at,
+      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      bannerUrl: user.profile?.bannerUrl || null,
+      websiteUrl: user.profile?.websiteUrl || null,
+      joinedAt: user.createdAt,
       relationship,
       followingCount: user._count.following,
       followersCount: user._count.followers,
