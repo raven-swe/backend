@@ -13,7 +13,7 @@ import { MediaService } from './media.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { MAX_FILE_SIZE } from './constants/media.constant';
+import { MAX_FILE_SIZE_BYTES } from './constants/media.constant';
 
 @Controller('media')
 export class MediaController {
@@ -42,7 +42,7 @@ export class MediaController {
 
           callback(null, true);
         },
-        limits: { fileSize: MAX_FILE_SIZE },
+        limits: { fileSize: MAX_FILE_SIZE_BYTES },
       },
     ),
   )
