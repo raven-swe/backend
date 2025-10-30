@@ -13,4 +13,16 @@ export class NotificationsService {
 
     return await this.notificationsRepository.createNotification(options);
   }
+
+  async markAllAsSeen(receiverId: string) {
+    return await this.notificationsRepository.markAllAsSeen(receiverId);
+  }
+
+  async markAsSeen(notificationId: string, receiverId: string) {
+    return await this.notificationsRepository.markAsSeen(notificationId, receiverId);
+  }
+
+  async getUnreadCount(receiverId: string) {
+    return await this.notificationsRepository.getUnreadCount(receiverId);
+  }
 }
