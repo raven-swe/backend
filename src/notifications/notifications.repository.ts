@@ -31,6 +31,10 @@ export class NotificationsRepository {
     return await this.prisma.notification.findFirst({ where });
   }
 
+  async findById(notificationId: string) {
+    return await this.prisma.notification.findUnique({ where: { id: BigInt(notificationId) } });
+  }
+
   async markAllAsSeen(receiverId: string) {
     const receiverBigInt = BigInt(receiverId);
     return await this.prisma.notification.updateMany({
