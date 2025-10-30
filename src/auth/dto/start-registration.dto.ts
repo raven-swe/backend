@@ -9,8 +9,8 @@ import {
   ValidationArguments,
 } from 'class-validator';
 export class StartRegistrationDto {
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   @ContainsLetter()
   @MaxLength(50)
   name: string;

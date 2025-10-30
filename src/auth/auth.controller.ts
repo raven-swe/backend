@@ -55,29 +55,29 @@ export class AuthController {
 
   @Post('register/complete')
   async completeRegistration(
-    @Req() req: Request,
+    @IPAddress() ipAddress: string,
     @Body() completeRegistrationDto: CompleteRegistrationDto,
-    @Headers('X-Client-Type') clientType: string,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
+    @DeviceType() deviceType: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const ipAddress = req.ip;
+    this.validateClientType(clientType);
     const { accessToken, refreshToken } = await this.authService.completeRegistration(
       completeRegistrationDto,
       ipAddress,
-      clientType,
+      deviceType,
     );
 
+    if (clientType === 'mobile') {
+      return { accessToken, refreshToken };
+    }
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: this.config.get('NODE_ENV') === 'production',
+      sameSite: 'none',
       maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
-
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return { accessToken };
   }
 
   @Post('register/resend-otp')
@@ -120,11 +120,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
+    this.validateClientType(clientType);
     const { accessToken, refreshToken } = await this.authService.login(user, deviceType, ipAddress);
-    const daysToMillis = 24 * 60 * 60 * 1000;
-    if (!clientType) {
-      throw new UnauthorizedException();
-    }
     if (clientType === 'mobile') {
       return { accessToken, refreshToken };
     }
@@ -132,7 +129,7 @@ export class AuthController {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
-      maxAge: this.config.get('REFRESH_TOKEN_EXPIRES_IN_DAYS') * daysToMillis || 30 * daysToMillis,
+      maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
     return { accessToken };
   }
@@ -151,9 +148,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    if (!clientType) {
-      throw new UnauthorizedException();
-    }
+    this.validateClientType(clientType);
     let refreshToken;
     if (clientType === 'web') {
       refreshToken = req.cookies?.refreshToken;
@@ -176,7 +171,6 @@ export class AuthController {
     const { accessToken, refreshToken: newRefreshToken } =
       await this.authService.refreshAccessToken(refreshToken);
 
-    const daysToMillis = 24 * 60 * 60 * 1000;
     if (clientType == 'mobile') {
       return { accessToken, refreshToken: newRefreshToken };
     }
@@ -184,9 +178,21 @@ export class AuthController {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
       sameSite: 'none',
-      maxAge:
-        this.config.get('REFRESH_TOKEN_EXPIRES_IN_SECONDS') * daysToMillis || 30 * daysToMillis,
+      maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
     return { accessToken };
+  }
+
+  private validateClientType(clientType: string) {
+    if (!clientType) {
+      throw new BadRequestException({
+        message: 'Missing X-Client-Type header',
+      });
+    }
+    if (!clientType.toUpperCase().includes('WEB') && !clientType.toUpperCase().includes('MOBILE')) {
+      throw new BadRequestException({
+        message: 'Invalid X-Client-Type header',
+      });
+    }
   }
 }
