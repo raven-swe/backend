@@ -12,7 +12,6 @@ import type { RequestUser } from 'src/auth/types';
 import { MediaService } from './media.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { MediaType } from '@prisma/client';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { MAX_FILE_SIZE } from './constants/media.constant';
 
@@ -29,12 +28,12 @@ export class MediaController {
       ],
       {
         fileFilter: (req, file, callback) => {
-          if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mkv|webm)$/)) {
+          if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mkv|webm|mov)$/)) {
             return callback(
               new BadRequestException(
                 createValidationError(file.fieldname, {
                   invalidFileType:
-                    'Only image and video files are allowed (jpg, jpeg, png, gif, mp4, mkv, webm).',
+                    'Only image and video files are allowed (jpg, jpeg, png, gif, mp4, mkv, webm, mov).',
                 }),
               ),
               false,
@@ -55,10 +54,10 @@ export class MediaController {
       avatar?: Express.Multer.File[];
       banner?: Express.Multer.File[];
     },
-    @Body('mediaType') mediaType: MediaType,
     @Body('altText') altText?: string,
   ) {
     const userIdBigInt = BigInt(user.id);
-    return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files, mediaType, altText);
+
+    return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files, altText);
   }
 }

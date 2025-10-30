@@ -5,6 +5,7 @@ import { MediaRepository } from './media.repository';
 import { MediaFolder } from './enums/media-folder.enum';
 import sharp from 'sharp';
 import { MediaDto } from './dtos/media.dto';
+import { detectMediaType } from './utils/detect-media-type.util';
 import { MediaType } from '@prisma/client';
 
 @Injectable()
@@ -34,7 +35,6 @@ export class MediaService {
     file: Express.Multer.File,
     userId: bigint,
     folder: MediaFolder,
-    mediaType: MediaType,
     altText?: string,
   ): Promise<string> {
     let uploadedKey: string | null = null;
@@ -50,13 +50,18 @@ export class MediaService {
     }
 
     try {
+      const mediaType = detectMediaType(file);
+
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
 
       this.logger.log(`File uploaded to S3 with URL: ${url}`);
 
-      const { width, height } = await this.getImageDimensions(file);
+      const { width, height } =
+        mediaType == MediaType.IMAGE
+          ? await this.getImageDimensions(file)
+          : { width: 0, height: 0 };
 
       const mediaDto: MediaDto = {
         userId,
@@ -122,7 +127,6 @@ export class MediaService {
       avatar?: Express.Multer.File[];
       banner?: Express.Multer.File[];
     },
-    mediaType: MediaType,
     altText?: string,
   ) {
     const { avatar, banner } = files;
@@ -140,23 +144,11 @@ export class MediaService {
     }
 
     if (avatar) {
-      avatarUrl = await this.uploadAndSaveMedia(
-        avatar[0],
-        userId,
-        MediaFolder.AVATARS,
-        mediaType,
-        altText,
-      );
+      avatarUrl = await this.uploadAndSaveMedia(avatar[0], userId, MediaFolder.AVATARS, altText);
     }
 
     if (banner) {
-      bannerUrl = await this.uploadAndSaveMedia(
-        banner[0],
-        userId,
-        MediaFolder.BANNERS,
-        mediaType,
-        altText,
-      );
+      bannerUrl = await this.uploadAndSaveMedia(banner[0], userId, MediaFolder.BANNERS, altText);
     }
 
     return { message: 'Avatar and/or banner uploaded successfully', avatarUrl, bannerUrl };

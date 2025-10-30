@@ -10,6 +10,7 @@ import {
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
 import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../validation-error-codes';
+import { MAX_FILE_SIZE } from 'src/media/constants/media.constant';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -162,7 +163,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         break;
       case Number(HttpStatus.PAYLOAD_TOO_LARGE):
         code = 'PAYLOAD_TOO_LARGE';
-        message = 'Payload size exceeds the allowable limit (5MB)';
+        message = `Payload size exceeds the allowable limit (${MAX_FILE_SIZE / (1024 * 1024)}MB)`;
         break;
       default:
         code = 'INTERNAL_SERVER_ERROR';
