@@ -13,7 +13,7 @@ import { MediaService } from './media.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { MAX_FILE_SIZE_BYTES } from './constants/media.constant';
+import { ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES } from './constants/media.constant';
 
 @Controller('media')
 export class MediaController {
@@ -28,7 +28,8 @@ export class MediaController {
       ],
       {
         fileFilter: (req, file, callback) => {
-          if (!file.originalname.match(/\.(jpg|jpeg|png|gif|mp4|mkv|webm|mov)$/)) {
+          const ext = file.originalname.split('.').pop()?.toLowerCase();
+          if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
             return callback(
               new BadRequestException(
                 createValidationError(file.fieldname, {
