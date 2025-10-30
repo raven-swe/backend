@@ -129,6 +129,8 @@
       ".*\\.dto\\.ts",
       ".*\\.exception\\.ts",
       ".*\\.constants\\.ts",
+      ".*\\.constant\\.ts",
+      ".*\\.enum\\.ts",
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
       ".*\\.repository\\.ts",
