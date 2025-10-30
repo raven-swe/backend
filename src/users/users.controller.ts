@@ -9,7 +9,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get(':username/profile')
-  // TODO: This should be optional guard (if logged in, provide more details)
+  // TODO: This should be optional guard (if logged in, provide more details (just the relations))
   @UseGuards(JwtAuthGuard)
   async getUserProfile(@Param('username') username: string, @User() user: RequestUser) {
     const currentUserId = BigInt(user.id);
