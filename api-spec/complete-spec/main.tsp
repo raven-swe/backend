@@ -244,6 +244,15 @@ model MediaEntity {
   ...MediaItem;
 }
 
+@doc("Preview of a hashtag with its usage statistics")
+model HashtagPreview {
+  @doc("The hashtag text (without #)")
+  hashtag: string;
+
+  @doc("Number of tweets using this hashtag")
+  tweetsCount: integer;
+}
+
 @doc("Compact user(followers/following) lists")
 model CompactUser {
   @doc("The user's unique, public-facing username.")
@@ -1898,3 +1907,110 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
+
+@tag("Explore")
+@route("/explore")
+@useAuth(BearerAuth)
+namespace Explore {
+  @get
+  @route("/for-you")
+  @summary("Get trending hashtags and tweets")
+  @doc("Returns a mix of trending topics, hashtags and tweets personalized for the user")
+  op getExploreForYou(...CursorPaginationParameters): DataResponse<{
+    @doc("Trending hashtags for the user (6-10 items)")
+    @minItems(6)
+    @maxItems(10)
+    trendingHashtags: HashtagPreview[];
+
+    @doc("Personalized tweets with pagination")
+    tweets: Tweet[];
+
+    @doc("Pagination info for tweets")
+    pagination: CursorPagination;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/trending")
+  @summary("Get trending hashtags/keywords across all categories")
+  @doc("Returns top trending hashtags globally, ordered by trending score")
+  op getTrendingHashtags(): DataResponse<{
+    @doc("Trending news hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/news")
+  @summary("Get trending keywords/hashtags in the News category")
+  @doc("Returns top trending news-related keywords (max 30)")
+  op getNewsExplore(): DataResponse<{
+    @doc("Trending news keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/sports")
+  @summary("Get trending keywords/hashtags in the Sports category")
+  @doc("Returns top trending sports-related hashtags (max 30)")
+  op getSportsExplore():
+    | DataResponse<{
+        @doc("Trending sports keywords/hashtags (max 30 items)")
+        @maxItems(30)
+        trendingHashtags: HashtagPreview[];
+      }>
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/entertainment")
+  @summary("Get trending hashtags in the Entertainment category")
+  @doc("Returns top trending entertainment-related hashtags (max 30)")
+  op getEntertainmentExplore():
+    | DataResponse<{
+        @doc("Trending entertainment keywords/hashtags (max 30 items)")
+        @maxItems(30)
+        trendingHashtags: HashtagPreview[];
+      }>
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Hashtags")
+@useAuth(BearerAuth)
+@route("/hashtags")
+namespace Hashtags {
+  @get
+  @route("/suggestions")
+  @summary("Get suggested hashtags based on trending topics")
+  @doc("Returns a list of suggested hashtags based on current trends and the user's interests.")
+  op getHashtagSuggestions(
+    @query
+    @doc("search query (without #) to filter suggestions (min 1 character)")
+    @minLength(1)
+    query: string,
+  ):
+    | DataResponse<{
+      @doc("List of hashtags suggestions (without #)")
+      suggestions: string[];
+    }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @route("/{hashtag}/tweets")
+  @summary("Get tweets for a specific hashtag")
+  @doc("Returns all tweets containing the specified hashtag with cursor-based pagination.")
+  op getHashtagTweets(
+    @path
+    @doc("The hashtag to search for (without #)")
+    hashtag: string,
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<Tweet[]>
+    | ValidationErrorResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
