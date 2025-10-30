@@ -178,7 +178,7 @@ model SessionResponse {
   @doc("The location where the session was initiated or active")
   location: string | null;
 
-  @doc("The UTC timestamp indicating the last time this session was active.")
+  @doc("The UTC timestamp indicating the last time this session was active. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   lastActive: utcDateTime;
 
   @doc("A boolean flag indicating whether this session is the one currently making the API request.")
@@ -196,7 +196,7 @@ model ConnectedAccountResponse {
   @doc("The connection status.")
   status: "Connected" | "Error";
 
-  @doc("The timestamp when this external account was first linked.")
+  @doc("The timestamp when this external account was first linked. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   connectedAt: utcDateTime;
 }
 
@@ -290,10 +290,10 @@ model PublicUser {
   @maxLength(255)
   websiteUrl: string | null;
 
-  @doc("User's date of birth (YYYY-MM-DD)")
+  @doc("User's date of birth (YYYY-MM-DD). ISO 8601 date format.")
   birthDate: plainDate | null;
 
-  @doc("Date when the user joined")
+  @doc("Date when the user joined. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   joinedAt: utcDateTime;
 }
 
@@ -430,7 +430,7 @@ model UpdateProfileRequest {
   @maxLength(255)
   websiteUrl?: string | null;
 
-  @doc("User's date of birth (YYYY-MM-DD)")
+  @doc("User's date of birth (YYYY-MM-DD). ISO 8601 date format.")
   birthDate?: plainDate | null;
 }
 
@@ -487,7 +487,7 @@ model CompactTweet {
   @doc("The text content of the tweet.")
   content: string | null;
 
-  @doc("The time the tweet was created.")
+  @doc("The time the tweet was created. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   createdAt: utcDateTime;
 
   @doc("Number of replies to this tweet.")
@@ -563,7 +563,7 @@ model Notification {
   @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
   parentTweet?: Tweet;
 
-  @doc("Timestamp of the *latest* event in this aggregation.")
+  @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   latestEventAt: utcDateTime;
 
   @doc("Indicates whether the notification has been read.")
@@ -630,7 +630,7 @@ model Message {
   @doc("Optional media URL attached to the message (single media is supported per message)")
   mediaUrl: string | null;
 
-  @doc("Timestamp when the message was created/sent")
+  @doc("Timestamp when the message was created/sent. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   createdAt: utcDateTime;
 
   @doc("True if this message was sent by the authenticated user (Easy for client side)")
@@ -653,7 +653,7 @@ model Conversation {
     @doc("Username of the sender")
     senderUsername: string;
 
-    @doc("Timestamp of the last message")
+    @doc("Timestamp of the last message. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
     sentAt: utcDateTime;
   } | null;
 
@@ -698,7 +698,7 @@ model TopHashtags {
 model RegisterStartBody {
   name: string;
   email: string;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   recaptchaToken: string; // token from client side recaptcha v2
 }
 
@@ -728,12 +728,12 @@ model FollowingUser {
 model AccountInfo {
   username: string;
   email: string | null;
-  accountCreationDate: utcDateTime;
+  accountCreationDate: utcDateTime; // ISO 8601 format (e.g., '2024-01-15T14:30:00Z')
   accountCreationIp: string | null;
   country: string;
   languages: LanguageCode[];
   gender: Gender;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   age: int32;
 }
 
@@ -1004,7 +1004,7 @@ namespace Oauth {
   op completeOauthRegister(
     @body body: {
       creationToken: string;
-      birthDate: plainDate;
+      birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
     },
   ):
     | DataResponse<{
@@ -1346,7 +1346,7 @@ namespace Me {
     @summary("Update the authenticated user's birth date")
     op updateBirthDate(
       @body body: {
-        date: plainDate | null;
+        date: plainDate | null; // ISO 8601 date format (YYYY-MM-DD)
       },
     ):
       | MessageResponse<"Birth date updated successfully.">
