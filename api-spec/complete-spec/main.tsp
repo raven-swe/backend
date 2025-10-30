@@ -429,6 +429,9 @@ model UpdateProfileRequest {
   @doc("User's website URL")
   @maxLength(255)
   websiteUrl?: string | null;
+
+  @doc("User's date of birth (YYYY-MM-DD)")
+  birthDate?: plainDate | null;
 }
 
 @doc("The type of media file.")
@@ -950,6 +953,10 @@ namespace Auth {
 
   @get
   @summary("Check if a username or email is already taken")
+  @doc("""
+    This endpoint checks whether a given identifier (username or email) is already taken in the system.
+    to be used in login in shared field which can be either username or email.
+    """)
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -1473,6 +1480,27 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
+
+    @get
+    @summary("Check if a username is already taken")
+    @doc("""
+      This endpoint checks whether a given username is already taken in the system.
+      """)
+    @route("/check-username")
+    op checkUsername(@query username: string): DataResponse<{
+      exists: boolean;
+    }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+
+    @get
+    @summary("Check if a email is already taken")
+    @doc("""
+      This endpoint checks whether a given email is already taken in the system.
+      """)
+    @route("/check-email")
+    op checkEmail(@query email: string): DataResponse<{
+      exists: boolean;
+    }> | ValidationErrorResponse | InternalServerErrorResponse;
 }
 
 @tag("Timeline")
