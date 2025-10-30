@@ -36,12 +36,12 @@ import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service'
 import { Device } from 'src/devices/interfaces/device.interface';
 import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -525,16 +525,20 @@ export class AuthService {
     return hash.digest('hex');
   }
 
-  async refreshAccessToken(refreshToken: string) {
-    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-    const oldToken = await this.prisma.refresh_tokens.findUnique({
+  private async getTokenByHash(hash: string) {
+    return await this.prisma.refresh_tokens.findUnique({
       where: {
-        token_hash: hashedRefreshToken,
+        token_hash: hash,
       },
       include: {
         user: { select: { id: true, username: true } },
       },
     });
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const oldToken = await this.getTokenByHash(hashedRefreshToken);
 
     if (!oldToken) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -557,9 +561,22 @@ export class AuthService {
     } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.refresh_tokens.update({
-      where: { id: oldToken.id },
+      where: { id: BigInt(oldToken.id) },
       data: { token_hash: newHashedRefreshToken, expires_at: expiresAt },
     });
     return { refreshToken: newRefreshToken, accessToken };
+  }
+
+  async clearRefreshToken(userId: string, refreshToken: string) {
+    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const token = await this.getTokenByHash(hashedRefreshToken);
+    if (token) {
+      await this.prisma.$transaction([
+        this.prisma.refresh_tokens.delete({
+          where: { id: BigInt(token.id), user_id: BigInt(userId) },
+        }),
+        this.prisma.user_devices.delete({ where: { id: BigInt(token.device_id) } }),
+      ]);
+    }
   }
 }

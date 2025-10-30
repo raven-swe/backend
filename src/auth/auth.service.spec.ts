@@ -79,6 +79,7 @@ const createMockPrismaService = () => {
     user_devices: {
       create: jest.fn(),
       deleteMany: jest.fn(),
+      delete: jest.fn(),
     },
     profiles: {
       create: jest.fn(),
@@ -183,6 +184,9 @@ describe('AuthService with mock ConfigService', () => {
     );
 
     service = module.get<AuthService>(AuthService);
+  });
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -1154,6 +1158,33 @@ describe('AuthService with mock ConfigService', () => {
       });
 
       await expect(service.refreshAccessToken(oldToken)).rejects.toThrow(UnauthorizedException);
+    });
+  });
+  describe('clearRefreshToken', () => {
+    const oldToken = 'oldRefreshToken';
+
+    const user: RequestUser = { id: '200' };
+    it('should call prisma $transaction', async () => {
+      mockPrismaService.$transaction.mockImplementation(
+        async <T>(arg: TransactionCallback<T> | unknown[]): Promise<T | unknown[]> => {
+          if (typeof arg === 'function') {
+            return arg(mockPrismaService as never);
+          }
+
+          if (Array.isArray(arg)) {
+            return Promise.resolve(arg.map(() => ({ count: 1 })));
+          }
+
+          throw new Error('Invalid $transaction argument');
+        },
+      );
+      mockPrismaService.refresh_tokens.findUnique.mockResolvedValue({
+        id: '100',
+        user: { id: BigInt('100'), username: 'username' },
+        device_id: '1000',
+      });
+      await service.clearRefreshToken(user.id, oldToken);
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
   });
 });

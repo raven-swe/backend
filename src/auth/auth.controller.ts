@@ -1,16 +1,16 @@
 import {
   BadRequestException,
+  HttpCode,
   Body,
+  Post,
   Controller,
   Get,
-  Headers,
-  HttpCode,
-  Post,
-  Query,
   Req,
+  Query,
   Res,
   UnauthorizedException,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { StartRegistrationDto } from './dto/start-registration.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -26,15 +26,15 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { User, IPAddress } from './decorators';
-import { Throttle } from '@nestjs/throttler';
-import { CheckIdentifierQueryDto } from './dtos';
 import { DeviceType } from './decorators/';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
-import { RefreshTokenDto } from './dtos';
+import { CheckIdentifierQueryDto, LogoutDto, RefreshTokenDto } from './dtos';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -134,15 +134,9 @@ export class AuthController {
     return { accessToken };
   }
 
-  @Get('check-identifier')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
-    return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
-  }
-
   @Post('refresh-token')
   @HttpCode(200)
-  async refrehAccessToken(
+  async refreshAccessToken(
     @Req() req: RequestWithCookies,
     @Body() refreshTokenDto: RefreshTokenDto | undefined,
     @Res({ passthrough: true }) res: Response,
@@ -181,6 +175,48 @@ export class AuthController {
       maxAge: AUTH_CONFIG.REFRESH_TOKEN_TTL,
     });
     return { accessToken };
+  }
+
+  @Get('check-identifier')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async checkIdentifier(@Query() checkIdentifierQueryDto: CheckIdentifierQueryDto) {
+    return await this.authService.checkIdentifier(checkIdentifierQueryDto.identifier);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @HttpCode(200)
+  async logout(
+    @Req() req: RequestWithCookies,
+    @Res({ passthrough: true }) res: Response,
+    @User() user: RequestUser,
+    @Body() logoutDto: LogoutDto | undefined,
+    @Headers('X-Client-Type') clientType: 'web' | 'mobile',
+  ) {
+    this.validateClientType(clientType);
+    let refreshToken;
+    if (clientType === 'web') {
+      refreshToken = req.cookies?.refreshToken;
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: this.config.get('NODE_ENV') === 'production',
+        sameSite: 'none',
+      });
+    } else if (clientType === 'mobile') {
+      if (!logoutDto?.refreshToken) {
+        throw new BadRequestException(
+          createValidationError('refreshToken', {
+            isEmpty: 'Refresh token must be provided in the body for mobile clients',
+          }),
+        );
+      }
+      refreshToken = logoutDto?.refreshToken;
+    }
+    if (refreshToken) {
+      await this.authService.clearRefreshToken(user.id, refreshToken);
+    }
+
+    return { message: 'Logged out successfully' };
   }
 
   private validateClientType(clientType: string) {
