@@ -25,7 +25,6 @@ import { generateAndStoreOtp } from './utils/otp.util';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
-import { DeviceType } from 'src/devices/interfaces/device.interface';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (
@@ -691,7 +690,7 @@ describe('AuthService with mock ConfigService', () => {
   });
 
   describe('completeRegistration', () => {
-    const dto = { creationToken: 'test-token', password: 'Password1!', deviceType: DeviceType.WEB };
+    const dto = { creationToken: 'test-token', password: 'Password1!' };
     const cachedData: CachedRegistrationData = {
       email: 'test@email.com',
       name: 'Test',
@@ -699,7 +698,7 @@ describe('AuthService with mock ConfigService', () => {
       otp: 'hashed-otp',
       verified: true,
     };
-    const deviceType = DeviceType.WEB;
+    const deviceType = 'Chrome on Windows (Desktop)';
 
     it('should successfully complete the registration', async () => {
       mockRedisService.get.mockResolvedValue(JSON.stringify(cachedData));
@@ -940,35 +939,6 @@ describe('AuthService with mock ConfigService', () => {
     });
   });
 
-  describe('validateDeviceType', () => {
-    it('should not throw error for valid device types', () => {
-      expect(() => service.validateDeviceType('web')).not.toThrow();
-      expect(() => service.validateDeviceType('WEB')).not.toThrow();
-      expect(() => service.validateDeviceType('ios')).not.toThrow();
-      expect(() => service.validateDeviceType('ANDROID')).not.toThrow();
-    });
-
-    it('should throw error when clientType is missing', () => {
-      expect(() => service.validateDeviceType('')).toThrow(
-        new BadRequestException(
-          createValidationError('X-Client-Type', {
-            missingHeader: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
-          }),
-        ),
-      );
-    });
-
-    it('should throw error when clientType is undefined', () => {
-      expect(() => service.validateDeviceType(undefined as never)).toThrow(
-        new BadRequestException(
-          createValidationError('X-Client-Type', {
-            missingHeader: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
-          }),
-        ),
-      );
-    });
-  });
-
   describe('createUserAndDeviceAndToken (private method)', () => {
     const mockNewUser = {
       email: 'test@example.com',
@@ -982,7 +952,7 @@ describe('AuthService with mock ConfigService', () => {
     const mockNewDevice = {
       userId: BigInt(0),
       ipAddress: '127.0.0.1',
-      deviceType: 'WEB' as DeviceType,
+      deviceType: 'Chrome on Windows (Desktop)',
     };
 
     const mockRefreshToken = {
