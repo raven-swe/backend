@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MediaService } from './media.service';
-import { S3Service } from './s3.service';
+import { S3Service } from './s3/s3.service';
 import { MediaRepository } from './media.repository';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { MediaFolder } from './enums/media-folder.enum';

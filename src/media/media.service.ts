@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
-import { S3Service } from './s3.service';
+import { S3Service } from './s3/s3.service';
 import { MediaRepository } from './media.repository';
 import { MediaFolder } from './enums/media-folder.enum';
 import sharp from 'sharp';
