@@ -952,18 +952,7 @@ namespace Auth {
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
     type: "username" | "email";
-  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
-
-  @get
-  @summary("Check if a username is already taken")
-  @doc("""
-    This endpoint checks whether a given username is already taken in the system.
-    """)
-  @route("/check-username")
-  op checkUsername(@query username: string): DataResponse<{
-    exists: boolean;
-  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
-
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
 
   @get
   @summary("Check if a email is already taken")
@@ -973,7 +962,22 @@ namespace Auth {
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
     exists: boolean;
-    }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username is already taken")
+  @doc("""
+    This endpoint checks whether a given username is already taken in the system.
+    """)
+  @route("/check-username")
+  @useAuth(BearerAuth)
+  op checkUsername(@query username: string):
+    | DataResponse<{
+        exists: boolean;
+      }>
+    | ValidationErrorResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
 }
 
 @tag("OAuth")
@@ -1274,6 +1278,7 @@ namespace Me {
     ):
       | MessageResponse<"Username changed successfully.">
       | ValidationErrorResponse
+      | NotFoundResponse
       | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
@@ -1492,7 +1497,6 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
-
 }
 
 @tag("Timeline")
@@ -1972,25 +1976,19 @@ namespace Explore {
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
   @doc("Returns top trending sports-related hashtags (max 30)")
-  op getSportsExplore():
-    | DataResponse<{
-        @doc("Trending sports keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getSportsExplore(): DataResponse<{
+    @doc("Trending sports keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
   @doc("Returns top trending entertainment-related hashtags (max 30)")
-  op getEntertainmentExplore():
-    | DataResponse<{
-        @doc("Trending entertainment keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getEntertainmentExplore(): DataResponse<{
+    @doc("Trending entertainment keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

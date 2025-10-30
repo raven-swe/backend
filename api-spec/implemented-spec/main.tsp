@@ -313,16 +313,6 @@ namespace Auth {
       | InternalServerErrorResponse;
   }
 
-  @get
-  @summary("Check if a email is already taken")
-  @doc("""
-    This endpoint checks whether a given email is already taken in the system.
-    """)
-  @route("/check-email")
-  op checkEmail(@query email: string): DataResponse<{
-    exists: boolean;
-    }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
-
   @post
   @route("/login")
   op login(
@@ -351,7 +341,17 @@ namespace Auth {
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
     type: "username" | "email";
-  }> | ValidationErrorResponse | InternalServerErrorResponse | ConflictResponse;
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a email is already taken")
+  @doc("""
+    This endpoint checks whether a given email is already taken in the system.
+    """)
+  @route("/check-email")
+  op checkEmail(@query email: string): DataResponse<{
+    exists: boolean;
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
 
   @post
   @route("/logout")
@@ -384,13 +384,12 @@ namespace Auth {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Me")
 @route("/me")
 @useAuth(BearerAuth)
-namespace Me {  
+namespace Me {
   @put
   @route("/password")
   @summary("Change the authenticated user's password")
