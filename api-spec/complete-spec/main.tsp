@@ -59,7 +59,7 @@ model ApiSuccessResponseWithPagination<T> {
 @doc("Success response for operations that only return a message (like POST/DELETE)")
 model ApiMessageResponse {
   success: true;
-  message: string;
+  message?: string;
 }
 
 @doc("Error response wrapper")
