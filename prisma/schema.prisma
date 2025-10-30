@@ -13,10 +13,10 @@ model User {
   email                    String                    @unique @db.VarChar(100)
   passwordHash             String?                   @map("password_hash")
   birthdate                DateTime                  @db.Date
-  phone                    String?                   @db.VarChar(20)
+  phone                    String?                   @unique @db.VarChar(20)
   createdAt                DateTime                  @default(now()) @map("created_at")
   languageCode             LanguageCode              @default(EN) @map("language_code")
-  isDeleted                Boolean                   @default(false) @map("is_deleted")
+  deletedAt                DateTime?                 @map("deleted_at")
   blockedBy                Block[]                   @relation("blocks_blocked_idTousers")
   blockedUsers             Block[]                   @relation("blocks_user_idTousers")
   conversationParticipants ConversationParticipant[]
@@ -45,10 +45,10 @@ model Profile {
   displayName String   @map("display_name") @db.VarChar(100)
   bio         String?  @db.VarChar(160)
   bioEntities Json?    @map("bio_entities")
-  avatarUrl   String?  @map("avatar_url")
-  bannerUrl   String?  @map("banner_url")
-  location    String?
-  websiteUrl  String?  @map("website_url")
+  avatarUrl   String?  @map("avatar_url") @db.VarChar(255)
+  bannerUrl   String?  @map("banner_url") @db.VarChar(255)
+  location    String?  @db.VarChar(255)
+  websiteUrl  String?  @map("website_url") @db.VarChar(255)
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -84,7 +84,7 @@ model UserExternalAccount {
 model UserDevice {
   id           BigInt        @id @default(autoincrement())
   userId       BigInt        @map("user_id")
-  fcmToken     String?       @unique @map("fcm_token")
+  fcmToken     String?       @map("fcm_token")
   ipAddress    String?       @map("ip_address") @db.Inet
   deviceType   String?       @map("device_type")
   lastUsedAt   DateTime      @default(now()) @map("last_used_at")
@@ -111,7 +111,6 @@ model Tweet {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   likes          Like[]
-  media          Media[]
   notifications  Notification[]
   retweets       Retweet[]
   tweetHashtags  TweetHashtag[]
@@ -253,7 +252,6 @@ model Conversation {
 }
 
 model ConversationParticipant {
-  id                 BigInt       @id @default(autoincrement())
   conversationId     BigInt       @map("conversation_id")
   userId             BigInt       @map("user_id")
   lastSeenMessageId  BigInt?      @map("last_seen_message_id")
@@ -262,7 +260,7 @@ model ConversationParticipant {
   messages           Message?     @relation(fields: [lastSeenMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user               User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([conversationId, userId], map: "conversation_participants_conversation_id_user_id_idx")
+  @@id([conversationId, userId], map: "conversation_participants_conversation_id_user_id_idx")
   @@index([userId, conversationId])
   @@map("conversation_participants")
 }
@@ -286,14 +284,12 @@ model Notification {
 model Media {
   id         BigInt       @id @default(autoincrement())
   userId     BigInt       @map("user_id")
-  tweetId    BigInt       @map("tweet_id")
   type       MediaType
-  url        String
+  url        String       @db.VarChar(255)
   altText    String?      @map("alt_text")
-  width      Float?
-  height     Float?
+  width      Int?
+  height     Int?
   createdAt  DateTime     @default(now()) @map("created_at")
-  tweet      Tweet        @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user       User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweetMedia TweetMedia[]
 

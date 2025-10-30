@@ -1,4 +1,4 @@
-import { PrismaClient, MediaType, NotificationType } from '@prisma/client';
+import { PrismaClient, NotificationType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -40,7 +40,6 @@ async function main() {
   await prisma.$executeRaw`ALTER SEQUENCE "hashtags_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "messages_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "conversations_id_seq" RESTART WITH 1;`;
-  await prisma.$executeRaw`ALTER SEQUENCE "conversation_participants_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "notifications_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "media_id_seq" RESTART WITH 1;`;
 
@@ -297,16 +296,6 @@ async function main() {
       },
       tweetMentions: {
         create: [{ userId: 3, startingIndex: 92 }],
-      },
-      media: {
-        create: {
-          userId: 6,
-          type: MediaType.IMAGE,
-          url: 'https://i.imgur.com/examplekoshary.jpg',
-          altText: 'A delicious bowl of koshary',
-          width: 800,
-          height: 600,
-        },
       },
     },
   });
