@@ -74,4 +74,24 @@ export class UsersRepository {
       });
     });
   }
+
+  async followUser(followerId: bigint, followedId: bigint) {
+    await this.prisma.follow.create({
+      data: {
+        followerId,
+        followedId,
+      },
+    });
+  }
+
+  async unfollowUser(followerId: bigint, followedId: bigint) {
+    await this.prisma.follow.delete({
+      where: {
+        followerId_followedId: {
+          followerId,
+          followedId,
+        },
+      },
+    });
+  }
 }
