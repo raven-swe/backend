@@ -469,5 +469,74 @@ describe('SettingsService', () => {
         jest.clearAllMocks();
       }
     });
+
+    it('should handle case when username is unchanged', async () => {
+      const testDto = { newUsername: 'existingUsername' };
+      const expectedResponse = { message: 'Username updated successfully.' };
+
+      mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+      const result = await service.updateUsername(userId, testDto);
+
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, testDto.newUsername);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should handle case-only username changes', async () => {
+      const testDto = { newUsername: 'JohnDoe' };
+      const expectedResponse = { message: 'Username updated successfully.' };
+
+      mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+      const result = await service.updateUsername(userId, testDto);
+
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, testDto.newUsername);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should throw conflict error when username is taken by another user', async () => {
+      const testDto = { newUsername: 'takenUsername' };
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+
+      mockUsersService.updateUsernameById.mockRejectedValue(error);
+
+      await expect(service.updateUsername(userId, testDto)).rejects.toThrow(error);
+      expect(mockUsersService.updateUsernameById).toHaveBeenCalledWith(userId, testDto.newUsername);
+    });
+
+    it('should throw not found error when user does not exist', async () => {
+      const testDto = { newUsername: 'newUsername' };
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+      mockUsersService.updateUsernameById.mockRejectedValue(error);
+
+      await expect(service.updateUsername(userId, testDto)).rejects.toThrow(error);
+    });
+
+    it('should log successful username update', async () => {
+      const testDto = { newUsername: 'newUsername123' };
+      const expectedResponse = { message: 'Username updated successfully.' };
+      const loggerSpy = jest.spyOn(service['logger'], 'log');
+
+      mockUsersService.updateUsernameById.mockResolvedValue(expectedResponse);
+
+      await service.updateUsername(userId, testDto);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        `Update username completed for ${testDto.newUsername}`,
+      );
+    });
   });
 });
