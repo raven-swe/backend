@@ -160,6 +160,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       case Number(HttpStatus.TOO_MANY_REQUESTS):
         code = 'RATE_LIMIT_EXCEEDED';
         break;
+      case Number(HttpStatus.PAYLOAD_TOO_LARGE):
+        code = 'PAYLOAD_TOO_LARGE';
+        message = 'Payload size exceeds the allowable limit (5MB)';
+        break;
       default:
         code = 'INTERNAL_SERVER_ERROR';
     }
@@ -167,7 +171,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
     } else if (typeof exceptionResponse === 'object') {
-      if ('message' in exceptionResponse) {
+      if (
+        'message' in exceptionResponse &&
+        Number(status) !== Number(HttpStatus.PAYLOAD_TOO_LARGE)
+      ) {
         message = exceptionResponse['message'] as string;
       }
     }

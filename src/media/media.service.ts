@@ -39,6 +39,16 @@ export class MediaService {
   ): Promise<string> {
     let uploadedKey: string | null = null;
 
+    if (file == null) {
+      throw new HttpException(
+        {
+          message: 'No file provided for upload',
+          code: 'NO_FILE_PROVIDED',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     try {
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
@@ -118,6 +128,16 @@ export class MediaService {
     const { avatar, banner } = files;
     let avatarUrl: string | null = null;
     let bannerUrl: string | null = null;
+
+    if (avatar == null && banner == null) {
+      throw new HttpException(
+        {
+          message: 'No files provided for upload',
+          code: 'NO_FILES_PROVIDED',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     if (avatar) {
       avatarUrl = await this.uploadAndSaveMedia(
