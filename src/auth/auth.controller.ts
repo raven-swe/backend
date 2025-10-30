@@ -203,6 +203,13 @@ export class AuthController {
         sameSite: 'none',
       });
     } else if (clientType === 'mobile') {
+      if (!logoutDto?.refreshToken) {
+        throw new BadRequestException(
+          createValidationError('refreshToken', {
+            isEmpty: 'Refresh token must be provided in the body for mobile clients',
+          }),
+        );
+      }
       refreshToken = logoutDto?.refreshToken;
     }
     if (refreshToken) {
