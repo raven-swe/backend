@@ -49,7 +49,7 @@ export class UsersRepository {
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {
-    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user)
       throw new HttpException(
         {
@@ -63,7 +63,7 @@ export class UsersRepository {
       return;
     }
 
-    const existingUser = await this.prisma.users.findFirst({
+    const existingUser = await this.prisma.user.findFirst({
       where: {
         username: {
           equals: newUsername,
@@ -82,7 +82,7 @@ export class UsersRepository {
       );
     }
 
-    await this.prisma.users.update({
+    await this.prisma.user.update({
       where: { id: userId },
       data: { username: newUsername },
     });
@@ -91,7 +91,7 @@ export class UsersRepository {
   async checkUsernameExistence(id: string, username: string) {
     const userId = BigInt(id);
 
-    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user)
       throw new HttpException(
         {
@@ -105,7 +105,7 @@ export class UsersRepository {
       return null;
     }
 
-    const existingUser = await this.prisma.users.findFirst({
+    const existingUser = await this.prisma.user.findFirst({
       where: {
         username: {
           equals: username,
