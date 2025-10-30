@@ -47,7 +47,7 @@ describe('MeController', () => {
       mockUsersService.changePassword.mockResolvedValue(expectedResult);
 
       // Act
-      const user: RequestUser = { id: expectedUserId.toString(), username: 'test' };
+      const user: RequestUser = { id: expectedUserId.toString() };
       const result = await controller.changePassword(changePasswordDto, user);
 
       // Assert
@@ -67,7 +67,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockResolvedValue(mockResponse);
 
-      const user: RequestUser = { id: '18', username: 'test' };
+      const user: RequestUser = { id: '18' };
       const result = await controller.changePassword(changePasswordDto, user);
 
       expect(result).toEqual(mockResponse);
@@ -78,7 +78,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockRejectedValue(error);
 
-      const user: RequestUser = { id: '18', username: 'test' };
+      const user: RequestUser = { id: '18' };
       await expect(controller.changePassword(changePasswordDto, user)).rejects.toThrow(
         'Invalid old password',
       );
