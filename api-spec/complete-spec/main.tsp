@@ -884,6 +884,7 @@ namespace Auth {
   namespace Password {
     @post
     @route("/forgot")
+    @summary("Initiate the password reset process")
     op forgotPassword(
       @body body: {
         identifier: string;
@@ -901,6 +902,7 @@ namespace Auth {
 
     @post
     @route("/forgot/verify")
+    @summary("Verify the OTP for password reset")
     op verifyForgotPassword(
       @body body: {
         confirmationToken: string;
@@ -914,6 +916,7 @@ namespace Auth {
 
     @post
     @route("/reset")
+    @summary("Reset the password using the confirmation token")
     op resetPassword(
       @body body: {
         confirmationToken: string;
@@ -925,21 +928,9 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
 
-    @put
-    @useAuth(BearerAuth)
-    op changePassword(
-      @body body: {
-        currentPassword: string;
-        newPassword: string;
-      },
-    ):
-      | MessageResponse<"Password changed successfully.">
-      | UnauthorizedResponse
-      | ValidationErrorResponse
-      | InternalServerErrorResponse;
-
     @post
     @route("/resend-otp")
+    @summary("Resend the OTP for password reset")
     op resendOtpPassword(
       @body body: {
         confirmationToken: string;
