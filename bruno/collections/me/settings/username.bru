@@ -6,12 +6,18 @@ meta {
 
 patch {
   url: http://localhost:3000/me/settings/username
-  body: none
+  body: json
   auth: bearer
 }
 
 auth:bearer {
   token: {{access_token}}
+}
+
+body:json {
+  {
+    "newUsername": "Tasneem"
+  }
 }
 
 settings {
