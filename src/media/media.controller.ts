@@ -57,6 +57,11 @@ export class MediaController {
     },
     @Body('altText') altText?: string,
   ) {
+    // Validate that at least one file is uploaded
+    if (!files || (!files.avatar?.length && !files.banner?.length)) {
+      throw new BadRequestException('At least one file (avatar or banner) must be uploaded');
+    }
+
     const userIdBigInt = BigInt(user.id);
 
     return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files, altText);

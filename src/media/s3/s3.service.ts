@@ -86,7 +86,7 @@ export class S3Service {
       await this.s3Client.send(new PutObjectCommand(uploadParams));
 
       // Serve link to frontend
-      const fileUrl = `${this.cdnUrl}/${key}`;
+      const fileUrl = this.getPublicUrl(key);
 
       this.logger.log(`File uploaded successfully to ${key}`);
       this.logger.log(`File URL: ${fileUrl}`);
