@@ -94,4 +94,44 @@ export class UsersRepository {
       },
     });
   }
+
+  async blockUser(userId: bigint, blockedId: bigint) {
+    await this.prisma.block.create({
+      data: {
+        userId,
+        blockedId,
+      },
+    });
+  }
+
+  async unblockUser(userId: bigint, blockedId: bigint) {
+    await this.prisma.block.delete({
+      where: {
+        userId_blockedId: {
+          userId,
+          blockedId,
+        },
+      },
+    });
+  }
+
+  async muteUser(userId: bigint, mutedId: bigint) {
+    await this.prisma.mute.create({
+      data: {
+        userId,
+        mutedId,
+      },
+    });
+  }
+
+  async unmuteUser(userId: bigint, mutedId: bigint) {
+    await this.prisma.mute.delete({
+      where: {
+        userId_mutedId: {
+          userId,
+          mutedId,
+        },
+      },
+    });
+  }
 }
