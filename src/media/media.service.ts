@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { S3Service } from './s3.service';
-import { MediaType } from './enum/media-type.enum';
 import { MediaRepository } from './media.repository';
 import { MediaFolder } from './enum/media-folder.enum';
 import * as sharp from 'sharp';
 import { MediaDto } from './dto/media.dto';
+import { MediaType } from '@prisma/client';
 
 @Injectable()
 export class MediaService {
@@ -29,6 +29,7 @@ export class MediaService {
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
+
       this.logger.log(`File uploaded to S3 with URL: ${url}`);
 
       const { width, height } = await this.getImageDimensions(file);
@@ -42,17 +43,16 @@ export class MediaService {
         altText,
       };
 
-      
+      const saveMedia = await this.mediaRepository.saveMedia(mediaDto);
+
+      this.logger.log(`Media metadata saved with ID: ${saveMedia.id}`);
+
+      return saveMedia;
     } catch (error) {
       this.logger.error('Failed to upload media', error);
+
+      // Media not uploaded 
     }
-
-    // Save media metadata to DB
-    const isImage = file.mimetype.startsWith('image/');
-    let width = 0;
-    let height = 0;
-
-    const mediaDto: MediaDto = {};
   }
 
   /**
