@@ -27,7 +27,7 @@ describe('JwtStrategy', () => {
 
   describe('validate', () => {
     it('should return the user payload from the JWT', async () => {
-      const payload: RequestUser = { id: '1', username: 'testuser' };
+      const payload: RequestUser = { id: '1' };
 
       const result = await strategy.validate(payload);
 

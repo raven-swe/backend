@@ -12,12 +12,12 @@ export class RefreshTokensRepository {
     prismaClient: Prisma.TransactionClient = this.prisma,
   ) {
     const { userId, deviceId, tokenHash, expiresAt } = refreshToken;
-    return prismaClient.refresh_tokens.create({
+    return prismaClient.refreshToken.create({
       data: {
-        user_id: userId,
-        device_id: deviceId,
-        token_hash: tokenHash,
-        expires_at: expiresAt,
+        userId: userId,
+        deviceId: deviceId,
+        tokenHash: tokenHash,
+        expiresAt: expiresAt,
       },
     });
   }
