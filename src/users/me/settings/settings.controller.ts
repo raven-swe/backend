@@ -53,6 +53,7 @@ export class SettingsController {
 
   @Patch('username')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto, @User() user: RequestUser) {
     const userId = BigInt(user.id);
     return this.settingsService.updateUsername(userId, updateUsernameDto);

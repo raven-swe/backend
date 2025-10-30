@@ -35,6 +35,8 @@ import { RefreshTokenDto } from './dtos';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { CheckUsernameDto } from './dto/check-username-dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -86,8 +88,16 @@ export class AuthController {
   }
 
   @Get('check-email')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async checkEmail(@Query() checkEmailDto: CheckEmailDto) {
     return await this.authService.checkEmail(checkEmailDto.email);
+  }
+
+  @Get('check-username')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async checkUsername(@Query() checkUsernameDto: CheckUsernameDto, @User() user: RequestUser) {
+    return await this.authService.checkUsername(user.id, checkUsernameDto.username);
   }
 
   @Post('password/forgot')

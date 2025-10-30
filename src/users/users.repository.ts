@@ -59,9 +59,20 @@ export class UsersRepository {
         HttpStatus.NOT_FOUND,
       );
 
-    const existingUser = await this.prisma.users.findUnique({ where: { username: newUsername } });
+    if (user.username === newUsername) {
+      return;
+    }
 
-    if (existingUser)
+    const existingUser = await this.prisma.users.findFirst({
+      where: {
+        username: {
+          equals: newUsername,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
@@ -69,11 +80,41 @@ export class UsersRepository {
         },
         HttpStatus.CONFLICT,
       );
+    }
 
     await this.prisma.users.update({
       where: { id: userId },
       data: { username: newUsername },
     });
+  }
+
+  async checkUsernameExistence(id: string, username: string) {
+    const userId = BigInt(id);
+
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    if (user.username === username) {
+      return null;
+    }
+
+    const existingUser = await this.prisma.users.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    return existingUser && existingUser.id !== userId ? existingUser : null;
   }
 
   async updateUserEmail(

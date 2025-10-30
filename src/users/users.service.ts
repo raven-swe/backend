@@ -30,6 +30,10 @@ export class UsersService {
     return this.usersRepository.findByUsername(username);
   }
 
+  async checkUsernameExistence(id: string, username: string) {
+    return this.usersRepository.checkUsernameExistence(id, username);
+  }
+
   /**
    * Retrieves a user by their unique identifier, which can be either their email or username.
    *
