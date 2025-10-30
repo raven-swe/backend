@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { MediaDto } from './dtos/media.dto';
 import { detectMediaType } from './utils/detect-media-type.util';
 import { MediaType } from '@prisma/client';
+import { MEDIA_CODES, MEDIA_MESSAGES } from './constants/media.constant';
 
 @Injectable()
 export class MediaService {
@@ -85,8 +86,8 @@ export class MediaService {
 
       throw new HttpException(
         {
-          message: 'Failed to upload and save media',
-          code: 'MEDIA_UPLOAD_SAVE_FAILED',
+          message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
+          code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -126,8 +127,8 @@ export class MediaService {
     if (avatar == null && banner == null) {
       throw new HttpException(
         {
-          message: 'No files provided for upload',
-          code: 'NO_FILES_PROVIDED',
+          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+          code: MEDIA_CODES.NO_FILES_PROVIDED,
         },
         HttpStatus.BAD_REQUEST,
       );
