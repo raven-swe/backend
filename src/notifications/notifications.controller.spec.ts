@@ -8,7 +8,7 @@ describe('NotificationsController', () => {
     trigger: jest.fn(),
     markAllAsSeen: jest.fn(),
     markAsSeen: jest.fn(),
-    getUnreadCount: jest.fn(),
+    getUnseenCount: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -24,13 +24,13 @@ describe('NotificationsController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('getUnreadCount', () => {
-    it('should return unread count from the service', async () => {
-      (mockNotificationsSerivce.getUnreadCount as jest.Mock).mockResolvedValue(5);
+  describe('getUnseenCount', () => {
+    it('should return unseen count from the service', async () => {
+      (mockNotificationsSerivce.getUnseenCount as jest.Mock).mockResolvedValue(5);
 
-      const result = await controller.getUnreadCount({ id: 'user1' });
+      const result = await controller.getUnseenCount({ id: 'user1' });
 
-      expect(mockNotificationsSerivce.getUnreadCount).toHaveBeenCalledWith('user1');
+      expect(mockNotificationsSerivce.getUnseenCount).toHaveBeenCalledWith('user1');
       expect(result).toBe(5);
     });
   });

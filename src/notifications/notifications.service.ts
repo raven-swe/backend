@@ -22,7 +22,7 @@ export class NotificationsService {
     return await this.notificationsRepository.markAsSeen(notificationId, receiverId);
   }
 
-  async getUnreadCount(receiverId: string) {
-    return await this.notificationsRepository.getUnreadCount(receiverId);
+  async getUnseenCount(receiverId: string) {
+    return await this.notificationsRepository.getUnseenCount(receiverId);
   }
 }

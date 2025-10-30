@@ -9,7 +9,7 @@ describe('NotificationsService', () => {
     findExisting: jest.fn(),
     markAllAsSeen: jest.fn(),
     markAsSeen: jest.fn(),
-    getUnreadCount: jest.fn(),
+    getUnseenCount: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -96,13 +96,13 @@ describe('NotificationsService', () => {
       expect(result).toEqual({ count: 1 });
     });
   });
-  describe('getUnreadCount', () => {
-    it('should call repository to get unread count', async () => {
-      (mockNotificationsRepository.getUnreadCount as jest.Mock).mockResolvedValue(3);
+  describe('getUnseenCount', () => {
+    it('should call repository to get unseen count', async () => {
+      (mockNotificationsRepository.getUnseenCount as jest.Mock).mockResolvedValue(3);
 
-      const result = await service.getUnreadCount('user2');
+      const result = await service.getUnseenCount('user2');
 
-      expect(mockNotificationsRepository.getUnreadCount).toHaveBeenCalledWith('user2');
+      expect(mockNotificationsRepository.getUnseenCount).toHaveBeenCalledWith('user2');
       expect(result).toEqual(3);
     });
   });

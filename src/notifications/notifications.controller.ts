@@ -8,8 +8,8 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get('count')
-  async getUnreadCount(@User() user: RequestUser) {
-    return await this.notificationsService.getUnreadCount(user.id);
+  async getUnseenCount(@User() user: RequestUser) {
+    return await this.notificationsService.getUnseenCount(user.id);
   }
 
   @Patch('mark-all-seen')

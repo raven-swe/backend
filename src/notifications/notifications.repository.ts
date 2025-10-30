@@ -48,7 +48,7 @@ export class NotificationsRepository {
     });
   }
 
-  async getUnreadCount(receiverId: string) {
+  async getUnseenCount(receiverId: string) {
     const receiverBigInt = BigInt(receiverId);
     return await this.prisma.notification.count({
       where: { receiverId: receiverBigInt, seen: false },
