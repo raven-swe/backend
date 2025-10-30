@@ -17,8 +17,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Corepack
         run: corepack enable
@@ -34,15 +32,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: = DEBUG = print prisma schema
-        run: cat ./prisma/schema.prisma
-
-      - name: Remove old Prisma client
-        run: rm -rf node_modules/.prisma node_modules/@prisma/client
-
-      - name: Generate Prisma client
-        run: pnpm prisma generate --schema=./prisma/schema.prisma
 
       - name: Run Formatter
         run: pnpm run format:check
