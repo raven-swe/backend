@@ -193,9 +193,7 @@ export class AuthController {
     @Body() logoutDto: LogoutDto | undefined,
     @Headers('X-Client-Type') clientType: 'web' | 'mobile',
   ) {
-    if (!clientType) {
-      throw new UnauthorizedException();
-    }
+    this.validateClientType(clientType);
     let refreshToken;
     if (clientType === 'web') {
       refreshToken = req.cookies?.refreshToken;
@@ -212,6 +210,8 @@ export class AuthController {
     }
 
     return { message: 'Logged out successfully' };
+  }
+
   private validateClientType(clientType: string) {
     if (!clientType) {
       throw new BadRequestException({

@@ -300,7 +300,7 @@ describe('AuthController with real config service', () => {
     it('with client type undefined should throw', async () => {
       await expect(
         controller.login(mockUser, ipAddress, mockDeviceType, mockResponse, undefined as never),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('with client type web should call authService.login, set a cookie', async () => {
@@ -473,14 +473,14 @@ describe('AuthController with mocked config service', () => {
     });
     it('with client type undefined should throw', async () => {
       await expect(
-        controller.refrehAccessToken(req, dto, mockResponse, undefined as never),
+        controller.refreshAccessToken(req, dto, mockResponse, undefined as never),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('with undefined refresh_token in body it should throw', async () => {
       mockClientType = 'mobile';
       await expect(
-        controller.refrehAccessToken(req, undefined as never, mockResponse, mockClientType),
+        controller.refreshAccessToken(req, undefined as never, mockResponse, mockClientType),
       ).rejects.toThrow(BadRequestException);
     });
   });
