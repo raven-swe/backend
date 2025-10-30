@@ -95,6 +95,18 @@ export class UsersRepository {
     });
   }
 
+  async isFollowing(followerId: bigint, followedId: bigint) {
+    const follow = await this.prisma.follow.findUnique({
+      where: {
+        followerId_followedId: {
+          followerId,
+          followedId,
+        },
+      },
+    });
+    return !!follow;
+  }
+
   async blockUser(userId: bigint, blockedId: bigint) {
     await this.prisma.block.create({
       data: {
@@ -115,6 +127,18 @@ export class UsersRepository {
     });
   }
 
+  async isBlocked(userId: bigint, blockedId: bigint) {
+    const block = await this.prisma.block.findUnique({
+      where: {
+        userId_blockedId: {
+          userId,
+          blockedId,
+        },
+      },
+    });
+    return !!block;
+  }
+
   async muteUser(userId: bigint, mutedId: bigint) {
     await this.prisma.mute.create({
       data: {
@@ -133,5 +157,17 @@ export class UsersRepository {
         },
       },
     });
+  }
+
+  async isMuted(userId: bigint, mutedId: bigint) {
+    const mute = await this.prisma.mute.findUnique({
+      where: {
+        userId_mutedId: {
+          userId,
+          mutedId,
+        },
+      },
+    });
+    return !!mute;
   }
 }

@@ -156,4 +156,186 @@ export class UsersService {
 
     return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
+
+  async followUser(followerId: bigint, followedId: bigint) {
+    // User cannot follow themselves
+    if (followerId === followedId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_SELF,
+          code: USERS_ERROR_CODES.CANNOT_FOLLOW_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if the target user exists
+    const targetUser = await this.usersRepository.findById(followedId);
+    if (!targetUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Check if already following
+    const isAlreadyFollowing = await this.usersRepository.isFollowing(followerId, followedId);
+    if (isAlreadyFollowing) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+          code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    await this.usersRepository.followUser(followerId, followedId);
+
+    this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
+    return { message: 'User followed successfully.' };
+  }
+
+  async unfollowUser(followerId: bigint, followedId: bigint) {
+    // Check if currently following
+    const isFollowing = await this.usersRepository.isFollowing(followerId, followedId);
+    if (!isFollowing) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.unfollowUser(followerId, followedId);
+    this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
+
+    return { message: 'User unfollowed successfully.' };
+  }
+
+  async blockUser(userId: bigint, blockedId: bigint) {
+    // User cannot block themselves
+    if (userId === blockedId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANT_BLOCK_SELF,
+          code: USERS_ERROR_CODES.CANT_BLOCK_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if the target user exists
+    const targetUser = await this.usersRepository.findById(blockedId);
+    if (!targetUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Check if already blocked
+    const isAlreadyBlocked = await this.usersRepository.isBlocked(userId, blockedId);
+    if (isAlreadyBlocked) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.ALREADY_BLOCKED,
+          code: USERS_ERROR_CODES.ALREADY_BLOCKED,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    await this.usersRepository.blockUser(userId, blockedId);
+    this.logger.log(`User ID: ${userId} blocked User ID: ${blockedId}`);
+
+    return { message: 'User blocked successfully.' };
+  }
+
+  async unblockUser(blockerId: bigint, blockedId: bigint) {
+    // Check if currently blocked
+    const isBlocked = await this.usersRepository.isBlocked(blockerId, blockedId);
+    if (!isBlocked) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.NOT_BLOCKED,
+          code: USERS_ERROR_CODES.NOT_BLOCKED,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.unblockUser(blockerId, blockedId);
+    this.logger.log(`User ID: ${blockerId} unblocked User ID: ${blockedId}`);
+
+    return { message: 'User unblocked successfully.' };
+  }
+
+  async muteUser(userId: bigint, mutedId: bigint) {
+    // User cannot mute themselves
+    if (userId === mutedId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANT_BLOCK_SELF,
+          code: USERS_ERROR_CODES.CANT_BLOCK_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if the target user exists
+    const targetUser = await this.usersRepository.findById(mutedId);
+    if (!targetUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Check if already muted
+    const isAlreadyMuted = await this.usersRepository.isMuted(userId, mutedId);
+    if (isAlreadyMuted) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.ALREADY_MUTED,
+          code: USERS_ERROR_CODES.ALREADY_MUTED,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    await this.usersRepository.muteUser(userId, mutedId);
+    this.logger.log(`User ID: ${userId} muted User ID: ${mutedId}`);
+
+    return { message: 'User muted successfully.' };
+  }
+
+  async unmuteUser(userId: bigint, mutedId: bigint) {
+    const isMuted = await this.usersRepository.isMuted(userId, mutedId);
+    if (!isMuted) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.NOT_MUTED,
+          code: USERS_ERROR_CODES.NOT_MUTED,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.unmuteUser(userId, mutedId);
+    this.logger.log(`User ID: ${userId} unmuted User ID: ${mutedId}`);
+
+    return { message: 'User unmuted successfully.' };
+  }
 }
