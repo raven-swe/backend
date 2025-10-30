@@ -9,19 +9,19 @@ export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string) {
-    return await this.prisma.users.findUnique({ where: { email } });
+    return await this.prisma.user.findUnique({ where: { email } });
   }
 
   async findByUsername(username: string) {
-    return await this.prisma.users.findUnique({ where: { username } });
+    return await this.prisma.user.findUnique({ where: { username } });
   }
 
   async findById(id: bigint) {
-    return await this.prisma.users.findUnique({ where: { id } });
+    return await this.prisma.user.findUnique({ where: { id } });
   }
 
   async findByIdentifier(identifier: string) {
-    return await this.prisma.users.findFirst({
+    return await this.prisma.user.findFirst({
       where: {
         OR: [{ email: identifier }, { username: identifier }],
       },
@@ -30,21 +30,21 @@ export class UsersRepository {
 
   async createUser(newUser: NewUser, prismaClient: Prisma.TransactionClient = this.prisma) {
     const { email, passwordHash, username, languageCode, birthDate } = newUser;
-    return await prismaClient.users.create({
+    return await prismaClient.user.create({
       data: {
         email,
         username: username,
-        password_hash: passwordHash,
-        language_code: languageCode,
+        passwordHash: passwordHash,
+        languageCode: languageCode,
         birthdate: birthDate,
       },
     });
   }
 
   async updatePasswordById(userId: bigint, hashedPassword: string) {
-    await this.prisma.users.update({
+    await this.prisma.user.update({
       where: { id: userId },
-      data: { password_hash: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
   }
 
@@ -127,9 +127,9 @@ export class UsersRepository {
     },
   ) {
     await this.prisma.$transaction(async (tx) => {
-      await tx.user_external_accounts.deleteMany({ where: { user_id: userId } });
+      await tx.userExternalAccount.deleteMany({ where: { userId } });
 
-      await tx.users.update({
+      await tx.user.update({
         where: { id: userId },
         data: {
           email: emailUpdateData.newEmail,

@@ -27,9 +27,9 @@ describe('UsersService', () => {
     id: BigInt(1),
     email: 'test@example.com',
     username: 'testuser',
-    password_hash: 'hashedPassword123',
-    birth_date: new Date('2000-01-01'),
-    language_code: LanguageCode.EN,
+    passwordHash: 'hashedPassword123',
+    birthdate: new Date('2000-01-01'),
+    languageCode: LanguageCode.EN,
   };
 
   const mockRepository = {
@@ -239,8 +239,8 @@ describe('UsersService', () => {
       // Assert
       expect(result).toEqual({ message: 'Password changed successfully.' });
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
-      expect(comparePassword).toHaveBeenNthCalledWith(1, 'OldPassword123!', mockUser.password_hash);
-      expect(comparePassword).toHaveBeenNthCalledWith(2, 'NewPassword123!', mockUser.password_hash);
+      expect(comparePassword).toHaveBeenNthCalledWith(1, 'OldPassword123!', mockUser.passwordHash);
+      expect(comparePassword).toHaveBeenNthCalledWith(2, 'NewPassword123!', mockUser.passwordHash);
 
       expect(hashPassword).toHaveBeenCalledWith('NewPassword123!');
       expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(

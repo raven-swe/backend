@@ -83,8 +83,8 @@ export class UsersService {
 
     // Validate old password (OAuth might not have password)
     let isOldPasswordValid = false;
-    if (user.password_hash) {
-      isOldPasswordValid = await comparePassword(oldPassword, user.password_hash);
+    if (user.passwordHash) {
+      isOldPasswordValid = await comparePassword(oldPassword, user.passwordHash);
     }
 
     if (!isOldPasswordValid) {
@@ -101,8 +101,8 @@ export class UsersService {
 
     // Check if new password is different from old password
     let isSamePassword = false;
-    if (user.password_hash) {
-      isSamePassword = await comparePassword(newPassword, user.password_hash);
+    if (user.passwordHash) {
+      isSamePassword = await comparePassword(newPassword, user.passwordHash);
     }
 
     if (isSamePassword) {
