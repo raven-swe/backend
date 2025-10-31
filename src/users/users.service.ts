@@ -347,8 +347,8 @@ export class UsersService {
     if (userId === mutedId) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
-          code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_SELF,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_SELF,
         },
         HttpStatus.BAD_REQUEST,
       );

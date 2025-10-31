@@ -46,4 +46,38 @@ describe('UsersController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
+
+  describe('POST /:username/following', () => {
+    it('should call usersService.followUser with correct parameters', async () => {
+      // Arrange
+      const followerId = BigInt(1);
+      const followedUsername = 'testuser';
+      const expectedResult = { message: 'Followed user successfully' };
+
+      mockUsersService.followUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.followUser(followedUsername, { id: followerId.toString() });
+
+      // Assert
+      expect(mockUsersService.followUser).toHaveBeenCalledWith(followerId, followedUsername);
+      expect(mockUsersService.followUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.followUser', async () => {
+      // Arrange
+      const followerId = BigInt(1);
+      const followedUsername = 'nonexistentuser';
+
+      mockUsersService.followUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(
+        controller.followUser(followedUsername, { id: followerId.toString() }),
+      ).rejects.toThrow('User not found');
+      expect(mockUsersService.followUser).toHaveBeenCalledWith(followerId, followedUsername);
+      expect(mockUsersService.followUser).toHaveBeenCalledTimes(1);
+    });
+  });
 });
