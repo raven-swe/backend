@@ -107,12 +107,27 @@ export class UsersRepository {
     return !!follow;
   }
 
+  /**
+   * Blocks a user and removes any existing follow relationships between the users.
+   */
   async blockUser(userId: bigint, blockedId: bigint) {
-    await this.prisma.block.create({
-      data: {
-        userId,
-        blockedId,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.block.create({
+        data: {
+          userId,
+          blockedId,
+        },
+      });
+
+      // Remove follow relationships in both directions
+      await tx.follow.deleteMany({
+        where: {
+          OR: [
+            { followerId: userId, followedId: blockedId },
+            { followerId: blockedId, followedId: userId },
+          ],
+        },
+      });
     });
   }
 
@@ -158,7 +173,6 @@ export class UsersRepository {
       },
     });
   }
-
 
   async isMuted(userId: bigint, mutedId: bigint) {
     const mute = await this.prisma.mute.findUnique({

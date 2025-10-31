@@ -182,7 +182,7 @@ export class UsersService {
       );
     }
 
-    // Check if user is blocked (can't follow a blocked user)
+    // Check if user is blocked or you blocked the user
     const userBlockedYou = await this.usersRepository.isBlocked(followedId, followerId);
     if (userBlockedYou) {
       throw new HttpException(
