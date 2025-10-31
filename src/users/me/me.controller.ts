@@ -40,4 +40,18 @@ export class MeController {
     const userIdBigInt = BigInt(user.id);
     return await this.usersService.unblockUser(userIdBigInt, username);
   }
+
+  @Post('mutes/:username')
+  @UseGuards(JwtAuthGuard)
+  async muteUser(@User() user: RequestUser, @Param('username') username: string) {
+    const userIdBigInt = BigInt(user.id);
+    return await this.usersService.muteUser(userIdBigInt, username);
+  }
+
+  @Delete('mutes/:username')
+  @UseGuards(JwtAuthGuard)
+  async unmuteUser(@User() user: RequestUser, @Param('username') username: string) {
+    const userIdBigInt = BigInt(user.id);
+    return await this.usersService.unmuteUser(userIdBigInt, username);
+  }
 }

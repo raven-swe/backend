@@ -1,0 +1,15 @@
+meta {
+  name: mute-user
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:3000/me/mutes/gelgel
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

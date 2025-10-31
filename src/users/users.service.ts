@@ -332,7 +332,7 @@ export class UsersService {
   async muteUser(userId: bigint, mutedUsername: string) {
     // Check if the target user exists
     const targetUser = await this.usersRepository.findByUsername(mutedUsername);
-    if (!targetUser) {
+    if (!targetUser || targetUser.deletedAt) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
@@ -370,8 +370,8 @@ export class UsersService {
     if (userBlockedYou) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
-          code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER_BLOCKED_YOU,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_USER_BLOCKED_YOU,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -383,7 +383,19 @@ export class UsersService {
     return { message: 'User muted successfully.' };
   }
 
-  async unmuteUser(userId: bigint, mutedId: bigint) {
+  async unmuteUser(userId: bigint, mutedUsername: string) {
+    const mutedUser = await this.usersRepository.findByUsername(mutedUsername);
+    if (!mutedUser || mutedUser.deletedAt) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const mutedId = mutedUser.id;
     const isMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (!isMuted) {
       throw new HttpException(

@@ -18,7 +18,6 @@ export class UsersController {
   @Delete(':username/following')
   @UseGuards(JwtAuthGuard)
   async unfollowUser(@Param('username') username: string, @User() user: RequestUser) {
-    console.log('Unfollowing user:', username, 'by user:', user.id);
     await this.usersService.unfollowUser(BigInt(user.id), username);
     return { message: 'Unfollowed user successfully' };
   }
