@@ -16,9 +16,24 @@ headers {
 
 body:json {
   {
-    "password":"OmarGamal3000",
+    "password":"OmarGamal3000$",
     "creationToken":"{{creationToken}}"
   }
+}
+
+script:post-response {
+  const responseBody = res.getBody();
+    try {
+      const token = responseBody.data.accessToken;
+      if (token) {
+        bru.setVar("accessToken", token); 
+        console.log("Token saved successfully.");
+      } else {
+        console.warn("Token not found in the response.");
+      }
+    } catch (error) {
+      console.error("Error parsing response body:", error);
+    }
 }
 
 settings {
