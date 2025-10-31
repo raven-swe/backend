@@ -420,6 +420,6 @@ export class UsersRepository {
         },
       },
     });
-    return !!mute || this.isBlocked(userId, mutedId);
+    return !!mute || (await this.isBlocked(userId, mutedId));
   }
 }

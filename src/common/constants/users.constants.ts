@@ -19,6 +19,7 @@ export const USERS_ERROR_CODES = {
   NOT_MUTED: 'NOT_MUTED',
   CANNOT_MUTE_USER_BLOCKED_YOU: 'CANNOT_MUTE_USER_BLOCKED_YOU',
   USERNAME_ALREADY_USED: 'USERNAME_ALREADY_USED',
+  CANNOT_UNMUTE_BLOCKED_USER: 'CANNOT_UNMUTE_BLOCKED_USER',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -43,4 +44,5 @@ export const USERS_ERROR_MESSAGES = {
   NOT_MUTED: 'This user is not muted',
   CANNOT_MUTE_USER_BLOCKED_YOU: 'You cannot mute a user who has blocked you',
   USERNAME_ALREADY_USED: 'That username has been taken. Please choose another.',
+  CANNOT_UNMUTE_BLOCKED_USER: 'You cannot unmute a user you have blocked',
 } as const;
