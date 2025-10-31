@@ -91,7 +91,9 @@ describe('UsersController', () => {
       mockUsersService.unfollowUser.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.unfollowUser(unfollowedUsername, { id: followerId.toString() });
+      const result = await controller.unfollowUser(unfollowedUsername, {
+        id: followerId.toString(),
+      });
 
       // Assert
       expect(mockUsersService.unfollowUser).toHaveBeenCalledWith(followerId, unfollowedUsername);
