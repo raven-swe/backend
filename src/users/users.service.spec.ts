@@ -368,9 +368,10 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const result = await service.updateProfile(BigInt(1), updateProfileDto);
+      const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
 
       expect(result).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
       expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), updateProfileDto);
     });
@@ -389,8 +390,9 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const result = await service.updateProfile(BigInt(1), partialUpdateDto);
+      const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
       expect(result).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
       expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), partialUpdateDto);
     });
@@ -417,10 +419,11 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
-      const result = await service.updateProfile(BigInt(1), emptyUpdateDto);
+      const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
 
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
+      expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), emptyUpdateDto);
     });
   });
