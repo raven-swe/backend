@@ -54,7 +54,7 @@ export class UsersRepository {
     userId: bigint,
     data: UpdateProfileDto,
     avatarUrl?: string,
-    bannerUrl?: string,
+    bannerUrl?: string | null,
   ) {
     return await this.prisma.$transaction(async (tx) => {
       let birthDate: string | undefined = undefined;

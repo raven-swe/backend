@@ -1,4 +1,12 @@
-import { IsDate, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsMinYearsOld } from 'src/auth/dto/start-registration.dto';
 
@@ -41,4 +49,8 @@ export class UpdateProfileDto {
     { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
   )
   websiteUrl?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  deleteBanner?: boolean;
 }

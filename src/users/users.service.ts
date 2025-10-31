@@ -147,7 +147,6 @@ export class UsersService {
       banner?: Express.Multer.File[];
     },
   ) {
-    this.logger.debug('Received: ', data, files);
     const user = await this.usersRepository.findById(userId);
     if (!user) {
       throw new HttpException(
@@ -159,9 +158,20 @@ export class UsersService {
       );
     }
 
+    // Validate that delete and upload are not both requested for the same media
+    if (data.deleteBanner && files?.banner?.length) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
+          code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     // Upload files if provided and get URLs
     let avatarUrl: string | undefined;
-    let bannerUrl: string | undefined;
+    let bannerUrl: string | undefined | null;
 
     if (files && (files.avatar || files.banner)) {
       const filesToUpload: {
@@ -177,6 +187,12 @@ export class UsersService {
       // Assign URLs if they were uploaded to return them to the user
       avatarUrl = uploadResult.avatarUrl ?? undefined;
       bannerUrl = uploadResult.bannerUrl ?? undefined;
+    }
+
+    // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
+    // TODO: banner should be deleted from storage as well
+    if (data.deleteBanner && !files?.banner?.length) {
+      bannerUrl = null;
     }
 
     const profile = await this.usersRepository.updateProfile(userId, data, avatarUrl, bannerUrl);
