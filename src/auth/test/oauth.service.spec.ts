@@ -191,7 +191,7 @@ describe('OAuthService', () => {
         'github-123',
       );
       expect(mockAuthService.login).toHaveBeenCalledWith(
-        { username: 'existinguser', id: '1' },
+        { id: '1' },
         mockDeviceType,
         mockIpAddress,
       );
@@ -305,7 +305,7 @@ describe('OAuthService', () => {
       expect(mockJwtService.verify).toHaveBeenCalledWith(mockCreationToken);
       expect(mockJwtService.verify).toHaveBeenCalledTimes(1);
       expect(mockAuthService.login).toHaveBeenCalledWith(
-        { id: '1', username: 'newuser@example.com' },
+        { id: '1' },
         mockDeviceType,
         mockIpAddress,
       );

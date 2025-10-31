@@ -8,11 +8,11 @@ export class OAuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findExternalAccountWithUser(provider: string, providerUserId: string) {
-    return await this.prisma.user_external_accounts.findUnique({
+    return await this.prisma.userExternalAccount.findUnique({
       where: {
-        provider_provider_user_id: {
+        provider_providerUserId: {
           provider,
-          provider_user_id: providerUserId,
+          providerUserId: providerUserId,
         },
       },
       include: { user: true },
@@ -20,25 +20,25 @@ export class OAuthRepository {
   }
 
   async findUserByEmail(email: string) {
-    return await this.prisma.users.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email },
     });
   }
 
   async findUserByEmailWithExternalAccounts(email: string) {
-    return await this.prisma.users.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email },
       include: {
-        user_external_accounts: true,
+        userExternalAccounts: true,
       },
     });
   }
 
   async createExternalAccount(userId: bigint, provider: string, providerUserId: string) {
-    return await this.prisma.user_external_accounts.create({
+    return await this.prisma.userExternalAccount.create({
       data: {
-        user_id: userId,
-        provider_user_id: providerUserId,
+        userId: userId,
+        providerUserId: providerUserId,
         provider,
       },
     });
@@ -53,21 +53,21 @@ export class OAuthRepository {
     provider: string,
     providerId: string,
   ) {
-    return await this.prisma.users.create({
+    return await this.prisma.user.create({
       data: {
         email,
         username,
         birthdate,
         profile: {
           create: {
-            display_name: displayName,
-            avatar_url: avatarUrl,
+            displayName: displayName,
+            avatarUrl: avatarUrl,
           },
         },
-        user_external_accounts: {
+        userExternalAccounts: {
           create: {
             provider,
-            provider_user_id: providerId,
+            providerUserId: providerId,
           },
         },
       },
@@ -75,7 +75,7 @@ export class OAuthRepository {
   }
 
   async updateUserBirthdate(userId: bigint, birthdate: Date) {
-    return await this.prisma.users.update({
+    return await this.prisma.user.update({
       where: { id: userId },
       data: { birthdate },
     });

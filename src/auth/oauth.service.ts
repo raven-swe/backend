@@ -59,7 +59,7 @@ export class OAuthService {
 
     if (externalAccount) {
       return await this.authService.login(
-        { username: externalAccount.user.username, id: externalAccount.user.id.toString() },
+        { id: externalAccount.user.id.toString() },
         deviceType,
         ipAddress,
       );
@@ -141,9 +141,9 @@ export class OAuthService {
 
     // If user exists and has the external account, just log them in
     if (existingUser) {
-      const hasExternalAccount = existingUser.user_external_accounts.some(
+      const hasExternalAccount = existingUser.userExternalAccounts.some(
         (account) =>
-          account.provider === payload.provider && account.provider_user_id === payload.providerId, // checking providerId case its the only reliable constant -- github account email might actually change later.
+          account.provider === payload.provider && account.providerUserId === payload.providerId, // checking providerId case its the only reliable constant -- github account email might actually change later.
       );
 
       if (hasExternalAccount) {
@@ -152,7 +152,7 @@ export class OAuthService {
         await this.oauthRepository.updateUserBirthdate(existingUser.id, new Date(birthDate));
 
         return await this.authService.login(
-          { id: existingUser.id.toString(), username: existingUser.username },
+          { id: existingUser.id.toString() },
           deviceType,
           ipAddress,
         );
@@ -177,10 +177,6 @@ export class OAuthService {
       payload.providerId,
     );
 
-    return await this.authService.login(
-      { id: user.id.toString(), username: user.username },
-      deviceType,
-      ipAddress,
-    );
+    return await this.authService.login({ id: user.id.toString() }, deviceType, ipAddress);
   }
 }
