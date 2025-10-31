@@ -159,6 +159,7 @@ export class UsersRepository {
     });
   }
 
+
   async isMuted(userId: bigint, mutedId: bigint) {
     const mute = await this.prisma.mute.findUnique({
       where: {
@@ -168,6 +169,6 @@ export class UsersRepository {
         },
       },
     });
-    return !!mute;
+    return !!mute || this.isBlocked(userId, mutedId);
   }
 }

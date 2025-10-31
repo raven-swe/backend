@@ -1,0 +1,20 @@
+meta {
+  name: unfollow-user
+  type: http
+  seq: 2
+}
+
+delete {
+  url: http://localhost:3000/users/gelgel/following
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjUiLCJpYXQiOjE3NjE4Njk1NzksImV4cCI6MTc2MTg3MDQ3OX0.yXa9nZ4m2Bfflf1Mq756Q0WxlxiCEWD2MNFrXcUG2vk
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

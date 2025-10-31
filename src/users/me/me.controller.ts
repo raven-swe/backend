@@ -1,4 +1,4 @@
-import { Body, Controller, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -25,5 +25,12 @@ export class MeController {
   ) {
     const userIdBigInt = BigInt(user.id);
     return this.usersService.changePassword(userIdBigInt, changePasswordDto);
+  }
+
+  @Post('blocks/:username')
+  @UseGuards(JwtAuthGuard)
+  async blockUser(@User() user: RequestUser, @Param('username') username: string) {
+    const userIdBigInt = BigInt(user.id);
+    return await this.usersService.blockUser(userIdBigInt, username);
   }
 }

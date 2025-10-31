@@ -159,7 +159,7 @@ export class UsersService {
 
   async followUser(followerId: bigint, followedUsername: string) {
     const followedUser = await this.usersRepository.findByUsername(followedUsername);
-    if (!followedUser) {
+    if (!followedUser || followedUser.deletedAt) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
@@ -178,7 +178,30 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_SELF,
           code: USERS_ERROR_CODES.CANNOT_FOLLOW_SELF,
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Check if user is blocked (can't follow a blocked user)
+    const userBlockedYou = await this.usersRepository.isBlocked(followedId, followerId);
+    if (userBlockedYou) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+          code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const youBlockedUser = await this.usersRepository.isBlocked(followerId, followedId);
+    if (youBlockedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER,
+          code: USERS_ERROR_CODES.CANNOT_FOLLOW_BLOCKED_USER,
+        },
+        HttpStatus.FORBIDDEN,
       );
     }
 
@@ -203,7 +226,7 @@ export class UsersService {
   async unfollowUser(followerId: bigint, followedUsername: string) {
     // Check if the target user exists
     const followedUser = await this.usersRepository.findByUsername(followedUsername);
-    if (!followedUser) {
+    if (!followedUser || followedUser.deletedAt) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
@@ -219,8 +242,8 @@ export class UsersService {
     if (!isFollowing) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
+          code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
         },
         HttpStatus.NOT_FOUND,
       );
@@ -232,7 +255,20 @@ export class UsersService {
     return { message: 'User unfollowed successfully.' };
   }
 
-  async blockUser(userId: bigint, blockedId: bigint) {
+  async blockUser(userId: bigint, blockedUsername: string) {
+    // Check if the target user exists
+    const blockedUser = await this.usersRepository.findByUsername(blockedUsername);
+    if (!blockedUser || blockedUser.deletedAt) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const blockedId = blockedUser.id;
     // User cannot block themselves
     if (userId === blockedId) {
       throw new HttpException(
@@ -240,19 +276,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.CANT_BLOCK_SELF,
           code: USERS_ERROR_CODES.CANT_BLOCK_SELF,
         },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Check if the target user exists
-    const targetUser = await this.usersRepository.findById(blockedId);
-    if (!targetUser) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.FORBIDDEN,
       );
     }
 

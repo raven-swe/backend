@@ -1,4 +1,4 @@
-import { Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/decorators';
@@ -13,5 +13,13 @@ export class UsersController {
   async followUser(@Param('username') username: string, @User() user: RequestUser) {
     await this.usersService.followUser(BigInt(user.id), username);
     return { message: 'Followed user successfully' };
+  }
+
+  @Delete(':username/following')
+  @UseGuards(JwtAuthGuard)
+  async unfollowUser(@Param('username') username: string, @User() user: RequestUser) {
+    console.log('Unfollowing user:', username, 'by user:', user.id);
+    await this.usersService.unfollowUser(BigInt(user.id), username);
+    return { message: 'Unfollowed user successfully' };
   }
 }

@@ -1,20 +1,13 @@
 meta {
-  name: change-password
+  name: block-user
   type: http
-  seq: 1
+  seq: 3
 }
 
-put {
-  url: http://localhost:3000/me/password
-  body: json
-  auth: bearer
-}
-
-body:json {
-  {
-    "currentPassword": "test1234",
-    "newPassword": "Test1234"
-  }
+post {
+  url: http://localhost:3000/me/block/Tasneem
+  body: none
+  auth: inherit
 }
 
 script:pre-request {
