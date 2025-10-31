@@ -202,21 +202,14 @@ async function main() {
   });
 
   const getHashtag = async (tag: string) => {
-    const existing = await prisma.trendingKeyword.findFirst({
-      where: { keyword: tag, isHashtag: true },
-    });
-    if (existing) {
-      return prisma.trendingKeyword.update({
-        where: { id: existing.id },
-        data: { count: { increment: 1 } },
-      });
-    }
-    return prisma.trendingKeyword.create({
-      data: { keyword: tag, isHashtag: true },
+    return prisma.trendingKeyword.upsert({
+      where: { keyword_isHashtag: { keyword: tag, isHashtag: true } },
+      update: { count: { increment: 1 } },
+      create: { keyword: tag, isHashtag: true, count: 1 },
     });
   };
 
-  const tsHashtag = await getHashtag('typescript');
+  let tsHashtag = await getHashtag('typescript');
   const nestHashtag = await getHashtag('nestjs');
   const authHashtag = await getHashtag('auth');
 
@@ -367,18 +360,20 @@ async function main() {
 
   const uiuxHashtag = await getHashtag('uiux');
   const designHashtag = await getHashtag('design');
+  tsHashtag = await getHashtag('typescript');
 
   const fatmaTweet1 = await prisma.tweet.create({
     data: {
       userId: 12,
       content:
-        'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design @ZakiDev',
+        'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design #typescript @ZakiDev',
       hasHashtags: true,
       hasMentions: true,
       tweetHashtags: {
         create: [
           { hashtagId: uiuxHashtag.id, startingIndex: 22 },
           { hashtagId: designHashtag.id, startingIndex: 60 },
+          { hashtagId: tsHashtag.id, startingIndex: 67 },
         ],
       },
       tweetMentions: {
