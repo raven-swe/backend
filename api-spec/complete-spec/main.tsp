@@ -1011,9 +1011,10 @@ namespace Oauth {
        Example response: `{ "success": true, "data": { "accessToken": "bGxxkpXVCJ9...", "refreshToken": "dxxG9rZW4..." } }`
     """)
   op handleOauthCallback(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @path provider: string,
     @body body: {
-      provider_token_id: string;
+      providerToken: string;
     },
   ):
     | DataResponse<{
@@ -1033,6 +1034,7 @@ namespace Oauth {
   @route("/complete")
   @summary("Complete OAuth registration by sending the birth data")
   op completeOauthRegister(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       creationToken: string;
       birthDate: plainDate;
