@@ -44,7 +44,7 @@ model Profile {
   userId      BigInt   @id @map("user_id")
   displayName String   @map("display_name") @db.VarChar(100)
   bio         String?  @db.VarChar(160)
-  bioEntities Json?    @map("bio_entities")
+  bioEntities Json?    @map("bio_entities") @db.JsonB
   avatarUrl   String?  @map("avatar_url") @db.VarChar(255)
   bannerUrl   String?  @map("banner_url") @db.VarChar(255)
   location    String?  @db.VarChar(255)
@@ -187,22 +187,25 @@ model Like {
   @@map("likes")
 }
 
-model Hashtag {
+model TrendingKeyword {
   id            BigInt         @id @default(autoincrement())
-  tag           String?        @unique @db.VarChar(100)
-  createdAt     DateTime       @default(now()) @map("created_at")
+  keyword       String         @db.VarChar(100)
+  category      Categories?
+  lastUpdatedAt DateTime?      @map("last_updated_at")
+  isHashtag     Boolean        @default(false)
   count         Int            @default(0)
+  createdAt     DateTime       @default(now()) @map("created_at")
   tweetHashtags TweetHashtag[]
 
-  @@map("hashtags")
+  @@map("trending_keywords")
 }
 
 model TweetHashtag {
   tweetId       BigInt  @map("tweet_id")
   hashtagId     BigInt  @map("hashtag_id")
   startingIndex Int     @map("starting_index")
-  hashtag       Hashtag @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet         Tweet   @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hashtag       TrendingKeyword @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet         Tweet   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([hashtagId, tweetId])
   @@index([tweetId, hashtagId])
@@ -226,7 +229,7 @@ model Message {
   userId                      BigInt                    @map("user_id")
   conversationId              BigInt                    @map("conversation_id")
   content                     String
-  messageEntities             Json?                     @map("message_entities")
+  messageEntities             Json?                     @map("message_entities") @db.JsonB
   createdAt                   DateTime                  @default(now()) @map("created_at")
   conversationParticipants    ConversationParticipant[]
   conversationWithLastMessage Conversation?             @relation("conversations_last_message_idTomessages")
@@ -328,4 +331,15 @@ enum NotificationType {
 enum LanguageCode {
   EN
   AR
+}
+
+enum Gender {
+  FEMALE
+  MALE
+}
+
+enum Categories {
+  NEWS
+  SPORTS
+  ENTERTAINMENT
 }
