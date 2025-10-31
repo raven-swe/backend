@@ -41,7 +41,7 @@ describe('UsersController', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-g  });
+  });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();

@@ -41,6 +41,15 @@ describe('UsersService', () => {
     updatePasswordById: jest.fn(),
     updateUsernameById: jest.fn(),
     updateUserEmail: jest.fn(),
+    isFollowing: jest.fn(),
+    isBlocked: jest.fn(),
+    followUser: jest.fn(),
+    unfollowUser: jest.fn(),
+    blockUser: jest.fn(),
+    unblockUser: jest.fn(),
+    muteUser: jest.fn(),
+    unmuteUser: jest.fn(),
+    isMuted: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -435,6 +444,132 @@ describe('UsersService', () => {
       // Act & Assert
       await expect(service.updateUserEmail(userId, emailUpdateData)).rejects.toThrow(
         'Database error',
+      );
+    });
+  });
+
+  describe('followUser', () => {
+    it('should find user by username and follow them', async () => {
+      // Arrange
+      const followerId = BigInt(2);
+      const usernameToFollow = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isFollowing.mockResolvedValue(false);
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // userBlockedYou
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // youBlockedUser
+      mockRepository.followUser.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.followUser(followerId, usernameToFollow);
+
+      // Assert
+      expect(result).toEqual({ message: `User followed successfully.` });
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(usernameToFollow);
+      expect(mockRepository.isFollowing).toHaveBeenCalledWith(followerId, mockUser.id);
+      expect(mockRepository.isBlocked).toHaveBeenNthCalledWith(1, mockUser.id, followerId);
+      expect(mockRepository.isBlocked).toHaveBeenNthCalledWith(2, followerId, mockUser.id);
+      expect(mockRepository.followUser).toHaveBeenCalledWith(followerId, mockUser.id);
+    });
+
+    it('should throw error if user to follow does not exist', async () => {
+      // Arrange
+      const followerId = BigInt(2);
+      const usernameToFollow = 'nonexistentuser';
+
+      mockRepository.findByUsername.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw error if user id and followed user id are the same', async () => {
+      // Arrange
+      const followerId = BigInt(1);
+      const usernameToFollow = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue({ ...mockUser, id: followerId });
+
+      // Act & Assert
+      await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_SELF,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_SELF,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should throw error if already following the user', async () => {
+      // Arrange
+      const followerId = BigInt(2);
+      const usernameToFollow = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isFollowing.mockResolvedValue(true);
+
+      // Act & Assert
+      await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+            code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+          },
+          HttpStatus.CONFLICT,
+        ),
+      );
+    });
+
+    it('should throw error if user blocked you', async () => {
+      // Arrange
+      const followerId = BigInt(2);
+      const usernameToFollow = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isFollowing.mockResolvedValue(false);
+      mockRepository.isBlocked.mockResolvedValueOnce(true); // userBlockedYou
+
+      // Act & Assert
+      await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+          },
+          HttpStatus.FORBIDDEN,
+        ),
+      );
+    });
+
+    it('should throw error if you have blocked the user', async () => {
+      // Arrange
+      const followerId = BigInt(2);
+      const usernameToFollow = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isFollowing.mockResolvedValue(false);
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // userBlockedYou
+      mockRepository.isBlocked.mockResolvedValueOnce(true); // youBlockedUser
+
+      // Act & Assert
+      await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_BLOCKED_USER,
+          },
+          HttpStatus.FORBIDDEN,
+        ),
       );
     });
   });
