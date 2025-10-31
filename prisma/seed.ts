@@ -21,7 +21,7 @@ async function main() {
   await prisma.tweetMedia.deleteMany();
   await prisma.media.deleteMany();
   await prisma.tweetHashtag.deleteMany();
-  await prisma.hashtag.deleteMany();
+  await prisma.trendingKeyword.deleteMany();
   await prisma.tweetMention.deleteMany();
   await prisma.tweet.deleteMany();
   await prisma.mute.deleteMany();
@@ -37,7 +37,7 @@ async function main() {
   await prisma.$executeRaw`ALTER SEQUENCE "refresh_tokens_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "user_devices_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "tweets_id_seq" RESTART WITH 1;`;
-  await prisma.$executeRaw`ALTER SEQUENCE "hashtags_id_seq" RESTART WITH 1;`;
+  await prisma.$executeRaw`ALTER SEQUENCE "trending_keywords_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "messages_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "conversations_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "notifications_id_seq" RESTART WITH 1;`;
@@ -201,14 +201,15 @@ async function main() {
     ],
   });
 
-  const getHashtag = async (tag: string) =>
-    prisma.hashtag.upsert({
-      where: { tag },
+  const getHashtag = async (tag: string) => {
+    return prisma.trendingKeyword.upsert({
+      where: { keyword_isHashtag: { keyword: tag, isHashtag: true } },
       update: { count: { increment: 1 } },
-      create: { tag, count: 1 },
+      create: { keyword: tag, isHashtag: true, count: 1 },
     });
+  };
 
-  const tsHashtag = await getHashtag('typescript');
+  let tsHashtag = await getHashtag('typescript');
   const nestHashtag = await getHashtag('nestjs');
   const authHashtag = await getHashtag('auth');
 
@@ -359,18 +360,20 @@ async function main() {
 
   const uiuxHashtag = await getHashtag('uiux');
   const designHashtag = await getHashtag('design');
+  tsHashtag = await getHashtag('typescript');
 
   const fatmaTweet1 = await prisma.tweet.create({
     data: {
       userId: 12,
       content:
-        'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design @ZakiDev',
+        'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design #typescript @ZakiDev',
       hasHashtags: true,
       hasMentions: true,
       tweetHashtags: {
         create: [
           { hashtagId: uiuxHashtag.id, startingIndex: 22 },
           { hashtagId: designHashtag.id, startingIndex: 60 },
+          { hashtagId: tsHashtag.id, startingIndex: 67 },
         ],
       },
       tweetMentions: {
