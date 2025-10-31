@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { oAuthService } from '../oauth.service';
+import { OAuthService } from '../oauth.service';
 import { OAuthRepository } from '../oauth.repository';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 
-describe('oAuthService', () => {
-  let service: oAuthService;
+describe('OAuthService', () => {
+  let service: OAuthService;
 
   const mockOAuthRepository = {
     findExternalAccountWithUser: jest.fn(),
@@ -33,7 +33,7 @@ describe('oAuthService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        oAuthService,
+        OAuthService,
         {
           provide: OAuthRepository,
           useValue: mockOAuthRepository,
@@ -53,7 +53,7 @@ describe('oAuthService', () => {
       ],
     }).compile();
 
-    service = module.get<oAuthService>(oAuthService);
+    service = module.get<OAuthService>(OAuthService);
 
     mockConfigService.get.mockReturnValue('30');
   });

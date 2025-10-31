@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OauthController } from './oauth.controller';
-import { oAuthService } from './oauth.service';
+import { OAuthService } from './oauth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from 'src/users/users.module';
 import { AuthModule } from './auth.module';
@@ -22,6 +22,6 @@ import { OAuthRepository } from './oauth.repository';
     }),
   ],
   controllers: [OauthController],
-  providers: [oAuthService, OAuthRepository],
+  providers: [OAuthService, OAuthRepository],
 })
 export class OauthModule {}

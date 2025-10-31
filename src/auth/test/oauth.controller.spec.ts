@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OauthController } from '../oauth.controller';
-import { oAuthService } from '../oauth.service';
+import { OAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import type { Response } from 'express';
@@ -34,7 +34,7 @@ describe('OauthController', () => {
       controllers: [OauthController],
       providers: [
         {
-          provide: oAuthService,
+          provide: OAuthService,
           useValue: mockOAuthService,
         },
         {

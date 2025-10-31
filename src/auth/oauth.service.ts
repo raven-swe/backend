@@ -11,7 +11,7 @@ import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
 
 @Injectable()
-export class oAuthService {
+export class OAuthService {
   private strategies: Record<SupportedOAuthProvider, OAuthProviderStrategy>;
 
   constructor(

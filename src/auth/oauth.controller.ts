@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Param, Headers, Res, UnauthorizedException } from '@nestjs/common';
-import { oAuthService } from './oauth.service';
+import { OAuthService } from './oauth.service';
 import { BadRequestException } from '@nestjs/common';
 import {
   SUPPORTED_OAUTH_PROVIDERS,
@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 @Controller('oauth')
 export class OauthController {
   constructor(
-    private readonly oAuthService: oAuthService,
+    private readonly oAuthService: OAuthService,
     private readonly configService: ConfigService,
   ) {}
 

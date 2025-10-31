@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
 
 // TODO in refactor: integrate with other auth repositories to have a unified auth repository file(hope to see it created one day)
 
@@ -35,13 +34,8 @@ export class OAuthRepository {
     });
   }
 
-  async createExternalAccount(
-    userId: bigint,
-    provider: string,
-    providerUserId: string,
-    prismaClient: Prisma.TransactionClient = this.prisma,
-  ) {
-    return await prismaClient.user_external_accounts.create({
+  async createExternalAccount(userId: bigint, provider: string, providerUserId: string) {
+    return await this.prisma.user_external_accounts.create({
       data: {
         user_id: userId,
         provider_user_id: providerUserId,
