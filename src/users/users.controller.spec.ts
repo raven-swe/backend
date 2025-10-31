@@ -13,6 +13,7 @@ describe('UsersController', () => {
     unblockUser: jest.fn(),
     muteUser: jest.fn(),
     unmuteUser: jest.fn(),
+    getUserProfile: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -25,6 +26,7 @@ describe('UsersController', () => {
     muteUser: jest.fn(),
     unmuteUser: jest.fn(),
     isMuted: jest.fn(),
+    getUserProfile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -114,6 +116,30 @@ describe('UsersController', () => {
       ).rejects.toThrow('User not found');
       expect(mockUsersService.unfollowUser).toHaveBeenCalledWith(followerId, unfollowedUsername);
       expect(mockUsersService.unfollowUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /users/:username/profile', () => {
+    it('should call usersService.getUserProfile with correct parameters', async () => {
+      // Arrange
+      const username = 'john_doe';
+      const currentUserId = BigInt(1);
+      const expectedResult = {
+        displayName: 'John Doe',
+        bio: 'A sample user',
+      };
+
+      mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.getUserProfile(username, {
+        id: currentUserId.toString(),
+      });
+
+      // Assert
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, currentUserId);
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
     });
   });
 });

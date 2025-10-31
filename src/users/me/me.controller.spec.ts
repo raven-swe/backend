@@ -13,6 +13,8 @@ describe('MeController', () => {
     unblockUser: jest.fn(),
     muteUser: jest.fn(),
     unmuteUser: jest.fn(),
+    getUserProfile: jest.fn(),
+    updateProfile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -223,6 +225,53 @@ describe('MeController', () => {
       ).rejects.toThrow('User not found');
       expect(mockUsersService.unmuteUser).toHaveBeenCalledWith(userId, unmutedUsername);
       expect(mockUsersService.unmuteUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /me', () => {
+    it('should call usersService.getUserProfile with correct parameters', async () => {
+      // Arrange
+      const expectedResult = {
+        displayName: 'Omar Hassan',
+        bio: 'Software Developer',
+      };
+
+      mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.getMyProfile({
+        id: '18',
+      });
+
+      // Assert
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith('', BigInt(18), true);
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('PATCH /me', () => {
+    const updateProfileDto = {
+      displayName: 'Omar Hassan',
+      bio: 'Software Developer',
+    };
+
+    it('should call usersService.updateProfile with correct parameters', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = { message: 'Profile updated successfully' };
+
+      mockUsersService.updateProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.updateProfile(updateProfileDto, {
+        id: '18',
+      });
+
+      // Assert
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(expectedUserId, updateProfileDto);
+      expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
     });
   });
 });
