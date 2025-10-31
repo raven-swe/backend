@@ -80,4 +80,38 @@ describe('UsersController', () => {
       expect(mockUsersService.followUser).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('DELETE /:username/following', () => {
+    it('should call usersService.unfollowUser with correct parameters', async () => {
+      // Arrange
+      const followerId = BigInt(1);
+      const unfollowedUsername = 'testuser';
+      const expectedResult = { message: 'Unfollowed user successfully' };
+
+      mockUsersService.unfollowUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.unfollowUser(unfollowedUsername, { id: followerId.toString() });
+
+      // Assert
+      expect(mockUsersService.unfollowUser).toHaveBeenCalledWith(followerId, unfollowedUsername);
+      expect(mockUsersService.unfollowUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.unfollowUser', async () => {
+      // Arrange
+      const followerId = BigInt(1);
+      const unfollowedUsername = 'nonexistentuser';
+
+      mockUsersService.unfollowUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(
+        controller.unfollowUser(unfollowedUsername, { id: followerId.toString() }),
+      ).rejects.toThrow('User not found');
+      expect(mockUsersService.unfollowUser).toHaveBeenCalledWith(followerId, unfollowedUsername);
+      expect(mockUsersService.unfollowUser).toHaveBeenCalledTimes(1);
+    });
+  });
 });

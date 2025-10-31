@@ -874,7 +874,7 @@ describe('UsersService', () => {
     it('should throw error if user blocked you', async () => {
       // Arrange
       const muterId = BigInt(2);
-      const usernameToMute = 'testuser';  
+      const usernameToMute = 'testuser';
 
       mockRepository.findByUsername.mockResolvedValue(mockUser);
       mockRepository.isMuted.mockResolvedValue(false);
