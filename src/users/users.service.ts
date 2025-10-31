@@ -157,7 +157,20 @@ export class UsersService {
     return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
 
-  async followUser(followerId: bigint, followedId: bigint) {
+  async followUser(followerId: bigint, followedUsername: string) {
+    const followedUser = await this.usersRepository.findByUsername(followedUsername);
+    if (!followedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const followedId = followedUser.id;
+
     // User cannot follow themselves
     if (followerId === followedId) {
       throw new HttpException(
@@ -166,18 +179,6 @@ export class UsersService {
           code: USERS_ERROR_CODES.CANNOT_FOLLOW_SELF,
         },
         HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Check if the target user exists
-    const targetUser = await this.usersRepository.findById(followedId);
-    if (!targetUser) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
       );
     }
 
@@ -199,7 +200,20 @@ export class UsersService {
     return { message: 'User followed successfully.' };
   }
 
-  async unfollowUser(followerId: bigint, followedId: bigint) {
+  async unfollowUser(followerId: bigint, followedUsername: string) {
+    // Check if the target user exists
+    const followedUser = await this.usersRepository.findByUsername(followedUsername);
+    if (!followedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const followedId = followedUser.id;
     // Check if currently following
     const isFollowing = await this.usersRepository.isFollowing(followerId, followedId);
     if (!isFollowing) {

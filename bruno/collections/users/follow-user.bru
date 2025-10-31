@@ -1,0 +1,16 @@
+meta {
+  name: follow-user
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/users/notnowomar/following
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
