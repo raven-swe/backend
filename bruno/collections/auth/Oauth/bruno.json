@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "efw",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
+import { OauthModule } from './auth/oauth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
@@ -14,6 +15,7 @@ import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { RATE_LIMIT } from './common/constants/rate-limit.constants';
       },
     }),
     AuthModule,
+    OauthModule,
     UsersModule,
     DevicesModule,
     RedisModule,
@@ -41,6 +44,7 @@ import { RATE_LIMIT } from './common/constants/rate-limit.constants';
     RecaptchaModule,
     RefreshTokensModule,
     DevicesModule,
+    MediaModule,
   ],
   controllers: [],
   providers: [

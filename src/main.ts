@@ -17,10 +17,12 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       exceptionFactory: (errors) => new BadRequestException(errors),
+      forbidUnknownValues: false,
     }),
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
   await app.listen(process.env.PORT ?? 3000);
 }
 
