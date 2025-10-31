@@ -343,6 +343,107 @@ namespace Auth {
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @post
+  @route("/logout")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
+  @useAuth(BearerAuth)
+  op logout(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @cookie("refreshToken") refreshToken?: string,
+    @body body?: {
+      refreshToken: string;
+    },
+  ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @post
+  @route("/refresh-token")
+  @doc("refresh token is required in cookie from web clints and in body from mobile clients")
+  @summary("refresh token is required in cookie from web clints and in body from mobile clients")
+  op refreshToken(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @cookie("refreshToken") refreshToken?: string,
+    @body body?: {
+      refreshToken: string;
+    },
+  ):
+    | DataResponse<{
+        accessToken: string;
+        refreshToken: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+}
+
+@tag("Me")
+@route("/me")
+@useAuth(BearerAuth)
+namespace Me {
+  @put
+  @route("/password")
+  @summary("Change the authenticated user's password")
+  op changeMyPassword(
+    @body body: {
+      currentPassword: string;
+      newPassword: string;
+    },
+  ):
+    | MessageResponse<"Password changed successfully.">
+    | UnauthorizedResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+
+  @useAuth(BearerAuth)
+  @route("/settings")
+  namespace Settings {
+    @put
+    @route("/email")
+    @summary("Initiates update of the authenticated user's email address")
+    op updateEmail(
+      @body body: {
+        newEmail: string;
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/resend-otp")
+    @summary("Resend the verification code to the new email address")
+    op resendEmailVerificationOtp(
+      @body body: {
+        confirmationToken: string;
+      },
+    ):
+      | MessageResponse<"Verification code resent successfully.">
+      | BadRequestResponse
+      | RateLimitResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @post
+    @route("/email/verify")
+    @summary("Verify the new email address using the code sent to the new email, invalidates SSOs using the same email")
+    op verifyNewEmail(
+      @body body: {
+        confirmationToken: string;
+        otp: string;
+      },
+    ):
+      | MessageResponse<"Email address updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
 }
 
 @tag("OAuth")

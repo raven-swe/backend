@@ -11,6 +11,9 @@ describe('EmailConsumer', () => {
   const mockEmailService = {
     sendRegistrationOtp: jest.fn(),
     sendForgotPasswordOtp: jest.fn(),
+    sendChangePasswordEmail: jest.fn(),
+    sendVerifyEmailUpdate: jest.fn(),
+    sendCompleteEmailUpdate: jest.fn(),
   };
 
   const mockLogger = {
@@ -126,6 +129,84 @@ describe('EmailConsumer', () => {
       );
     });
 
+    it('should process change password job successfully', async () => {
+      const jobData: EmailJobData = {
+        type: OtpType.CHANGE_PASSWORD,
+        email: 'test@example.com',
+        username: 'testuser',
+      };
+
+      const mockJob = {
+        id: 'job-456',
+        name: 'sendPasswordChangeEmail',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendChangePasswordEmail.mockResolvedValue(undefined);
+
+      await consumer.process(mockJob);
+
+      expect(mockEmailService.sendChangePasswordEmail).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        username: 'testuser',
+      });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Processing job job-456 of type sendPasswordChangeEmail',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith('Job job-456 completed successfully');
+    });
+
+    it('should process change email OTP job successfully', async () => {
+      const jobData: EmailJobData = {
+        type: OtpType.CHANGE_EMAIL,
+        email: 'newemail@example.com',
+        otp: '654321',
+      };
+
+      const mockJob = {
+        id: 'job-789',
+        name: 'sendOtp',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendVerifyEmailUpdate.mockResolvedValue(undefined);
+      await consumer.process(mockJob);
+
+      expect(mockEmailService.sendVerifyEmailUpdate).toHaveBeenCalledWith({
+        email: 'newemail@example.com',
+        otp: '654321',
+      });
+      expect(mockLogger.log).toHaveBeenCalledWith('Processing job job-789 of type sendOtp');
+      expect(mockLogger.log).toHaveBeenCalledWith('Job job-789 completed successfully');
+    });
+
+    it('should process change email complete job successfully', async () => {
+      const jobData: EmailJobData = {
+        type: OtpType.CHANGE_EMAIL_COMPLETE,
+        email: 'newemail@example.com',
+        oldEmail: 'oldemail@example.com',
+        username: 'testuser',
+      };
+
+      const mockJob = {
+        id: 'job-101',
+        name: 'sendEmailChange',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendCompleteEmailUpdate.mockResolvedValue(undefined);
+
+      await consumer.process(mockJob);
+
+      expect(mockEmailService.sendCompleteEmailUpdate).toHaveBeenCalledWith({
+        email: 'newemail@example.com',
+        oldEmail: 'oldemail@example.com',
+        username: 'testuser',
+      });
+      expect(mockLogger.log).toHaveBeenCalledWith('Processing job job-101 of type sendEmailChange');
+      expect(mockLogger.log).toHaveBeenCalledWith('Job job-101 completed successfully');
+    });
+
     it('should process mixed job types independently', async () => {
       // Arrange
       const registrationJob = {
@@ -159,6 +240,71 @@ describe('EmailConsumer', () => {
       // Assert
       expect(mockEmailService.sendRegistrationOtp).toHaveBeenCalledTimes(1);
       expect(mockEmailService.sendForgotPasswordOtp).toHaveBeenCalledTimes(1);
+    });
+
+    it('should log error with stack trace when Error is thrown', async () => {
+      // Arrange
+      const error = new Error('Email service failed');
+      const jobData: EmailJobData = {
+        type: OtpType.REGISTRATION,
+        email: 'test@example.com',
+        otp: '123456',
+      };
+
+      const mockJob = {
+        id: 'job-error',
+        name: 'sendOtp',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendRegistrationOtp.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(consumer.process(mockJob)).rejects.toThrow('Email service failed');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Job job-error failed',
+        expect.stringContaining('Email service failed'),
+      );
+    });
+
+    it('should log error as string when non-Error is thrown', async () => {
+      const jobData: EmailJobData = {
+        type: OtpType.REGISTRATION,
+        email: 'test@example.com',
+        otp: '123456',
+      };
+
+      const mockJob = {
+        id: 'job-string-error',
+        name: 'sendOtp',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendRegistrationOtp.mockRejectedValue('String error');
+
+      await expect(consumer.process(mockJob)).rejects.toBe('String error');
+      expect(mockLogger.error).toHaveBeenCalledWith('Job job-string-error failed', 'String error');
+    });
+
+    it('should rethrow error for BullMQ to handle', async () => {
+      const error = new Error('Critical failure');
+      const jobData: EmailJobData = {
+        type: OtpType.FORGOT_PASSWORD,
+        email: 'test@example.com',
+        otp: '654321',
+        username: 'testuser',
+      };
+
+      const mockJob = {
+        id: 'job-rethrow',
+        name: 'sendOtp',
+        data: jobData,
+      } as Job<EmailJobData, void, string>;
+
+      mockEmailService.sendForgotPasswordOtp.mockRejectedValue(error);
+
+      await expect(consumer.process(mockJob)).rejects.toThrow(error);
+      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 });
