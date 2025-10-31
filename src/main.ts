@@ -17,6 +17,7 @@ async function bootstrap() {
         enableImplicitConversion: true,
       },
       exceptionFactory: (errors) => new BadRequestException(errors),
+      forbidUnknownValues: false,
     }),
   );
 

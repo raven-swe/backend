@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
+import { OauthModule } from './auth/oauth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
@@ -34,6 +35,7 @@ import { MediaModule } from './media/media.module';
       },
     }),
     AuthModule,
+    OauthModule,
     UsersModule,
     DevicesModule,
     RedisModule,

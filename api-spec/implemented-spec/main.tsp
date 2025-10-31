@@ -445,3 +445,57 @@ namespace Me {
       | InternalServerErrorResponse;
   }
 }
+
+@tag("OAuth")
+@route("/oauth")
+namespace Oauth {
+  @post
+  @route("/{provider}/callback")
+  @summary("Handle OAuth callback for a given provider")
+  @doc("""
+    This endpoint handles OAuth callbacks from providers. It can return two types of responses:
+    
+    1. **New User (Registration Required)**: Returns a `creationToken` that must be used with the `/complete` endpoint to finish registration by providing birth date.
+       Example response: `{ "success": true, "data": { "creationToken": "bGxxkpXVCJ9..." } }`
+    
+    2. **Existing User (Login)**: Returns `accessToken` and `refreshToken` for immediate authentication.
+       Example response: `{ "success": true, "data": { "accessToken": "bGxxkpXVCJ9...", "refreshToken": "dxxG9rZW4..." } }`
+    """)
+  op handleOauthCallback(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @path provider: string,
+    @body body: {
+      providerToken: string;
+    },
+  ):
+    | DataResponse<{
+        creationToken: string;
+        accessToken?: never;
+        refreshToken?: never;
+      } | {
+        creationToken?: never;
+        accessToken: string;
+        refreshToken: string;
+      }>
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/complete")
+  @summary("Complete OAuth registration by sending the birth data")
+  op completeOauthRegister(
+    @header("X-Client-Type") clientType: "web" | "mobile",
+    @body body: {
+      creationToken: string;
+      birthDate: plainDate;
+    },
+  ):
+    | DataResponse<{
+        accessToken: string;
+        refreshToken: string;
+      }>
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+}
