@@ -192,6 +192,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
+alias FollowUserResponse = MessageResponse<"user followed successfully">;
+alias BlockUserResponse = MessageResponse<"user blocked successfully">;
+alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
+alias MuteUserResponse = MessageResponse<"user muted successfully">;
+alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -375,7 +382,6 @@ namespace Auth {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Me")
@@ -441,6 +447,101 @@ namespace Me {
       | MessageResponse<"Email address updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/blocks")
+  @useAuth(BearerAuth)
+  namespace Blocks {
+    @summary("Block a user")
+    @post
+    @route("/{username}")
+    op blockUser(
+      @path
+      username: string,
+    ):
+      | BlockUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unblock a user")
+    @delete
+    @route("/{username}")
+    op unblockUser(
+      @path
+      username: string,
+    ):
+      | UnblockUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/mutes")
+  @useAuth(BearerAuth)
+  namespace Mutes {
+    @summary("Mute a user")
+    @post
+    @route("/{username}")
+    op muteUser(
+      @path
+      username: string,
+    ):
+      | MuteUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unmute a user")
+    @delete
+    @route("/{username}")
+    op unmuteUser(
+      @path
+      username: string,
+    ):
+      | UnmuteUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+}
+
+@tag("Users")
+@route("/users")
+@useAuth(BearerAuth)
+namespace Users {
+  @route("/{username}/following")
+  namespace Following {
+    @summary("Follow a user")
+    @post
+    op followUser(
+      @path
+      username: string,
+    ):
+      | FollowUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unfollow a user")
+    @delete
+    op unfollowUser(
+      @path
+      username: string,
+    ):
+      | UnfollowUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
