@@ -847,8 +847,8 @@ describe('UsersService', () => {
       await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
-            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER,
           },
           HttpStatus.FORBIDDEN,
         ),
@@ -869,8 +869,8 @@ describe('UsersService', () => {
       await expect(service.followUser(followerId, usernameToFollow)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER,
-            code: USERS_ERROR_CODES.CANNOT_FOLLOW_BLOCKED_USER,
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER,
           },
           HttpStatus.FORBIDDEN,
         ),
@@ -983,7 +983,8 @@ describe('UsersService', () => {
       const usernameToBlock = 'testuser';
 
       mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValue(true);
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // already blocked
+      mockRepository.isBlocked.mockResolvedValueOnce(true);
 
       // Act & Assert
       await expect(service.blockUser(blockerId, usernameToBlock)).rejects.toThrow(
@@ -1016,22 +1017,22 @@ describe('UsersService', () => {
       );
     });
 
-    it('should throw error if user is already blocked', async () => {
+    it('should throw error if user blocked you', async () => {
       // Arrange
       const blockerId = BigInt(2);
       const usernameToBlock = 'testuser';
 
       mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValue(true);
+      mockRepository.isBlocked.mockResolvedValueOnce(true); // not already blocked
 
       // Act & Assert
       await expect(service.blockUser(blockerId, usernameToBlock)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.ALREADY_BLOCKED,
-            code: USERS_ERROR_CODES.ALREADY_BLOCKED,
+            message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
+            code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
           },
-          HttpStatus.CONFLICT,
+          HttpStatus.FORBIDDEN,
         ),
       );
     });
@@ -1188,8 +1189,8 @@ describe('UsersService', () => {
       await expect(service.muteUser(muterId, usernameToMute)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER_BLOCKED_YOU,
-            code: USERS_ERROR_CODES.CANNOT_MUTE_USER_BLOCKED_YOU,
+            message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+            code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
           },
           HttpStatus.FORBIDDEN,
         ),
@@ -1206,6 +1207,7 @@ describe('UsersService', () => {
       mockRepository.findByUsername.mockResolvedValue(mockUser);
       mockRepository.isMuted.mockResolvedValue(true);
       mockRepository.unmuteUser.mockResolvedValue(undefined);
+      mockRepository.isBlocked.mockResolvedValue(false);
 
       // Act
       const result = await service.unmuteUser(unmuterId, usernameToUnmute);
@@ -1243,6 +1245,7 @@ describe('UsersService', () => {
 
       mockRepository.findByUsername.mockResolvedValue(mockUser);
       mockRepository.isMuted.mockResolvedValue(false);
+      mockRepository.isBlocked.mockResolvedValue(false);
 
       // Act & Assert
       await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(

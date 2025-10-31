@@ -257,22 +257,12 @@ export class UsersService {
 
     // Check if user is blocked or you blocked the user
     const userBlockedYou = await this.usersRepository.isBlocked(followedId, followerId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
-          code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     const youBlockedUser = await this.usersRepository.isBlocked(followerId, followedId);
-    if (youBlockedUser) {
+    if (youBlockedUser || userBlockedYou) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER,
-          code: USERS_ERROR_CODES.CANNOT_FOLLOW_BLOCKED_USER,
+          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER,
+          code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -336,6 +326,18 @@ export class UsersService {
         {
           message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
           code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Check if user blocked you
+    const userBlockedYou = await this.usersRepository.isBlocked(blockedId, userId);
+    if (userBlockedYou) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
+          code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -431,8 +433,8 @@ export class UsersService {
     if (userBlockedYou) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER_BLOCKED_YOU,
-          code: USERS_ERROR_CODES.CANNOT_MUTE_USER_BLOCKED_YOU,
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -458,15 +460,15 @@ export class UsersService {
 
     const mutedId = mutedUser.id;
 
-    // Check if user is blocked (either direction) - blocks prevent unmuting
+    // Check if user is blocked (either direction)
     const youBlockedUser = await this.usersRepository.isBlocked(userId, mutedId);
     const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
 
     if (youBlockedUser || userBlockedYou) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_BLOCKED_USER, // Add to constants
-          code: USERS_ERROR_CODES.CANNOT_UNMUTE_BLOCKED_USER, // Add to constants
+          message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
+          code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
         },
         HttpStatus.FORBIDDEN,
       );

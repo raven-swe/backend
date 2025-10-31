@@ -365,6 +365,16 @@ export class UsersRepository {
           ],
         },
       });
+
+      // Remove mute relationships in both directions
+      await tx.mute.deleteMany({
+        where: {
+          OR: [
+            { userId: userId, mutedId: blockedId },
+            { userId: blockedId, mutedId: userId },
+          ],
+        },
+      });
     });
   }
 
