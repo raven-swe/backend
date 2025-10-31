@@ -198,6 +198,10 @@ export class UsersService {
     return this.usersRepository.findById(userId);
   }
 
+  async checkIfUserExistsAndActive(userId: bigint) {
+    return await this.usersRepository.checkIfUserExistsAndActive(userId);
+  }
+
   async updateUserEmail(
     userId: bigint,
     emailUpdateData: {

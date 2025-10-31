@@ -222,7 +222,7 @@ export class AuthController {
       refreshToken = logoutDto?.refreshToken;
     }
     if (refreshToken) {
-      await this.authService.clearRefreshToken(user.id, refreshToken);
+      await this.authService.clearRefreshToken(user.id.toString(), refreshToken);
     }
 
     return { message: 'Logged out successfully' };

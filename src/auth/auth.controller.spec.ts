@@ -279,7 +279,7 @@ describe('AuthController with real config service', () => {
       cookie: jest.fn(),
       status: jest.fn().mockReturnThis(),
     } as unknown as Response;
-    const mockUser = { id: '1', username: 'username' };
+    const mockUser = { id: '1', username: 'username' } as unknown as RequestUser;
 
     it('with client type mobile should call authService.login and return refreshToken', async () => {
       mockClientType = 'mobile';
@@ -408,7 +408,7 @@ describe('AuthController with mocked config service', () => {
     cookie: jest.fn(),
     status: jest.fn().mockReturnThis(),
   } as unknown as Response;
-  const mockUser = { id: '1', username: 'username' };
+  const mockUser = { id: '1', username: 'username' } as unknown as RequestUser;
   describe('login', () => {
     it('should fallback to default value when config serivce cant get value', async () => {
       const result = await controller.login(
@@ -488,7 +488,7 @@ describe('AuthController with mocked config service', () => {
     let mockClientType: 'web' | 'mobile' = 'web';
     const refreshToken = 'old_mocked_refresh_token';
     const req = mockRequestWithCookies({ refreshToken: refreshToken });
-    const user: RequestUser = { id: '100' };
+    const user = { id: 100n } as unknown as RequestUser;
     const dto: LogoutDto = { refreshToken };
     const mockResponse = {
       cookie: jest.fn(),

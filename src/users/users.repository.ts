@@ -51,6 +51,10 @@ export class UsersRepository {
     });
   }
 
+  async checkIfUserExistsAndActive(userId: bigint) {
+    return await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+  }
+
   async updateProfile(userId: bigint, data: UpdateProfileDto) {
     return await this.prisma.$transaction(async (tx) => {
       let birthDate: string | undefined = undefined;

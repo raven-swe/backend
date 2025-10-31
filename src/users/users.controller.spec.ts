@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { RequestUser } from 'src/auth/types';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -36,13 +37,12 @@ describe('UsersController', () => {
         displayName: 'John Doe',
         bio: 'A sample user',
       };
+      const mockUser = { id: currentUserId, username: username } as unknown as RequestUser;
 
       mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.getUserProfile(username, {
-        id: currentUserId.toString(),
-      });
+      const result = await controller.getUserProfile(username, mockUser);
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, currentUserId);

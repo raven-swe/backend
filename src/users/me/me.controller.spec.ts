@@ -49,7 +49,7 @@ describe('MeController', () => {
       mockUsersService.changePassword.mockResolvedValue(expectedResult);
 
       // Act
-      const user: RequestUser = { id: expectedUserId.toString() };
+      const user: RequestUser = { id: expectedUserId } as unknown as RequestUser;
       const result = await controller.changePassword(changePasswordDto, user);
 
       // Assert
@@ -69,7 +69,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockResolvedValue(mockResponse);
 
-      const user: RequestUser = { id: '18' };
+      const user: RequestUser = { id: 18n } as unknown as RequestUser;
       const result = await controller.changePassword(changePasswordDto, user);
 
       expect(result).toEqual(mockResponse);
@@ -80,7 +80,7 @@ describe('MeController', () => {
 
       mockUsersService.changePassword.mockRejectedValue(error);
 
-      const user: RequestUser = { id: '18' };
+      const user: RequestUser = { id: 18n } as unknown as RequestUser;
       await expect(controller.changePassword(changePasswordDto, user)).rejects.toThrow(
         'Invalid old password',
       );
@@ -99,9 +99,8 @@ describe('MeController', () => {
       mockUsersService.getUserProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.getMyProfile({
-        id: '18',
-      });
+      const user: RequestUser = { id: 18n } as unknown as RequestUser;
+      const result = await controller.getMyProfile(user);
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith('', BigInt(18), true);
@@ -119,14 +118,13 @@ describe('MeController', () => {
     it('should call usersService.updateProfile with correct parameters', async () => {
       // Arrange
       const expectedUserId = BigInt(18);
+      const user: RequestUser = { id: expectedUserId } as unknown as RequestUser;
       const expectedResult = { message: 'Profile updated successfully' };
 
       mockUsersService.updateProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.updateProfile(updateProfileDto, {
-        id: '18',
-      });
+      const result = await controller.updateProfile(updateProfileDto, user);
 
       // Assert
       expect(mockUsersService.updateProfile).toHaveBeenCalledWith(expectedUserId, updateProfileDto);

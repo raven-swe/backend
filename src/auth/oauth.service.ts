@@ -58,11 +58,7 @@ export class OAuthService {
     );
 
     if (externalAccount) {
-      return await this.authService.login(
-        { id: externalAccount.user.id.toString() },
-        deviceType,
-        ipAddress,
-      );
+      return await this.authService.login(externalAccount.user, deviceType, ipAddress);
     } else {
       const userAccount = await this.oauthRepository.findUserByEmail(providerProfile.email);
 
@@ -73,12 +69,7 @@ export class OAuthService {
           providerProfile.id,
         );
 
-        const user = {
-          id: userAccount.id.toString(),
-          username: userAccount.username,
-        };
-
-        return await this.authService.login(user, deviceType, ipAddress);
+        return await this.authService.login(userAccount, deviceType, ipAddress);
       } else {
         const creationToken = this.jwtService.sign({
           provider: providerProfile.provider,
@@ -151,11 +142,7 @@ export class OAuthService {
         // TODO change: until middleware added to idempotency update birthdate if a new request comes in
         await this.oauthRepository.updateUserBirthdate(existingUser.id, new Date(birthDate));
 
-        return await this.authService.login(
-          { id: existingUser.id.toString() },
-          deviceType,
-          ipAddress,
-        );
+        return await this.authService.login(existingUser, deviceType, ipAddress);
       }
 
       // User exists but doesn't have this external account (Should not reach here normally)
@@ -177,6 +164,6 @@ export class OAuthService {
       payload.providerId,
     );
 
-    return await this.authService.login({ id: user.id.toString() }, deviceType, ipAddress);
+    return await this.authService.login(user, deviceType, ipAddress);
   }
 }

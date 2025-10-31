@@ -42,6 +42,7 @@ import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.in
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { JwtPayload } from './types/jwt-payload.type';
 
 @Injectable()
 export class AuthService {
@@ -58,6 +59,11 @@ export class AuthService {
     private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
+
+  private async generateAccessToken(id: string) {
+    const payload: JwtPayload = { id };
+    return await this.jwtService.signAsync(payload);
+  }
 
   async startRegistration(
     startRegistrationDto: StartRegistrationDto,
@@ -191,7 +197,7 @@ export class AuthService {
       deviceType: deviceType,
     };
     const userId = await this.createUserAndDeviceAndToken(userData, newDevice, refreshToken);
-    const accessToken = await this.jwtService.signAsync({ id: userId.toString() });
+    const accessToken = await this.generateAccessToken(userId.toString());
 
     // clean up redis entry
     await this.redisService.del(redisKey);
@@ -460,14 +466,14 @@ export class AuthService {
     if (user && user.passwordHash) {
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (isMatch) {
-        return { id: user.id.toString() };
+        return user;
       }
     }
     return null;
   }
 
   async login(user: RequestUser, deviceType: string, ipAddress: string) {
-    const accessToken = await this.jwtService.signAsync({ id: user.id });
+    const accessToken = await this.generateAccessToken(user.id.toString());
 
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
@@ -553,8 +559,7 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    const user: RequestUser = { id: oldToken.user.id.toString() };
-    const accessToken = await this.jwtService.signAsync({ id: user.id });
+    const accessToken = await this.generateAccessToken(oldToken.user.id.toString());
     const refreshTokenExpiresIn = parseInt(
       this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') || '30',
       10,
