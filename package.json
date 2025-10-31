@@ -36,6 +36,8 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.920.0",
+    "@aws-sdk/lib-storage": "^3.920.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
@@ -53,6 +55,7 @@
     "google-auth-library": "^10.4.2",
     "cookie-parser": "^1.4.7",
     "ioredis": "^5.8.1",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.9",
     "passport-github2": "^0.1.12",
     "useragent": "^2.3.0",
@@ -62,6 +65,7 @@
     "prisma": "^6.17.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.4",
     "ua-parser-js": "^2.0.6"
   },
   "devDependencies": {
@@ -74,6 +78,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^7.0.2",
     "@types/passport-github2": "^1.2.9",
@@ -128,6 +133,8 @@
       ".*\\.dto\\.ts",
       ".*\\.exception\\.ts",
       ".*\\.constants\\.ts",
+      ".*\\.constant\\.ts",
+      ".*\\.enum\\.ts",
       ".*\\.filter\\.ts",
       ".*\\.interceptor\\.ts",
       ".*\\.repository\\.ts",

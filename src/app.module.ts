@@ -15,6 +15,7 @@ import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RATE_LIMIT } from './common/constants/rate-limit.constants';
     RecaptchaModule,
     RefreshTokensModule,
     DevicesModule,
+    MediaModule,
   ],
   controllers: [],
   providers: [
