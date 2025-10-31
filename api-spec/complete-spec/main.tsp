@@ -366,10 +366,10 @@ model UserRelationship {
   muted: boolean;
 
   @doc("Is the user followed by the current logged-in user")
-  following: boolean | null;
+  following: boolean;
 
   @doc("Is the user following the current logged-in user")
-  follower: boolean | null;
+  follower: boolean;
 }
 
 @doc("Complete user profile with full account details and relationship context.")
@@ -377,7 +377,7 @@ model UserProfile {
   ...PublicUser;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship;
+  relationship: UserRelationship | null; // null if get my profile
 
   @doc("The number of users this user is following")
   followingCount: int64;
@@ -422,9 +422,6 @@ model UpdateProfileRequest {
   @maxLength(160)
   bio?: string | null;
 
-  @doc("Entities in the bio (mentions and hashtags)")
-  bioEntities?: BioEntities | null;
-
   @doc("User's location")
   @maxLength(100)
   location?: string | null;
@@ -432,7 +429,45 @@ model UpdateProfileRequest {
   @doc("User's website URL")
   @maxLength(255)
   websiteUrl?: string | null;
+
+  @doc("Birth date in YYYY-MM-DD format")
+  birthDate?: plainDate | null;
+
+  @doc("URL to the user's avatar image. Must be a valid URL (https://www.example.com).")
+  @maxLength(255)
+  avatarUrl?: string | null;
+
+  @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
+  @maxLength(255)
+  bannerUrl?: string | null;
 }
+
+model UpdatedProfile {
+  @doc("The user's display name.")
+  displayName: string | null;
+  
+  @doc("The user's bio (max 160 characters).")
+  bio: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities: BioEntities | null;
+
+  @doc("The user's location.")
+  location: string | null;
+
+  @doc("The user's website URL.")
+  websiteUrl: string | null;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string | null;
+
+  @doc("URL to the user's banner image")
+  bannerUrl: string | null;
+
+  @doc("The timestamp when the profile was last updated.")
+  updatedAt: utcDateTime;
+}
+
 
 @doc("The type of media file.")
 enum MediaType {
@@ -1032,7 +1067,6 @@ namespace Users {
   @route("/{username}/profile")
   op getUserProfile(@path username: string):
     | DataResponse<UserProfile>
-    | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
 
@@ -1141,7 +1175,7 @@ namespace Me {
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
   op updateMyProfile(@body body: UpdateProfileRequest):
-    | DataResponse<AuthenticatedUser>
+    | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

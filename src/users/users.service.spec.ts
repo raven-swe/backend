@@ -15,6 +15,7 @@ jest.mock('./utils/validate-password-format.util');
 
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -32,6 +33,24 @@ describe('UsersService', () => {
     languageCode: LanguageCode.EN,
   };
 
+  const mockUserProfile = {
+    username: 'testuser',
+    displayName: 'Test User',
+    bio: 'This is a test bio',
+    bioEntities: null,
+    location: 'Test City',
+    birthDate: new Date('2000-01-01'),
+    avatarUrl: 'https://example.com/avatar.jpg',
+    bannerUrl: 'https://example.com/banner.jpg',
+    websiteUrl: 'https://example.com',
+    joinedAt: new Date('2023-01-01'),
+    relationship: null,
+    followingCount: '100',
+    followersCount: '200',
+    mutualsCount: 2,
+    mutualNames: ['Omar', 'Tasneem'],
+  };
+
   const mockRepository = {
     findByEmail: jest.fn(),
     findByUsername: jest.fn(),
@@ -39,6 +58,8 @@ describe('UsersService', () => {
     findById: jest.fn(),
     createUser: jest.fn(),
     updatePasswordById: jest.fn(),
+    updateProfile: jest.fn(),
+    findUserProfileByUsername: jest.fn(),
     updateUsernameById: jest.fn(),
     updateUserEmail: jest.fn(),
   };
@@ -324,6 +345,165 @@ describe('UsersService', () => {
 
       await expect(service.changePassword(BigInt(1), changePasswordDto)).rejects.toThrow(
         new Error('Hashing failed'),
+      );
+    });
+  });
+
+  describe('updateProfile', () => {
+    const updateProfileDto: UpdateProfileDto = {
+      displayName: 'Updated Name',
+      bio: 'Updated bio',
+      location: 'New Location',
+      websiteUrl: 'https://newsite.com',
+      avatarUrl: 'https://example.com/new-avatar.jpg',
+      bannerUrl: 'https://example.com/new-banner.jpg',
+    };
+
+    test('should successfully update user profile with all fields provided', async () => {
+      const updatedProfile = {
+        ...updateProfileDto,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
+
+      expect(result).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), updateProfileDto);
+    });
+
+    test('should update only provided fields in user profile', async () => {
+      const partialUpdateDto: UpdateProfileDto = {
+        bio: 'Partially updated bio',
+      };
+
+      const updatedProfile = {
+        ...mockUserProfile,
+        ...partialUpdateDto,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
+      expect(result).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), partialUpdateDto);
+    });
+
+    test('should throw error if user not found', async () => {
+      mockRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateProfile(BigInt(1), updateProfileDto)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+
+      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty update data', async () => {
+      const emptyUpdateDto: UpdateProfileDto = {};
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
+
+      const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
+
+      // No data to update, should return existing profile
+      expect(result).toEqual(mockUserProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), emptyUpdateDto);
+    });
+  });
+
+  describe('getUserProfile', () => {
+    it('should return user profile without relationship data when currentUserId is not provided', async () => {
+      const profileWithoutRelationship = { ...mockUserProfile, relationship: null };
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithoutRelationship);
+
+      const result = await service.getUserProfile('testuser');
+
+      expect(result).toEqual(profileWithoutRelationship);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        undefined,
+        false,
+      );
+    });
+
+    it('should return user profile with relationship data when currentUserId is provided', async () => {
+      const profileWithRelationship = {
+        ...mockUserProfile,
+        relationship: {
+          blocking: false,
+          blockedBy: false,
+          following: true,
+          follower: false,
+          muted: false,
+        },
+      };
+
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithRelationship);
+
+      const result = await service.getUserProfile('testuser', BigInt(2));
+
+      expect(result).toEqual(profileWithRelationship);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        BigInt(2),
+        false,
+      );
+    });
+
+    it('should throw error if user profile not found', async () => {
+      mockRepository.findUserProfileByUsername.mockResolvedValue(null);
+
+      await expect(service.getUserProfile('nonexistent')).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'nonexistent',
+        undefined,
+        false,
+      );
+    });
+
+    it('should include mutual followers when currentUserId is provided', async () => {
+      const profileWithMutuals = {
+        ...mockUserProfile,
+        mutualsCount: 2,
+        mutualNames: ['Omar', 'Tasneem'],
+      };
+
+      mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithMutuals);
+
+      const result = await service.getUserProfile('testuser', BigInt(2));
+
+      expect(result.mutualsCount).toBe(2);
+      expect(result.mutualNames).toEqual(['Omar', 'Tasneem']);
+      expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
+        'testuser',
+        BigInt(2),
+        false,
       );
     });
   });
