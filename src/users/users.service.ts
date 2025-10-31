@@ -13,6 +13,7 @@ import { validateNewPasswordFormat } from './utils/validate-password-format.util
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { MediaService } from 'src/media/media.service';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +22,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
+    private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -129,7 +131,14 @@ export class UsersService {
     return { message: 'Password changed successfully.' };
   }
 
-  async updateProfile(userId: bigint, data: UpdateProfileDto) {
+  async updateProfile(
+    userId: bigint,
+    data: UpdateProfileDto,
+    files?: {
+      avatar?: Express.Multer.File;
+      banner?: Express.Multer.File;
+    },
+  ) {
     const user = await this.usersRepository.findById(userId);
     if (!user) {
       throw new HttpException(
@@ -141,7 +150,24 @@ export class UsersService {
       );
     }
 
-    const profile = await this.usersRepository.updateProfile(userId, data);
+    // Upload files if provided and get URLs
+    let avatarUrl: string | undefined;
+    let bannerUrl: string | undefined;
+
+    if (files && (files.avatar || files.banner)) {
+      const uploadResult = await this.mediaService.uploadAvatarAndBanner(
+        user.id,
+        files,
+        data.avatarAltText ? data.avatarAltText : undefined,
+        data.bannerAltText ? data.bannerAltText : undefined,
+      );
+
+      // Assign URLs if they were uploaded to return them to the user
+      avatarUrl = uploadResult.avatarUrl ?? undefined;
+      bannerUrl = uploadResult.bannerUrl ?? undefined;
+    }
+
+    const profile = await this.usersRepository.updateProfile(userId, data, avatarUrl, bannerUrl);
 
     return {
       message: 'Profile updated successfully',

@@ -44,9 +44,11 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
-  avatarUrl?: string | null;
+  @MaxLength(150, { message: 'Avatar alt text should not exceed 150 characters' })
+  avatarAltText?: string | null;
 
   @IsOptional()
   @IsString()
-  bannerUrl?: string | null;
+  @MaxLength(150, { message: 'Banner alt text should not exceed 150 characters' })
+  bannerAltText?: string | null;
 }

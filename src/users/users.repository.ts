@@ -50,7 +50,12 @@ export class UsersRepository {
     });
   }
 
-  async updateProfile(userId: bigint, data: UpdateProfileDto) {
+  async updateProfile(
+    userId: bigint,
+    data: UpdateProfileDto,
+    avatarUrl?: string,
+    bannerUrl?: string,
+  ) {
     return await this.prisma.$transaction(async (tx) => {
       let birthDate: string | undefined = undefined;
 
@@ -69,8 +74,8 @@ export class UsersRepository {
       if (data.bio !== undefined) prismaData.bio = data.bio;
       if (data.location !== undefined) prismaData.location = data.location;
       if (data.websiteUrl !== undefined) prismaData.websiteUrl = data.websiteUrl;
-      if (data.avatarUrl !== undefined) prismaData.avatarUrl = data.avatarUrl;
-      if (data.bannerUrl !== undefined) prismaData.bannerUrl = data.bannerUrl;
+      if (avatarUrl !== undefined) prismaData.avatarUrl = avatarUrl;
+      if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
 
       // Only update if there are fields to update
       let profile;
