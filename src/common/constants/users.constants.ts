@@ -11,12 +11,13 @@ export const USERS_ERROR_CODES = {
   CANNOT_UNFOLLOW_SELF: 'CANNOT_UNFOLLOW_SELF',
   ALREADY_FOLLOWING: 'ALREADY_FOLLOWING',
   ALREADY_NOT_FOLLOWING: 'ALREADY_NOT_FOLLOWING',
-  CANT_BLOCK_SELF: 'CANT_BLOCK_SELF',
+  CANNOT_BLOCK_SELF: 'CANNOT_BLOCK_SELF',
   ALREADY_BLOCKED: 'ALREADY_BLOCKED',
   NOT_BLOCKED: 'NOT_BLOCKED',
-  CANT_MUTE_SELF: 'CANT_MUTE_SELF',
+  CANNOT_MUTE_SELF: 'CANNOT_MUTE_SELF',
   ALREADY_MUTED: 'ALREADY_MUTED',
   NOT_MUTED: 'NOT_MUTED',
+  CANNOT_MUTE_USER_BLOCKED_YOU: 'CANNOT_MUTE_USER_BLOCKED_YOU',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -33,10 +34,11 @@ export const USERS_ERROR_MESSAGES = {
   CANNOT_UNFOLLOW_SELF: 'A user cannot unfollow themselves',
   ALREADY_FOLLOWING: 'You are already following this user',
   ALREADY_NOT_FOLLOWING: 'You are not following this user',
-  CANT_BLOCK_SELF: 'A user cannot block themselves',
+  CANNOT_BLOCK_SELF: 'A user cannot block themselves',
   ALREADY_BLOCKED: 'You have already blocked this user',
   NOT_BLOCKED: 'This user is not blocked',
-  CANT_MUTE_SELF: 'A user cannot mute themselves',
+  CANNOT_MUTE_SELF: 'A user cannot mute themselves',
   ALREADY_MUTED: 'You have already muted this user',
   NOT_MUTED: 'This user is not muted',
+  CANNOT_MUTE_USER_BLOCKED_YOU: 'You cannot mute a user who has blocked you',
 } as const;

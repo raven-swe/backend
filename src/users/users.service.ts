@@ -273,8 +273,8 @@ export class UsersService {
     if (userId === blockedId) {
       throw new HttpException(
         {
-          message: USERS_ERROR_MESSAGES.CANT_BLOCK_SELF,
-          code: USERS_ERROR_CODES.CANT_BLOCK_SELF,
+          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
+          code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -329,20 +329,9 @@ export class UsersService {
     return { message: 'User unblocked successfully.' };
   }
 
-  async muteUser(userId: bigint, mutedId: bigint) {
-    // User cannot mute themselves
-    if (userId === mutedId) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANT_BLOCK_SELF,
-          code: USERS_ERROR_CODES.CANT_BLOCK_SELF,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
+  async muteUser(userId: bigint, mutedUsername: string) {
     // Check if the target user exists
-    const targetUser = await this.usersRepository.findById(mutedId);
+    const targetUser = await this.usersRepository.findByUsername(mutedUsername);
     if (!targetUser) {
       throw new HttpException(
         {
@@ -350,6 +339,18 @@ export class UsersService {
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const mutedId = targetUser.id;
+    // User cannot mute themselves
+    if (userId === mutedId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
+          code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -362,6 +363,17 @@ export class UsersService {
           code: USERS_ERROR_CODES.ALREADY_MUTED,
         },
         HttpStatus.CONFLICT,
+      );
+    }
+
+    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
+    if (userBlockedYou) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+          code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER_BLOCKED_YOU,
+        },
+        HttpStatus.FORBIDDEN,
       );
     }
 
