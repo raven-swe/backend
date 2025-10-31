@@ -1,0 +1,20 @@
+meta {
+  name: unfollow-user
+  type: http
+  seq: 2
+}
+
+delete {
+  url: http://localhost:3000/users/notnowomar/following
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjUiLCJpYXQiOjE3NjE4NzM4NzksImV4cCI6MTc2MTg3NDc3OX0.rwmbTR_L2iHi1rRBExGQiqZD3lnHzhA3yySyAXhNYOE
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
