@@ -10,8 +10,10 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
 import { validateNewPasswordFormat } from './utils/validate-password-format.util';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -28,6 +30,10 @@ export class UsersService {
 
   async findByUsername(username: string) {
     return this.usersRepository.findByUsername(username);
+  }
+
+  async checkUsernameExistence(id: string, username: string) {
+    return this.usersRepository.checkUsernameExistence(id, username);
   }
 
   /**
@@ -125,6 +131,61 @@ export class UsersService {
 
     this.logger.log(`Password changed for user ID: ${user.id}`);
     return { message: 'Password changed successfully.' };
+  }
+
+  async updateProfile(userId: bigint, data: UpdateProfileDto) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const profile = await this.usersRepository.updateProfile(userId, data);
+
+    return {
+      message: 'Profile updated successfully',
+      ...profile,
+    };
+  }
+
+  /**
+   * Fetches the public profile data for a given user by their username.
+   *
+   * If a `currentUserId` is provided, the method also includes relationship metadata
+   * between the current user and the target user (e.g. following status, mutuals, etc.).
+   *
+   * The `isMyProfile` flag can be set to `true` to indicate that the request
+   * is for the authenticated user's own profile, then the user profile will be returned with the relationship metadata set to null.
+   *
+   * @param username - The unique username of the user whose profile is being requested.
+   * @param currentUserId - (Optional) The ID of the authenticated user, used to fetch relationship context.
+   * @param isMyProfile - (Optional) Whether the profile being requested belongs to the authenticated user.
+   *
+   * @returns A user profile object, optionally enriched with relationship data.
+   */
+  async getUserProfile(username: string, currentUserId?: bigint, isMyProfile: boolean = false) {
+    const profile = await this.usersRepository.findUserProfileByUsername(
+      username,
+      currentUserId,
+      isMyProfile,
+    );
+
+    if (!profile) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return profile;
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {

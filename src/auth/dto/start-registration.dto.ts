@@ -48,7 +48,7 @@ function ContainsLetter(validationOptions?: ValidationOptions) {
   };
 }
 
-function IsMinYearsOld(minYears: number, validationOptions?: ValidationOptions) {
+export function IsMinYearsOld(minYears: number, validationOptions?: ValidationOptions) {
   return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isMinYearsOld',
@@ -61,6 +61,7 @@ function IsMinYearsOld(minYears: number, validationOptions?: ValidationOptions) 
           if (!(value instanceof Date)) {
             return false; // Ensure the value is a Date object
           }
+
           const constraintMinYears =
             Array.isArray(args.constraints) && typeof args.constraints[0] === 'number'
               ? args.constraints[0]

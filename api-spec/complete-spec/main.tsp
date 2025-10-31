@@ -366,10 +366,10 @@ model UserRelationship {
   muted: boolean;
 
   @doc("Is the user followed by the current logged-in user")
-  following: boolean | null;
+  following: boolean;
 
   @doc("Is the user following the current logged-in user")
-  follower: boolean | null;
+  follower: boolean;
 }
 
 @doc("Complete user profile with full account details and relationship context.")
@@ -377,7 +377,7 @@ model UserProfile {
   ...PublicUser;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship;
+  relationship: UserRelationship | null; // null if get my profile
 
   @doc("The number of users this user is following")
   followingCount: int64;
@@ -432,7 +432,42 @@ model UpdateProfileRequest {
 
   @doc("User's date of birth (YYYY-MM-DD). ISO 8601 date format.")
   birthDate?: plainDate | null;
+
+  @doc("URL to the user's avatar image. Must be a valid URL (https://www.example.com).")
+  @maxLength(255)
+  avatarUrl?: string | null;
+
+  @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
+  @maxLength(255)
+  bannerUrl?: string | null;
 }
+
+model UpdatedProfile {
+  @doc("The user's display name.")
+  displayName: string | null;
+  
+  @doc("The user's bio (max 160 characters).")
+  bio: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities: BioEntities | null;
+
+  @doc("The user's location.")
+  location: string | null;
+
+  @doc("The user's website URL.")
+  websiteUrl: string | null;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string | null;
+
+  @doc("URL to the user's banner image")
+  bannerUrl: string | null;
+
+  @doc("The timestamp when the profile was last updated.")
+  updatedAt: utcDateTime;
+}
+
 
 @doc("The type of media file.")
 enum MediaType {
@@ -948,6 +983,7 @@ namespace Auth {
     This endpoint checks whether a given identifier (username or email) is already taken in the system.
     to be used in login in shared field which can be either username or email.
     """)
+
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -977,6 +1013,7 @@ namespace Auth {
       }>
     | ValidationErrorResponse
     | InternalServerErrorResponse
+    | UnauthorizedResponse
     | NotFoundResponse;
 }
 
@@ -996,9 +1033,10 @@ namespace Oauth {
        Example response: `{ "success": true, "data": { "accessToken": "bGxxkpXVCJ9...", "refreshToken": "dxxG9rZW4..." } }`
     """)
   op handleOauthCallback(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @path provider: string,
     @body body: {
-      provider_token_id: string;
+      providerToken: string;
     },
   ):
     | DataResponse<{
@@ -1018,6 +1056,7 @@ namespace Oauth {
   @route("/complete")
   @summary("Complete OAuth registration by sending the birth data")
   op completeOauthRegister(
+    @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       creationToken: string;
       birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
@@ -1050,7 +1089,6 @@ namespace Users {
   @route("/{username}/profile")
   op getUserProfile(@path username: string):
     | DataResponse<UserProfile>
-    | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
 
@@ -1159,7 +1197,7 @@ namespace Me {
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
   op updateMyProfile(@body body: UpdateProfileRequest):
-    | DataResponse<AuthenticatedUser>
+    | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1692,44 +1730,6 @@ namespace Onboarding {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
-@tag("Hashtags")
-@useAuth(BearerAuth)
-@route("/hashtags")
-namespace Hashtags {
-  @get
-  @route("/suggestions")
-  @summary("Get suggested hashtags based on trending topics")
-  @doc("Returns a list of suggested hashtags based on current trends and the user's interests.")
-  op getHashtagSuggestions(
-    @query
-    @doc("search query (without #) to filter suggestions (min 1 character)")
-    @minLength(1)
-    query: string,
-  ):
-    | DataResponse<{
-        @doc("List of hashtags suggestions (without #)")
-        suggestions: string[];
-      }>
-    | ValidationErrorResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @route("/{hashtag}/tweets")
-  @summary("Get tweets for a specific hashtag")
-  @doc("Returns all tweets containing the specified hashtag with cursor-based pagination.")
-  op getHashtagTweets(
-    @path
-    @doc("The hashtag to search for (without #)")
-    hashtag: string,
-
-    ...CursorPaginationParameters,
-  ):
-    | DataResponseWithPagination<Tweet[]>
-    | ValidationErrorResponse
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-}
 
 @tag("Conversations")
 @route("/conversations")

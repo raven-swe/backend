@@ -16,8 +16,23 @@ headers {
 
 body:json {
   {
-  "refreshToken":"3635092f1da643b9f15a469fd4b838f0f33348c3afa1f150e8c9ec2dae202209be51730d931a48c2d6e8f9664fad60d08d36c6b59b764c125e6b2deb5a9092a2"
+  "refreshToken":"a4a3e7ad4c6a75e8cac50b86d2f60fa750d3ce31c7a37faca13e6e9f1ce686efc7d58abf1fd1d4fd71f91b63a3c9822aeb40cde121c74b6824c80b0a9a395e60"
   }
+}
+
+script:post-response {
+  const responseBody = res.getBody();
+    try {
+      const token = responseBody.data.accessToken;
+      if (token) {
+        bru.setVar("accessToken", token); 
+        console.log("Token saved successfully.");
+      } else {
+        console.warn("Token not found in the response.");
+      }
+    } catch (error) {
+      console.error("Error parsing response body:", error);
+    }
 }
 
 settings {

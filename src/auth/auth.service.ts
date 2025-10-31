@@ -240,6 +240,11 @@ export class AuthService {
     return { message: user ? 'Email already exists' : 'Email is available', exists: !!user };
   }
 
+  async checkUsername(id: string, username: string): Promise<{ message: string; exists: boolean }> {
+    const user = await this.usersService.checkUsernameExistence(id, username);
+    return { message: user ? 'Username already exists' : 'Username is available', exists: !!user };
+  }
+
   async verifyRecaptcha(token: string): Promise<boolean> {
     const valid = await this.recaptchaService.validateToken(token);
 

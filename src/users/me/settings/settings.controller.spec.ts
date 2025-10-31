@@ -13,6 +13,7 @@ describe('SettingsController', () => {
     checkNewEmail: jest.fn(),
     verifyEmailUpdate: jest.fn(),
     resendEmailUpdateOtp: jest.fn(),
+    updateUsername: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -192,6 +193,73 @@ describe('SettingsController', () => {
 
     it('should have correct EMAIL_UPDATE_WINDOW', () => {
       expect(SettingsController['EMAIL_UPDATE_WINDOW']).toBe(60000);
+    });
+  });
+
+  describe('updateUsername', () => {
+    it('should successfully update username', async () => {
+      const dto = { newUsername: 'newusername' };
+      const expectedResult = { message: 'Username updated successfully.' };
+
+      mockSettingsService.updateUsername.mockResolvedValue(expectedResult);
+
+      const mockRequestUser = {
+        id: '1',
+        username: 'oldusername',
+      } as RequestUser;
+
+      const result = await controller.updateUsername(dto, mockRequestUser);
+
+      expect(mockSettingsService.updateUsername).toHaveBeenCalledWith(BigInt(1), dto);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle case-only username changes', async () => {
+      const dto = { newUsername: 'OldUsername' };
+      const expectedResult = { message: 'Username updated successfully.' };
+
+      mockSettingsService.updateUsername.mockResolvedValue(expectedResult);
+
+      const mockRequestUser = {
+        id: '1',
+        username: 'oldusername',
+      } as RequestUser;
+
+      const result = await controller.updateUsername(dto, mockRequestUser);
+
+      expect(mockSettingsService.updateUsername).toHaveBeenCalledWith(BigInt(1), dto);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should throw conflict when username is taken', async () => {
+      const dto = { newUsername: 'takenusername' };
+      const error = new Error('Username already in use');
+
+      const mockRequestUser = {
+        id: '1',
+        username: 'oldusername',
+      } as RequestUser;
+
+      mockSettingsService.updateUsername.mockRejectedValue(error);
+
+      await expect(controller.updateUsername(dto, mockRequestUser)).rejects.toThrow(error);
+    });
+
+    it('should convert string user ID to BigInt', async () => {
+      const dto = { newUsername: 'newusername' };
+
+      const mockRequestUser = {
+        id: '999',
+        username: 'testuser',
+      } as RequestUser;
+
+      mockSettingsService.updateUsername.mockResolvedValue({
+        message: 'Username updated successfully.',
+      });
+
+      await controller.updateUsername(dto, mockRequestUser);
+
+      expect(mockSettingsService.updateUsername).toHaveBeenCalledWith(BigInt(999), dto);
     });
   });
 });
