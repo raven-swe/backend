@@ -59,7 +59,7 @@ model ApiSuccessResponseWithPagination<T> {
 @doc("Success response for operations that only return a message (like POST/DELETE)")
 model ApiMessageResponse {
   success: true;
-  message: string;
+  message?: string;
 }
 
 @doc("Error response wrapper")
@@ -170,7 +170,7 @@ model InternalServerErrorResponse {
 model RegisterStartBody {
   name: string;
   email: string;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   recaptchaToken: string; // token from client side recaptcha v2
 }
 
@@ -188,7 +188,7 @@ model MessageResponse<TMessage extends string> {
   ...OkResponse;
   ...Body<{
     success: true;
-    message: TMessage;
+    message?: TMessage; // optional message field on success
   }>;
 }
 
@@ -466,6 +466,7 @@ namespace Auth {
     @summary("Complete the registration process by setting a password")
     @route("/complete")
     op completeRegister(
+      @header("X-Client-Type") clientType: "web" | "mobile",
       @body body: {
         creationToken: string;
         password: string;
@@ -567,6 +568,10 @@ namespace Auth {
 
   @get
   @summary("Check if a username or email is already taken")
+  @doc("""
+    This endpoint checks whether a given identifier (username or email) is already taken in the system.
+    to be used in login in shared field which can be either username or email.
+    """)
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
