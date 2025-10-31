@@ -52,18 +52,17 @@ export class MediaController {
     @User() user: RequestUser,
     @UploadedFiles()
     files: {
-      avatar?: Express.Multer.File[];
-      banner?: Express.Multer.File[];
+      avatar?: Express.Multer.File;
+      banner?: Express.Multer.File;
     },
-    @Body('altText') altText?: string,
   ) {
     // Validate that at least one file is uploaded
-    if (!files || (!files.avatar?.length && !files.banner?.length)) {
+    if (!files || (!files.avatar && !files.banner)) {
       throw new BadRequestException('At least one file (avatar or banner) must be uploaded');
     }
 
     const userIdBigInt = BigInt(user.id);
 
-    return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files, altText);
+    return await this.mediaService.uploadAvatarAndBanner(userIdBigInt, files);
   }
 }

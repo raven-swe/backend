@@ -41,14 +41,4 @@ export class UpdateProfileDto {
     { message: 'Website URL must be a valid URL (e.g. https://example.com)' },
   )
   websiteUrl?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150, { message: 'Avatar alt text should not exceed 150 characters' })
-  avatarAltText?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150, { message: 'Banner alt text should not exceed 150 characters' })
-  bannerAltText?: string | null;
 }

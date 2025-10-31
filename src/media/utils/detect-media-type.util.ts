@@ -11,7 +11,7 @@ import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants/media.constant'
  * @throws BadRequestException if media type cannot be determined
  */
 export function detectMediaType(file: Express.Multer.File): MediaType {
-  const filename = file.originalname.toLowerCase();
+  const filename = file.originalname?.toLowerCase();
   const ext = filename.split('.').pop() || '';
 
   if (IMAGE_EXTENSIONS.includes(ext)) {

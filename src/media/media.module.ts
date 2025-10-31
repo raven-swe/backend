@@ -7,6 +7,6 @@ import { S3Service } from './s3/s3.service';
 @Module({
   controllers: [MediaController],
   providers: [MediaService, MediaRepository, S3Service],
-  exports: [MediaService],
+  exports: [MediaService, MediaRepository],
 })
 export class MediaModule {}

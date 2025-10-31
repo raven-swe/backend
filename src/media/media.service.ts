@@ -118,8 +118,6 @@ export class MediaService {
       avatar?: Express.Multer.File;
       banner?: Express.Multer.File;
     },
-    avatarAltText?: string,
-    bannerAltText?: string,
   ) {
     const { avatar, banner } = files;
     let avatarUrl: string | null = null;
@@ -136,13 +134,13 @@ export class MediaService {
     }
 
     if (avatar) {
-      avatarUrl = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS, avatarAltText);
+      avatarUrl = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS);
     }
 
     if (banner) {
-      bannerUrl = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS, bannerAltText);
+      bannerUrl = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS);
     }
 
-    return { message: 'Avatar and/or banner uploaded successfully', avatarUrl, bannerUrl };
+    return { avatarUrl, bannerUrl };
   }
 }

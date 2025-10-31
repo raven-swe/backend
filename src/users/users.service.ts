@@ -131,14 +131,23 @@ export class UsersService {
     return { message: 'Password changed successfully.' };
   }
 
+  /**
+   * Updates the profile of a user, including optional avatar and banner image uploads.
+   *
+   * @param userId - The ID of the user whose profile is to be updated.
+   * @param data - The profile data to be updated.
+   * @param files - Optional files containing avatar and banner images.
+   * @returns
+   */
   async updateProfile(
     userId: bigint,
     data: UpdateProfileDto,
     files?: {
-      avatar?: Express.Multer.File;
-      banner?: Express.Multer.File;
+      avatar?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
     },
   ) {
+    this.logger.debug('Received: ', data, files);
     const user = await this.usersRepository.findById(userId);
     if (!user) {
       throw new HttpException(
@@ -155,12 +164,15 @@ export class UsersService {
     let bannerUrl: string | undefined;
 
     if (files && (files.avatar || files.banner)) {
-      const uploadResult = await this.mediaService.uploadAvatarAndBanner(
-        user.id,
-        files,
-        data.avatarAltText ? data.avatarAltText : undefined,
-        data.bannerAltText ? data.bannerAltText : undefined,
-      );
+      const filesToUpload: {
+        avatar?: Express.Multer.File;
+        banner?: Express.Multer.File;
+      } = {
+        avatar: files.avatar ? files.avatar[0] : undefined,
+        banner: files.banner ? files.banner[0] : undefined,
+      };
+
+      const uploadResult = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
 
       // Assign URLs if they were uploaded to return them to the user
       avatarUrl = uploadResult.avatarUrl ?? undefined;
