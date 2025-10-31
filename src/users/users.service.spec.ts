@@ -71,6 +71,7 @@ describe('UsersService', () => {
     muteUser: jest.fn(),
     unmuteUser: jest.fn(),
     isMuted: jest.fn(),
+    checkUsernameExistence: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -544,6 +545,129 @@ describe('UsersService', () => {
       await expect(service.updateUsernameById(userId, newUsername)).rejects.toThrow(
         'Database error',
       );
+    });
+
+    it('should handle case-only username changes', async () => {
+      const userId = BigInt(1);
+      const newUsername = 'TestUser';
+      mockRepository.updateUsernameById.mockResolvedValue(undefined);
+
+      const result = await service.updateUsernameById(userId, newUsername);
+
+      expect(result).toEqual({ message: 'Username updated successfully.' });
+      expect(mockRepository.updateUsernameById).toHaveBeenCalledWith(userId, newUsername);
+    });
+
+    it('should throw conflict when username is taken by another user', async () => {
+      const userId = BigInt(1);
+      const newUsername = 'takenusername';
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+      mockRepository.updateUsernameById.mockRejectedValue(error);
+
+      await expect(service.updateUsernameById(userId, newUsername)).rejects.toThrow(error);
+    });
+
+    it('should throw not found when user does not exist', async () => {
+      const userId = BigInt(999);
+      const newUsername = 'newusername';
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+      mockRepository.updateUsernameById.mockRejectedValue(error);
+
+      await expect(service.updateUsernameById(userId, newUsername)).rejects.toThrow(error);
+    });
+  });
+
+  describe('checkUsernameExistence', () => {
+    it('should return null when username is available', async () => {
+      const userId = '1';
+      const username = 'availableusername';
+      mockRepository.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsernameExistence(userId, username);
+
+      expect(result).toBeNull();
+      expect(mockRepository.checkUsernameExistence).toHaveBeenCalledWith(userId, username);
+    });
+
+    it('should return null when username is the same as current user', async () => {
+      const userId = '1';
+      const username = 'currentusername';
+      mockRepository.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsernameExistence(userId, username);
+
+      expect(result).toBeNull();
+      expect(mockRepository.checkUsernameExistence).toHaveBeenCalledWith(userId, username);
+    });
+
+    it('should return null when username is case-only change for same user', async () => {
+      const userId = '1';
+      const username = 'CurrentUsername';
+      mockRepository.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsernameExistence(userId, username);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return user object when username is taken by another user', async () => {
+      const userId = '1';
+      const username = 'takenusername';
+      const existingUser = {
+        id: BigInt(2),
+        email: 'other@example.com',
+        username: 'takenusername',
+        password_hash: 'hash',
+      };
+      mockRepository.checkUsernameExistence.mockResolvedValue(existingUser);
+
+      const result = await service.checkUsernameExistence(userId, username);
+
+      expect(result).toEqual(existingUser);
+      expect(mockRepository.checkUsernameExistence).toHaveBeenCalledWith(userId, username);
+    });
+
+    it('should return user when checking case-insensitive conflict with another user', async () => {
+      const userId = '1';
+      const username = 'JohnDoe';
+      const existingUser = {
+        id: BigInt(2),
+        email: 'john@example.com',
+        username: 'johndoe',
+        password_hash: 'hash',
+      };
+      mockRepository.checkUsernameExistence.mockResolvedValue(existingUser);
+
+      const result = await service.checkUsernameExistence(userId, username);
+
+      expect(result).toEqual(existingUser);
+    });
+
+    it('should throw not found when user does not exist', async () => {
+      const userId = '999';
+      const username = 'someusername';
+      const error = new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+      mockRepository.checkUsernameExistence.mockRejectedValue(error);
+
+      await expect(service.checkUsernameExistence(userId, username)).rejects.toThrow(error);
     });
   });
 

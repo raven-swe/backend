@@ -24,7 +24,7 @@ body:json {
 script:post-response {
   const responseBody = res.getBody();
   if (responseBody && typeof responseBody === 'object') {
-    const token = responseBody.data.accessToken;
+    const token = responseBody.data?.accessToken;
     if (token) {
       bru.setEnvVar('access_token', token);
     }

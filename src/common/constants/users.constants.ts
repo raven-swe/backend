@@ -18,6 +18,7 @@ export const USERS_ERROR_CODES = {
   ALREADY_MUTED: 'ALREADY_MUTED',
   NOT_MUTED: 'NOT_MUTED',
   CANNOT_MUTE_USER_BLOCKED_YOU: 'CANNOT_MUTE_USER_BLOCKED_YOU',
+  USERNAME_ALREADY_USED: 'USERNAME_ALREADY_USED',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -41,4 +42,5 @@ export const USERS_ERROR_MESSAGES = {
   ALREADY_MUTED: 'You have already muted this user',
   NOT_MUTED: 'This user is not muted',
   CANNOT_MUTE_USER_BLOCKED_YOU: 'You cannot mute a user who has blocked you',
+  USERNAME_ALREADY_USED: 'That username has been taken. Please choose another.',
 } as const;
