@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
+import { RequestUser } from '../types';
 
 describe('OAuthService', () => {
   let service: OAuthService;
@@ -166,12 +167,13 @@ describe('OAuthService', () => {
     };
 
     it('should login existing user with external account (Already existing external Account)', async () => {
+      const mockUser = {
+        id: BigInt(1),
+        username: 'existinguser',
+        email: 'test@example.com',
+      } as unknown as RequestUser;
       mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue({
-        user: {
-          id: BigInt(1),
-          username: 'existinguser',
-          email: 'test@example.com',
-        },
+        user: mockUser,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
 
@@ -190,11 +192,7 @@ describe('OAuthService', () => {
         'github',
         'github-123',
       );
-      expect(mockAuthService.login).toHaveBeenCalledWith(
-        { id: '1' },
-        mockDeviceType,
-        mockIpAddress,
-      );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, mockIpAddress);
       expect(result).toEqual({
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',
@@ -203,12 +201,12 @@ describe('OAuthService', () => {
 
     it('should link external account to existing user by email (not existing external Account)', async () => {
       mockOAuthRepository.findExternalAccountWithUser.mockResolvedValue(null);
-      mockOAuthRepository.findUserByEmail.mockResolvedValue({
+      const mockUser = {
         id: BigInt(1),
         username: 'existinguser',
         email: 'test@example.com',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as RequestUser;
+      mockOAuthRepository.findUserByEmail.mockResolvedValue(mockUser);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockOAuthRepository.createExternalAccount.mockResolvedValue({} as any);
 
@@ -229,11 +227,7 @@ describe('OAuthService', () => {
         'github',
         'github-123',
       );
-      expect(mockAuthService.login).toHaveBeenCalledWith(
-        { id: '1', username: 'existinguser' },
-        mockDeviceType,
-        mockIpAddress,
-      );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, mockIpAddress);
       expect(result).toEqual({
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',
@@ -283,12 +277,13 @@ describe('OAuthService', () => {
     it('should successfully complete registration', async () => {
       mockJwtService.verify.mockReturnValue(mockPayload);
       mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
-      mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
+      const mockUser = {
         id: BigInt(1),
         username: 'newuser@example.com',
         email: 'newuser@example.com',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as RequestUser;
+
+      mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue(mockUser);
 
       mockAuthService.login.mockResolvedValue({
         accessToken: 'mock-access-token',
@@ -304,11 +299,7 @@ describe('OAuthService', () => {
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(mockCreationToken);
       expect(mockJwtService.verify).toHaveBeenCalledTimes(1);
-      expect(mockAuthService.login).toHaveBeenCalledWith(
-        { id: '1' },
-        mockDeviceType,
-        mockIpAddress,
-      );
+      expect(mockAuthService.login).toHaveBeenCalledWith(mockUser, mockDeviceType, mockIpAddress);
       expect(result).toEqual({
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',
