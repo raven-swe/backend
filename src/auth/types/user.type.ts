@@ -1,3 +1,3 @@
-export interface RequestUser {
-  id: string;
-}
+import { User } from '@prisma/client';
+
+export type RequestUser = User;
