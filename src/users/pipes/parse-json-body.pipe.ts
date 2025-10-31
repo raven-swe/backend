@@ -69,6 +69,16 @@ export class ParseJsonBodyPipe implements PipeTransform {
       );
     }
 
+    // Check if the object is effectively empty (all properties are undefined)
+    const hasAnyValue = Object.values(object).some((val) => val !== undefined);
+    if (!hasAnyValue) {
+      throw new BadRequestException(
+        createValidationError('data', {
+          emptyObject: 'At least one field must be provided.',
+        }),
+      );
+    }
+
     return object;
   }
 
