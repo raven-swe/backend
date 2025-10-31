@@ -141,7 +141,12 @@ export class UsersService {
       );
     }
 
-    return await this.usersRepository.updateProfile(userId, data);
+    const profile = await this.usersRepository.updateProfile(userId, data);
+
+    return {
+      message: 'Profile updated successfully',
+      ...profile,
+    };
   }
 
   /**

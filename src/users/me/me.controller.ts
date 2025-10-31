@@ -32,12 +32,7 @@ export class MeController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Body() updateProfileDto: UpdateProfileDto, @User() user: RequestUser) {
     const userId = BigInt(user.id);
-    const profile = await this.usersService.updateProfile(userId, updateProfileDto);
-
-    return {
-      message: 'Profile updated successfully',
-      ...profile,
-    };
+    return await this.usersService.updateProfile(userId, updateProfileDto);
   }
 
   @Get()
