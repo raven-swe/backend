@@ -5,19 +5,13 @@ meta {
 }
 
 post {
-  url: http://localhost:3000/me/block/Tasneem
+  url: http://localhost:3000/me/blocks/gelgel
   body: none
-  auth: inherit
+  auth: bearer
 }
 
-script:pre-request {
-  const token = bru.getEnvVar("access_token");
-  
-  if (token) {
-    bru.setHeader("Authorization", `Bearer ${token}`);
-  } else {
-    console.warn("No access_token found in environment variables");
-  }
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjUiLCJpYXQiOjE3NjE4NzM4NzksImV4cCI6MTc2MTg3NDc3OX0.rwmbTR_L2iHi1rRBExGQiqZD3lnHzhA3yySyAXhNYOE
 }
 
 settings {

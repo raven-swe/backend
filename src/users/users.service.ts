@@ -182,6 +182,18 @@ export class UsersService {
       );
     }
 
+    // Check if already following
+    const isAlreadyFollowing = await this.usersRepository.isFollowing(followerId, followedId);
+    if (isAlreadyFollowing) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+          code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     // Check if user is blocked or you blocked the user
     const userBlockedYou = await this.usersRepository.isBlocked(followedId, followerId);
     if (userBlockedYou) {
@@ -202,18 +214,6 @@ export class UsersService {
           code: USERS_ERROR_CODES.CANNOT_FOLLOW_BLOCKED_USER,
         },
         HttpStatus.FORBIDDEN,
-      );
-    }
-
-    // Check if already following
-    const isAlreadyFollowing = await this.usersRepository.isFollowing(followerId, followedId);
-    if (isAlreadyFollowing) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
-          code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
-        },
-        HttpStatus.CONFLICT,
       );
     }
 
@@ -298,7 +298,19 @@ export class UsersService {
     return { message: 'User blocked successfully.' };
   }
 
-  async unblockUser(blockerId: bigint, blockedId: bigint) {
+  async unblockUser(blockerId: bigint, blockedUsername: string) {
+    const blockedUser = await this.usersRepository.findByUsername(blockedUsername);
+    if (!blockedUser || blockedUser.deletedAt) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const blockedId = blockedUser.id;
     // Check if currently blocked
     const isBlocked = await this.usersRepository.isBlocked(blockerId, blockedId);
     if (!isBlocked) {

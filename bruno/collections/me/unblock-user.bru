@@ -1,0 +1,16 @@
+meta {
+  name: unblock-user
+  type: http
+  seq: 3
+}
+
+delete {
+  url: http://localhost:3000/me/blocks/gelgel
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
