@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Put, UseGuards, Patch } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
 import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
@@ -7,6 +7,7 @@ import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
+import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -48,5 +49,13 @@ export class SettingsController {
   ) {
     const userId = BigInt(user.id);
     return this.settingsService.resendEmailUpdateOtp(userId, resendEmailUpdateOtp);
+  }
+
+  @Patch('username')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto, @User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    return this.settingsService.updateUsername(userId, updateUsernameDto);
   }
 }

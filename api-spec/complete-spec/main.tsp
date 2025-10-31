@@ -993,6 +993,22 @@ namespace Auth {
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username is already taken")
+  @doc("""
+    This endpoint checks whether a given username is already taken in the system.
+    """)
+  @useAuth(BearerAuth)
+  @route("/check-username")
+  op checkUsername(@query username: string):
+    | DataResponse<{
+        exists: boolean;
+      }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
 }
 
 @tag("OAuth")
@@ -1282,7 +1298,6 @@ namespace Me {
       | InternalServerErrorResponse
       | ForbiddenResponse;
 
-    @patch(#{ implicitOptionality: true })
     @route("/username")
     @summary("Change the authenticated user's username")
     op updateUsername(
@@ -1292,6 +1307,7 @@ namespace Me {
     ):
       | MessageResponse<"Username changed successfully.">
       | ValidationErrorResponse
+      | NotFoundResponse
       | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
