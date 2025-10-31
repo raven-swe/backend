@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from './constants/users';
@@ -222,10 +223,72 @@ export class UsersRepository {
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    if (user.username === newUsername) {
+      return;
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        username: {
+          equals: newUsername,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { username: newUsername },
     });
+  }
+
+  async checkUsernameExistence(id: string, username: string) {
+    const userId = BigInt(id);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    if (user.username === username) {
+      return null;
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    return existingUser && existingUser.id !== userId ? existingUser : null;
   }
 
   async updateUserEmail(

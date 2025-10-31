@@ -573,6 +573,22 @@ namespace Auth {
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
 
+  @get
+  @summary("Check if a username is already taken")
+  @doc("""
+    This endpoint checks whether a given username is already taken in the system.
+    """)
+  @useAuth(BearerAuth)
+  @route("/check-username")
+  op checkUsername(@query username: string):
+    | DataResponse<{
+        exists: boolean;
+      }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
   @post
   @route("/logout")
   @doc("refresh token is required in cookie from web clints and in body from mobile clients")
@@ -604,7 +620,6 @@ namespace Auth {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Me")
@@ -682,6 +697,20 @@ namespace Me {
       | MessageResponse<"Email address updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @route("/username")
+    @summary("Change the authenticated user's username")
+    op updateUsername(
+      @body body: {
+        newUsername: string;
+      },
+    ):
+      | MessageResponse<"Username changed successfully.">
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
