@@ -21,7 +21,7 @@ async function main() {
   await prisma.tweetMedia.deleteMany();
   await prisma.media.deleteMany();
   await prisma.tweetHashtag.deleteMany();
-  await prisma.hashtag.deleteMany();
+  await prisma.trendingKeyword.deleteMany();
   await prisma.tweetMention.deleteMany();
   await prisma.tweet.deleteMany();
   await prisma.mute.deleteMany();
@@ -201,12 +201,20 @@ async function main() {
     ],
   });
 
-  const getHashtag = async (tag: string) =>
-    prisma.hashtag.upsert({
-      where: { tag },
-      update: { count: { increment: 1 } },
-      create: { tag, count: 1 },
+  const getHashtag = async (tag: string) => {
+    const existing = await prisma.trendingKeyword.findFirst({
+      where: { keyword: tag, isHashtag: true },
     });
+    if (existing) {
+      return prisma.trendingKeyword.update({
+        where: { id: existing.id },
+        data: { count: { increment: 1 } },
+      });
+    }
+    return prisma.trendingKeyword.create({
+      data: { keyword: tag, isHashtag: true },
+    });
+  };
 
   const tsHashtag = await getHashtag('typescript');
   const nestHashtag = await getHashtag('nestjs');

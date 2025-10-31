@@ -197,6 +197,7 @@ model TrendingKeyword {
   createdAt     DateTime       @default(now()) @map("created_at")
   tweetHashtags TweetHashtag[]
 
+  @@unique([keyword, isHashtag])
   @@map("trending_keywords")
 }
 
