@@ -5,7 +5,6 @@ import type { RequestUser } from 'src/auth/types/user.type';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { plainToInstance } from 'class-transformer';
 import { FollowingUserDto } from './dtos/following-user.dto';
-import { CursorPagination } from 'src/common/interfaces/response.interface';
 
 @Controller('users')
 export class UsersController {
@@ -25,38 +24,55 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getUserFollowings(
     @Param('username') username: string,
-    @Query('limit') limit = 10,
+    @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
-    const result = await this.usersService.getUserFollowings(username, limit, cursor);
-    const items = plainToInstance(FollowingUserDto, result, { excludeExtraneousValues: true });
-    return { items };
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.usersService.getUserFollowings(
+      username,
+      parsedLimit,
+      cursor,
+    );
+    const itemsDto = plainToInstance(FollowingUserDto, items);
+    return { items: itemsDto, pagination };
   }
 
   @Get(':username/mutual')
   @UseGuards(JwtAuthGuard)
   async getUserMutualFollowers(
     @Param('username') username: string,
-    @Query('limit') limit = 10,
-    @User('id') userId: bigint,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
-    const result = await this.usersService.getUserMutualFollowers(username, userId, limit, cursor);
-    const items = plainToInstance(FollowingUserDto, result, { excludeExtraneousValues: true });
-    return { items };
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.usersService.getUserMutualFollowers(
+      username,
+      BigInt(user.id),
+      parsedLimit,
+      cursor,
+    );
+    const itemsDto = plainToInstance(FollowingUserDto, items);
+    return { items: itemsDto, pagination };
   }
 
   @Get(':username/followers')
   @UseGuards(JwtAuthGuard)
   async getUserFollowers(
     @Param('username') username: string,
-    @Query('limit') limit = 10,
+    @Query('limit') limit: string,
     @Query('cursor') cursor?: string,
   ) {
-    const result = await this.usersService.getUserFollowers(username, limit, cursor);
-
-    // const items = plainToInstance(FollowingUserDto, result, { excludeExtraneousValues: true });
-    const pagination: CursorPagination = { hasNextPage: false, cursor: 'd', nextCursor: 'dfd' };
-    return { items: result, pagination };
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.usersService.getUserFollowers(
+      username,
+      parsedLimit,
+      cursor,
+    );
+    const itemsDto = plainToInstance(FollowingUserDto, items);
+    return { items: itemsDto, pagination };
   }
 }

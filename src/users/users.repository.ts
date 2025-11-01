@@ -5,7 +5,7 @@ import { NewUser } from './interfaces/NewUser.interface';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from './constants/users';
-import { decodeCompositeCursor, FollowsCursor } from 'src/common/utils/cursor-pagination.util';
+import { FollowsCursor } from 'src/common/utils/cursor-pagination.util';
 
 @Injectable()
 export class UsersRepository {
@@ -250,12 +250,22 @@ export class UsersRepository {
     });
   }
 
-  async getUserFollowings(requestedUserId: bigint, limit: number, prevCursor?: string) {
-    const decoded = prevCursor ? decodeCompositeCursor<FollowsCursor>(prevCursor) : undefined;
-    const followings = await this.prisma.follow.findMany({
+  async getUserFollowings(
+    requestedUserId: bigint,
+    limit: number,
+    prevCursor: FollowsCursor | undefined,
+  ) {
+    return await this.prisma.follow.findMany({
       where: { followerId: requestedUserId },
       take: limit,
-      cursor: decoded ? { followerId_followedId: decoded } : undefined,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
       orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
       include: {
         followedUser: {
@@ -274,37 +284,34 @@ export class UsersRepository {
         },
       },
     });
-    const followingsIds = followings.map((f) => f.followedUser.id);
+  }
 
-    const followBacks = await this.prisma.follow.findMany({
+  async getFollowBacksForFollowings(requestedUserId: bigint, followingIds: bigint[]) {
+    return await this.prisma.follow.findMany({
       where: {
         followedId: requestedUserId,
-        followerId: { in: followingsIds },
+        followerId: { in: followingIds },
       },
       select: { followerId: true },
     });
-
-    const followBackSet = new Set(followBacks.map((f) => f.followerId));
-
-    const result = followings.map((f) => ({
-      ...f.followedUser.profile,
-      username: f.followedUser.username,
-      isFollowing: followBackSet.has(f.followedUser.id),
-    }));
-    return result;
   }
 
-  async getUserMutualFollowers(
+  async getUserFollowers(
     requestedUserId: bigint,
-    authUserId: bigint,
     limit: number,
-    prevCursor?: string,
+    prevCursor: FollowsCursor | undefined,
   ) {
-    const decoded = prevCursor ? decodeCompositeCursor<FollowsCursor>(prevCursor) : undefined;
-    const followers = await this.prisma.follow.findMany({
+    return await this.prisma.follow.findMany({
       where: { followedId: requestedUserId },
       take: limit,
-      cursor: decoded ? { followerId_followedId: decoded } : undefined,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
       orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
       include: {
         followerUser: {
@@ -323,77 +330,26 @@ export class UsersRepository {
         },
       },
     });
-    const followerIds = followers.map((f) => f.followerUser.id);
-
-    const followersYouKnow = await this.prisma.follow.findMany({
-      where: {
-        followerId: authUserId,
-        followedId: { in: followerIds },
-      },
-      select: { followedId: true },
-    });
-
-    const followersYouKnowIds = followersYouKnow.map((f) => f.followedId);
-
-    const followBacks = await this.prisma.follow.findMany({
-      where: {
-        followedId: authUserId,
-        followerId: { in: followersYouKnowIds },
-      },
-      select: { followedId: true },
-    });
-
-    const followBackSet = new Set(followBacks.map((f) => f.followedId));
-
-    const result = followers.map((f) => ({
-      ...f.followerUser.profile,
-      username: f.followerUser.username,
-      isFollowing: followBackSet.has(f.followerUser.id),
-    }));
-    return result;
   }
-
-  async getUserFollowers(requestedUserId: bigint, limit: number, prevCursor?: string) {
-    const decoded = prevCursor ? decodeCompositeCursor<FollowsCursor>(prevCursor) : undefined;
-    const followers = await this.prisma.follow.findMany({
-      where: { followedId: requestedUserId },
-      take: limit,
-      cursor: decoded ? { followerId_followedId: decoded } : undefined,
-      orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
-      include: {
-        followerUser: {
-          select: {
-            id: true,
-            username: true,
-            profile: {
-              select: {
-                displayName: true,
-                bio: true,
-                avatarUrl: true,
-                bioEntities: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    const followerIds = followers.map((f) => f.followerUser.id);
-
-    const followBacks = await this.prisma.follow.findMany({
+  async getFollowBacksForFollowers(requestedUserId: bigint, followerIds: bigint[]) {
+    return await this.prisma.follow.findMany({
       where: {
         followerId: requestedUserId,
         followedId: { in: followerIds },
       },
       select: { followedId: true },
     });
+  }
 
-    const followBackSet = new Set(followBacks.map((f) => f.followedId));
-
-    const result = followers.map((f) => ({
-      ...f.followerUser.profile,
-      username: f.followerUser.username,
-      isFollowing: followBackSet.has(f.followerUser.id),
-    }));
-    return result;
+  async getMutualRelations(authUserId: bigint, userIds: bigint[]) {
+    return await this.prisma.follow.findMany({
+      where: {
+        OR: [
+          { followerId: authUserId, followedId: { in: userIds } },
+          { followerId: { in: userIds }, followedId: authUserId },
+        ],
+      },
+      select: { followerId: true, followedId: true },
+    });
   }
 }

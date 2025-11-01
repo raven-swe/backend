@@ -13,6 +13,11 @@ import { validateNewPasswordFormat } from './utils/validate-password-format.util
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import {
+  decodeCompositeCursor,
+  FollowsCursor,
+  paginateComposite,
+} from 'src/common/utils/cursor-pagination.util';
 
 @Injectable()
 export class UsersService {
@@ -214,7 +219,7 @@ export class UsersService {
     return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
 
-  async getUserFollowers(username: string, limit: number, prevCursor?: string) {
+  async getUserFollowers(username: string, limit: number = 20, prevCursor?: string) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
     if (!requestedUser) {
@@ -227,27 +232,46 @@ export class UsersService {
       );
     }
 
-    return await this.usersRepository.getUserFollowers(requestedUser.id, limit, prevCursor);
-  }
-  async getUserFollowings(username: string, limit: number, prevCursor?: string) {
-    const requestedUser = await this.usersRepository.findByUsername(username);
-
-    if (!requestedUser) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new BadRequestException('Invalid cursor format');
+      }
     }
 
-    return await this.usersRepository.getUserFollowings(requestedUser.id, limit, prevCursor);
+    const followers = await this.usersRepository.getUserFollowers(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+    const followerIds = followers.map((f) => f.followerUser.id);
+
+    const followBacks = await this.usersRepository.getFollowBacksForFollowers(
+      requestedUser.id,
+      followerIds,
+    );
+    const followBackSet = new Set(followBacks.map((f) => f.followedId));
+
+    const items = followers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: followBackSet.has(f.followerUser.id),
+    }));
+
+    return { items, pagination };
   }
+
   async getUserMutualFollowers(
     username: string,
     authUserId: bigint,
-    limit: number,
+    limit: number = 20,
     prevCursor?: string,
   ) {
     const requestedUser = await this.usersRepository.findByUsername(username);
@@ -261,12 +285,95 @@ export class UsersService {
         HttpStatus.NOT_FOUND,
       );
     }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new BadRequestException('Invalid cursor format');
+      }
+    }
 
-    return await this.usersRepository.getUserMutualFollowers(
+    const followers = await this.usersRepository.getUserFollowers(requestedUser.id, limit, decoded);
+
+    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const followerIds = followers.map((f) => f.followerUser.id);
+    const relationRows = await this.usersRepository.getMutualRelations(authUserId, followerIds);
+
+    const setAuthFollows = new Set<bigint>();
+    const setTheyFollowAuth = new Set<bigint>();
+
+    for (const r of relationRows) {
+      if (r.followerId === authUserId) setAuthFollows.add(r.followedId);
+      if (r.followedId === authUserId) setTheyFollowAuth.add(r.followerId);
+    }
+
+    const items = followers
+      .map((f) => ({
+        id: f.followerUser.id,
+        username: f.followerUser.username,
+        profile: f.followerUser.profile,
+      }))
+      .filter((c) => setAuthFollows.has(c.id))
+      .map((c) => ({
+        ...c.profile,
+        username: c.username,
+        isFollowing: setTheyFollowAuth.has(c.id),
+      }));
+
+    return { items, pagination };
+  }
+
+  async getUserFollowings(username: string, limit: number = 20, prevCursor?: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new BadRequestException('Invalid cursor format');
+      }
+    }
+
+    const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
-      authUserId,
       limit,
-      prevCursor,
+      decoded,
     );
+
+    const pagination = paginateComposite(followings, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const followingIds = followings.map((f) => f.followedUser.id);
+
+    const followBacks = await this.usersRepository.getFollowBacksForFollowings(
+      requestedUser.id,
+      followingIds,
+    );
+    const followBackSet = new Set(followBacks.map((f) => f.followerId));
+
+    const items = followings.map((f) => ({
+      ...f.followedUser.profile,
+      username: f.followedUser.username,
+      isFollowing: followBackSet.has(f.followedUser.id),
+    }));
+
+    return { items, pagination };
   }
 }
