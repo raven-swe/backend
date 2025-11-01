@@ -199,7 +199,6 @@ alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
 
-
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -405,7 +404,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -427,7 +426,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @tag("Auth")
 @route("/auth")
@@ -488,25 +486,25 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
-    @route("/password")
-    namespace Password {
-      @post
-      @route("/forgot")
-      @summary("Initiate the password reset process")
-      op forgotPassword(
-        @body body: {
-          identifier: string;
-          recaptchaToken: string; // token from client side recaptcha v2
-        },
-      ):
-        | DataResponse<{
-            confirmationToken: string;
-          }>
-        | ValidationErrorResponse
-        | NotFoundResponse
-        | RateLimitResponse
-        | InternalServerErrorResponse
-        | BadRequestResponse;
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
@@ -549,7 +547,7 @@ namespace Auth {
       | RateLimitResponse
       | InternalServerErrorResponse;
   }
-  
+
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -662,6 +660,46 @@ namespace Me {
   op updateMyProfile(@body body: UpdateProfileRequest):
     | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/banner")
+  op updateBanner(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      banner: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        bannerUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/banner")
+  op deleteBanner():
+    | MessageResponse<"Banner deleted successfully.">
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
+  @post
+  @route("/profile-picture")
+  op updateProfilePicture(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      profilePicture: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        avatarUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
@@ -831,11 +869,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
-   
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")

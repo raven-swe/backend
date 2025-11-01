@@ -279,8 +279,7 @@ describe('MeController', () => {
   });
 
   describe('POST /me/avatar', () => {
-
-       const avatar = {
+    const avatar = {
       fieldname: 'avatar',
       originalname: 'avatar.jpg',
       encoding: '7bit',
