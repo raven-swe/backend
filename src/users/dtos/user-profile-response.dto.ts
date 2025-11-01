@@ -20,8 +20,8 @@ export class UserProfileResponseDto {
   websiteUrl: string | null;
   birthDate: string | null;
 
-  // If I block the user, this will be null
-  joinedAt: Date | null;
+  // TODO: If I block the user, this will be null
+  joinedAt: Date;
 
   // Won't be returned for the authenticated user's own profile
   relationship?: UserRelationshipDto | null;

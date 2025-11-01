@@ -169,7 +169,8 @@ export class UsersRepository {
         avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
         bannerUrl: user.profile?.bannerUrl || null,
         websiteUrl: null,
-        joinedAt: null,
+        // TODO: This should be null here but I'm not changing spec now
+        joinedAt: user.createdAt,
         relationship: {
           blocking: true,
           blockedBy: !!isBlockedBy,
