@@ -10,6 +10,8 @@ import {
   BadRequestException,
   Req,
   Delete,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
@@ -34,6 +36,8 @@ import { ValidatePasswordDto } from 'src/users/dtos/validate-password.dto';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -114,10 +118,12 @@ export class SettingsController {
     @User() user: RequestUser,
   ) {
     if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
-      throw new BadRequestException(
-        createValidationError('provider', {
-          invalidParam: `Unsupported OAuth provider: ${provider}`,
-        }),
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.INVALID_PROVIDER,
+          code: AUTH_ERROR_CODES.INVALID_PROVIDER,
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -199,18 +205,24 @@ export class SettingsController {
       const errors = await validate(dto);
 
       if (errors.length > 0) {
-        throw new BadRequestException(
-          createValidationError('refreshToken', { isString: 'Refresh token must be a string' }),
+        throw new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.UNAUTHORIZED,
         );
       }
       refreshToken = dto.refreshToken;
     }
 
     if (!refreshToken)
-      throw new BadRequestException(
-        createValidationError('invalidToken', {
-          invalidToken: 'Refresh token must be passed with this request',
-        }),
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
       );
 
     return this.settingsService.getSessions(userId, refreshToken);
@@ -232,18 +244,24 @@ export class SettingsController {
       const errors = await validate(dto);
 
       if (errors.length > 0) {
-        throw new BadRequestException(
-          createValidationError('refreshToken', { isString: 'Refresh token must be a string' }),
+        throw new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.UNAUTHORIZED,
         );
       }
       refreshToken = dto.refreshToken;
     }
 
     if (!refreshToken)
-      throw new BadRequestException(
-        createValidationError('invalidToken', {
-          invalidToken: 'Refresh token must be passed with this request',
-        }),
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
       );
 
     const userId = BigInt(user.id);
