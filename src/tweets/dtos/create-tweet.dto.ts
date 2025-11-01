@@ -1,7 +1,7 @@
-import { IsEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateTweetDto {
-  @IsEmpty()
+  @IsNotEmpty()
   @IsString()
   content: string;
 
@@ -13,5 +13,5 @@ export class CreateTweetDto {
 
   @IsOptional()
   @IsString()
-  quoteToTweetId?: string;
+  quotedTweetId?: string;
 }

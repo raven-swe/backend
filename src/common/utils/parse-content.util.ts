@@ -25,15 +25,15 @@ export function parseContent(content: string): ParsedContent {
 
   const usernames: Array<Mention> = Array.from(mentionMatches).map((match) => {
     return {
-      username: match[1],
-      startPosition: match.index,
+      username: match[1].toLowerCase(),
+      startingIndex: match.index,
     };
   });
 
   const hashtags: Array<Hashtag> = Array.from(hashtagMatches).map((match) => {
     return {
-      hashtag: match[1],
-      startPosition: match.index,
+      tag: match[1].toLowerCase(),
+      startingIndex: match.index,
     };
   });
 
