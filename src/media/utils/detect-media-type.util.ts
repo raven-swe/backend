@@ -14,10 +14,11 @@ export function detectMediaType(file: Express.Multer.File): MediaType {
   const filename = file.originalname.toLowerCase();
   const ext = filename.split('.').pop() || '';
 
+  if (ext === 'gif') {
+    return MediaType.GIF;
+  }
+
   if (IMAGE_EXTENSIONS.includes(ext)) {
-    if (ext === 'gif') {
-      return MediaType.GIF;
-    }
     return MediaType.IMAGE;
   }
 

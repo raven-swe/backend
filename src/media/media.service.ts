@@ -94,6 +94,66 @@ export class MediaService {
     }
   }
 
+  async deleteMedia(url: string, userId: bigint): Promise<void> {
+    let mediaRecord = null;
+
+    try {
+      mediaRecord = await this.mediaRepository.findByUrl(url);
+
+      if (!mediaRecord) {
+        this.logger.error(`Media record not found for URL: ${url}`);
+        throw new HttpException(
+          {
+            message: MEDIA_MESSAGES.MEDIA_NOT_FOUND,
+            code: MEDIA_CODES.MEDIA_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Verify ownership
+      if (mediaRecord.userId !== userId) {
+        throw new HttpException(
+          {
+            message: MEDIA_MESSAGES.UNAUTHORIZED_DELETE,
+            code: MEDIA_CODES.UNAUTHORIZED_DELETE,
+          },
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      // Delete from database first
+      await this.mediaRepository.deleteMedia(mediaRecord.id);
+      this.logger.log(`Media metadata deleted from database: ${mediaRecord.id}`);
+
+      // Delete from S3
+      const key = this.s3Service.extractKeyFromUrl(url);
+      await this.s3Service.deleteFile(key);
+      this.logger.log(`Successfully deleted media from S3: ${url}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete media metadata: ${error}`);
+
+      // Rollback if S3 deletion failed to restore DB record
+      if (mediaRecord && error instanceof Error && error.message?.includes('S3')) {
+        try {
+          await this.mediaRepository.saveMedia({
+            userId: mediaRecord.userId,
+            url: mediaRecord.url,
+            type: mediaRecord.type,
+            width: mediaRecord.width!,
+            height: mediaRecord.height!,
+            altText: mediaRecord.altText ?? undefined,
+          });
+          this.logger.log(`Successfully restored media metadata: ${mediaRecord.id}`);
+        } catch (rollbackError) {
+          this.logger.error(`Failed to restore media metadata: ${rollbackError}`);
+        }
+      }
+
+      throw error;
+    }
+  }
+
   /**
    * Get image dimensions from buffer
    */

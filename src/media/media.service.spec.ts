@@ -17,14 +17,18 @@ jest.mock('./utils/detect-media-type.util', () => ({
 }));
 
 import { detectMediaType } from './utils/detect-media-type.util';
+import { MEDIA_CODES, MEDIA_MESSAGES } from './constants/media.constant';
 
 const mockS3Service = {
   uploadFile: jest.fn(),
   deleteFile: jest.fn(),
+  extractKeyFromUrl: jest.fn(),
 };
 
 const mockMediaRepository = {
   saveMedia: jest.fn(),
+  deleteMedia: jest.fn(),
+  findByUrl: jest.fn(),
 };
 
 const createMockFile = (overrides?: Partial<Express.Multer.File>): Express.Multer.File => ({
@@ -346,6 +350,128 @@ describe('MediaService', () => {
           HttpStatus.BAD_REQUEST,
         ),
       );
+    });
+  });
+
+  describe('deleteMedia', () => {
+    it('should successfully delete file from database and S3', async () => {
+      // Arrange
+      const url = 'http://example.com/avatars/file.jpg';
+      const userId = BigInt(1);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId,
+        url,
+        type: MediaType.IMAGE,
+        width: 100,
+        height: 100,
+        altText: null,
+      };
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+      mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
+      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
+      mockS3Service.deleteFile.mockResolvedValue(undefined);
+
+      // Act
+      await service.deleteMedia(url, userId);
+
+      // Assert
+      expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(url);
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(url);
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
+    });
+
+    it('should throw NOT_FOUND when media record does not exist', async () => {
+      // Arrange
+      const url = 'http://example.com/avatars/nonexistent.jpg';
+      const userId = BigInt(1);
+
+      mockMediaRepository.findByUrl.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.MEDIA_NOT_FOUND,
+            code: MEDIA_CODES.MEDIA_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+
+      expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
+      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it('should throw FORBIDDEN when user does not own the media', async () => {
+      // Arrange
+      const url = 'http://example.com/avatars/file.jpg';
+      const userId = BigInt(1);
+      const differentUserId = BigInt(2);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId: differentUserId,
+        url,
+        type: MediaType.IMAGE,
+        width: 100,
+        height: 100,
+        altText: null,
+      };
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+
+      // Act & Assert
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.UNAUTHORIZED_DELETE,
+            code: MEDIA_CODES.UNAUTHORIZED_DELETE,
+          },
+          HttpStatus.FORBIDDEN,
+        ),
+      );
+
+      expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
+      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it('should rollback database deletion when S3 deletion fails', async () => {
+      // Arrange
+      const url = 'http://example.com/avatars/file.jpg';
+      const userId = BigInt(1);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId,
+        url,
+        type: MediaType.IMAGE,
+        width: 100,
+        height: 100,
+        altText: null,
+      };
+      const s3Error = new Error('S3 deletion failed');
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+      mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
+      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
+      mockS3Service.deleteFile.mockRejectedValue(s3Error);
+      mockMediaRepository.saveMedia.mockResolvedValue(mockMediaRecord);
+
+      // Act & Assert
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
+        new Error('S3 deletion failed'),
+      );
+
+      // Verify rollback was attempted
+      expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith({
+        userId: mockMediaRecord.userId,
+        url: mockMediaRecord.url,
+        type: mockMediaRecord.type,
+        width: mockMediaRecord.width,
+        height: mockMediaRecord.height,
+        altText: undefined,
+      });
     });
   });
 });
