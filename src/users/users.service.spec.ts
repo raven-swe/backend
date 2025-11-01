@@ -1357,7 +1357,8 @@ describe('UsersService', () => {
     it('should delete banner successfully', async () => {
       // Arrange
       const userId = BigInt(1);
-      mockRepository.deleteBanner.mockResolvedValue(undefined);
+      const mockBannerUrl = 'https://example.com/existing-banner.jpg';
+      mockRepository.deleteBanner.mockResolvedValue({ bannerUrl: mockBannerUrl });
 
       // Act
       const result = await service.deleteBanner(userId);
