@@ -448,9 +448,19 @@ export class UsersRepository {
   }
 
   async deleteBanner(userId: bigint) {
-    return await this.prisma.profile.update({
-      where: { userId },
-      data: { bannerUrl: null },
+    // Fetching first to get banner url and deleted it from media table and S3 bucket
+    return await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.profile.findUnique({
+        where: { userId },
+        select: { bannerUrl: true },
+      });
+
+      await tx.profile.update({
+        where: { userId },
+        data: { bannerUrl: null },
+      });
+
+      return { bannerUrl: profile?.bannerUrl || null };
     });
   }
 }

@@ -17,6 +17,7 @@ import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { MediaService } from 'src/media/media.service';
+import { MediaFolder } from 'src/media/enums/media-folder.enum';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -73,6 +74,9 @@ describe('UsersService', () => {
     unmuteUser: jest.fn(),
     isMuted: jest.fn(),
     checkUsernameExistence: jest.fn(),
+    updateAvatar: jest.fn(),
+    updateBanner: jest.fn(),
+    deleteBanner: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -1264,6 +1268,113 @@ describe('UsersService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    const avatar = {
+      fieldname: 'avatar',
+      originalname: 'avatar.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-avatar-data'),
+      size: 1024,
+    } as Express.Multer.File;
+
+    it('should update avatar successfully and return avatar url', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const avatarUrl = 'https://example.com/new-avatar.jpg';
+      mockRepository.updateAvatar.mockResolvedValue(undefined);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue(avatarUrl);
+
+      // Act
+      const result = await service.uploadAvatar(userId, avatar);
+
+      // Assert
+      expect(result).toEqual({ avatarUrl, message: 'Avatar uploaded successfully' });
+      expect(mockRepository.updateAvatar).toHaveBeenCalledWith(userId, avatarUrl);
+      expect(mockMediaService.uploadAndSaveMedia).toHaveBeenCalledWith(
+        avatar,
+        userId,
+        MediaFolder.AVATARS,
+      );
+    });
+
+    it('should throw error if media upload fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Media upload failed');
+      mockMediaService.uploadAndSaveMedia.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.uploadAvatar(userId, avatar)).rejects.toThrow('Media upload failed');
+    });
+  });
+
+  describe('uploadBanner', () => {
+    const banner = {
+      fieldname: 'banner',
+      originalname: 'banner.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-banner-data'),
+      size: 2048,
+    } as Express.Multer.File;
+
+    it('should update banner successfully and return banner url', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const bannerUrl = 'https://example.com/new-banner.jpg';
+      mockRepository.updateBanner.mockResolvedValue(undefined);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue(bannerUrl);
+
+      // Act
+      const result = await service.uploadBanner(userId, banner);
+
+      // Assert
+      expect(result).toEqual({ bannerUrl, message: 'Banner uploaded successfully' });
+      expect(mockRepository.updateBanner).toHaveBeenCalledWith(userId, bannerUrl);
+      expect(mockMediaService.uploadAndSaveMedia).toHaveBeenCalledWith(
+        banner,
+        userId,
+        MediaFolder.BANNERS,
+      );
+    });
+
+    it('should throw error if media upload fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Media upload failed');
+      mockMediaService.uploadAndSaveMedia.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.uploadBanner(userId, banner)).rejects.toThrow('Media upload failed');
+    });
+  });
+
+  describe('deleteBanner', () => {
+    it('should delete banner successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      mockRepository.deleteBanner.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.deleteBanner(userId);
+
+      // Assert
+      expect(result).toEqual({ message: 'Banner deleted successfully' });
+      expect(mockRepository.deleteBanner).toHaveBeenCalledWith(userId);
+    });
+
+    it('should throw error if repository delete fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Database error');
+      mockRepository.deleteBanner.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.deleteBanner(userId)).rejects.toThrow('Database error');
     });
   });
 });

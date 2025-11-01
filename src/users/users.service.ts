@@ -523,6 +523,17 @@ export class UsersService {
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async deleteBanner(userId: bigint) {
     const { bannerUrl } = await this.usersRepository.deleteBanner(userId);
+
+    if (!bannerUrl) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_CODES.BANNER_NOT_FOUND,
+          code: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     if (bannerUrl) {
       await this.mediaService.deleteMedia(bannerUrl, userId);
     }
