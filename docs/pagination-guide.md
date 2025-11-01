@@ -62,22 +62,13 @@ async getUsersPaginated(limit: number, prevCursor?: string) {
   
   // Fetch limit + 1 to check if there's a next page
   const users = await this.repo.getUsers(limit + 1, decodedCursor);
-  
-  // Check if there are more items
-  const hasNextPage = users.length > limit;
-  
-  // Remove extra item and use it for next cursor
-  let nextCursor: string | null = null;
-  if (hasNextPage) {
-    const nextItem = users.pop();
-    nextCursor = nextItem ? encodeCursor(nextItem.id) : null;
-  }
-  
-  const pagination: CursorPagination = {
-    cursor: prevCursor || null,
-    nextCursor,
-    hasNextPage,
-  };
+
+ const pagination = this.paginateSingle(
+  users,
+  limit,
+  prevCursor,
+  (user) => user.id
+); 
   
   return {
     items: users,
@@ -92,43 +83,28 @@ async getUsersPaginated(limit: number, prevCursor?: string) {
 // Service with composite cursor (e.g., Follows table)
 async getFollowsPaginated(limit: number = 10, prevCursor?: string) {
   // Decode the composite cursor
-  let decodedCursor: FollowsCursor | undefined;
-  if(prevCursor){
-  try{
-    decodedCursor = decodeCompositeCursor<FollowsCursor>(prevCursor);
-  }catch{
-    throw new BadRequestException('Invalid cursor');
-  }
+let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new BadRequestException('Invalid cursor format');
+      }
+    }
 
-  }
-  const decodedCursor = prevCursor 
-    ? decodeCompositeCursor<FollowsCursor>(prevCursor) 
-    : undefined;
-  
-  // Fetch limit + 1 to check if there's a next page
-  const follows = await this.repo.getFollows(limit + 1, decodedCursor);
-  
-  // Check if there are more items
-  const hasNextPage = follows.length > limit;
-  
-  // Remove extra item and use it for next cursor
-  let nextCursor: string | null = null;
-  if (hasNextPage) {
-    const nextItem = follows.pop();
-    nextCursor = nextItem ? encodeCompositeCursor({
-      followerId: nextItem.followerId,
-      followedId: nextItem.followedId,
-    }) : null;
-  }
-  
-  const pagination: CursorPagination = {
-    cursor: prevCursor || null,
-    nextCursor,
-    hasNextPage,
-  };
-  
+    const followers = await this.usersRepository.getUserFollowers(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));  
+
   return {
-    items: follows,
+    items: followers,
     pagination,
   };
 }
@@ -156,4 +132,57 @@ export const decodeCompositeCursor = <T>(cursorString: string): T => {
   const jsonString = Buffer.from(cursorString, 'base64').toString('utf-8');
   return JSON.parse(jsonString) as T;
 };
+export const paginateSingle = <T>(
+  items: T[],
+  limit: number,
+  prevCursor: string | undefined,
+  getId: (item: T) => bigint | string,
+): CursorPagination => {
+  const hasNextPage = items.length > limit;
+  let nextCursor: string | null = null;
+
+  if (hasNextPage) {
+    const nextItem = items.pop();
+    if (nextItem) {
+      const id = getId(nextItem);
+      nextCursor = encodeCursor(id.toString());
+    }
+  }
+
+  return {
+    cursor: prevCursor || null,
+    nextCursor,
+    hasNextPage,
+  };
+};
+
+export const paginateComposite = <T, C extends Record<string, unknown>>(
+  items: T[],
+  limit: number,
+  prevCursor: string | undefined,
+  getCursorFields: (item: T) => C,
+): CursorPagination => {
+  const hasNextPage = items.length > limit;
+  let nextCursor: string | null = null;
+
+  if (hasNextPage) {
+    const nextItem = items.pop();
+    if (nextItem) {
+      const cursorFields = getCursorFields(nextItem);
+      const serializedFields = Object.entries(cursorFields).reduce(
+        (acc, [key, value]) => {
+          acc[key] = typeof value === 'bigint' ? value.toString() : value;
+          return acc;
+        },
+        {} as Record<string, unknown>,
+      );
+      nextCursor = encodeCompositeCursor(serializedFields);
+    }
+  }
+
+  return {
+    cursor: prevCursor || null,
+    nextCursor,
+    hasNextPage,
+  };
 ```
