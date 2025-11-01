@@ -59,7 +59,7 @@ model ApiSuccessResponseWithPagination<T> {
 @doc("Success response for operations that only return a message (like POST/DELETE)")
 model ApiMessageResponse {
   success: true;
-  message: string;
+  message?: string;
 }
 
 @doc("Error response wrapper")
@@ -170,7 +170,7 @@ model InternalServerErrorResponse {
 model RegisterStartBody {
   name: string;
   email: string;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   recaptchaToken: string; // token from client side recaptcha v2
 }
 
@@ -188,9 +188,17 @@ model MessageResponse<TMessage extends string> {
   ...OkResponse;
   ...Body<{
     success: true;
-    message: TMessage;
+    message?: TMessage; // optional message field on success
   }>;
 }
+
+alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
+alias FollowUserResponse = MessageResponse<"user followed successfully">;
+alias BlockUserResponse = MessageResponse<"user blocked successfully">;
+alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
+alias MuteUserResponse = MessageResponse<"user muted successfully">;
+alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
 
 @doc("Entity mention in bio")
 model MentionEntity {
@@ -466,6 +474,7 @@ namespace Auth {
     @summary("Complete the registration process by setting a password")
     @route("/complete")
     op completeRegister(
+      @header("X-Client-Type") clientType: "web" | "mobile",
       @body body: {
         creationToken: string;
         password: string;
@@ -567,6 +576,10 @@ namespace Auth {
 
   @get
   @summary("Check if a username or email is already taken")
+  @doc("""
+    This endpoint checks whether a given identifier (username or email) is already taken in the system.
+    to be used in login in shared field which can be either username or email.
+    """)
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -711,6 +724,101 @@ namespace Me {
       | ValidationErrorResponse
       | NotFoundResponse
       | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/blocks")
+  @useAuth(BearerAuth)
+  namespace Blocks {
+    @summary("Block a user")
+    @post
+    @route("/{username}")
+    op blockUser(
+      @path
+      username: string,
+    ):
+      | BlockUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unblock a user")
+    @delete
+    @route("/{username}")
+    op unblockUser(
+      @path
+      username: string,
+    ):
+      | UnblockUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/mutes")
+  @useAuth(BearerAuth)
+  namespace Mutes {
+    @summary("Mute a user")
+    @post
+    @route("/{username}")
+    op muteUser(
+      @path
+      username: string,
+    ):
+      | MuteUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unmute a user")
+    @delete
+    @route("/{username}")
+    op unmuteUser(
+      @path
+      username: string,
+    ):
+      | UnmuteUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+}
+
+@tag("Users")
+@route("/users")
+@useAuth(BearerAuth)
+namespace Users {
+  @route("/{username}/following")
+  namespace Following {
+    @summary("Follow a user")
+    @post
+    op followUser(
+      @path
+      username: string,
+    ):
+      | FollowUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unfollow a user")
+    @delete
+    op unfollowUser(
+      @path
+      username: string,
+    ):
+      | UnfollowUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
