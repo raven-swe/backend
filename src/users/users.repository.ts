@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from './constants/users';
@@ -223,10 +224,72 @@ export class UsersRepository {
   }
 
   async updateUsernameById(userId: bigint, newUsername: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    if (user.username === newUsername) {
+      return;
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        username: {
+          equals: newUsername,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USERNAME_ALREADY_USED,
+          code: USERS_ERROR_CODES.USERNAME_ALREADY_USED,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { username: newUsername },
     });
+  }
+
+  async checkUsernameExistence(id: string, username: string) {
+    const userId = BigInt(id);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    if (user.username === username) {
+      return null;
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    return existingUser && existingUser.id !== userId ? existingUser : null;
   }
 
   async updateUserEmail(
@@ -285,6 +348,25 @@ export class UsersRepository {
       },
     });
   }
+  async followUser(followerId: bigint, followedId: bigint) {
+    await this.prisma.follow.create({
+      data: {
+        followerId,
+        followedId,
+      },
+    });
+  }
+
+  async unfollowUser(followerId: bigint, followedId: bigint) {
+    await this.prisma.follow.delete({
+      where: {
+        followerId_followedId: {
+          followerId,
+          followedId,
+        },
+      },
+    });
+  }
 
   async getFollowBacksForFollowings(requestedUserId: bigint, followingIds: bigint[]) {
     return await this.prisma.follow.findMany({
@@ -331,6 +413,62 @@ export class UsersRepository {
       },
     });
   }
+  async isFollowing(followerId: bigint, followedId: bigint) {
+    const follow = await this.prisma.follow.findUnique({
+      where: {
+        followerId_followedId: {
+          followerId,
+          followedId,
+        },
+      },
+    });
+    return !!follow;
+  }
+
+  /**
+   * Blocks a user and removes any existing follow relationships between the users.
+   */
+  async blockUser(userId: bigint, blockedId: bigint) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.block.create({
+        data: {
+          userId,
+          blockedId,
+        },
+      });
+
+      // Remove follow relationships in both directions
+      await tx.follow.deleteMany({
+        where: {
+          OR: [
+            { followerId: userId, followedId: blockedId },
+            { followerId: blockedId, followedId: userId },
+          ],
+        },
+      });
+
+      // Remove mute relationships in both directions
+      await tx.mute.deleteMany({
+        where: {
+          OR: [
+            { userId: userId, mutedId: blockedId },
+            { userId: blockedId, mutedId: userId },
+          ],
+        },
+      });
+    });
+  }
+
+  async unblockUser(userId: bigint, blockedId: bigint) {
+    await this.prisma.block.delete({
+      where: {
+        userId_blockedId: {
+          userId,
+          blockedId,
+        },
+      },
+    });
+  }
   async getFollowBacksForFollowers(requestedUserId: bigint, followerIds: bigint[]) {
     return await this.prisma.follow.findMany({
       where: {
@@ -351,5 +489,49 @@ export class UsersRepository {
       },
       select: { followerId: true, followedId: true },
     });
+  }
+
+  async isBlocked(userId: bigint, blockedId: bigint) {
+    const block = await this.prisma.block.findUnique({
+      where: {
+        userId_blockedId: {
+          userId,
+          blockedId,
+        },
+      },
+    });
+    return !!block;
+  }
+
+  async muteUser(userId: bigint, mutedId: bigint) {
+    await this.prisma.mute.create({
+      data: {
+        userId,
+        mutedId,
+      },
+    });
+  }
+
+  async unmuteUser(userId: bigint, mutedId: bigint) {
+    await this.prisma.mute.delete({
+      where: {
+        userId_mutedId: {
+          userId,
+          mutedId,
+        },
+      },
+    });
+  }
+
+  async isMuted(userId: bigint, mutedId: bigint) {
+    const mute = await this.prisma.mute.findUnique({
+      where: {
+        userId_mutedId: {
+          userId,
+          mutedId,
+        },
+      },
+    });
+    return !!mute || (await this.isBlocked(userId, mutedId));
   }
 }

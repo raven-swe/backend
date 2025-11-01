@@ -10,6 +10,7 @@ import {
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
 import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../validation-error-codes';
+import { MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -160,6 +161,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       case Number(HttpStatus.TOO_MANY_REQUESTS):
         code = 'RATE_LIMIT_EXCEEDED';
         break;
+      case Number(HttpStatus.PAYLOAD_TOO_LARGE):
+        code = 'PAYLOAD_TOO_LARGE';
+        message = `Payload size exceeds the allowable limit (${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB)`;
+        break;
       default:
         code = 'INTERNAL_SERVER_ERROR';
     }
@@ -167,7 +172,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
     } else if (typeof exceptionResponse === 'object') {
-      if ('message' in exceptionResponse) {
+      if (
+        'message' in exceptionResponse &&
+        Number(status) !== Number(HttpStatus.PAYLOAD_TOO_LARGE)
+      ) {
         message = exceptionResponse['message'] as string;
       }
     }

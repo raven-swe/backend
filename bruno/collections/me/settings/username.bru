@@ -1,0 +1,26 @@
+meta {
+  name: username
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:3000/me/settings/username
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "newUsername": "Tasneem"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

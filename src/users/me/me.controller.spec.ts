@@ -9,6 +9,10 @@ describe('MeController', () => {
 
   const mockUsersService = {
     changePassword: jest.fn(),
+    blockUser: jest.fn(),
+    unblockUser: jest.fn(),
+    muteUser: jest.fn(),
+    unmuteUser: jest.fn(),
     getUserProfile: jest.fn(),
     updateProfile: jest.fn(),
   };
@@ -85,6 +89,142 @@ describe('MeController', () => {
         'Invalid old password',
       );
       expect(mockUsersService.changePassword).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('POST /me/blocks/:username', () => {
+    it('should call usersService.blockUser with correct parameters', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const blockedUsername = 'blockedUser';
+      const expectedResult = { message: 'User blocked successfully' };
+
+      mockUsersService.blockUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.blockUser({ id: userId.toString() }, blockedUsername);
+
+      // Assert
+      expect(mockUsersService.blockUser).toHaveBeenCalledWith(userId, blockedUsername);
+      expect(mockUsersService.blockUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.blockUser', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const blockedUsername = 'nonexistentUser';
+
+      mockUsersService.blockUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(
+        controller.blockUser({ id: userId.toString() }, blockedUsername),
+      ).rejects.toThrow('User not found');
+      expect(mockUsersService.blockUser).toHaveBeenCalledWith(userId, blockedUsername);
+      expect(mockUsersService.blockUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('DELETE /me/blocks/:username', () => {
+    it('should call usersService.unblockUser with correct parameters', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const unblockedUsername = 'blockedUser';
+      const expectedResult = { message: 'User unblocked successfully' };
+
+      mockUsersService.unblockUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.unblockUser({ id: userId.toString() }, unblockedUsername);
+
+      // Assert
+      expect(mockUsersService.unblockUser).toHaveBeenCalledWith(userId, unblockedUsername);
+      expect(mockUsersService.unblockUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.unblockUser', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const unblockedUsername = 'nonexistentUser';
+
+      mockUsersService.unblockUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(
+        controller.unblockUser({ id: userId.toString() }, unblockedUsername),
+      ).rejects.toThrow('User not found');
+      expect(mockUsersService.unblockUser).toHaveBeenCalledWith(userId, unblockedUsername);
+      expect(mockUsersService.unblockUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('POST /me/mutes/:username', () => {
+    it('should call usersService.muteUser with correct parameters', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const mutedUsername = 'mutedUser';
+      const expectedResult = { message: 'User muted successfully' };
+
+      mockUsersService.muteUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.muteUser({ id: userId.toString() }, mutedUsername);
+
+      // Assert
+      expect(mockUsersService.muteUser).toHaveBeenCalledWith(userId, mutedUsername);
+      expect(mockUsersService.muteUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.muteUser', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const mutedUsername = 'nonexistentUser';
+
+      mockUsersService.muteUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(controller.muteUser({ id: userId.toString() }, mutedUsername)).rejects.toThrow(
+        'User not found',
+      );
+      expect(mockUsersService.muteUser).toHaveBeenCalledWith(userId, mutedUsername);
+      expect(mockUsersService.muteUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('DELETE /me/mutes/:username', () => {
+    it('should call usersService.unmuteUser with correct parameters', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const unmutedUsername = 'mutedUser';
+      const expectedResult = { message: 'User unmuted successfully' };
+
+      mockUsersService.unmuteUser.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.unmuteUser({ id: userId.toString() }, unmutedUsername);
+
+      // Assert
+      expect(mockUsersService.unmuteUser).toHaveBeenCalledWith(userId, unmutedUsername);
+      expect(mockUsersService.unmuteUser).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.unmuteUser', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const unmutedUsername = 'nonexistentUser';
+
+      mockUsersService.unmuteUser.mockRejectedValue(new Error('User not found'));
+
+      // Act & Assert
+      await expect(
+        controller.unmuteUser({ id: userId.toString() }, unmutedUsername),
+      ).rejects.toThrow('User not found');
+      expect(mockUsersService.unmuteUser).toHaveBeenCalledWith(userId, unmutedUsername);
+      expect(mockUsersService.unmuteUser).toHaveBeenCalledTimes(1);
     });
   });
 

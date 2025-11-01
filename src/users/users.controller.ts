@@ -1,14 +1,28 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User } from 'src/auth/decorators';
-import type { RequestUser } from 'src/auth/types/user.type';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { plainToInstance } from 'class-transformer';
 import { FollowingUserDto } from './dtos/following-user.dto';
+import { User } from 'src/auth/decorators';
+import type { RequestUser } from 'src/auth/types';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post(':username/following')
+  @UseGuards(JwtAuthGuard)
+  async followUser(@Param('username') username: string, @User() user: RequestUser) {
+    await this.usersService.followUser(BigInt(user.id), username);
+    return { message: 'Followed user successfully' };
+  }
+
+  @Delete(':username/following')
+  @UseGuards(JwtAuthGuard)
+  async unfollowUser(@Param('username') username: string, @User() user: RequestUser) {
+    await this.usersService.unfollowUser(BigInt(user.id), username);
+    return { message: 'Unfollowed user successfully' };
+  }
 
   @Get(':username/profile')
 
