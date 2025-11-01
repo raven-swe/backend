@@ -67,7 +67,7 @@ async getUsersPaginated(limit: number, prevCursor?: string) {
   users,
   limit,
   prevCursor,
-  (user) => user.id
+  (user) => user.id.toString()
 ); 
   
   return {
