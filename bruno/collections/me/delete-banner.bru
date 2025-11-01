@@ -1,0 +1,15 @@
+meta {
+  name: delete-banner
+  type: http
+  seq: 11
+}
+
+delete {
+  url: http://localhost:3000/me/banner
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

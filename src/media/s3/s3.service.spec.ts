@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { S3Service } from './s3.service';
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 
 // Mock AWS SDK
@@ -269,6 +274,50 @@ describe('S3Service', () => {
       const url = service.getPublicUrl(key);
 
       expect(url).toBe('https://cdn.example.com//avatars/test-file.jpg');
+    });
+  });
+
+  describe('extractKeyFromUrl', () => {
+    it('should extract key from full CDN URL', () => {
+      const url = 'https://cdn.example.com/avatars/test-file.jpg';
+
+      const key = service.extractKeyFromUrl(url);
+
+      expect(key).toBe('avatars/test-file.jpg');
+    });
+
+    it('should extract key from URL without CDN prefix', () => {
+      const url = 'https://otherdomain.com/avatars/test-file.jpg';
+
+      const key = service.extractKeyFromUrl(url);
+
+      expect(key).toBe('avatars/test-file.jpg');
+    });
+  });
+
+  describe('deleteFile', () => {
+    it('should delete file successfully', async () => {
+      // Arrange
+      const key = 'avatars/test-file.jpg';
+
+      mockS3Client.send.mockResolvedValue({});
+
+      // Act
+      await service.deleteFile(key);
+
+      // Assert
+      expect(mockS3Client.send).toHaveBeenCalledWith(expect.any(DeleteObjectCommand));
+    });
+
+    it('should throw error when deletion fails', async () => {
+      // Arrange
+      const key = 'avatars/test-file.jpg';
+      const deleteError = new Error('S3 deletion failed');
+
+      mockS3Client.send.mockRejectedValue(deleteError);
+
+      // Act & Assert
+      await expect(service.deleteFile(key)).rejects.toThrow(deleteError);
     });
   });
 });
