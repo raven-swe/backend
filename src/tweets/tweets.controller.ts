@@ -8,6 +8,12 @@ import { ParseBigIntPipe } from 'src/common/pipes';
 @Controller('tweets')
 @UseGuards(JwtAuthGuard)
 export class TweetsController {
+  constructor(private readonly tweetsService: TweetsService) {}
+
+  @Post()
+  createTweet(createTweetDto: CreateTweetDto) {
+    return this.tweetsService.createTweet(createTweetDto, 1n);
+  }
   // --------------------------------------
   constructor(private readonly tweetsService: TweetsService) {}
 
