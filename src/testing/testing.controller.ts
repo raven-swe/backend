@@ -1,4 +1,4 @@
-import { Body, Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { TestService } from './testing.service';
 import { GetOtpDto } from './dtos/get-otp.dto';
 
@@ -7,7 +7,7 @@ export class TestController {
   constructor(private readonly testService: TestService) {}
 
   @Get('otp')
-  async getOtpForTesting(@Body() getOtpDto: GetOtpDto) {
+  async getOtpForTesting(@Query() getOtpDto: GetOtpDto) {
     return this.testService.getOtp(getOtpDto);
   }
 }
