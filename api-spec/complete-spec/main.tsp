@@ -59,7 +59,7 @@ model ApiSuccessResponseWithPagination<T> {
 @doc("Success response for operations that only return a message (like POST/DELETE)")
 model ApiMessageResponse {
   success: true;
-  message: string;
+  message?: string;
 }
 
 @doc("Error response wrapper")
@@ -178,7 +178,7 @@ model SessionResponse {
   @doc("The location where the session was initiated or active")
   location: string | null;
 
-  @doc("The UTC timestamp indicating the last time this session was active.")
+  @doc("The UTC timestamp indicating the last time this session was active. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   lastActive: utcDateTime;
 
   @doc("A boolean flag indicating whether this session is the one currently making the API request.")
@@ -196,7 +196,7 @@ model ConnectedAccountResponse {
   @doc("The connection status.")
   status: "Connected" | "Error";
 
-  @doc("The timestamp when this external account was first linked.")
+  @doc("The timestamp when this external account was first linked. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   connectedAt: utcDateTime;
 }
 
@@ -290,10 +290,10 @@ model PublicUser {
   @maxLength(255)
   websiteUrl: string | null;
 
-  @doc("User's date of birth (YYYY-MM-DD)")
+  @doc("User's date of birth (YYYY-MM-DD). ISO 8601 date format.")
   birthDate: plainDate | null;
 
-  @doc("Date when the user joined")
+  @doc("Date when the user joined. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   joinedAt: utcDateTime;
 }
 
@@ -430,7 +430,7 @@ model UpdateProfileRequest {
   @maxLength(255)
   websiteUrl?: string | null;
 
-  @doc("Birth date in YYYY-MM-DD format")
+  @doc("User's date of birth (YYYY-MM-DD). ISO 8601 date format.")
   birthDate?: plainDate | null;
 
   @doc("URL to the user's avatar image. Must be a valid URL (https://www.example.com).")
@@ -522,7 +522,7 @@ model CompactTweet {
   @doc("The text content of the tweet.")
   content: string | null;
 
-  @doc("The time the tweet was created.")
+  @doc("The time the tweet was created. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   createdAt: utcDateTime;
 
   @doc("Number of replies to this tweet.")
@@ -598,7 +598,7 @@ model Notification {
   @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
   parentTweet?: Tweet;
 
-  @doc("Timestamp of the *latest* event in this aggregation.")
+  @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   latestEventAt: utcDateTime;
 
   @doc("Indicates whether the notification has been read.")
@@ -665,7 +665,7 @@ model Message {
   @doc("Optional media URL attached to the message (single media is supported per message)")
   mediaUrl: string | null;
 
-  @doc("Timestamp when the message was created/sent")
+  @doc("Timestamp when the message was created/sent. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   createdAt: utcDateTime;
 
   @doc("True if this message was sent by the authenticated user (Easy for client side)")
@@ -688,7 +688,7 @@ model Conversation {
     @doc("Username of the sender")
     senderUsername: string;
 
-    @doc("Timestamp of the last message")
+    @doc("Timestamp of the last message. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
     sentAt: utcDateTime;
   } | null;
 
@@ -733,7 +733,7 @@ model TopHashtags {
 model RegisterStartBody {
   name: string;
   email: string;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   recaptchaToken: string; // token from client side recaptcha v2
 }
 
@@ -751,7 +751,7 @@ model MessageResponse<TMessage extends string> {
   ...OkResponse;
   ...Body<{
     success: true;
-    message: TMessage;
+    message?: TMessage; // optional message field on success
   }>;
 }
 
@@ -763,12 +763,12 @@ model FollowingUser {
 model AccountInfo {
   username: string;
   email: string | null;
-  accountCreationDate: utcDateTime;
+  accountCreationDate: utcDateTime; // ISO 8601 format (e.g., '2024-01-15T14:30:00Z')
   accountCreationIp: string | null;
   country: string;
   languages: LanguageCode[];
   gender: Gender;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   age: int32;
 }
 
@@ -919,6 +919,7 @@ namespace Auth {
   namespace Password {
     @post
     @route("/forgot")
+    @summary("Initiate the password reset process")
     op forgotPassword(
       @body body: {
         identifier: string;
@@ -936,6 +937,7 @@ namespace Auth {
 
     @post
     @route("/forgot/verify")
+    @summary("Verify the OTP for password reset")
     op verifyForgotPassword(
       @body body: {
         confirmationToken: string;
@@ -949,6 +951,7 @@ namespace Auth {
 
     @post
     @route("/reset")
+    @summary("Reset the password using the confirmation token")
     op resetPassword(
       @body body: {
         confirmationToken: string;
@@ -960,21 +963,9 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
 
-    @put
-    @useAuth(BearerAuth)
-    op changePassword(
-      @body body: {
-        currentPassword: string;
-        newPassword: string;
-      },
-    ):
-      | MessageResponse<"Password changed successfully.">
-      | UnauthorizedResponse
-      | ValidationErrorResponse
-      | InternalServerErrorResponse;
-
     @post
     @route("/resend-otp")
+    @summary("Resend the OTP for password reset")
     op resendOtpPassword(
       @body body: {
         confirmationToken: string;
@@ -988,6 +979,11 @@ namespace Auth {
 
   @get
   @summary("Check if a username or email is already taken")
+  @doc("""
+    This endpoint checks whether a given identifier (username or email) is already taken in the system.
+    to be used in login in shared field which can be either username or email.
+    """)
+
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -995,19 +991,29 @@ namespace Auth {
   }> | ValidationErrorResponse | InternalServerErrorResponse;
 
   @get
+  @summary("Check if a email is already taken")
+  @doc("""
+    This endpoint checks whether a given email is already taken in the system.
+    """)
+  @route("/check-email")
+  op checkEmail(@query email: string): DataResponse<{
+    exists: boolean;
+  }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
   @summary("Check if a username is already taken")
   @doc("""
     This endpoint checks whether a given username is already taken in the system.
     """)
-  @useAuth(BearerAuth)
   @route("/check-username")
+  @useAuth(BearerAuth)
   op checkUsername(@query username: string):
     | DataResponse<{
         exists: boolean;
       }>
     | ValidationErrorResponse
-    | UnauthorizedResponse
     | InternalServerErrorResponse
+    | UnauthorizedResponse
     | NotFoundResponse;
 }
 
@@ -1053,7 +1059,7 @@ namespace Oauth {
     @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       creationToken: string;
-      birthDate: plainDate;
+      birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
     },
   ):
     | DataResponse<{
@@ -1246,7 +1252,9 @@ namespace Me {
       banner: HttpPart<File>;
     },
   ):
-    | MessageResponse<"Banner updated successfully.">
+    | DataResponse<{
+        bannerUrl: string;
+      }>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1298,6 +1306,7 @@ namespace Me {
       | InternalServerErrorResponse
       | ForbiddenResponse;
 
+    @patch(#{ implicitOptionality: false })
     @route("/username")
     @summary("Change the authenticated user's username")
     op updateUsername(
@@ -1392,7 +1401,7 @@ namespace Me {
     @summary("Update the authenticated user's birth date")
     op updateBirthDate(
       @body body: {
-        date: plainDate | null;
+        date: plainDate | null; // ISO 8601 date format (YYYY-MM-DD)
       },
     ):
       | MessageResponse<"Birth date updated successfully.">
@@ -1721,7 +1730,6 @@ namespace Onboarding {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
-
 @tag("Conversations")
 @route("/conversations")
 @useAuth(BearerAuth)
@@ -1878,7 +1886,7 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Get top 3 relevant hastags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
   @route("/hashtags/top")
   op getTopHashtags(
@@ -1967,27 +1975,21 @@ namespace Explore {
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
   @doc("Returns top trending sports-related hashtags (max 30)")
-  op getSportsExplore():
-    | DataResponse<{
-        @doc("Trending sports keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getSportsExplore(): DataResponse<{
+    @doc("Trending sports keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
   @doc("Returns top trending entertainment-related hashtags (max 30)")
-  op getEntertainmentExplore():
-    | DataResponse<{
-        @doc("Trending entertainment keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getEntertainmentExplore(): DataResponse<{
+    @doc("Trending entertainment keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")
@@ -2005,9 +2007,9 @@ namespace Hashtags {
     query: string,
   ):
     | DataResponse<{
-      @doc("List of hashtags suggestions (without #)")
-      suggestions: string[];
-    }>
+        @doc("List of hashtags suggestions (without #)")
+        suggestions: string[];
+      }>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -2019,6 +2021,7 @@ namespace Hashtags {
     @path
     @doc("The hashtag to search for (without #)")
     hashtag: string,
+
     ...CursorPaginationParameters,
   ):
     | DataResponseWithPagination<Tweet[]>
@@ -2027,4 +2030,3 @@ namespace Hashtags {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
-
