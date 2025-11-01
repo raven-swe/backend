@@ -490,4 +490,16 @@ export class UsersService {
 
     return { message: 'User unmuted successfully.' };
   }
+
+  async getUserDetails(userId: bigint) {
+    return this.usersRepository.getUserDetails(userId);
+  }
+
+  async updateBirthDate(userId: bigint, birthDate: Date) {
+    return this.usersRepository.updateBirthDate(userId, birthDate);
+  }
+
+  async getUserSSOs(userId: bigint) {
+    return this.usersRepository.getUserSSOs(userId);
+  }
 }

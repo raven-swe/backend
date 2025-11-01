@@ -432,4 +432,113 @@ export class UsersRepository {
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
+
+  async getUserDetails(userId: bigint) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        userDevices: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+
+    if (user.deletedAt)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+
+    const today = new Date();
+
+    const birthDate = new Date(user.birthdate);
+
+    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+
+    const monthDifference = today.getUTCMonth() - birthDate.getUTCMonth();
+
+    if (
+      monthDifference < 0 ||
+      (monthDifference === 0 && today.getUTCDate() < birthDate.getUTCDate())
+    )
+      age--;
+
+    const response = {
+      username: user.username,
+      email: user.email,
+      accountCreationDate: user.createdAt,
+      accountCreationIp: user.userDevices[0].ipAddress, // workaround as we currently don't store the original ip address of a user
+      country: user.profile?.location, // idk what this location will hold, but twitter allows you to put anything in the location field, however the country is a pre-defined list
+      languages: [user.languageCode],
+      gender: user.gender,
+      birthDate: user.birthdate.toISOString().split('T')[0] || null,
+      age,
+    };
+
+    return response;
+  }
+
+  async updateBirthDate(userId: bigint, birthDate: Date) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND, // these all should be forbidden but i am keeping it consistent with the spec for now
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        birthdate: birthDate,
+      },
+    });
+
+    return { message: 'Birth date updated successfully.' };
+  }
+
+  async getUserSSOs(userId: bigint) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND, // these all should be forbidden but i am keeping it consistent with the spec for now
+      );
+
+    const userExternalAccounts = await this.prisma.userExternalAccount.findMany({
+      where: { userId },
+    });
+
+    const filteredUserExternalAccounts = userExternalAccounts.map((acc) => {
+      return {
+        provider: acc.provider,
+        displayIdentifier: user.email,
+        status: 'Connected',
+        connectedAt: acc.createdAt,
+      };
+    });
+
+    return filteredUserExternalAccounts;
+  }
 }

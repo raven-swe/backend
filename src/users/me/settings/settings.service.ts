@@ -33,6 +33,10 @@ export class SettingsService {
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
+  async getUserDetails(userId: bigint) {
+    return this.usersService.getUserDetails(userId);
+  }
+
   async checkNewEmail(
     userId: bigint,
     inititateEmailUpdateDto: InititateEmailUpdateDto,
@@ -182,5 +186,13 @@ export class SettingsService {
     this.logger.log(`Update username completed for ${updateUsernameDto.newUsername}`);
 
     return res;
+  }
+
+  async updateBirthDate(userId: bigint, birthDate: Date) {
+    return this.usersService.updateBirthDate(userId, birthDate);
+  }
+
+  async getUserSSOs(userId: bigint) {
+    return this.usersService.getUserSSOs(userId);
   }
 }
