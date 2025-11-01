@@ -1,0 +1,15 @@
+meta {
+  name: unlike-tweet
+  type: http
+  seq: 2
+}
+
+delete {
+  url: http://localhost:3000/tweets/1/like
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

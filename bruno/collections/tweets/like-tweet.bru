@@ -1,0 +1,15 @@
+meta {
+  name: like-tweet
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/tweets/1/like
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
