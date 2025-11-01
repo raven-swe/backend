@@ -88,11 +88,13 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
 
       email = primaryVerified.email;
     }
+    let name = githubData.name;
+    if (!name) name = email.split('@')[0]; // handle missing name from github
 
     return {
       id: String(githubData.id),
       email,
-      name: githubData.name,
+      name,
       avatar_url: githubData.avatar_url || null,
       provider: 'github',
     };
