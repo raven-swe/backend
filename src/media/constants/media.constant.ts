@@ -9,7 +9,6 @@ export const MEDIA_CODES = {
   MEDIA_NOT_FOUND: 'MEDIA_NOT_FOUND',
   INVALID_URL: 'INVALID_URL',
   UNAUTHORIZED_DELETE: 'UNAUTHORIZED_DELETE',
-  MEDIA_DELETE_FAILED: 'MEDIA_DELETE_FAILED',
 };
 
 export const MEDIA_MESSAGES = {
@@ -18,5 +17,4 @@ export const MEDIA_MESSAGES = {
   MEDIA_NOT_FOUND: 'Media not found',
   INVALID_URL: 'Invalid URL',
   UNAUTHORIZED_DELETE: 'Unauthorized delete attempt',
-  MEDIA_DELETE_FAILED: 'Failed to delete media',
 };

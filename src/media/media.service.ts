@@ -150,13 +150,7 @@ export class MediaService {
         }
       }
 
-      throw new HttpException(
-        {
-          message: MEDIA_MESSAGES.MEDIA_DELETE_FAILED,
-          code: MEDIA_CODES.MEDIA_DELETE_FAILED,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw error;
     }
   }
 
