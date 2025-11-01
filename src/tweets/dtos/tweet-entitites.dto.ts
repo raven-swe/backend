@@ -1,14 +1,6 @@
-class MentionDto {
-  username: string;
-  startPosition: number;
-}
-
-class HashtagDto {
-  hashtag: string;
-  startPosition: number;
-}
-
+import { Mention } from 'src/common/interfaces/mention-interface';
+import { Hashtag } from 'src/common/interfaces/hashtag-interface';
 export class TweetEntitiesDto {
-  mentions: MentionDto[];
-  hashtags: HashtagDto[];
+  mentions: Mention[];
+  hashtags: Hashtag[];
 }
