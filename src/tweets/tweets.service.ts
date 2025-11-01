@@ -27,7 +27,7 @@ export class TweetsService {
     }
 
     // Check for blocks
-    if (userId !== tweet.id) {
+    if (userId !== tweet.userId) {
       const isBlocked = await this.usersRepository.areUsersBlocked(userId, tweet.userId);
       if (isBlocked) {
         throw new HttpException(
@@ -103,7 +103,7 @@ export class TweetsService {
     }
 
     // Check for blocks
-    if (userId !== tweet.id) {
+    if (userId !== tweet.userId) {
       const isBlocked = await this.usersRepository.areUsersBlocked(userId, tweet.userId);
       if (isBlocked) {
         throw new HttpException(
