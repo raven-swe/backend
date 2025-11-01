@@ -9,18 +9,22 @@ import { Mention } from 'src/common/interfaces/mention-interface';
 import { CreateHashtagData, CreateMentionData } from './interfaces/create-tweet-data.interface';
 import { Hashtag } from 'src/common/interfaces/hashtag-interface';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class TweetsService {
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly trendingService: TrendingService,
     private readonly usersRepository: UsersRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     const parsedContent = parseContent(createTweetDto.content);
-    const mentions = this.checkUsernamesExistence(parsedContent.mentions);
-    const hashtags = this.getHashtagIds(parsedContent.hashtags);
+    await this.prisma.$transaction(async (tx) => {
+      const mentions = await this.checkUsernamesExistence(parsedContent.mentions, tx);
+      const hashtags = await this.getHashtagIds(parsedContent.hashtags, tx);
+    });
   }
 
   /**
