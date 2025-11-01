@@ -61,7 +61,7 @@ type TweetWithIncludes = BaseTweetWithIncludes & {
 export class TweetsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getTimelineForUser(userId: bigint) {
+  async getTimelineForUser(userId: bigint, cursor: string, limit: number) {
     // get followed users
     const followedUsers = await this.prisma.follow.findMany({
       where: { followerId: userId },
@@ -86,6 +86,8 @@ export class TweetsRepository {
           include: tweetInclude(userId),
         },
       },
+      cursor: cursor && cursor.length ? { id: BigInt(cursor) } : undefined,
+      take: limit,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));

@@ -5,11 +5,21 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/tweets/timeline
+  url: http://localhost:3000/tweets/timeline?cursor&limit=20
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+params:query {
+  cursor: 
+  limit: 20
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }
