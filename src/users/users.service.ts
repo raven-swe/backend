@@ -502,4 +502,59 @@ export class UsersService {
   async getUserSSOs(userId: bigint) {
     return this.usersRepository.getUserSSOs(userId);
   }
+
+  async validateLoggedInUser(userId: bigint, currentPassword: string) {
+    return await this.usersRepository.validateLoggedInUser(userId, currentPassword);
+  }
+
+  async removeUserSSO(userId: bigint, provider: string, currentPassword: string) {
+    const correctPassword = await this.validateLoggedInUser(userId, currentPassword);
+
+    if (!correctPassword)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
+          code: USERS_ERROR_CODES.INVALID_PASSWORD,
+        },
+        HttpStatus.FORBIDDEN, // will have to get changed in the spec
+      );
+
+    await this.usersRepository.removeUserSSO(userId, provider);
+
+    return { message: 'Account disconnected successfully.' };
+  }
+
+  async getCountries() {
+    return this.usersRepository.getCountries();
+  }
+
+  async changeCountry(userId: bigint, countryName: string) {
+    const country = await this.usersRepository.checkCountry(countryName);
+
+    await this.usersRepository.updateCountry(userId, country);
+
+    return { message: 'Country updated successfully.' };
+  }
+
+  async updateGender(userId: bigint, gender: string) {
+    await this.usersRepository.updateGender(userId, gender);
+
+    return { message: 'Gender updated successfully.' };
+  }
+
+  async updateLanguage(userId: bigint, gender: string) {
+    await this.usersRepository.updateLanguage(userId, gender);
+
+    return { message: 'Default language updated successfully.' };
+  }
+
+  async getSessions(userid: bigint, refreshToken: string) {
+    return this.usersRepository.getSessions(userid, refreshToken);
+  }
+
+  async deleteSession(userId: bigint, sessionId: bigint, refreshToken: string) {
+    await this.usersRepository.deleteSession(userId, sessionId, refreshToken);
+
+    return { message: 'Session terminated successfully.' };
+  }
 }
