@@ -1,0 +1,20 @@
+meta {
+  name: get-sessions
+  type: http
+  seq: 13
+}
+
+get {
+  url: http://localhost:3000/me/settings/sessions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
