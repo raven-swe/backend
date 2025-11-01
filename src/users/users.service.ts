@@ -213,4 +213,60 @@ export class UsersService {
 
     return this.usersRepository.updateUserEmail(userId, emailUpdateData);
   }
+
+  async getUserFollowers(username: string, limit: number, prevCursor?: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return await this.usersRepository.getUserFollowers(requestedUser.id, limit, prevCursor);
+  }
+  async getUserFollowings(username: string, limit: number, prevCursor?: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return await this.usersRepository.getUserFollowings(requestedUser.id, limit, prevCursor);
+  }
+  async getUserMutualFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return await this.usersRepository.getUserMutualFollowers(
+      requestedUser.id,
+      authUserId,
+      limit,
+      prevCursor,
+    );
+  }
 }
