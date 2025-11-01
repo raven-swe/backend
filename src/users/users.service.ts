@@ -173,6 +173,7 @@ export class UsersService {
     // Upload files if provided and get URLs
     let avatarUrl: string | undefined;
     let bannerUrl: string | undefined | null;
+    let uploadedFiles: { avatarUrl: string | null; bannerUrl: string | null};
 
     if (files && (files.avatar || files.banner)) {
       const filesToUpload: {
@@ -183,11 +184,11 @@ export class UsersService {
         banner: files.banner ? files.banner[0] : undefined,
       };
 
-      const uploadResult = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
+      uploadedFiles = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
 
       // Assign URLs if they were uploaded to return them to the user
-      avatarUrl = uploadResult.avatarUrl ?? undefined;
-      bannerUrl = uploadResult.bannerUrl ?? undefined;
+      avatarUrl = uploadedFiles.avatarUrl ?? undefined;
+      bannerUrl = uploadedFiles.bannerUrl ?? undefined;
     }
 
     // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
