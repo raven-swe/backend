@@ -215,6 +215,7 @@ export class UsersRepository {
       followersCount: user._count.followers,
       mutualsCount: mutualsCount ? mutualsCount : null,
       mutualNames,
+      email: isMyProfile ? user.email : undefined,
     };
   }
 

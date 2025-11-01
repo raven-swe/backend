@@ -30,4 +30,6 @@ export class UserProfileResponseDto {
   followersCount: number;
   mutualsCount?: number | null;
   mutualNames?: string[] | null;
+
+  email?: string;
 }
