@@ -16,6 +16,7 @@ jest.mock('./utils/validate-password-format.util');
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { MediaService } from 'src/media/media.service';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -68,6 +69,10 @@ describe('UsersService', () => {
     add: jest.fn(),
   };
 
+  const mockMediaService = {
+    uploadAvatarAndBanner: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
@@ -76,6 +81,7 @@ describe('UsersService', () => {
         { provide: UsersRepository, useValue: mockRepository },
         { provide: PrismaService, useValue: {} },
         { provide: UsersService, useClass: UsersService },
+        { provide: MediaService, useValue: mockMediaService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
       ],
     }).compile();
@@ -355,8 +361,6 @@ describe('UsersService', () => {
       bio: 'Updated bio',
       location: 'New Location',
       websiteUrl: 'https://newsite.com',
-      avatarUrl: 'https://example.com/new-avatar.jpg',
-      bannerUrl: 'https://example.com/new-banner.jpg',
     };
 
     test('should successfully update user profile with all fields provided', async () => {
@@ -373,7 +377,12 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), updateProfileDto);
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        updateProfileDto,
+        undefined,
+        undefined,
+      );
     });
 
     test('should update only provided fields in user profile', async () => {
@@ -394,7 +403,12 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), partialUpdateDto);
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        partialUpdateDto,
+        undefined,
+        undefined,
+      );
     });
 
     test('should throw error if user not found', async () => {
@@ -424,7 +438,12 @@ describe('UsersService', () => {
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
       expect(message).toEqual('Profile updated successfully');
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(BigInt(1), emptyUpdateDto);
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        emptyUpdateDto,
+        undefined,
+        undefined,
+      );
     });
   });
 

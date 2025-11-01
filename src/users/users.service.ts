@@ -137,7 +137,8 @@ export class UsersService {
    * @param userId - The ID of the user whose profile is to be updated.
    * @param data - The profile data to be updated.
    * @param files - Optional files containing avatar and banner images.
-   * @returns
+   *
+   * @returns An object containing a success message and the updated profile data.
    */
   async updateProfile(
     userId: bigint,
