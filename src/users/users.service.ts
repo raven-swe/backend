@@ -494,15 +494,8 @@ export class UsersService {
     return { message: 'User unmuted successfully.' };
   }
 
+  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
-    if (!banner) {
-      throw new BadRequestException(
-        createValidationError('banner', {
-          fileRequired: 'Banner file is required.',
-        }),
-      );
-    }
-
     const bannerUrl = await this.mediaService.uploadAndSaveMedia(
       banner,
       userId,
@@ -514,15 +507,8 @@ export class UsersService {
     return { message: 'Banner uploaded successfully', bannerUrl };
   }
 
+  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
-    if (!avatar) {
-      throw new BadRequestException(
-        createValidationError('avatar', {
-          fileRequired: 'Avatar file is required.',
-        }),
-      );
-    }
-
     const avatarUrl = await this.mediaService.uploadAndSaveMedia(
       avatar,
       userId,
@@ -532,5 +518,15 @@ export class UsersService {
     await this.usersRepository.updateAvatar(userId, avatarUrl);
 
     return { message: 'Avatar uploaded successfully', avatarUrl };
+  }
+
+  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
+  async deleteBanner(userId: bigint) {
+    const { bannerUrl } = await this.usersRepository.deleteBanner(userId);
+    if (bannerUrl) {
+      await this.mediaService.deleteFile(bannerUrl, userId);
+    }
+
+    return { message: 'Banner deleted successfully' };
   }
 }

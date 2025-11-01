@@ -143,4 +143,11 @@ export class MeController {
     const userIdBigInt = BigInt(user.id);
     return this.usersService.uploadBanner(userIdBigInt, banner);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('banner')
+  async deleteBanner(@User() user: RequestUser) {
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.deleteBanner(userIdBigInt);
+  }
 }

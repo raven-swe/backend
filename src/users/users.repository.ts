@@ -446,4 +446,11 @@ export class UsersRepository {
       data: { avatarUrl },
     });
   }
+
+  async deleteBanner(userId: bigint) {
+    return await this.prisma.profile.update({
+      where: { userId },
+      data: { bannerUrl: null },
+    });
+  }
 }
