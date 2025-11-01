@@ -1,0 +1,20 @@
+meta {
+  name: external-accounts
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:3000/me/settings/connected-accounts
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
