@@ -93,8 +93,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType:
-                  'Only image and video files are allowed (jpg, jpeg, png, gif, mp4, mkv, webm, mov).',
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
               }),
             ),
             false,
@@ -113,5 +112,35 @@ export class MeController {
   ) {
     const userIdBigInt = BigInt(user.id);
     return this.usersService.uploadAvatar(userIdBigInt, avatar);
+  }
+
+  @Post('banner')
+  @UseInterceptors(
+    FileInterceptor('banner', {
+      fileFilter: (req, file, callback) => {
+        const ext = file.originalname.split('.').pop()?.toLowerCase();
+        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
+          return callback(
+            new BadRequestException(
+              createValidationError(file.fieldname, {
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+              }),
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: { fileSize: MAX_FILE_SIZE_BYTES },
+    }),
+  )
+  @UseGuards(JwtAuthGuard)
+  async uploadBanner(
+    @User() user: RequestUser,
+    @UploadedFile()
+    banner: Express.Multer.File,
+  ) {
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.uploadBanner(userIdBigInt, banner);
   }
 }
