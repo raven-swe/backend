@@ -192,6 +192,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
+alias FollowUserResponse = MessageResponse<"user followed successfully">;
+alias BlockUserResponse = MessageResponse<"user blocked successfully">;
+alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
+alias MuteUserResponse = MessageResponse<"user muted successfully">;
+alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -397,7 +404,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -419,7 +426,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @tag("Auth")
 @route("/auth")
@@ -480,25 +486,25 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
-    @route("/password")
-    namespace Password {
-      @post
-      @route("/forgot")
-      @summary("Initiate the password reset process")
-      op forgotPassword(
-        @body body: {
-          identifier: string;
-          recaptchaToken: string; // token from client side recaptcha v2
-        },
-      ):
-        | DataResponse<{
-            confirmationToken: string;
-          }>
-        | ValidationErrorResponse
-        | NotFoundResponse
-        | RateLimitResponse
-        | InternalServerErrorResponse
-        | BadRequestResponse;
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
@@ -541,7 +547,7 @@ namespace Auth {
       | RateLimitResponse
       | InternalServerErrorResponse;
   }
-  
+
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -657,6 +663,46 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @post
+  @route("/banner")
+  op updateBanner(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      banner: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        bannerUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/banner")
+  op deleteBanner():
+    | MessageResponse<"Banner deleted successfully.">
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
+  @post
+  @route("/profile-picture")
+  op updateProfilePicture(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      profilePicture: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        avatarUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
@@ -719,6 +765,101 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
+
+  @route("/blocks")
+  @useAuth(BearerAuth)
+  namespace Blocks {
+    @summary("Block a user")
+    @post
+    @route("/{username}")
+    op blockUser(
+      @path
+      username: string,
+    ):
+      | BlockUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unblock a user")
+    @delete
+    @route("/{username}")
+    op unblockUser(
+      @path
+      username: string,
+    ):
+      | UnblockUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/mutes")
+  @useAuth(BearerAuth)
+  namespace Mutes {
+    @summary("Mute a user")
+    @post
+    @route("/{username}")
+    op muteUser(
+      @path
+      username: string,
+    ):
+      | MuteUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unmute a user")
+    @delete
+    @route("/{username}")
+    op unmuteUser(
+      @path
+      username: string,
+    ):
+      | UnmuteUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+}
+
+@tag("Users")
+@route("/users")
+@useAuth(BearerAuth)
+namespace Users {
+  @route("/{username}/following")
+  namespace Following {
+    @summary("Follow a user")
+    @post
+    op followUser(
+      @path
+      username: string,
+    ):
+      | FollowUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unfollow a user")
+    @delete
+    op unfollowUser(
+      @path
+      username: string,
+    ):
+      | UnfollowUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
 }
 
 @tag("Users")
@@ -728,11 +869,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
-   
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")

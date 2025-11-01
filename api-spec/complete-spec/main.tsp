@@ -445,7 +445,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -467,7 +467,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @doc("The type of media file.")
 enum MediaType {
@@ -983,7 +982,6 @@ namespace Auth {
     This endpoint checks whether a given identifier (username or email) is already taken in the system.
     to be used in login in shared field which can be either username or email.
     """)
-
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -1087,10 +1085,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 
   @summary("List user's tweets")
   @get
@@ -1730,7 +1727,6 @@ namespace Onboarding {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
-
 @tag("Conversations")
 @route("/conversations")
 @useAuth(BearerAuth)
@@ -1991,4 +1987,43 @@ namespace Explore {
     @maxItems(30)
     trendingHashtags: HashtagPreview[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Hashtags")
+@useAuth(BearerAuth)
+@route("/hashtags")
+namespace Hashtags {
+  @get
+  @route("/suggestions")
+  @summary("Get suggested hashtags based on trending topics")
+  @doc("Returns a list of suggested hashtags based on current trends and the user's interests.")
+  op getHashtagSuggestions(
+    @query
+    @doc("search query (without #) to filter suggestions (min 1 character)")
+    @minLength(1)
+    query: string,
+  ):
+    | DataResponse<{
+        @doc("List of hashtags suggestions (without #)")
+        suggestions: string[];
+      }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @route("/{hashtag}/tweets")
+  @summary("Get tweets for a specific hashtag")
+  @doc("Returns all tweets containing the specified hashtag with cursor-based pagination.")
+  op getHashtagTweets(
+    @path
+    @doc("The hashtag to search for (without #)")
+    hashtag: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<Tweet[]>
+    | ValidationErrorResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
