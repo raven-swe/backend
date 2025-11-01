@@ -1,0 +1,26 @@
+meta {
+  name: create-tweet
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/tweets
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "content": "my name is omar, #yarab_google"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
