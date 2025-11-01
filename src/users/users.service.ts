@@ -173,36 +173,49 @@ export class UsersService {
     // Upload files if provided and get URLs
     let avatarUrl: string | undefined;
     let bannerUrl: string | undefined | null;
-    let uploadedFiles: { avatarUrl: string | null; bannerUrl: string | null};
+    let uploadedFiles: { avatarUrl?: string | null; bannerUrl?: string | null } = {};
 
-    if (files && (files.avatar || files.banner)) {
-      const filesToUpload: {
-        avatar?: Express.Multer.File;
-        banner?: Express.Multer.File;
-      } = {
-        avatar: files.avatar ? files.avatar[0] : undefined,
-        banner: files.banner ? files.banner[0] : undefined,
+    try {
+      if (files && (files.avatar || files.banner)) {
+        const filesToUpload: {
+          avatar?: Express.Multer.File;
+          banner?: Express.Multer.File;
+        } = {
+          avatar: files.avatar ? files.avatar[0] : undefined,
+          banner: files.banner ? files.banner[0] : undefined,
+        };
+
+        uploadedFiles = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
+
+        // Assign URLs if they were uploaded to return them to the user
+        avatarUrl = uploadedFiles.avatarUrl ?? undefined;
+        bannerUrl = uploadedFiles.bannerUrl ?? undefined;
+      }
+
+      // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
+      // TODO: banner should be deleted from storage as well
+      if (data.deleteBanner && !files?.banner?.length) {
+        bannerUrl = null;
+      }
+
+      const profile = await this.usersRepository.updateProfile(userId, data, avatarUrl, bannerUrl);
+
+      return {
+        message: 'Profile updated successfully',
+        ...profile,
       };
+    } catch (error) {
+      // Rollback: Delete uploaded files if update operation fails
+      if (uploadedFiles.avatarUrl) {
+        await this.mediaService.deleteFile(uploadedFiles.avatarUrl, user.id);
+      }
 
-      uploadedFiles = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
+      if (uploadedFiles.bannerUrl) {
+        await this.mediaService.deleteFile(uploadedFiles.bannerUrl, user.id);
+      }
 
-      // Assign URLs if they were uploaded to return them to the user
-      avatarUrl = uploadedFiles.avatarUrl ?? undefined;
-      bannerUrl = uploadedFiles.bannerUrl ?? undefined;
+      this.logger.error('Failed to update user profile', error);
     }
-
-    // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
-    // TODO: banner should be deleted from storage as well
-    if (data.deleteBanner && !files?.banner?.length) {
-      bannerUrl = null;
-    }
-
-    const profile = await this.usersRepository.updateProfile(userId, data, avatarUrl, bannerUrl);
-
-    return {
-      message: 'Profile updated successfully',
-      ...profile,
-    };
   }
 
   /**
