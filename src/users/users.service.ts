@@ -13,6 +13,8 @@ import { validateNewPasswordFormat } from './utils/validate-password-format.util
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { MediaService } from 'src/media/media.service';
+import { MediaFolder } from 'src/media/enums/media-folder.enum';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +23,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
+    private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -489,5 +492,45 @@ export class UsersService {
     this.logger.log(`User ID: ${userId} unmuted User ID: ${mutedId}`);
 
     return { message: 'User unmuted successfully.' };
+  }
+
+  async uploadBanner(userId: bigint, banner: Express.Multer.File) {
+    if (!banner) {
+      throw new BadRequestException(
+        createValidationError('banner', {
+          fileRequired: 'Banner file is required.',
+        }),
+      );
+    }
+
+    const bannerUrl = await this.mediaService.uploadAndSaveMedia(
+      banner,
+      userId,
+      MediaFolder.BANNERS,
+    );
+
+    await this.usersRepository.updateBanner(userId, bannerUrl);
+
+    return { message: 'Banner uploaded successfully', bannerUrl };
+  }
+
+  async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
+    if (!avatar) {
+      throw new BadRequestException(
+        createValidationError('avatar', {
+          fileRequired: 'Avatar file is required.',
+        }),
+      );
+    }
+
+    const avatarUrl = await this.mediaService.uploadAndSaveMedia(
+      avatar,
+      userId,
+      MediaFolder.AVATARS,
+    );
+
+    await this.usersRepository.updateAvatar(userId, avatarUrl);
+
+    return { message: 'Avatar uploaded successfully', avatarUrl };
   }
 }

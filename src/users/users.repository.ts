@@ -432,4 +432,18 @@ export class UsersRepository {
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
+
+  async updateBanner(userId: bigint, bannerUrl: string) {
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { bannerUrl },
+    });
+  }
+
+  async updateAvatar(userId: bigint, avatarUrl: string) {
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { avatarUrl },
+    });
+  }
 }
