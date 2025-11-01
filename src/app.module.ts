@@ -16,6 +16,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 import { MediaModule } from './media/media.module';
+import { TrendingModule } from './trending/trending.module';
+import { TweetsModule } from './tweets/tweets.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { MediaModule } from './media/media.module';
     RefreshTokensModule,
     DevicesModule,
     MediaModule,
+    TweetsModule,
+    TrendingModule,
   ],
   controllers: [],
   providers: [
