@@ -14,7 +14,7 @@ export class TrendingService {
   ): Promise<CreateHashtagData[]> {
     const hashtagIds = await this.TrendingRepository.getOrCreateHashtagIds(hashtags, tx);
     return hashtags.map((hashtag, i) => {
-      return { hashtagId: hashtagIds[i], startingIndex: hashtag.startingIndex };
+      return { hashtagId: hashtagIds[i], startPosition: hashtag.startingIndex };
     });
   }
 }

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -56,7 +57,6 @@ type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
 type TweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
 };
-import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 
 @Injectable()
 export class TweetsRepository {

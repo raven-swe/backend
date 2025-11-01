@@ -20,7 +20,7 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
-
+import { TrendingModule } from './trending/trending.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -52,6 +52,7 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
     MediaModule,
     TweetsModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
+    TrendingModule,
   ],
   controllers: [HealthController],
   providers: [

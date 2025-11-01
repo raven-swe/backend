@@ -1,18 +1,19 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
-import { UsersRepository } from 'src/users/users.repository';
 import { decodeCursor, paginateSingle } from 'src/common/utils';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
-import { TweetDto } from './dtos/tweet.dto';
-import { TweetsRepository } from './tweets.repository';
 import { TrendingService } from 'src/trending/trending.service';
 import { parseContent } from 'src/common/utils/parse-content.util';
 import { UsersRepository } from 'src/users/users.repository';
-import { Mention } from 'src/common/interfaces/mention-interface';
-import { CreateHashtagData, CreateMentionData } from './interfaces/create-tweet-data.interface';
-import { Hashtag } from 'src/common/interfaces/hashtag-interface';
+import {
+  CreateHashtagData,
+  CreateMentionData,
+  CreateTweetData,
+} from './interfaces/create-tweet-data.interface';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
+
 @Injectable()
 export class TweetsService {
   private readonly logger = new Logger(TweetsService.name);
@@ -20,6 +21,8 @@ export class TweetsService {
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
+    private readonly trendingService: TrendingService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getTimeline(userId: bigint, cursor: string, limit: number) {
@@ -33,6 +36,51 @@ export class TweetsService {
       items: validTweets,
       pagination,
     };
+  }
+
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<{ message: string }> {
+    console.log('tweet content:', createTweetDto);
+    const parsedContent = parseContent(createTweetDto.content);
+    await this.prisma.$transaction(async (tx) => {
+      const mentions = await this.checkUsernamesExistence(parsedContent.mentions, tx);
+      const hashtags = await this.getHashtagIds(parsedContent.hashtags, tx);
+
+      const tweetData: CreateTweetData = {
+        userId,
+        content: createTweetDto.content,
+        replyToTweetId: createTweetDto.replyToTweetId
+          ? BigInt(createTweetDto.replyToTweetId)
+          : null,
+        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
+        Mentions: mentions,
+        Hashtags: hashtags,
+      };
+
+      await this.tweetsRepository.create(tweetData, tx);
+    });
+    return { message: 'Tweet created successfully' };
+  }
+
+  /**
+   *
+   * @param usernames array of mentions
+   * @returns a new array of mentions or real existing users
+   */
+  private async checkUsernamesExistence(
+    mentions: Mention[],
+    tx: Prisma.TransactionClient,
+  ): Promise<CreateMentionData[]> {
+    return await this.usersRepository.checkUsernamesExistenceAndReplaceIds(mentions, tx);
+  }
+
+  private async getHashtagIds(
+    hashtags: Hashtag[],
+    tx: Prisma.TransactionClient,
+  ): Promise<CreateHashtagData[]> {
+    if (!hashtags || hashtags.length === 0) {
+      return [];
+    }
+    return this.trendingService.getOrCreateHashtagIds(hashtags, tx);
   }
   // --------------------------------------
 
@@ -187,38 +235,4 @@ export class TweetsService {
 
     return { message: 'Tweet unretweeted successfully' };
   }
-  constructor(
-    private readonly tweetsRepository: TweetsRepository,
-    private readonly trendingService: TrendingService,
-    private readonly usersRepository: UsersRepository,
-  ) {}
-
-  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
-    const parsedContent = parseContent(createTweetDto.content);
-    const mentions = this.checkUsernamesExistence(parsedContent.mentions);
-    const hashtags = this.getHashtagIds(parsedContent.hashtags);
-  }
-
-  /**
-   *
-   * @param usernames array of mentions
-   * @returns a new array of mentions or real existing users
-   */
-  private async checkUsernamesExistence(
-    mentions: Mention[],
-    tx: Prisma.TransactionClient,
-  ): Promise<CreateMentionData[]> {
-    return await this.usersRepository.checkUsernamesExistenceAndReplaceIds(mentions, tx);
-  }
-
-  private async getHashtagIds(
-    hashtags: Hashtag[],
-    tx: Prisma.TransactionClient,
-  ): Promise<CreateHashtagData[]> {
-    if (!hashtags || hashtags.length === 0) {
-      return [];
-    }
-    return this.trendingService.getOrCreateHashtagIds(hashtags, tx);
-  }
-  // --------------------------------------
 }

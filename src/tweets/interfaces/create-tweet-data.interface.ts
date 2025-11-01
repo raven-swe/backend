@@ -15,6 +15,6 @@ export interface CreateTweetData {
   Mentions: CreateMentionData[];
   Hashtags: CreateHashtagData[];
 
-  replyToTweetId?: bigint;
-  quotedTweetId?: bigint;
+  replyToTweetId: bigint | null;
+  quotedTweetId: bigint | null;
 }
