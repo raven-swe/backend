@@ -41,6 +41,17 @@ model CursorPagination {
   hasNextPage: boolean;
 }
 
+@doc("Query parameters for cursor-based pagination")
+model CursorPaginationParameters {
+  @query
+  @doc("The cursor position to start fetching from")
+  cursor: string;
+
+  @query
+  @doc("The number of items to return per page (default: 20)")
+  limit: int32 = 20;
+}
+
 @doc("Success response wrapper with data")
 model ApiSuccessResponse<T> {
   success: true;
@@ -192,6 +203,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model FollowingUser {
+  ...CompactUser;
+  isFollowing: boolean;
+}
+
+alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -795,8 +813,35 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-  @route("/{username}/following")
-  namespace Following {
+  namespace Follows {
+    @summary("List a user's followers")
+    @get
+    @route("/{username}/followers")
+    op listUserFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/{username}/mutual")
+    @summary("List mutual followers with a user given their username")
+    op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @route("/{username}/following")
+    namespace Following {
+      @summary("List users a user is following")
+      @get
+      op listUserFollowing(@path username: string, ...CursorPaginationParameters):
+        | FollowingListResponse
+        | NotFoundResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+
     @summary("Follow a user")
     @post
     op followUser(
@@ -821,6 +866,7 @@ namespace Users {
       | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+  }
   }
 }
 
