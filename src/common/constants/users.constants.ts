@@ -22,6 +22,7 @@ export const USERS_ERROR_CODES = {
   CANNOT_UNMUTE_USER: 'CANNOT_UNMUTE_USER',
   CANNOT_UNBLOCK_USER: 'CANNOT_UNBLOCK_USER',
   CANNOT_UNFOLLOW_USER: 'CANNOT_UNFOLLOW_USER',
+  BANNER_NOT_FOUND: 'BANNER_NOT_FOUND',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -49,4 +50,5 @@ export const USERS_ERROR_MESSAGES = {
   CANNOT_UNMUTE_USER: 'You cannot unmute this user',
   CANNOT_UNBLOCK_USER: 'You cannot unblock this user',
   CANNOT_UNFOLLOW_USER: 'You cannot unfollow this user',
+  BANNER_NOT_FOUND: 'Banner not found for the user',
 } as const;

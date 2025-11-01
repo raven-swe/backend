@@ -1,0 +1,24 @@
+meta {
+  name: upload-profile-pic
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://localhost:3000/me/profile-picture
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJpYXQiOjE3NjE5Njc1NTcsImV4cCI6MTc2MTk2ODQ1N30.ENlfsdg7rQCGWJQ8PmNGmKa8A4SDaUaEUNs-Ga42uH0
+}
+
+body:multipart-form {
+  avatar: @file(/home/tasneem/Pictures/data link layer.png)
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
