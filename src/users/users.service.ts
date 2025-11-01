@@ -516,7 +516,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_PASSWORD,
         },
-        HttpStatus.FORBIDDEN, // will have to get changed in the spec
+        HttpStatus.UNAUTHORIZED,
       );
 
     await this.usersRepository.removeUserSSO(userId, provider);
