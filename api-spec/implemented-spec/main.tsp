@@ -288,7 +288,7 @@ model PublicUser {
   birthDate: plainDate | null;
 
   @doc("Date when the user joined")
-  joinedAt: utcDateTime;
+  joinedAt: utcDateTime | null;
 }
 
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
