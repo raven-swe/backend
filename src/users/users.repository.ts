@@ -129,74 +129,72 @@ export class UsersRepository {
 
     if (!user || user.deletedAt) return null;
 
-    // Get relationship if currentUserId is provided
-    let relationship: UserRelationshipDto | null = null;
-
     // TODO: convert to "let" after implementing mutual followers
     const mutualsCount: number | null = 2;
     const mutualNames: string[] | null = ['Omar', 'Tasneem'];
 
     // Get relationship status only if currentUserId is provided and is not my profile
-    let isBlocking = null;
+    let [isBlocking, isBlockedBy] = [false, false];
+    let [isFollowing, isFollower, isMuted] = [false, false, false];
+
     if (currentUserId && !isMyProfile) {
-      // Check if current user is blocking this user
-      isBlocking = await this.isBlocked(currentUserId, user.id);
+      // Check blocking status first
+      const [blocking, blockedBy] = await Promise.all([
+        this.isBlocked(currentUserId, user.id),
+        this.isBlocked(user.id, currentUserId),
+      ]);
+      isBlocking = blocking;
+      isBlockedBy = blockedBy;
 
-      // Check if the user is blocking current user
-      const isBlockedBy = await this.isBlocked(user.id, currentUserId);
-
-      // If current user is blocking the user, return limited profile info
-      if (isBlocking) {
-        return {
-          username: user.username,
-          displayName: user.profile?.displayName || '',
-          bio: null,
-          bioEntities: null,
-          location: null,
-          birthDate: null,
-          avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-          bannerUrl: user.profile?.bannerUrl || null,
-          websiteUrl: null,
-          joinedAt: null,
-          relationship: {
-            blocking: true,
-            blockedBy: !!isBlockedBy,
-            following: false,
-            follower: false,
-            muted: false,
-          },
-          followingCount: user._count.following,
-          followersCount: user._count.followers,
-          mutualsCount: null,
-          mutualNames: null,
-        };
-      }
-
-      // Only check following/mute status if not blocking or blocked by
-      let isFollowing = null;
-      let isFollower = null;
-      let isMuted = null;
       if (!isBlocking && !isBlockedBy) {
-        // Check if current user is following this user
-        isFollowing = await this.isFollowing(currentUserId, user.id);
-
-        // Check if this user is following current user
-        isFollower = await this.isFollowing(user.id, currentUserId);
-
-        // Check if the current user has muted this user
-        isMuted = await this.isMuted(currentUserId, user.id);
+        // Check following and mute status in parallel if not blocking or blocked by
+        const [following, follower, muted] = await Promise.all([
+          this.isFollowing(currentUserId, user.id),
+          this.isFollowing(user.id, currentUserId),
+          this.isMuted(currentUserId, user.id),
+        ]);
+        [isFollowing, isFollower, isMuted] = [following, follower, muted];
       }
+    }
 
-      relationship = {
-        blocking: !!isBlocking,
-        blockedBy: !!isBlockedBy,
-        following: !!isFollowing,
-        follower: !!isFollower,
-        muted: !!isMuted,
+    // If current user is blocking the user, return limited profile info
+    if (isBlocking) {
+      return {
+        username: user.username,
+        displayName: user.profile?.displayName || '',
+        bio: null,
+        bioEntities: null,
+        location: null,
+        birthDate: null,
+        avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        bannerUrl: user.profile?.bannerUrl || null,
+        websiteUrl: null,
+        joinedAt: null,
+        relationship: {
+          blocking: true,
+          blockedBy: !!isBlockedBy,
+          following: false,
+          follower: false,
+          muted: false,
+        },
+        followingCount: user._count.following,
+        followersCount: user._count.followers,
+        mutualsCount: null,
+        mutualNames: null,
       };
 
       // TODO: Get mutual followers count and names
     }
+
+    const relationship: UserRelationshipDto | null = isMyProfile
+      ? null
+      : {
+          blocking: isBlocking,
+          blockedBy: isBlockedBy,
+          following: isFollowing,
+          follower: isFollower,
+          muted: isMuted,
+        };
 
     return {
       username: user.username,
@@ -205,7 +203,7 @@ export class UsersRepository {
       // TODO: return actual bio entities after implementing rich text bios
       bioEntities: null,
       location: user.profile?.location || null,
-      birthDate: user.birthdate.toISOString().split('T')[0] || null,
+      birthDate: user.birthdate?.toISOString().split('T')[0] || null,
       avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
       bannerUrl: user.profile?.bannerUrl || null,
       websiteUrl: user.profile?.websiteUrl || null,
@@ -213,8 +211,8 @@ export class UsersRepository {
       relationship,
       followingCount: user._count.following,
       followersCount: user._count.followers,
-      mutualsCount: mutualsCount ? mutualsCount : null,
-      mutualNames,
+      mutualsCount: mutualsCount && !isMyProfile ? mutualsCount : null,
+      mutualNames: mutualNames && !isMyProfile ? mutualNames : null,
       email: isMyProfile ? user.email : undefined,
     };
   }
