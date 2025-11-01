@@ -16,6 +16,7 @@ jest.mock('./utils/validate-password-format.util');
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { MediaService } from 'src/media/media.service';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -78,6 +79,11 @@ describe('UsersService', () => {
     add: jest.fn(),
   };
 
+  const mockMediaService = {
+    deleteMedia: jest.fn(),
+    uploadAndSaveMedia: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
@@ -87,6 +93,7 @@ describe('UsersService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: UsersService, useClass: UsersService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
+        { provide: MediaService, useValue: mockMediaService },
       ],
     }).compile();
 

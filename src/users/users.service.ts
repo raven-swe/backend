@@ -524,7 +524,7 @@ export class UsersService {
   async deleteBanner(userId: bigint) {
     const { bannerUrl } = await this.usersRepository.deleteBanner(userId);
     if (bannerUrl) {
-      await this.mediaService.deleteFile(bannerUrl, userId);
+      await this.mediaService.deleteMedia(bannerUrl, userId);
     }
 
     return { message: 'Banner deleted successfully' };

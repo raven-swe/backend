@@ -94,7 +94,7 @@ export class MediaService {
     }
   }
 
-  async deleteFile(url: string, userId: bigint): Promise<void> {
+  async deleteMedia(url: string, userId: bigint): Promise<void> {
     let mediaRecord = null;
 
     try {
