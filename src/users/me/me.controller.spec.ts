@@ -278,7 +278,7 @@ describe('MeController', () => {
     });
   });
 
-  describe('POST /me/avatar', () => {
+  describe('POST /me/profile-picture', () => {
     const avatar = {
       fieldname: 'avatar',
       originalname: 'avatar.jpg',

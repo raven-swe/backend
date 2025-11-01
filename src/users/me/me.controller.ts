@@ -86,7 +86,7 @@ export class MeController {
 
   @Post('profile-picture')
   @UseInterceptors(
-    FileInterceptor('avatar', {
+    FileInterceptor('profilePicture', {
       fileFilter: (req, file, callback) => {
         const ext = file.originalname.split('.').pop()?.toLowerCase();
         if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
@@ -108,10 +108,10 @@ export class MeController {
   async uploadAvatar(
     @User() user: RequestUser,
     @UploadedFile()
-    avatar: Express.Multer.File,
+    profilePicture: Express.Multer.File,
   ) {
     const userIdBigInt = BigInt(user.id);
-    return this.usersService.uploadAvatar(userIdBigInt, avatar);
+    return this.usersService.uploadAvatar(userIdBigInt, profilePicture);
   }
 
   @Post('banner')
