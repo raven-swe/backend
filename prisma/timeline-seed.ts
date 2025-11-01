@@ -37,6 +37,8 @@ async function main() {
   console.log('[1/5] Cleaning up old seed data...');
   await prisma.tweetHashtag.deleteMany({});
   await prisma.tweetMention.deleteMany({});
+  await prisma.like.deleteMany({});
+  await prisma.retweet.deleteMany({});
   await prisma.tweet.deleteMany({});
   await prisma.follow.deleteMany({});
   await prisma.trendingKeyword.deleteMany({});
@@ -183,15 +185,6 @@ async function main() {
     },
   });
 
-  await prisma.tweet.create({
-    data: {
-      userId: omarGamal.id,
-      content: 'Haha, savor it! It never lasts.',
-      quotedTweetId: mostafaDevlifeTweet.id, // Quote Tweet
-      createdAt: new Date(baseTime - 1000 * 60 * 82), // 82 mins ago
-    },
-  });
-
   // A new thread starts: a bug is found.
   const tasneemBugTweet = await prisma.tweet.create({
     data: {
@@ -201,6 +194,15 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 60), // 60 mins ago
       hasMentions: true,
       tweetMentions: { create: { userId: omarGamal.id, startingIndex: 104 } },
+    },
+  });
+
+  await prisma.tweet.create({
+    data: {
+      userId: omarGamal.id,
+      content: 'let the goofy frontenders fix it',
+      quotedTweetId: tasneemBugTweet.id, // Quote Tweet
+      createdAt: new Date(baseTime - 1000 * 60 * 50), // 50 mins ago
     },
   });
 
@@ -229,6 +231,48 @@ async function main() {
       hasMentions: true,
       tweetHashtags: { create: { hashtagId: speedHashtag.id, startingIndex: 40 } },
       tweetMentions: { create: { userId: loay.id, startingIndex: 81 } },
+    },
+  });
+
+  await prisma.like.create({
+    data: {
+      userId: omarGamal.id,
+      tweetId: mostafaDevlifeTweet.id,
+    },
+  });
+
+  await prisma.tweet.update({
+    where: { id: mostafaDevlifeTweet.id },
+    data: { likeCount: { increment: 1 } },
+  });
+
+  await prisma.retweet.create({
+    data: {
+      userId: omarGamal.id,
+      tweetId: mostafaDevlifeTweet.id,
+    },
+  });
+
+  await prisma.retweet.create({
+    data: {
+      userId: omarHassan.id,
+      tweetId: mostafaDevlifeTweet.id,
+    },
+  });
+
+  await prisma.tweet.update({
+    where: { id: mostafaDevlifeTweet.id },
+    data: { retweetCount: { increment: 2 } },
+  });
+
+  await prisma.tweet.create({
+    data: {
+      userId: omarHassan.id,
+      content: "This is so hilarious that I'm gonna quote it lmao",
+      createdAt: new Date(baseTime - 1000 * 60 * 70), // 70 mins ago
+      hasHashtags: true,
+      hasMentions: true,
+      quotedTweetId: omarStreamTweet.id,
     },
   });
 

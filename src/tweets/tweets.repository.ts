@@ -17,13 +17,15 @@ const tweetInclude = (currentUserId: bigint) =>
         },
       },
     },
-    likes: {
-      where: { userId: currentUserId },
-      select: { userId: true },
-    },
-    retweets: {
-      where: { userId: currentUserId },
-      select: { userId: true },
+    _count: {
+      select: {
+        likes: {
+          where: { userId: currentUserId },
+        },
+        retweets: {
+          where: { userId: currentUserId },
+        },
+      },
     },
     tweetMentions: {
       select: {
@@ -104,8 +106,8 @@ export class TweetsRepository {
       replyCount: tweet.replyCount,
       retweetCount: tweet.retweetCount,
       likeCount: tweet.likeCount,
-      isLiked: tweet.likes.length > 0,
-      isRetweeted: tweet.retweets.length > 0,
+      isLiked: tweet._count.likes > 0,
+      isRetweeted: tweet._count.retweets > 0,
       entities: {
         mentions: tweet.tweetMentions.map((mention) => ({
           username: mention.user.username,
