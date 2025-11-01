@@ -27,14 +27,14 @@ export class ResponseInterceptor<T>
         if (
           response &&
           typeof response === 'object' &&
-          'dataArr' in response &&
+          'items' in response &&
           'pagination' in response
         ) {
-          const { message, dataArr, pagination } = response;
+          const { message, items, pagination } = response;
           return {
             success: true,
             message: message as string | undefined,
-            data: dataArr as T,
+            data: items as T,
             pagination: pagination as CursorPagination,
           };
         }
