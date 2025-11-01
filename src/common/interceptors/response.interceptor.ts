@@ -7,7 +7,14 @@ import { ApiSuccessResponse } from '../interfaces/response.interface';
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiSuccessResponse<T>> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiSuccessResponse<T>> {
     return next.handle().pipe(
-      map((response: Record<string, unknown>) => {
+      map((response: Record<string, unknown> | unknown[]) => {
+        if (Array.isArray(response)) {
+          return {
+            success: true,
+            data: response as T,
+          };
+        }
+
         const { message, ...rest } = response;
         return {
           success: true,
