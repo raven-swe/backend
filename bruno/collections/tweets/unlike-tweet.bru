@@ -7,9 +7,14 @@ meta {
 delete {
   url: http://localhost:3000/tweets/1/like
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJpYXQiOjE3NjIwMTk0NjMsImV4cCI6MTc2MjAyMDM2M30.QdVmVQMcxvuJzkNu-Eb9q_uk-9EYQuAyJsnX8MEz3S0
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

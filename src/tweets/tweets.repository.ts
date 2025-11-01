@@ -48,6 +48,48 @@ export class TweetsRepository {
     });
   }
 
+  async retweetTweet(userId: bigint, tweetId: bigint) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.retweet.create({
+        data: {
+          userId,
+          tweetId,
+        },
+      });
+
+      await tx.tweet.update({
+        where: { id: tweetId },
+        data: {
+          retweetCount: {
+            increment: 1,
+          },
+        },
+      });
+    });
+  }
+
+  async unretweetTweet(userId: bigint, tweetId: bigint) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.retweet.delete({
+        where: {
+          userId_tweetId: {
+            userId,
+            tweetId,
+          },
+        },
+      });
+
+      await tx.tweet.update({
+        where: { id: tweetId },
+        data: {
+          retweetCount: {
+            decrement: 1,
+          },
+        },
+      });
+    });
+  }
+
   async hasUserLikedTweet(userId: bigint, tweetId: bigint): Promise<boolean> {
     const like = await this.prisma.like.findUnique({
       where: {
@@ -58,6 +100,18 @@ export class TweetsRepository {
       },
     });
     return !!like;
+  }
+
+  async hasUserRetweetedTweet(userId: bigint, tweetId: bigint): Promise<boolean> {
+    const retweet = await this.prisma.retweet.findUnique({
+      where: {
+        userId_tweetId: {
+          userId,
+          tweetId,
+        },
+      },
+    });
+    return !!retweet;
   }
 
   async findTweetById(tweetId: bigint) {

@@ -432,4 +432,16 @@ export class UsersRepository {
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
+
+  async areUsersBlocked(firstUserId: bigint, secondUserId: bigint): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { userId: firstUserId, blockedId: secondUserId },
+          { userId: secondUserId, blockedId: firstUserId },
+        ],
+      },
+    });
+    return !!block;
+  }
 }
