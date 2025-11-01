@@ -32,6 +32,8 @@ model User {
   profile                  Profile?
   refreshTokens            RefreshToken[]
   retweets                 Retweet[]
+  countryId Int?
+  country   Country? @relation(fields: [countryId], references: [id])
   tweetMentions            TweetMention[]
   tweets                   Tweet[]
   userDevices              UserDevice[]
@@ -39,6 +41,15 @@ model User {
   userExternalAccounts     UserExternalAccount[]
 
   @@map("users")
+}
+
+model Country {
+  id    Int    @id @default(autoincrement())
+  name  String
+  code  String @unique
+  users User[]
+
+  @@map("countries")
 }
 
 model Profile {
@@ -312,6 +323,7 @@ model TweetMedia {
   @@id([tweetId, mediaId])
   @@map("tweet_media")
 }
+
 
 enum MediaType {
   IMAGE
