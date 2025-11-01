@@ -445,7 +445,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -467,7 +467,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @doc("The type of media file.")
 enum MediaType {
@@ -1065,10 +1064,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 
   @summary("List user's tweets")
   @get
@@ -1989,27 +1987,21 @@ namespace Explore {
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
   @doc("Returns top trending sports-related hashtags (max 30)")
-  op getSportsExplore():
-    | DataResponse<{
-        @doc("Trending sports keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getSportsExplore(): DataResponse<{
+    @doc("Trending sports keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
   @doc("Returns top trending entertainment-related hashtags (max 30)")
-  op getEntertainmentExplore():
-    | DataResponse<{
-        @doc("Trending entertainment keywords/hashtags (max 30 items)")
-        @maxItems(30)
-        trendingHashtags: HashtagPreview[];
-      }>
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  op getEntertainmentExplore(): DataResponse<{
+    @doc("Trending entertainment keywords/hashtags (max 30 items)")
+    @maxItems(30)
+    trendingHashtags: HashtagPreview[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")
@@ -2027,9 +2019,9 @@ namespace Hashtags {
     query: string,
   ):
     | DataResponse<{
-      @doc("List of hashtags suggestions (without #)")
-      suggestions: string[];
-    }>
+        @doc("List of hashtags suggestions (without #)")
+        suggestions: string[];
+      }>
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -2041,6 +2033,7 @@ namespace Hashtags {
     @path
     @doc("The hashtag to search for (without #)")
     hashtag: string,
+
     ...CursorPaginationParameters,
   ):
     | DataResponseWithPagination<Tweet[]>
@@ -2049,4 +2042,3 @@ namespace Hashtags {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
-

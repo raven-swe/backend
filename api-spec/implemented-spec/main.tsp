@@ -363,8 +363,20 @@ model UserBio {
   bioEntities: BioEntities | null;
 }
 
-@doc("Request body for updating profile")
+@doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
+  @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
+  data: HttpPart<ProfileDataFields>;
+
+  @doc("Avatar image file (jpg, jpeg, png). Max size: 5MB")
+  avatar?: HttpPart<bytes>;
+
+  @doc("Banner image file (jpg, jpeg, png). Max size: 5MB")
+  banner?: HttpPart<bytes>;
+}
+
+@doc("Profile data fields (sent as JSON string in 'data' field)")
+model ProfileDataFields {
   @doc("The user's display name.")
   @minLength(1)
   @maxLength(100)
@@ -392,12 +404,15 @@ model UpdateProfileRequest {
   @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   bannerUrl?: string | null;
+
+  @doc("Set to true to delete the current banner (If bannerUrl is also provided, an error will be returned).")
+  deleteBanner?: boolean;
 }
 
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -419,7 +434,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @tag("Auth")
 @route("/auth")
@@ -479,25 +493,25 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
-    @route("/password")
-    namespace Password {
-      @post
-      @route("/forgot")
-      @summary("Initiate the password reset process")
-      op forgotPassword(
-        @body body: {
-          identifier: string;
-          recaptchaToken: string; // token from client side recaptcha v2
-        },
-      ):
-        | DataResponse<{
-            confirmationToken: string;
-          }>
-        | ValidationErrorResponse
-        | NotFoundResponse
-        | RateLimitResponse
-        | InternalServerErrorResponse
-        | BadRequestResponse;
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
@@ -540,7 +554,7 @@ namespace Auth {
       | RateLimitResponse
       | InternalServerErrorResponse;
   }
-  
+
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -604,7 +618,6 @@ namespace Auth {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Me")
@@ -631,7 +644,10 @@ namespace Me {
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
-  op updateMyProfile(@body body: UpdateProfileRequest):
+  op updateMyProfile(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UpdateProfileRequest,
+  ):
     | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
@@ -694,11 +710,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
-   
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
