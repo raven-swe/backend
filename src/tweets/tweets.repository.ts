@@ -5,7 +5,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class TweetsRepository {
   constructor(private readonly prisma: PrismaService) {}
   //--------------------------------------
-
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({
