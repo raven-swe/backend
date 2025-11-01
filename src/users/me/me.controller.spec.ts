@@ -116,6 +116,29 @@ describe('MeController', () => {
       bio: 'Software Developer',
     };
 
+    const mockFiles = {
+      avatar: [
+        {
+          fieldname: 'avatar',
+          originalname: 'avatar.jpg',
+          encoding: '7bit',
+          mimetype: 'image/jpeg',
+          buffer: Buffer.from('fake-avatar-data'),
+          size: 1024,
+        } as Express.Multer.File,
+      ],
+      banner: [
+        {
+          fieldname: 'banner',
+          originalname: 'banner.jpg',
+          encoding: '7bit',
+          mimetype: 'image/jpeg',
+          buffer: Buffer.from('fake-banner-data'),
+          size: 2048,
+        } as Express.Multer.File,
+      ],
+    };
+
     it('should call usersService.updateProfile with correct parameters', async () => {
       // Arrange
       const expectedUserId = BigInt(18);
@@ -124,14 +147,103 @@ describe('MeController', () => {
       mockUsersService.updateProfile.mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.updateProfile(updateProfileDto, {
-        id: '18',
-      });
+      const result = await controller.updateProfile({ id: '18' }, {}, updateProfileDto);
 
       // Assert
-      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(expectedUserId, updateProfileDto);
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(
+        expectedUserId,
+        updateProfileDto,
+        {},
+      );
       expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
+    });
+
+    it('should call usersService.updateProfile with avatar file', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = {
+        message: 'Profile updated successfully',
+        avatarUrl: 'https://example.com/avatar.jpg',
+      };
+
+      mockUsersService.updateProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.updateProfile(
+        { id: '18' },
+        { avatar: mockFiles.avatar },
+        updateProfileDto,
+      );
+
+      // Assert
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(
+        expectedUserId,
+        updateProfileDto,
+        { avatar: mockFiles.avatar },
+      );
+      expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should call usersService.updateProfile with both avatar and banner files', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = {
+        message: 'Profile updated successfully',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        bannerUrl: 'https://example.com/banner.jpg',
+      };
+
+      mockUsersService.updateProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.updateProfile({ id: '18' }, mockFiles, updateProfileDto);
+
+      // Assert
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(
+        expectedUserId,
+        updateProfileDto,
+        mockFiles,
+      );
+      expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle profile update without any files', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = {
+        message: 'Profile updated successfully',
+        displayName: 'Omar Hassan',
+        bio: 'Software Developer',
+      };
+
+      mockUsersService.updateProfile.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.updateProfile({ id: '18' }, {}, updateProfileDto);
+
+      // Assert
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(
+        expectedUserId,
+        updateProfileDto,
+        {},
+      );
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.updateProfile', async () => {
+      // Arrange
+      const error = new Error('Failed to update profile');
+
+      mockUsersService.updateProfile.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(
+        controller.updateProfile({ id: '18' }, { avatar: mockFiles.avatar }, updateProfileDto),
+      ).rejects.toThrow('Failed to update profile');
+      expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
     });
   });
 });

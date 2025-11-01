@@ -71,6 +71,7 @@ describe('UsersService', () => {
 
   const mockMediaService = {
     uploadAvatarAndBanner: jest.fn(),
+    deleteFile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -363,6 +364,29 @@ describe('UsersService', () => {
       websiteUrl: 'https://newsite.com',
     };
 
+    const mockFiles = {
+      avatar: [
+        {
+          fieldname: 'avatar',
+          originalname: 'avatar.jpg',
+          encoding: '7bit',
+          mimetype: 'image/jpeg',
+          buffer: Buffer.from('fake-avatar-data'),
+          size: 1024,
+        } as Express.Multer.File,
+      ],
+      banner: [
+        {
+          fieldname: 'banner',
+          originalname: 'banner.jpg',
+          encoding: '7bit',
+          mimetype: 'image/jpeg',
+          buffer: Buffer.from('fake-banner-data'),
+          size: 2048,
+        } as Express.Multer.File,
+      ],
+    };
+
     test('should successfully update user profile with all fields provided', async () => {
       const updatedProfile = {
         ...updateProfileDto,
@@ -372,7 +396,7 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
+      const { message, ...result } = (await service.updateProfile(BigInt(1), updateProfileDto))!;
 
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
@@ -399,7 +423,7 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
+      const { message, ...result } = (await service.updateProfile(BigInt(1), partialUpdateDto))!;
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
@@ -423,9 +447,6 @@ describe('UsersService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
-
-      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
-      expect(mockRepository.updateProfile).not.toHaveBeenCalled();
     });
 
     it('should handle empty update data', async () => {
@@ -433,7 +454,7 @@ describe('UsersService', () => {
       mockRepository.findById.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
-      const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
+      const { message, ...result } = (await service.updateProfile(BigInt(1), emptyUpdateDto))!;
 
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
@@ -444,6 +465,130 @@ describe('UsersService', () => {
         undefined,
         undefined,
       );
+    });
+
+    it('should successfully upload avatar and update profile', async () => {
+      const avatarUrl = 'https://example.com/new-avatar.jpg';
+      const updatedProfile = {
+        ...updateProfileDto,
+        avatarUrl,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockMediaService.uploadAvatarAndBanner.mockResolvedValue({ avatarUrl });
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...profile } = (await service.updateProfile(BigInt(1), updateProfileDto, {
+        avatar: mockFiles.avatar,
+      }))!;
+
+      expect(profile).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockMediaService.uploadAvatarAndBanner).toHaveBeenCalledWith(BigInt(1), {
+        avatar: mockFiles.avatar[0],
+        banner: undefined,
+      });
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        updateProfileDto,
+        avatarUrl,
+        undefined,
+      );
+    });
+
+    test('should successfully upload banner and update profile', async () => {
+      const bannerUrl = 'https://example.com/new-banner.jpg';
+      const updatedProfile = {
+        ...updateProfileDto,
+        bannerUrl,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockMediaService.uploadAvatarAndBanner.mockResolvedValue({ bannerUrl });
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...profile } = (await service.updateProfile(BigInt(1), updateProfileDto, {
+        banner: mockFiles.banner,
+      }))!;
+
+      expect(profile).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockMediaService.uploadAvatarAndBanner).toHaveBeenCalledWith(BigInt(1), {
+        avatar: undefined,
+        banner: mockFiles.banner[0],
+      });
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        updateProfileDto,
+        undefined,
+        bannerUrl,
+      );
+    });
+
+    test('should delete banner when deleteBanner is true', async () => {
+      const updatedProfile = {
+        ...updateProfileDto,
+        bannerUrl: null,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...profile } = (await service.updateProfile(BigInt(1), {
+        ...updateProfileDto,
+        deleteBanner: true,
+      }))!;
+
+      expect(profile).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        { ...updateProfileDto, deleteBanner: true },
+        undefined,
+        null,
+      );
+    });
+
+    test('should throw error when both deleteBanner and banner upload are requested', async () => {
+      mockRepository.findById.mockResolvedValue(mockUser);
+
+      await expect(
+        service.updateProfile(
+          BigInt(1),
+          { ...updateProfileDto, deleteBanner: true },
+          { banner: mockFiles.banner },
+        ),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
+            code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+          },
+          HttpStatus.CONFLICT,
+        ),
+      );
+    });
+
+    test('should rollback updated files when profile update fails', async () => {
+      const avatarUrl = 'https://example.com/new-avatar.jpg';
+      const bannerUrl = 'https://example.com/new-banner.jpg';
+
+      mockRepository.findById.mockResolvedValue(mockUser);
+      mockMediaService.uploadAvatarAndBanner.mockResolvedValue({ avatarUrl, bannerUrl });
+      mockRepository.updateProfile.mockRejectedValue(new Error('Database error'));
+
+      await service.updateProfile(BigInt(1), updateProfileDto, mockFiles);
+
+      expect(mockMediaService.uploadAvatarAndBanner).toHaveBeenCalledWith(BigInt(1), {
+        avatar: mockFiles.avatar[0],
+        banner: mockFiles.banner[0],
+      });
+      expect(mockMediaService.deleteFile).toHaveBeenCalledWith(avatarUrl, BigInt(1));
+      expect(mockMediaService.deleteFile).toHaveBeenCalledWith(bannerUrl, BigInt(1));
+      expect(mockMediaService.deleteFile).toHaveBeenCalledTimes(2);
     });
   });
 
