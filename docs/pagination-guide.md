@@ -90,8 +90,17 @@ async getUsersPaginated(limit: number, prevCursor?: string) {
 
 ```typescript
 // Service with composite cursor (e.g., Follows table)
-async getFollowsPaginated(limit: number, prevCursor?: string) {
+async getFollowsPaginated(limit: number = 10, prevCursor?: string) {
   // Decode the composite cursor
+  let decodedCursor: FollowsCursor | undefined;
+  if(prevCursor){
+  try{
+    decodedCursor = decodeCompositeCursor<FollowsCursor>(prevCursor);
+  }catch{
+    throw new BadRequestException('Invalid cursor');
+  }
+
+  }
   const decodedCursor = prevCursor 
     ? decodeCompositeCursor<FollowsCursor>(prevCursor) 
     : undefined;
