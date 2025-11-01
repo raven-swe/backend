@@ -15,6 +15,9 @@ describe('MeController', () => {
     unmuteUser: jest.fn(),
     getUserProfile: jest.fn(),
     updateProfile: jest.fn(),
+    uploadBanner: jest.fn(),
+    uploadAvatar: jest.fn(),
+    deleteBanner: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -271,6 +274,78 @@ describe('MeController', () => {
       // Assert
       expect(mockUsersService.updateProfile).toHaveBeenCalledWith(expectedUserId, updateProfileDto);
       expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('POST /me/profile-picture', () => {
+    const avatar = {
+      fieldname: 'avatar',
+      originalname: 'avatar.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-avatar-data'),
+      size: 1024,
+    } as Express.Multer.File;
+
+    it('should call usersService.uploadAvatar with correct parameters', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = { message: 'Avatar uploaded successfully' };
+
+      mockUsersService.uploadAvatar.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.uploadAvatar({ id: '18' }, avatar);
+
+      // Assert
+      expect(mockUsersService.uploadAvatar).toHaveBeenCalledWith(expectedUserId, avatar);
+      expect(mockUsersService.uploadAvatar).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('POST /me/banner', () => {
+    const banner = {
+      fieldname: 'banner',
+      originalname: 'banner.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-banner-data'),
+      size: 2048,
+    } as Express.Multer.File;
+
+    it('should call usersService.uploadBanner with correct parameters', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = { message: 'Banner uploaded successfully' };
+
+      mockUsersService.uploadBanner.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.uploadBanner({ id: '18' }, banner);
+
+      // Assert
+      expect(mockUsersService.uploadBanner).toHaveBeenCalledWith(expectedUserId, banner);
+      expect(mockUsersService.uploadBanner).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('DELETE /me/banner', () => {
+    it('should call usersService.deleteBanner with correct parameters', async () => {
+      // Arrange
+      const expectedUserId = BigInt(18);
+      const expectedResult = { message: 'Banner deleted successfully' };
+
+      mockUsersService.deleteBanner.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.deleteBanner({ id: '18' });
+
+      // Assert
+      expect(mockUsersService.deleteBanner).toHaveBeenCalledWith(expectedUserId);
+      expect(mockUsersService.deleteBanner).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
     });
   });

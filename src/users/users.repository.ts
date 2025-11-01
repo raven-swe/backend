@@ -432,4 +432,35 @@ export class UsersRepository {
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
+
+  async updateBanner(userId: bigint, bannerUrl: string) {
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { bannerUrl },
+    });
+  }
+
+  async updateAvatar(userId: bigint, avatarUrl: string) {
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { avatarUrl },
+    });
+  }
+
+  async deleteBanner(userId: bigint) {
+    // Fetching first to get banner url and deleted it from media table and S3 bucket
+    return await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.profile.findUnique({
+        where: { userId },
+        select: { bannerUrl: true },
+      });
+
+      await tx.profile.update({
+        where: { userId },
+        data: { bannerUrl: null },
+      });
+
+      return { bannerUrl: profile?.bannerUrl || null };
+    });
+  }
 }

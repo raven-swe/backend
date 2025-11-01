@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { MEDIA_CODES, MEDIA_MESSAGES } from '../constants/media.constant';
 
 @Injectable()
 export class S3Service {
@@ -149,5 +150,21 @@ export class S3Service {
    */
   getPublicUrl(key: string): string {
     return `${this.cdnUrl}/${key}`;
+  }
+
+  extractKeyFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.pathname.substring(1);
+    } catch (error) {
+      this.logger.error(`Failed to extract S3 key from URL: ${url}`, error);
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.INVALID_URL,
+          code: MEDIA_CODES.INVALID_URL,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

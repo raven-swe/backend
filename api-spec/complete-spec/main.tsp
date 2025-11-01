@@ -445,7 +445,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -467,7 +467,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @doc("The type of media file.")
 enum MediaType {
@@ -983,7 +982,6 @@ namespace Auth {
     This endpoint checks whether a given identifier (username or email) is already taken in the system.
     to be used in login in shared field which can be either username or email.
     """)
-
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -1087,10 +1085,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 
   @summary("List user's tweets")
   @get
