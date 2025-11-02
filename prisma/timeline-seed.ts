@@ -1,15 +1,8 @@
-// prisma/timeline-seed.ts
-
 import { PrismaClient } from '@prisma/client';
-// Ensure this path is correct relative to your project root
 import { hashPassword } from '../src/auth/utils/password.util';
 
 const prisma = new PrismaClient();
 
-/**
- * A self-contained helper function to find or create hashtags and
- * update their counts. This makes our seed script independent.
- */
 async function getOrCreateHashtag(tag: string) {
   const keyword = tag.toLowerCase();
   return prisma.trendingKeyword.upsert({
@@ -145,7 +138,7 @@ async function main() {
         'Final UI mockups for the new feature are ready! So excited to see this go live. #uidesign',
       createdAt: new Date(baseTime - 1000 * 60 * 120), // 2 hours ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startingIndex: 72 } },
+      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startingIndex: 80 } },
     },
   });
 
@@ -157,8 +150,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 90), // 90 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startingIndex: 68 } },
-      tweetMentions: { create: { userId: omarHassan.id, startingIndex: 80 } },
+      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startingIndex: 76 } },
+      tweetMentions: { create: { userId: omarHassan.id, startingIndex: 87 } },
     },
   });
 
@@ -170,7 +163,7 @@ async function main() {
       replyToTweetId: anasLaunchTweet.id,
       createdAt: new Date(baseTime - 1000 * 60 * 88), // 88 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: anas.id, startingIndex: 77 } },
+      tweetMentions: { create: { userId: anas.id, startingIndex: 85 } },
     },
   });
 
@@ -181,7 +174,7 @@ async function main() {
         'That feeling when the production build works on the first try. A rare moment. #devlife',
       createdAt: new Date(baseTime - 1000 * 60 * 85), // 85 mins ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startingIndex: 77 } },
+      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startingIndex: 78 } },
     },
   });
 
@@ -193,7 +186,7 @@ async function main() {
         'Uh oh... I think I found a small CSS bug on the new login page. The main button is misaligned on mobile. @omargamal',
       createdAt: new Date(baseTime - 1000 * 60 * 60), // 60 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 104 } },
+      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 105 } },
     },
   });
 
