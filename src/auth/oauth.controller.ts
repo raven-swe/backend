@@ -50,11 +50,14 @@ export class OauthController {
       );
     }
 
+    this.validateClientType(clientType);
+
     const result = await this.oAuthService.handleOauthToken(
       provider as SupportedOAuthProvider,
       oAuthCallbackDto.providerToken,
       deviceType,
       ipAddress,
+      clientType,
     );
 
     if ('accessToken' in result && 'refreshToken' in result) {
@@ -185,6 +188,19 @@ export class OauthController {
       }
       throw new InternalServerErrorException({
         message: 'Failed to process OAuth bridge',
+      });
+    }
+  }
+
+  private validateClientType(clientType: string) {
+    if (!clientType) {
+      throw new BadRequestException({
+        message: 'Missing X-Client-Type header',
+      });
+    }
+    if (!clientType.toUpperCase().includes('WEB') && !clientType.toUpperCase().includes('MOBILE')) {
+      throw new BadRequestException({
+        message: 'Invalid X-Client-Type header',
       });
     }
   }

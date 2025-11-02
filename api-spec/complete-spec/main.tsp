@@ -1514,7 +1514,8 @@ namespace Me {
     @get
     @route("/country")
     @summary("Get all supported countries(for country selection dropdowns)")
-    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+    op getSupportedCountries(
+    ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")

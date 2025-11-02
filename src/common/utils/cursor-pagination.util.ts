@@ -6,13 +6,17 @@ export type FollowsCursor = {
 };
 
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
-export const decodeCursor = (cursor: string) => Buffer.from(cursor, 'base64').toString('utf-8');
+export const decodeCursor = (cursor: string | undefined) => {
+  if (!cursor) return undefined;
+  return Buffer.from(cursor, 'base64').toString('utf-8');
+};
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
 };
 
-export const decodeCompositeCursor = <T>(cursorString: string): T => {
+export const decodeCompositeCursor = <T>(cursorString: string): T | undefined => {
+  if (!cursorString) return undefined;
   const jsonString = Buffer.from(cursorString, 'base64').toString('utf-8');
   return JSON.parse(jsonString) as T;
 };

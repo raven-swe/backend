@@ -9,6 +9,7 @@ import { DEFAULT_PROFILE_PICTURE } from './constants/users';
 import { FollowsCursor } from 'src/common/utils/cursor-pagination.util';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
@@ -529,6 +530,7 @@ export class UsersRepository {
       },
     });
   }
+
   async getFollowBacksForFollowers(requestedUserId: bigint, followerIds: bigint[]) {
     return await this.prisma.follow.findMany({
       where: {
@@ -602,6 +604,18 @@ export class UsersRepository {
       },
       select: { userId: true, blockedId: true },
     });
+  }
+
+  async areUsersBlocked(firstUserId: bigint, secondUserId: bigint): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { userId: firstUserId, blockedId: secondUserId },
+          { userId: secondUserId, blockedId: firstUserId },
+        ],
+      },
+    });
+    return !!block;
   }
 
   async getUserDetails(userId: bigint) {
