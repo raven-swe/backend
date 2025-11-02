@@ -200,6 +200,15 @@ model ConnectedAccountResponse {
   connectedAt: utcDateTime;
 }
 
+@doc("Country information for user settings and selection dropdowns")
+model Country {
+  @doc("ISO 3166-1 alpha-2 country code (e.g., 'US', 'EG', 'GB')")
+  code: string;
+
+  @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
+  name: string;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -445,7 +454,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -467,7 +476,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @doc("The type of media file.")
 enum MediaType {
@@ -983,7 +991,6 @@ namespace Auth {
     This endpoint checks whether a given identifier (username or email) is already taken in the system.
     to be used in login in shared field which can be either username or email.
     """)
-
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
@@ -1087,10 +1094,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 
   @summary("List user's tweets")
   @get
@@ -1472,6 +1478,11 @@ namespace Me {
       | UnauthorizedResponse
       | NotFoundResponse
       | InternalServerErrorResponse;
+
+    @get
+    @route("/country")
+    @summary("Get all supported countries(for country selection dropdowns)")
+    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")

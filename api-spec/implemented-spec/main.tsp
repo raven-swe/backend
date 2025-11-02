@@ -178,6 +178,24 @@ model InternalServerErrorResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("Single user session, providing details about the device, location, and activity status.")
+model SessionResponse {
+  @doc("Unique identifier for the session.")
+  id: string;
+
+  @doc("The type of device or client used for this session (e.g., 'Linux', 'Android', 'Web', 'Windows').")
+  deviceType: string;
+
+  @doc("The location where the session was initiated or active")
+  location: string | null;
+
+  @doc("The UTC timestamp indicating the last time this session was active. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  lastActive: utcDateTime;
+
+  @doc("A boolean flag indicating whether this session is the one currently making the API request.")
+  isCurrent: boolean;
+}
+
 model RegisterStartBody {
   name: string;
   email: string;
@@ -208,6 +226,28 @@ model FollowingUser {
   isFollowing: boolean;
 }
 
+model AccountInfo {
+  username: string;
+  email: string | null;
+  accountCreationDate: utcDateTime; // ISO 8601 format (e.g., '2024-01-15T14:30:00Z')
+  accountCreationIp: string | null;
+  country: string;
+  languages: LanguageCode[];
+  gender: Gender;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
+  age: int32;
+}
+
+enum LanguageCode {
+  AR,
+  EN,
+}
+
+enum Gender {
+  Male,
+  Female,
+}
+
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
@@ -215,8 +255,32 @@ alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
 alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
+alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
 
+@doc("A single external social account connected to the user's primary account.")
+model ConnectedAccountResponse {
+  @doc("The name of the external provider (e.g., 'google', 'github').")
+  provider: string;
+
+  @doc("The unique identifier (e.g., email address) associated with the user")
+  displayIdentifier: string;
+
+  @doc("The connection status.")
+  status: "Connected" | "Error";
+
+  @doc("The timestamp when this external account was first linked. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  connectedAt: utcDateTime;
+}
+
+@doc("Country information for user settings and selection dropdowns")
+model Country {
+  @doc("ISO 3166-1 alpha-2 country code (e.g., 'US', 'EG', 'GB')")
+  code: string;
+
+  @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
+  name: string;
+}
 
 @doc("Entity mention in bio")
 model MentionEntity {
@@ -423,7 +487,7 @@ model UpdateProfileRequest {
 model UpdatedProfile {
   @doc("The user's display name.")
   displayName: string | null;
-  
+
   @doc("The user's bio (max 160 characters).")
   bio: string | null;
 
@@ -445,7 +509,6 @@ model UpdatedProfile {
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
 }
-
 
 @tag("Auth")
 @route("/auth")
@@ -506,25 +569,25 @@ namespace Auth {
       | ValidationErrorResponse
       | InternalServerErrorResponse;
   }
-    @route("/password")
-    namespace Password {
-      @post
-      @route("/forgot")
-      @summary("Initiate the password reset process")
-      op forgotPassword(
-        @body body: {
-          identifier: string;
-          recaptchaToken: string; // token from client side recaptcha v2
-        },
-      ):
-        | DataResponse<{
-            confirmationToken: string;
-          }>
-        | ValidationErrorResponse
-        | NotFoundResponse
-        | RateLimitResponse
-        | InternalServerErrorResponse
-        | BadRequestResponse;
+  @route("/password")
+  namespace Password {
+    @post
+    @route("/forgot")
+    @summary("Initiate the password reset process")
+    op forgotPassword(
+      @body body: {
+        identifier: string;
+        recaptchaToken: string; // token from client side recaptcha v2
+      },
+    ):
+      | DataResponse<{
+          confirmationToken: string;
+        }>
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | RateLimitResponse
+      | InternalServerErrorResponse
+      | BadRequestResponse;
 
     @post
     @route("/forgot/verify")
@@ -567,7 +630,7 @@ namespace Auth {
       | RateLimitResponse
       | InternalServerErrorResponse;
   }
-  
+
   @get
   @route("/check-email")
   op checkEmail(@query email: string): DataResponse<{
@@ -683,9 +746,76 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @post
+  @route("/banner")
+  op updateBanner(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      banner: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        bannerUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/banner")
+  op deleteBanner():
+    | MessageResponse<"Banner deleted successfully.">
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
+  @post
+  @route("/profile-picture")
+  op updateProfilePicture(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      profilePicture: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        avatarUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
+    @summary("Validate the current user's password")
+    @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
+    @useAuth(BearerAuth)
+    @post
+    @route("password/validate")
+    op validatePassword(
+      @body body: {
+        password: string;
+      },
+    ):
+      | DataResponse<{
+          isValid: boolean;
+        }>
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @summary("Get the authenticated user's account information")
+    @doc("Retrieves detailed profile and account settings for the currently authenticated user, identified by their JWT.")
+    @get
+    op getAccountInfo():
+      | DataResponse<AccountInfo>
+      | UnauthorizedResponse
+      | InternalServerErrorResponse
+      | ForbiddenResponse;
+
     @put
     @route("/email")
     @summary("Initiates update of the authenticated user's email address")
@@ -731,6 +861,7 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
+    @patch(#{ implicitOptionality: false })
     @route("/username")
     @summary("Change the authenticated user's username")
     op updateUsername(
@@ -744,6 +875,102 @@ namespace Me {
       | ConflictResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @put
+    @route("/country")
+    @summary("Update the authenticated user's country")
+    op updateCountry(
+      @body body: {
+        countryName: string;
+      },
+    ):
+      | MessageResponse<"Country updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/gender")
+    @summary("Update the authenticated user's gender")
+    op updateGender(
+      @body body: {
+        gender: Gender;
+      },
+    ):
+      | MessageResponse<"Gender updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/birthdate")
+    @summary("Update the authenticated user's birth date")
+    op updateBirthDate(
+      @body body: {
+        date: plainDate | null; // ISO 8601 date format (YYYY-MM-DD)
+      },
+    ):
+      | MessageResponse<"Birth date updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/language")
+    @summary("Update the authenticated user's default language")
+    op updateLanguage(
+      @body body: {
+        language: LanguageCode;
+      },
+    ):
+      | MessageResponse<"Default language updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/sessions")
+    @summary("Retrieve all active and recent sessions for the authenticated user.")
+    op getSessions(): SessionListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @delete
+    @route("/sessions/{sessionId}")
+    @summary("Log out or terminate a specific session by its ID.")
+    op deleteSession(@path sessionId: string):
+      | MessageResponse<"Session terminated successfully.">
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/connected-accounts")
+    @summary("Retrieve a list of all external social accounts connected for login.")
+    op getConnectedAccounts(
+    ): DataResponse<ConnectedAccountResponse[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
+    @route("/connected-accounts/{provider}")
+    @summary("Disconnect an external social account by its provider (e.g., 'google', 'github').")
+    op disconnectAccount(
+      @path provider: string,
+      @body body: {
+        currentPassword: string;
+      },
+    ):
+      | MessageResponse<"Account disconnected successfully.">
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/country")
+    @summary("Get all supported countries(for country selection dropdowns)")
+    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")
@@ -877,11 +1104,9 @@ namespace Users {
   @summary("User's profile details")
   @get
   @route("/{username}/profile")
-  op getUserProfile(@path username: string):
-    | DataResponse<UserProfile>
-    | NotFoundResponse
-    | InternalServerErrorResponse;
-   
+  op getUserProfile(
+    @path username: string,
+  ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
 }
 
 @tag("OAuth")

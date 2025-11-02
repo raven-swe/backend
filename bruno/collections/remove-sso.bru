@@ -1,0 +1,26 @@
+meta {
+  name: remove-sso
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://localhost:3000/me/settings/connected-accounts/cwe
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "currentPassword": "Test$12345"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

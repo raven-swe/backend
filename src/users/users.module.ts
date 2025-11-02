@@ -8,8 +8,11 @@ import { SettingsService } from './me/settings/settings.service';
 import { BullModule } from '@nestjs/bullmq';
 import { RedisModule } from 'src/redis/redis.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { MediaModule } from 'src/media/media.module';
+import { MentionsController } from './mentions/mentions.controller';
+
 @Module({
-  controllers: [UsersController, MeController, SettingsController],
+  controllers: [UsersController, MeController, SettingsController, MentionsController],
   providers: [UsersService, UsersRepository, SettingsService],
   exports: [UsersService, UsersRepository],
   imports: [
@@ -18,6 +21,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
     }),
     RedisModule,
     PrismaModule,
+    MediaModule,
   ],
 })
 export class UsersModule {}

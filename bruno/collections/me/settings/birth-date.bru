@@ -1,0 +1,26 @@
+meta {
+  name: birth-date
+  type: http
+  seq: 5
+}
+
+put {
+  url: http://localhost:3000/me/settings/birthdate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "date": "2010-12-1"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

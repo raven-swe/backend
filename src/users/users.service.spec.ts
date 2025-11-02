@@ -16,6 +16,8 @@ jest.mock('./utils/validate-password-format.util');
 import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { MediaService } from 'src/media/media.service';
+import { MediaFolder } from 'src/media/enums/media-folder.enum';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;
@@ -72,10 +74,30 @@ describe('UsersService', () => {
     unmuteUser: jest.fn(),
     isMuted: jest.fn(),
     checkUsernameExistence: jest.fn(),
+    getUserDetails: jest.fn(),
+    updateBirthDate: jest.fn(),
+    getUserSSOs: jest.fn(),
+    validateLoggedInUser: jest.fn(),
+    removeUserSSO: jest.fn(),
+    getCountries: jest.fn(),
+    checkCountry: jest.fn(),
+    updateCountry: jest.fn(),
+    updateGender: jest.fn(),
+    updateLanguage: jest.fn(),
+    getSessions: jest.fn(),
+    deleteSession: jest.fn(),
+    updateAvatar: jest.fn(),
+    updateBanner: jest.fn(),
+    deleteBanner: jest.fn(),
   };
 
   const mockEmailQueue = {
     add: jest.fn(),
+  };
+
+  const mockMediaService = {
+    deleteMedia: jest.fn(),
+    uploadAndSaveMedia: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -87,6 +109,7 @@ describe('UsersService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: UsersService, useClass: UsersService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
+        { provide: MediaService, useValue: mockMediaService },
       ],
     }).compile();
 
@@ -1257,6 +1280,489 @@ describe('UsersService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
+    });
+
+    it('should throw error if user is blocked (you blocked them)', async () => {
+      // Arrange
+      const unmuterId = BigInt(2);
+      const usernameToUnmute = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isBlocked.mockResolvedValueOnce(true); // youBlockedUser
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // userBlockedYou
+
+      // Act & Assert
+      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
+            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
+          },
+          HttpStatus.FORBIDDEN,
+        ),
+      );
+    });
+
+    it('should throw error if user is blocked (they blocked you)', async () => {
+      // Arrange
+      const unmuterId = BigInt(2);
+      const usernameToUnmute = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isBlocked.mockResolvedValueOnce(false); // youBlockedUser
+      mockRepository.isBlocked.mockResolvedValueOnce(true); // userBlockedYou
+
+      // Act & Assert
+      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
+            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
+          },
+          HttpStatus.FORBIDDEN,
+        ),
+      );
+    });
+  });
+
+  describe('getUserDetails', () => {
+    it('should return user details successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const expectedDetails = {
+        username: 'testuser',
+        email: 'test@example.com',
+        accountCreationDate: new Date(),
+        accountCreationIp: '127.0.0.1',
+        country: 'Egypt',
+        languages: ['EN'],
+        gender: 'Male',
+        birthDate: '1990-01-01',
+        age: 34,
+      };
+
+      mockRepository.getUserDetails.mockResolvedValue(expectedDetails);
+
+      // Act
+      const result = await service.getUserDetails(userId);
+
+      // Assert
+      expect(result).toEqual(expectedDetails);
+      expect(mockRepository.getUserDetails).toHaveBeenCalledWith(userId);
+      expect(mockRepository.getUserDetails).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateBirthDate', () => {
+    it('should update birth date successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const birthDate = new Date('1995-05-15');
+      const expectedResult = { message: 'Birth date updated successfully.' };
+
+      mockRepository.updateBirthDate.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateBirthDate(userId, birthDate);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockRepository.updateBirthDate).toHaveBeenCalledWith(userId, birthDate);
+      expect(mockRepository.updateBirthDate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getUserSSOs', () => {
+    it('should return user SSOs successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const expectedSSOs = [
+        {
+          provider: 'google',
+          displayIdentifier: 'test@gmail.com',
+          status: 'Connected',
+          connectedAt: new Date(),
+        },
+      ];
+
+      mockRepository.getUserSSOs.mockResolvedValue(expectedSSOs);
+
+      // Act
+      const result = await service.getUserSSOs(userId);
+
+      // Assert
+      expect(result).toEqual(expectedSSOs);
+      expect(mockRepository.getUserSSOs).toHaveBeenCalledWith(userId);
+      expect(mockRepository.getUserSSOs).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('validateLoggedInUser', () => {
+    it('should return true for correct password', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const currentPassword = 'correctPassword123';
+
+      mockRepository.validateLoggedInUser.mockResolvedValue(true);
+
+      // Act
+      const result = await service.validateLoggedInUser(userId, currentPassword);
+
+      // Assert
+      expect(result).toBe(true);
+      expect(mockRepository.validateLoggedInUser).toHaveBeenCalledWith(userId, currentPassword);
+    });
+
+    it('should return false for incorrect password', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const currentPassword = 'wrongPassword';
+
+      mockRepository.validateLoggedInUser.mockResolvedValue(false);
+
+      // Act
+      const result = await service.validateLoggedInUser(userId, currentPassword);
+
+      // Assert
+      expect(result).toBe(false);
+      expect(mockRepository.validateLoggedInUser).toHaveBeenCalledWith(userId, currentPassword);
+    });
+  });
+
+  describe('removeUserSSO', () => {
+    it('should remove user SSO successfully with correct password', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const provider = 'google';
+      const currentPassword = 'correctPassword123';
+
+      mockRepository.validateLoggedInUser.mockResolvedValue(true);
+      mockRepository.removeUserSSO.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.removeUserSSO(userId, provider, currentPassword);
+
+      // Assert
+      expect(result).toEqual({ message: 'Account disconnected successfully.' });
+      expect(mockRepository.validateLoggedInUser).toHaveBeenCalledWith(userId, currentPassword);
+      expect(mockRepository.removeUserSSO).toHaveBeenCalledWith(userId, provider);
+    });
+
+    it('should throw error if password is incorrect', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const provider = 'google';
+      const currentPassword = 'wrongPassword';
+
+      mockRepository.validateLoggedInUser.mockResolvedValue(false);
+
+      // Act & Assert
+      await expect(service.removeUserSSO(userId, provider, currentPassword)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
+            code: USERS_ERROR_CODES.INVALID_PASSWORD,
+          },
+          HttpStatus.UNAUTHORIZED,
+        ),
+      );
+
+      expect(mockRepository.validateLoggedInUser).toHaveBeenCalledWith(userId, currentPassword);
+      expect(mockRepository.removeUserSSO).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getCountries', () => {
+    it('should return list of countries successfully', async () => {
+      // Arrange
+      const expectedCountries = [
+        { code: 'EG', name: 'Egypt' },
+        { code: 'US', name: 'United States' },
+        { code: 'GB', name: 'United Kingdom' },
+      ];
+
+      mockRepository.getCountries.mockResolvedValue(expectedCountries);
+
+      // Act
+      const result = await service.getCountries();
+
+      // Assert
+      expect(result).toEqual(expectedCountries);
+      expect(mockRepository.getCountries).toHaveBeenCalled();
+      expect(mockRepository.getCountries).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('changeCountry', () => {
+    it('should change country successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const countryName = 'Egypt';
+      const countryData = { id: 1, name: 'Egypt', code: 'EG' };
+
+      mockRepository.checkCountry.mockResolvedValue(countryData);
+      mockRepository.updateCountry.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.changeCountry(userId, countryName);
+
+      // Assert
+      expect(result).toEqual({ message: 'Country updated successfully.' });
+      expect(mockRepository.checkCountry).toHaveBeenCalledWith(countryName);
+      expect(mockRepository.updateCountry).toHaveBeenCalledWith(userId, countryData);
+    });
+
+    it('should throw error if country is not found', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const countryName = 'InvalidCountry';
+      const error = new HttpException('Country not found', HttpStatus.BAD_REQUEST);
+
+      mockRepository.checkCountry.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.changeCountry(userId, countryName)).rejects.toThrow(error);
+      expect(mockRepository.checkCountry).toHaveBeenCalledWith(countryName);
+      expect(mockRepository.updateCountry).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateGender', () => {
+    it('should update gender successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const gender = 'Male';
+
+      mockRepository.updateGender.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateGender(userId, gender);
+
+      // Assert
+      expect(result).toEqual({ message: 'Gender updated successfully.' });
+      expect(mockRepository.updateGender).toHaveBeenCalledWith(userId, gender);
+      expect(mockRepository.updateGender).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update gender to Female', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const gender = 'Female';
+
+      mockRepository.updateGender.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateGender(userId, gender);
+
+      // Assert
+      expect(result).toEqual({ message: 'Gender updated successfully.' });
+      expect(mockRepository.updateGender).toHaveBeenCalledWith(userId, gender);
+    });
+  });
+
+  describe('updateLanguage', () => {
+    it('should update language successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const language = 'EN';
+
+      mockRepository.updateLanguage.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateLanguage(userId, language);
+
+      // Assert
+      expect(result).toEqual({ message: 'Default language updated successfully.' });
+      expect(mockRepository.updateLanguage).toHaveBeenCalledWith(userId, language);
+      expect(mockRepository.updateLanguage).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update language to Arabic', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const language = 'AR';
+
+      mockRepository.updateLanguage.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateLanguage(userId, language);
+
+      // Assert
+      expect(result).toEqual({ message: 'Default language updated successfully.' });
+      expect(mockRepository.updateLanguage).toHaveBeenCalledWith(userId, language);
+    });
+  });
+
+  describe('getSessions', () => {
+    it('should return user sessions successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const refreshToken = 'valid-refresh-token';
+      const expectedSessions = [
+        {
+          id: BigInt(1),
+          deviceType: 'Web',
+          lastActive: new Date(),
+          isCurrent: true,
+        },
+        {
+          id: BigInt(2),
+          deviceType: 'Mobile',
+          lastActive: new Date(),
+          isCurrent: false,
+        },
+      ];
+
+      mockRepository.getSessions.mockResolvedValue(expectedSessions);
+
+      // Act
+      const result = await service.getSessions(userId, refreshToken);
+
+      // Assert
+      expect(result).toEqual(expectedSessions);
+      expect(mockRepository.getSessions).toHaveBeenCalledWith(userId, refreshToken);
+      expect(mockRepository.getSessions).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('deleteSession', () => {
+    it('should delete session successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const sessionId = BigInt(2);
+      const refreshToken = 'valid-refresh-token';
+
+      mockRepository.deleteSession.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.deleteSession(userId, sessionId, refreshToken);
+
+      // Assert
+      expect(result).toEqual({ message: 'Session terminated successfully.' });
+      expect(mockRepository.deleteSession).toHaveBeenCalledWith(userId, sessionId, refreshToken);
+      expect(mockRepository.deleteSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error if session deletion fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const sessionId = BigInt(2);
+      const refreshToken = 'valid-refresh-token';
+      const error = new Error('Session not found');
+
+      mockRepository.deleteSession.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.deleteSession(userId, sessionId, refreshToken)).rejects.toThrow(error);
+      expect(mockRepository.deleteSession).toHaveBeenCalledWith(userId, sessionId, refreshToken);
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    const avatar = {
+      fieldname: 'avatar',
+      originalname: 'avatar.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-avatar-data'),
+      size: 1024,
+    } as Express.Multer.File;
+
+    it('should update avatar successfully and return avatar url', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const avatarUrl = 'https://example.com/new-avatar.jpg';
+      mockRepository.updateAvatar.mockResolvedValue(undefined);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue(avatarUrl);
+
+      // Act
+      const result = await service.uploadAvatar(userId, avatar);
+
+      // Assert
+      expect(result).toEqual({ avatarUrl, message: 'Avatar uploaded successfully' });
+      expect(mockRepository.updateAvatar).toHaveBeenCalledWith(userId, avatarUrl);
+      expect(mockMediaService.uploadAndSaveMedia).toHaveBeenCalledWith(
+        avatar,
+        userId,
+        MediaFolder.AVATARS,
+      );
+    });
+
+    it('should throw error if media upload fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Media upload failed');
+      mockMediaService.uploadAndSaveMedia.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.uploadAvatar(userId, avatar)).rejects.toThrow('Media upload failed');
+    });
+  });
+
+  describe('uploadBanner', () => {
+    const banner = {
+      fieldname: 'banner',
+      originalname: 'banner.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-banner-data'),
+      size: 2048,
+    } as Express.Multer.File;
+
+    it('should update banner successfully and return banner url', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const bannerUrl = 'https://example.com/new-banner.jpg';
+      mockRepository.updateBanner.mockResolvedValue(undefined);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue(bannerUrl);
+
+      // Act
+      const result = await service.uploadBanner(userId, banner);
+
+      // Assert
+      expect(result).toEqual({ bannerUrl, message: 'Banner uploaded successfully' });
+      expect(mockRepository.updateBanner).toHaveBeenCalledWith(userId, bannerUrl);
+      expect(mockMediaService.uploadAndSaveMedia).toHaveBeenCalledWith(
+        banner,
+        userId,
+        MediaFolder.BANNERS,
+      );
+    });
+
+    it('should throw error if media upload fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Media upload failed');
+      mockMediaService.uploadAndSaveMedia.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.uploadBanner(userId, banner)).rejects.toThrow('Media upload failed');
+    });
+  });
+
+  describe('deleteBanner', () => {
+    it('should delete banner successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const mockBannerUrl = 'https://example.com/existing-banner.jpg';
+      mockRepository.deleteBanner.mockResolvedValue({ bannerUrl: mockBannerUrl });
+
+      // Act
+      const result = await service.deleteBanner(userId);
+
+      // Assert
+      expect(result).toEqual({ message: 'Banner deleted successfully' });
+      expect(mockRepository.deleteBanner).toHaveBeenCalledWith(userId);
+    });
+
+    it('should throw error if repository delete fails', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const error = new Error('Database error');
+      mockRepository.deleteBanner.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.deleteBanner(userId)).rejects.toThrow('Database error');
     });
   });
 });

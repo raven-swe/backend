@@ -5,9 +5,9 @@ export type FollowsCursor = {
   followedId: string;
 };
 
-export const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
+const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 export const decodeCursor = (cursor: string) => Buffer.from(cursor, 'base64').toString('utf-8');
-export const encodeCompositeCursor = (cursorObject: object): string => {
+const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
 };

@@ -16,6 +16,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 import { MediaModule } from './media/media.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -46,7 +47,7 @@ import { MediaModule } from './media/media.module';
     DevicesModule,
     MediaModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
