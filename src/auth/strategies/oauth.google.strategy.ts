@@ -1,6 +1,6 @@
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
@@ -19,11 +19,14 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
     this.client = new OAuth2Client(this.config.get<string>('GOOGLE_CLIENT_ID'));
   }
 
-  async validateToken(providerToken: string, deviceType: string): Promise<ProviderProfile> {
+  async validateToken(providerToken: string, clientType: string): Promise<ProviderProfile> {
     const redirectUri =
-      deviceType === 'mobile'
+      clientType === 'mobile'
         ? this.config.get<string>('GOOGLE_REDIRECT_URI_MOBILE')!
         : this.config.get<string>('GOOGLE_REDIRECT_URI_WEB')!;
+
+    Logger.log(clientType, 'Client of GoogleOAuthStrategy');
+    Logger.log(redirectUri, 'GoogleOAuthStrategy');
 
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',

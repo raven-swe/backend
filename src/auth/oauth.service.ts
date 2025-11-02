@@ -31,6 +31,7 @@ export class OAuthService {
     providerToken: string,
     deviceType: string,
     ipAddress: string,
+    clientType: string,
   ) {
     const strategy = this.strategies[provider];
     if (!strategy) {
@@ -41,7 +42,7 @@ export class OAuthService {
       );
     }
 
-    const providerProfile = await strategy.validateToken(providerToken, deviceType);
+    const providerProfile = await strategy.validateToken(providerToken, clientType);
 
     return this.handleOauthProfile(providerProfile, deviceType, ipAddress);
   }

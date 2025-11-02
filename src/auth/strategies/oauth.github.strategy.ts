@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
@@ -15,11 +15,14 @@ interface GithubUserResponse {
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
   constructor(private readonly config: ConfigService) {}
 
-  async validateToken(providerToken: string, deviceType: string): Promise<ProviderProfile> {
-    const redirectUri = // for consistency, though GitHub uses the same redirect URI for both
-      deviceType === 'mobile'
+  async validateToken(providerToken: string, clientType: string): Promise<ProviderProfile> {
+    const redirectUri =
+      clientType === 'mobile'
         ? this.config.get<string>('GITHUB_REDIRECT_URI')!
         : this.config.get<string>('GITHUB_REDIRECT_URI')!;
+
+    Logger.log(clientType, 'Client of GithubStrategy');
+    Logger.log(redirectUri, 'GithubOauthStrategy');
 
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
