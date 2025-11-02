@@ -1,0 +1,15 @@
+meta {
+  name: retweet-tweet
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:3000/tweets/1/retweet
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

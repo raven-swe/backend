@@ -1046,7 +1046,8 @@ namespace Me {
     @get
     @route("/country")
     @summary("Get all supported countries(for country selection dropdowns)")
-    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+    op getSupportedCountries(
+    ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")
@@ -1252,3 +1253,47 @@ namespace Timeline {
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
+@tag("Tweets")
+@route("/tweets")
+@useAuth(BearerAuth)
+namespace Tweets {
+  @post
+  @route("/{id}/like")
+  @summary("Like a tweet")
+  op likeTweet(@path id: string):
+    | MessageResponse<"Tweet liked successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/like")
+  @summary("Unlike a tweet")
+  op unlikeTweet(@path id: string):
+    | MessageResponse<"Tweet unliked successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{id}/retweet")
+  @summary("Retweet a tweet")
+  op retweetTweet(@path id: string):
+    | MessageResponse<"Tweet retweeted successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/retweet")
+  @summary("Undo retweet")
+  op unretweetTweet(@path id: string):
+    | MessageResponse<"Retweet undone successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
