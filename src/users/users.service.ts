@@ -20,6 +20,7 @@ import {
 } from 'src/common/utils/cursor-pagination.util';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { VALIDATION_ERROR_CODES } from 'src/common/validation-error-codes';
 
 @Injectable()
 export class UsersService {
@@ -521,7 +522,10 @@ export class UsersService {
       try {
         decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
       } catch {
-        throw new BadRequestException('Invalid cursor format');
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
@@ -594,7 +598,10 @@ export class UsersService {
       try {
         decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
       } catch {
-        throw new BadRequestException('Invalid cursor format');
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
@@ -653,7 +660,10 @@ export class UsersService {
       try {
         decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
       } catch {
-        throw new BadRequestException('Invalid cursor format');
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
       }
     }
 
