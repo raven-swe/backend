@@ -10,7 +10,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 export class TimelineController {
   constructor(private readonly tweetsService: TweetsService) {}
 
-  @Get('following')
+  @Get('for-you')
   @HttpCode(200)
   async getTimeline(@Query() pagination: PaginationQueryDto, @User() user: RequestUser) {
     const userId = BigInt(user.id);
@@ -22,7 +22,7 @@ export class TimelineController {
     console.log('Timeline tweets count:', timelineTweets.items.length);
     return {
       message: 'Full timeline retrieved successfully',
-      data: timelineTweets,
+      ...timelineTweets,
     };
   }
 }

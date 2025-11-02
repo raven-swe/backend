@@ -12,17 +12,17 @@ export class TweetsController {
 
   @Get('timeline')
   @HttpCode(200)
-  async getTimeline(@Query() pagination: PaginationQueryDto, @User() user: RequestUser) {
+  async getTimeline(@Query() paginationn: PaginationQueryDto, @User() user: RequestUser) {
     const userId = BigInt(user.id);
-    const { limit, cursor } = pagination;
+    const { limit, cursor } = paginationn;
     console.log(
       `Received request for timeline - User ID: ${userId}, Limit: ${limit}, Cursor: ${cursor}`,
     );
-    const timelineTweets = await this.tweetsService.getTimeline(userId, cursor, limit);
-    console.log('Timeline tweets count:', timelineTweets.items.length);
+    const { items, pagination } = await this.tweetsService.getTimeline(userId, cursor, limit);
+    console.log('Timeline tweets count:', items.length);
     return {
-      message: 'Full timeline retrieved successfully',
-      data: timelineTweets,
+      items,
+      pagination,
     };
   }
   // --------------------------------------

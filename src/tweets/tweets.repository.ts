@@ -120,6 +120,7 @@ export class TweetsRepository {
           startPosition: hashtag.startingIndex,
         })),
       },
+      media: [],
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,

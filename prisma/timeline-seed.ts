@@ -93,11 +93,11 @@ async function main() {
 
   const tasneem = await prisma.user.create({
     data: {
-      username: 'tasneem_a',
+      username: 'tasneem_m',
       email: 'tasneem.a@dev.com',
       passwordHash: password,
       birthdate: new Date('2004-08-04'),
-      profile: { create: { displayName: 'Tasneem Ahmed' } },
+      profile: { create: { displayName: 'Tasneem Mohamed' } },
     },
   });
 
@@ -214,7 +214,7 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 58), // 58 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 64 } },
+      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 60 } },
       tweetMentions: { create: { userId: tasneem.id, startingIndex: 28 } },
     },
   });
