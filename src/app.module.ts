@@ -16,6 +16,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 import { MediaModule } from './media/media.module';
+import { TestingModule } from './testing/testing.module';
+import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { TweetsModule } from './tweets/tweets.module';
 
@@ -48,6 +50,7 @@ import { TweetsModule } from './tweets/tweets.module';
     DevicesModule,
     MediaModule,
     TweetsModule,
+    ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
   ],
   controllers: [HealthController],
   providers: [

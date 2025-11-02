@@ -22,7 +22,7 @@ export class RecaptchaService {
   ) {
     const env = configService.get<string>('NODE_ENV', 'development');
     let secret;
-    if (env === 'development') {
+    if (env === 'development' || env === 'testing') {
       secret = configService.get<string>('RECAPTCHA_SECRET_KEY_TEST');
     } else secret = configService.get<string>('RECAPTCHA_SECRET_KEY');
     if (!secret) {
