@@ -27,6 +27,7 @@
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force && prisma db seed",
     "db:seed": "prisma db seed",
+    "db:seed-timeline": "ts-node prisma/timeline-seed.ts",
     "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
     "complete-spec:generate": "tsp compile api-spec/complete-spec --output-dir ./api-spec/complete-spec/",
     "spec:format": "tsp format \"./**/*.tsp\"",

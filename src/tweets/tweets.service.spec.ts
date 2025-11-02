@@ -4,6 +4,7 @@ import { TweetsService } from './tweets.service';
 import { TweetsRepository } from './tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants/tweets.constant';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('TweetsService', () => {
   let service: TweetsService;
@@ -16,6 +17,7 @@ describe('TweetsService', () => {
     hasUserRetweetedTweet: jest.fn(),
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
+    getTimelineForUser: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -33,6 +35,10 @@ describe('TweetsService', () => {
         {
           provide: UsersRepository,
           useValue: mockUsersRepository,
+        },
+        {
+          provide: PrismaService,
+          useValue: {},
         },
       ],
     }).compile();

@@ -11,6 +11,7 @@ describe('TweetsController', () => {
     unlikeTweet: jest.fn(),
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
+    getTimeline: jest.fn(),
   };
 
   const mockUser: RequestUser = {

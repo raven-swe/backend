@@ -2,16 +2,30 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants/tweets.constant';
 import { UsersRepository } from 'src/users/users.repository';
+import { decodeCursor, paginateSingle } from 'src/common/utils/cursor-pagination.util';
 
 @Injectable()
 export class TweetsService {
-  // --------------------------------------
   private readonly logger = new Logger(TweetsService.name);
 
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
   ) {}
+
+  async getTimeline(userId: bigint, cursor: string, limit: number) {
+    this.logger.log(`Fetching following timeline for user ID: ${userId}`);
+    const id = decodeCursor(cursor);
+    const timeline = await this.tweetsRepository.getTimelineForUser(userId, id, limit + 1);
+    const validTweets = timeline.filter((tweet) => tweet !== undefined);
+
+    const pagination = paginateSingle(validTweets, limit, cursor, (tweet) => tweet.id.toString());
+    return {
+      items: validTweets,
+      pagination,
+    };
+  }
+  // --------------------------------------
 
   async likeTweet(userId: bigint, tweetId: bigint) {
     // Check if tweet exists
