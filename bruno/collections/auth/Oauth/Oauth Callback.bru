@@ -11,7 +11,7 @@ post {
 }
 
 params:path {
-  provider: github
+  provider: google
 }
 
 headers {
@@ -25,7 +25,17 @@ body:json {
 }
 
 vars:pre-request {
-  providerToken: ""
+  providerToken: "4/0Ab32j92Yny5kH5TA6h_wsPf6OLZxXDRJVgKPYQgLG5Oqw4vSecStYbVg2y-MWU8BPTe4Ew"
+}
+
+script:post-response {
+  const responseBody = res.getBody();
+  if (responseBody && typeof responseBody === 'object') {
+    const token = responseBody.data?.accessToken;
+    if (token) {
+      bru.setEnvVar('access_token', token);
+    }
+  }
 }
 
 settings {

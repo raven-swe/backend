@@ -200,6 +200,15 @@ model ConnectedAccountResponse {
   connectedAt: utcDateTime;
 }
 
+@doc("Country information for user settings and selection dropdowns")
+model Country {
+  @doc("ISO 3166-1 alpha-2 country code (e.g., 'US', 'EG', 'GB')")
+  code: string;
+
+  @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
+  name: string;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -1469,6 +1478,11 @@ namespace Me {
       | UnauthorizedResponse
       | NotFoundResponse
       | InternalServerErrorResponse;
+
+    @get
+    @route("/country")
+    @summary("Get all supported countries(for country selection dropdowns)")
+    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")
