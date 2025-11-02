@@ -53,6 +53,12 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
   const otp = crypto.randomInt(100000, 999999).toString();
   const hashedOtp = await bcrypt.hash(otp, 10);
 
+  // for e2e testing
+  if (process.env.NODE_ENV === 'testing') {
+    const testOtp = `test_otp:${resendKey}`;
+    await redisService.set(testOtp, otp, ttl);
+  }
+
   const dataWithOtp: T = {
     ...data,
     otp: hashedOtp,
