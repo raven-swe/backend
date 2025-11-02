@@ -24,6 +24,7 @@ export const paginateSingle = <T>(
   getId: (item: T) => bigint | string,
 ): CursorPagination => {
   const hasNextPage = items.length > limit;
+  console.log('items length in paginateSingle:', items.length);
   let nextCursor: string | null = null;
 
   if (hasNextPage) {

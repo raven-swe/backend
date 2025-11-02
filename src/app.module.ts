@@ -17,6 +17,7 @@ import { DevicesModule } from './devices/devices.module';
 import { RATE_LIMIT } from './common/constants/rate-limit.constants';
 import { MediaModule } from './media/media.module';
 import { HealthController } from './health/health.controller';
+import { TweetsModule } from './tweets/tweets.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { HealthController } from './health/health.controller';
     RefreshTokensModule,
     DevicesModule,
     MediaModule,
+    TweetsModule,
   ],
   controllers: [HealthController],
   providers: [

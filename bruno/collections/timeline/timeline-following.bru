@@ -1,0 +1,25 @@
+meta {
+  name: timeline-following
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:3000/timeline/following?cursor&limit=20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  cursor: 
+  limit: 20
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
