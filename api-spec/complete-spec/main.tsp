@@ -1142,6 +1142,7 @@ namespace Users {
     op listUserFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
       | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
@@ -1150,6 +1151,7 @@ namespace Users {
     @summary("List mutual followers with a user given their username")
     op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
@@ -1160,6 +1162,7 @@ namespace Users {
       @get
       op listUserFollowing(@path username: string, ...CursorPaginationParameters):
         | FollowingListResponse
+        | BadRequestResponse
         | NotFoundResponse
         | UnauthorizedResponse
         | InternalServerErrorResponse;
