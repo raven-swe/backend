@@ -20,4 +20,18 @@ export class MediaRepository {
 
     return media;
   }
+
+  async findByUrl(url: string) {
+    const media = await this.prisma.media.findFirst({
+      where: { url },
+    });
+
+    return media;
+  }
+
+  async deleteMedia(id: bigint) {
+    await this.prisma.media.delete({
+      where: { id },
+    });
+  }
 }

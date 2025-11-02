@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Param, Post, Put, UseGuards, Patch, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+  Patch,
+  Get,
+  UseInterceptors,
+  BadRequestException,
+  UploadedFile,
+} from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -7,7 +20,9 @@ import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
 import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
 import { UpdateProfileDto } from '../dtos/update-profile.dto';
-
+import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 @Controller('me')
 export class MeController {
   constructor(private readonly usersService: UsersService) {}
@@ -67,5 +82,72 @@ export class MeController {
   @UseGuards(JwtAuthGuard)
   async getMyProfile(@User() user: RequestUser) {
     return this.usersService.getUserProfile('', BigInt(user.id), true);
+  }
+
+  @Post('profile-picture')
+  @UseInterceptors(
+    FileInterceptor('profilePicture', {
+      fileFilter: (req, file, callback) => {
+        const ext = file.originalname.split('.').pop()?.toLowerCase();
+        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
+          return callback(
+            new BadRequestException(
+              createValidationError(file.fieldname, {
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+              }),
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: { fileSize: MAX_FILE_SIZE_BYTES },
+    }),
+  )
+  @UseGuards(JwtAuthGuard)
+  async uploadAvatar(
+    @User() user: RequestUser,
+    @UploadedFile()
+    profilePicture: Express.Multer.File,
+  ) {
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.uploadAvatar(userIdBigInt, profilePicture);
+  }
+
+  @Post('banner')
+  @UseInterceptors(
+    FileInterceptor('banner', {
+      fileFilter: (req, file, callback) => {
+        const ext = file.originalname.split('.').pop()?.toLowerCase();
+        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
+          return callback(
+            new BadRequestException(
+              createValidationError(file.fieldname, {
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+              }),
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: { fileSize: MAX_FILE_SIZE_BYTES },
+    }),
+  )
+  @UseGuards(JwtAuthGuard)
+  async uploadBanner(
+    @User() user: RequestUser,
+    @UploadedFile()
+    banner: Express.Multer.File,
+  ) {
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.uploadBanner(userIdBigInt, banner);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('banner')
+  async deleteBanner(@User() user: RequestUser) {
+    const userIdBigInt = BigInt(user.id);
+    return this.usersService.deleteBanner(userIdBigInt);
   }
 }

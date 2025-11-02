@@ -26,6 +26,7 @@ export const USERS_ERROR_CODES = {
   SSO_DOESNOT_EXIST: 'SSO_DOESNOT_EXIST',
   SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
   CANNOT_DELETE_CURRENT_SESSION: 'CANNOT_DELETE_CURRENT_SESSION',
+  BANNER_NOT_FOUND: 'BANNER_NOT_FOUND',
 } as const;
 
 export const USERS_ERROR_MESSAGES = {
@@ -58,4 +59,5 @@ export const USERS_ERROR_MESSAGES = {
   SESSION_NOT_FOUND: 'Session not found or does not belong to this user',
   CANNOT_DELETE_CURRENT_SESSION:
     "You can't delete your active session from here. If you want to do this, please logout instead.",
+  BANNER_NOT_FOUND: 'Banner not found for the user',
 } as const;

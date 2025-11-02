@@ -728,6 +728,46 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @post
+  @route("/banner")
+  op updateBanner(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      banner: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        bannerUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/banner")
+  op deleteBanner():
+    | MessageResponse<"Banner deleted successfully.">
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
+  @post
+  @route("/profile-picture")
+  op updateProfilePicture(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      profilePicture: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        avatarUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
