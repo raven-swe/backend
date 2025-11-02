@@ -86,16 +86,14 @@ export class TweetsRepository {
           include: tweetInclude(userId),
         },
       },
-      cursor: cursor && cursor.length ? { id: BigInt(cursor) } : undefined,
+      cursor: cursor ? { id: BigInt(cursor) } : undefined,
       take: limit,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  private mapToTweetDto(tweet: TweetWithIncludes | null): TweetDto | undefined {
-    if (!tweet) return undefined;
-
+  private mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {

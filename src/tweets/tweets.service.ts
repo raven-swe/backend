@@ -9,7 +9,7 @@ export class TweetsService {
   constructor(private readonly tweetsRepository: TweetsRepository) {}
 
   async getTimeline(userId: bigint, cursor: string, limit: number) {
-    this.logger.log(`Fetching FULL timeline for user ID: ${userId}`);
+    this.logger.log(`Fetching following timeline for user ID: ${userId}`);
     const id = decodeCursor(cursor);
     const timeline = await this.tweetsRepository.getTimelineForUser(userId, id, limit + 1);
     const validTweets = timeline.filter((tweet) => tweet !== undefined);

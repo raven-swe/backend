@@ -214,7 +214,7 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 58), // 58 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 60 } },
+      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 62 } },
       tweetMentions: { create: { userId: tasneem.id, startingIndex: 28 } },
     },
   });
