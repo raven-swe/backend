@@ -3,6 +3,7 @@ import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
+import { ParseBigIntPipe } from 'src/common/pipes/parse-bigint.pipe';
 
 @Controller('tweets')
 export class TweetsController {
@@ -11,28 +12,28 @@ export class TweetsController {
 
   @Post(':id/like')
   @UseGuards(JwtAuthGuard)
-  async likeTweet(@User() user: RequestUser, @Param('id') tweetId: bigint) {
+  async likeTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.likeTweet(userId, tweetId);
   }
 
   @Delete(':id/like')
   @UseGuards(JwtAuthGuard)
-  async unlikeTweet(@User() user: RequestUser, @Param('id') tweetId: bigint) {
+  async unlikeTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.unlikeTweet(userId, tweetId);
   }
 
   @Post(':id/retweet')
   @UseGuards(JwtAuthGuard)
-  async retweetTweet(@User() user: RequestUser, @Param('id') tweetId: bigint) {
+  async retweetTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.retweetTweet(userId, tweetId);
   }
 
   @Delete(':id/retweet')
   @UseGuards(JwtAuthGuard)
-  async unretweetTweet(@User() user: RequestUser, @Param('id') tweetId: bigint) {
+  async unretweetTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.unretweetTweet(userId, tweetId);
   }
