@@ -6,8 +6,8 @@ import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/us
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from './constants/users';
-import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
@@ -440,6 +440,18 @@ export class UsersRepository {
       },
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
+  }
+
+  async areUsersBlocked(firstUserId: bigint, secondUserId: bigint): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { userId: firstUserId, blockedId: secondUserId },
+          { userId: secondUserId, blockedId: firstUserId },
+        ],
+      },
+    });
+    return !!block;
   }
 
   async getUserDetails(userId: bigint) {
