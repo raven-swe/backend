@@ -76,6 +76,7 @@ export class TweetsRepository {
       where: {
         userId: { in: timelineUserIds },
         isDeleted: false,
+        replyToTweetId: null,
       },
       orderBy: {
         createdAt: 'desc',
