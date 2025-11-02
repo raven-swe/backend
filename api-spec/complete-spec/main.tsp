@@ -200,6 +200,15 @@ model ConnectedAccountResponse {
   connectedAt: utcDateTime;
 }
 
+@doc("Country information for user settings and selection dropdowns")
+model Country {
+  @doc("ISO 3166-1 alpha-2 country code (e.g., 'US', 'EG', 'GB')")
+  code: string;
+
+  @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
+  name: string;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -1067,6 +1076,35 @@ namespace Oauth {
     | BadRequestResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/{provider}/bridge")
+  @summary("OAuth bridge endpoint for handling provider redirects")
+  @doc("""
+    This endpoint acts as a bridge between OAuth providers and the client application.
+    
+    **Redirect URL format(Sent back to client):**
+    All fields are optional except provider.
+    `{redirect}?provider={provider}&code={code}&error={error}&errorDescription={errorDescription}`
+    
+    **State parameter format (base64 encoded JSON):**
+    ```json
+    {
+      "redirect": "https://app.example.com/oauth?provider=google&code=200&error=err&errorDescription=errordescription"
+    }
+    ```
+    """)
+  op getProviderBridge(
+    @path provider: string,
+    @query code?: string,
+    @query error?: string,
+    @query errorDescription?: string,
+    @query state: string,
+  ):
+    | Response<302> // redirect response
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Users")
@@ -1469,6 +1507,11 @@ namespace Me {
       | UnauthorizedResponse
       | NotFoundResponse
       | InternalServerErrorResponse;
+
+    @get
+    @route("/country")
+    @summary("Get all supported countries(for country selection dropdowns)")
+    op getSupportedCountries(): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
   }
 
   @route("/blocks")

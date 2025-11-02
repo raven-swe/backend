@@ -1,0 +1,26 @@
+meta {
+  name: update-gender
+  type: http
+  seq: 10
+}
+
+put {
+  url: http://localhost:3000/me/settings/gender
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "gender": "Female"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

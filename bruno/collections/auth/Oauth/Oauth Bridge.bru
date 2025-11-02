@@ -1,0 +1,29 @@
+meta {
+  name: Oauth Bridge
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/oauth/:provider/bridge?state=eyJyZWRpcmVjdCI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL29hdXRoIn0=&code=200&error=error&errorDescription=errordesc
+  body: none
+  auth: inherit
+}
+
+params:query {
+  state: eyJyZWRpcmVjdCI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL29hdXRoIn0=
+  code: 200
+  error: error
+  errorDescription: errordesc
+}
+
+params:path {
+  provider: google
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+  followRedirects: false
+  maxRedirects: 5
+}
