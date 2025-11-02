@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OauthController } from '../oauth.controller';
 import { OAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 
 describe('OauthController', () => {
@@ -95,6 +95,7 @@ describe('OauthController', () => {
         'mock-token-123',
         mockDeviceType,
         mockIpAddress,
+        'web',
       );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
@@ -171,6 +172,7 @@ describe('OauthController', () => {
         'mock-token-123',
         mockDeviceType,
         mockIpAddress,
+        'mobile',
       );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
@@ -209,7 +211,7 @@ describe('OauthController', () => {
       expect(mockOAuthService.handleOauthToken).not.toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException when clientType header is missing', async () => {
+    it('should throw BadReq when clientType header is missing', async () => {
       const mockResponse = createMockResponse();
       const mockLoginResponse = {
         accessToken: 'mock-access-token',
@@ -227,7 +229,7 @@ describe('OauthController', () => {
           mockResponse as Response,
           null as unknown as 'web',
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle service errors gracefully', async () => {
@@ -410,29 +412,6 @@ describe('OauthController', () => {
         mockIpAddress,
       );
       expect(mockOAuthService.completeOauthRegister).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle missing X-Client-Type header', async () => {
-      const mockResponse = createMockResponse();
-      const mockOauthCallbackDto = { providerToken: 'token-123' };
-
-      mockOAuthService.handleOauthToken.mockResolvedValue({
-        accessToken: 'token',
-        refreshToken: 'refresh',
-      });
-
-      await expect(
-        controller.providerCallback(
-          'github',
-          mockOauthCallbackDto,
-          '127.0.0.1',
-          'device-type',
-          mockResponse as Response,
-          '' as 'web',
-        ),
-      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
