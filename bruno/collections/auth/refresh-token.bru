@@ -25,7 +25,7 @@ script:post-response {
     try {
       const token = responseBody.data.accessToken;
       if (token) {
-        bru.setVar("accessToken", token); 
+        bru.setVar("access_token", token); 
         console.log("Token saved successfully.");
       } else {
         console.warn("Token not found in the response.");
