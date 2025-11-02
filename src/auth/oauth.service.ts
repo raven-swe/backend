@@ -41,7 +41,7 @@ export class OAuthService {
       );
     }
 
-    const providerProfile = await strategy.validateToken(providerToken);
+    const providerProfile = await strategy.validateToken(providerToken, deviceType);
 
     return this.handleOauthProfile(providerProfile, deviceType, ipAddress);
   }

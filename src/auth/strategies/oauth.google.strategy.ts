@@ -19,7 +19,12 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
     this.client = new OAuth2Client(this.config.get<string>('GOOGLE_CLIENT_ID'));
   }
 
-  async validateToken(providerToken: string): Promise<ProviderProfile> {
+  async validateToken(providerToken: string, deviceType: string): Promise<ProviderProfile> {
+    const redirectUri =
+      deviceType === 'mobile'
+        ? this.config.get<string>('GOOGLE_REDIRECT_URI_MOBILE')!
+        : this.config.get<string>('GOOGLE_REDIRECT_URI_WEB')!;
+
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -29,7 +34,7 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
         code: providerToken,
         client_id: this.config.get<string>('GOOGLE_CLIENT_ID')!,
         client_secret: this.config.get<string>('GOOGLE_CLIENT_SECRET')!,
-        redirect_uri: this.config.get<string>('GOOGLE_REDIRECT_URI')!,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
     });

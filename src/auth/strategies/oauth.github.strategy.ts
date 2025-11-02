@@ -15,7 +15,12 @@ interface GithubUserResponse {
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
   constructor(private readonly config: ConfigService) {}
 
-  async validateToken(providerToken: string): Promise<ProviderProfile> {
+  async validateToken(providerToken: string, deviceType: string): Promise<ProviderProfile> {
+    const redirectUri = // for consistency, though GitHub uses the same redirect URI for both
+      deviceType === 'mobile'
+        ? this.config.get<string>('GITHUB_REDIRECT_URI')!
+        : this.config.get<string>('GITHUB_REDIRECT_URI')!;
+
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -26,7 +31,7 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
         client_id: this.config.get<string>('GITHUB_CLIENT_ID')!,
         client_secret: this.config.get<string>('GITHUB_CLIENT_SECRET')!,
         code: providerToken,
-        redirect_uri: this.config.get<string>('GITHUB_REDIRECT_URI')!,
+        redirect_uri: redirectUri,
       }),
     });
 
