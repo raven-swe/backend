@@ -1,4 +1,17 @@
-import { Controller, Post, Body, Param, Headers, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  Headers,
+  Res,
+  UnauthorizedException,
+  Get,
+  Query,
+  InternalServerErrorException,
+  Redirect,
+  Logger,
+} from '@nestjs/common';
 import { OAuthService } from './oauth.service';
 import { BadRequestException } from '@nestjs/common';
 import {
@@ -8,6 +21,7 @@ import {
 import { OauthCallbackDto } from './dto/oauth-callback.dto';
 import type { Response } from 'express';
 import { OauthCompleteDto } from './dto/oauth-complete.dto';
+import { OAuthBridgeQueryDto } from './dto/oauth-bridge-query.dto';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { DeviceType, IPAddress } from './decorators';
 import { ConfigService } from '@nestjs/config';
@@ -104,5 +118,74 @@ export class OauthController {
     });
 
     return { accessToken };
+  }
+
+  @Get(':provider/bridge')
+  @Redirect()
+  getProviderBridge(@Param('provider') provider: string, @Query() query: OAuthBridgeQueryDto) {
+    try {
+      if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
+        throw new BadRequestException(
+          createValidationError('provider', {
+            invalidParam: `Unsupported OAuth provider: ${provider}`,
+          }),
+        );
+      }
+
+      const { code, error, errorDescription, state } = query;
+
+      if (!state) {
+        throw new BadRequestException(
+          createValidationError('state', { invalidParam: 'State parameter is required' }),
+        );
+      }
+
+      let redirect: string;
+      try {
+        const decoded = Buffer.from(state, 'base64').toString();
+        const parsed = JSON.parse(decoded) as {
+          redirect?: string;
+        };
+        redirect = parsed.redirect ?? '';
+        if (!redirect) throw new Error('Missing redirect in state');
+      } catch {
+        throw new BadRequestException(
+          createValidationError('state', { invalidParam: 'Invalid state parameter' }),
+        );
+      }
+
+      let appUrl: URL;
+      try {
+        appUrl = new URL(redirect);
+      } catch {
+        throw new BadRequestException(
+          createValidationError('state', { invalidParam: 'Invalid state parameter' }),
+        );
+      }
+
+      appUrl.searchParams.set('provider', provider);
+
+      if (code) {
+        appUrl.searchParams.set('code', code);
+      }
+
+      if (error) {
+        appUrl.searchParams.set('error', error);
+        if (errorDescription) {
+          appUrl.searchParams.set('errorDescription', errorDescription);
+        }
+      }
+
+      const finalUrl = appUrl.toString();
+      Logger.log(`OAuth bridge redirecting to: ${finalUrl}`, 'OauthController');
+      return { url: finalUrl };
+    } catch (e) {
+      if (e instanceof BadRequestException) {
+        throw e;
+      }
+      throw new InternalServerErrorException({
+        message: 'Failed to process OAuth bridge',
+      });
+    }
   }
 }

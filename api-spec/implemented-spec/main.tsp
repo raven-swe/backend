@@ -510,6 +510,89 @@ model UpdatedProfile {
   updatedAt: utcDateTime;
 }
 
+@doc("The type of media file.")
+enum MediaType {
+  IMAGE,
+  VIDEO,
+  GIF,
+}
+
+@doc("Detailed information about an attached media item.")
+model MediaItem {
+  @doc("The type of media.")
+  type: MediaType;
+
+  @doc("URL to access the media file.")
+  url: string;
+
+  @doc("Alt text for accessibility.")
+  altText: string;
+
+  @doc("The width of the media item (in pixels for image/video).")
+  width: int32;
+
+  @doc("The height of the media item (in pixels for image/video).")
+  height: int32;
+}
+
+@doc("Entities containing mentions and hashtags for tweet content")
+model TweetEntities {
+  @doc("Array of mention entities in the tweet")
+  mentions: MentionEntity[] | null;
+
+  @doc("Array of hashtag entities in the tweet")
+  hashtags: HashtagEntity[] | null;
+}
+
+@doc("A compact representation of a tweet, used when nesting or in lists.")
+model CompactTweet {
+  @doc("The unique identifier for the tweet.")
+  id: string;
+
+  @doc("The user who created the tweet.")
+  author: UserMetadata;
+
+  @doc("The text content of the tweet.")
+  content: string | null;
+
+  @doc("The time the tweet was created. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  createdAt: utcDateTime;
+
+  @doc("Number of replies to this tweet.")
+  replyCount: int32;
+
+  @doc("Number of retweets of this tweet.")
+  retweetCount: int32;
+
+  @doc("Number of likes on this tweet.")
+  likeCount: int32;
+
+  @doc("Indicates if the authenticated user has liked this tweet.")
+  isLiked: boolean;
+
+  @doc("Indicates if the authenticated user has retweeted this tweet.")
+  isRetweeted: boolean;
+
+  @doc("Structured data entities (mentions, hashtags) found in the tweet content.")
+  entities: TweetEntities;
+
+  @doc("Optional array of media ids attached to the tweet (max 4 items)")
+  media: MediaItem[] | null;
+}
+
+model Tweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId: string | null;
+
+  @doc("The full object of the tweet being quoted, for easy display.")
+  quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1164,4 +1247,46 @@ namespace Oauth {
     | BadRequestResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/{provider}/bridge")
+  @summary("OAuth bridge endpoint for handling provider redirects")
+  @doc("""
+    This endpoint acts as a bridge between OAuth providers and the client application.
+    
+    **Redirect URL format(Sent back to client):**
+    All fields are optional except provider.
+    `{redirect}?provider={provider}&code={code}&error={error}&errorDescription={errorDescription}`
+    
+    **State parameter format (base64 encoded JSON):**
+    ```json
+    {
+      "redirect": "https://app.example.com/oauth?provider=google&code=200&error=err&errorDescription=errordescription"
+    }
+    ```
+    """)
+  op getProviderBridge(
+    @path provider: string,
+    @query code?: string,
+    @query error?: string,
+    @query errorDescription?: string,
+    @query state: string,
+  ):
+    | Response<302> // redirect response
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
 }
+
+@tag("Timeline")
+@route("/timeline")
+@useAuth(BearerAuth)
+namespace Timeline {
+  @get
+  @route("/following")
+  @summary("Get tweets from users the authenticated user follows")
+  op getFollowingFeed(
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+

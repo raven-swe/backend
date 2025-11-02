@@ -435,4 +435,53 @@ describe('OauthController', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
   });
+
+  describe('getProviderBridge', () => {
+    const mockState = Buffer.from(
+      JSON.stringify({ redirect: 'https://app.example.com/oauth' }),
+    ).toString('base64');
+
+    it('should return redirect URL with code parameter', () => {
+      const query = { code: 'auth-code-123', state: mockState };
+      const result = controller.getProviderBridge('github', query);
+
+      expect(result).toEqual({
+        url: 'https://app.example.com/oauth?provider=github&code=auth-code-123',
+      });
+    });
+
+    it('should return redirect URL with error parameters', () => {
+      const query = {
+        error: 'access_denied',
+        errorDescription: 'User denied access',
+        state: mockState,
+      };
+      const result = controller.getProviderBridge('google', query);
+
+      expect(result).toEqual({
+        url: 'https://app.example.com/oauth?provider=google&error=access_denied&errorDescription=User+denied+access',
+      });
+    });
+
+    it('should throw BadRequestException for unsupported provider', () => {
+      const query = { code: 'code-123', state: mockState };
+      expect(() => controller.getProviderBridge('facebook', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for missing state', () => {
+      const query = { code: 'code-123', state: '' };
+      expect(() => controller.getProviderBridge('github', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for invalid state', () => {
+      const query = { code: 'code-123', state: 'invalid-base64' };
+      expect(() => controller.getProviderBridge('google', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for missing redirect in state', () => {
+      const invalidState = Buffer.from(JSON.stringify({})).toString('base64');
+      const query = { code: 'code-123', state: invalidState };
+      expect(() => controller.getProviderBridge('github', query)).toThrow(BadRequestException);
+    });
+  });
 });

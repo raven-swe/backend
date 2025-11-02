@@ -1076,6 +1076,35 @@ namespace Oauth {
     | BadRequestResponse
     | ValidationErrorResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/{provider}/bridge")
+  @summary("OAuth bridge endpoint for handling provider redirects")
+  @doc("""
+    This endpoint acts as a bridge between OAuth providers and the client application.
+    
+    **Redirect URL format(Sent back to client):**
+    All fields are optional except provider.
+    `{redirect}?provider={provider}&code={code}&error={error}&errorDescription={errorDescription}`
+    
+    **State parameter format (base64 encoded JSON):**
+    ```json
+    {
+      "redirect": "https://app.example.com/oauth?provider=google&code=200&error=err&errorDescription=errordescription"
+    }
+    ```
+    """)
+  op getProviderBridge(
+    @path provider: string,
+    @query code?: string,
+    @query error?: string,
+    @query errorDescription?: string,
+    @query state: string,
+  ):
+    | Response<302> // redirect response
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Users")
