@@ -35,10 +35,6 @@ async function main() {
   await prisma.tweet.deleteMany({});
   await prisma.follow.deleteMany({});
   await prisma.trendingKeyword.deleteMany({});
-  await prisma.refreshToken.deleteMany({});
-  await prisma.userDevice.deleteMany({});
-  await prisma.profile.deleteMany({});
-  await prisma.user.deleteMany({});
 
   // Step 2: Create the 5 specified user accounts.
   console.log('[2/5] Creating user accounts...');
