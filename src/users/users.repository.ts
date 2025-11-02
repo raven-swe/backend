@@ -140,88 +140,84 @@ export class UsersRepository {
       },
     });
 
-    // TODO: change is_deleted to deleted_at after migrating the database
     if (!user || user.deletedAt) return null;
-
-    // Get relationship if currentUserId is provided
-    let relationship: UserRelationshipDto | null = null;
 
     // TODO: convert to "let" after implementing mutual followers
     const mutualsCount: number | null = 2;
     const mutualNames: string[] | null = ['Omar', 'Tasneem'];
 
-    // Get relationship status only if currentUserId is provided and is different from the profile user
+    // Get relationship status only if currentUserId is provided and is not my profile
+    let [isBlocking, isBlockedBy] = [false, false];
+    let [isFollowing, isFollower, isMuted] = [false, false, false];
+
     if (currentUserId && !isMyProfile) {
-      // Check if current user is following this user
-      const isFollowing = await this.prisma.follow.findUnique({
-        where: {
-          followerId_followedId: {
-            followerId: currentUserId,
-            followedId: user.id,
-          },
-        },
-      });
+      // Check blocking status first
+      const [blocking, blockedBy] = await Promise.all([
+        this.isBlocked(currentUserId, user.id),
+        this.isBlocked(user.id, currentUserId),
+      ]);
+      isBlocking = blocking;
+      isBlockedBy = blockedBy;
 
-      // Check if this user is following current user
-      const isFollower = await this.prisma.follow.findUnique({
-        where: {
-          followerId_followedId: {
-            followerId: user.id,
-            followedId: currentUserId,
-          },
-        },
-      });
+      if (!isBlocking && !isBlockedBy) {
+        // Check following and mute status in parallel if not blocking or blocked by
+        const [following, follower, muted] = await Promise.all([
+          this.isFollowing(currentUserId, user.id),
+          this.isFollowing(user.id, currentUserId),
+          this.isMuted(currentUserId, user.id),
+        ]);
+        [isFollowing, isFollower, isMuted] = [following, follower, muted];
+      }
+    }
 
-      // Check if current user is blocking this user
-      const isBlocking = await this.prisma.block.findUnique({
-        where: {
-          userId_blockedId: {
-            userId: currentUserId,
-            blockedId: user.id,
-          },
+    // If current user is blocking the user, return limited profile info
+    if (isBlocking) {
+      return {
+        username: user.username,
+        displayName: user.profile?.displayName || '',
+        bio: null,
+        bioEntities: null,
+        location: null,
+        birthDate: null,
+        avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        bannerUrl: user.profile?.bannerUrl || null,
+        websiteUrl: null,
+        // TODO: This should be null here but I'm not changing spec now
+        joinedAt: user.createdAt,
+        relationship: {
+          blocking: true,
+          blockedBy: !!isBlockedBy,
+          following: false,
+          follower: false,
+          muted: false,
         },
-      });
-
-      // Check if the user is blocking current user
-      const isBlockedBy = await this.prisma.block.findUnique({
-        where: {
-          userId_blockedId: {
-            userId: user.id,
-            blockedId: currentUserId,
-          },
-        },
-      });
-
-      // Check if the current user has muted this user
-      const isMuted = await this.prisma.mute.findUnique({
-        where: {
-          userId_mutedId: {
-            userId: currentUserId,
-            mutedId: user.id,
-          },
-        },
-      });
-
-      relationship = {
-        blocking: !!isBlocking,
-        blockedBy: !!isBlockedBy,
-        following: !!isFollowing,
-        follower: !!isFollower,
-        muted: !!isMuted,
+        followingCount: user._count.following,
+        followersCount: user._count.followers,
+        mutualsCount: null,
+        mutualNames: null,
       };
 
       // TODO: Get mutual followers count and names
     }
 
+    const relationship: UserRelationshipDto | null = isMyProfile
+      ? null
+      : {
+          blocking: isBlocking,
+          blockedBy: isBlockedBy,
+          following: isFollowing,
+          follower: isFollower,
+          muted: isMuted,
+        };
+
     return {
       username: user.username,
-      // TODO: profile should be created automatically on user creation
       displayName: user.profile?.displayName || '',
       bio: user.profile?.bio || null,
       // TODO: return actual bio entities after implementing rich text bios
       bioEntities: null,
       location: user.profile?.location || null,
-      birthDate: user.birthdate.toISOString().split('T')[0] || null,
+      birthDate: user.birthdate?.toISOString().split('T')[0] || null,
       avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
       bannerUrl: user.profile?.bannerUrl || null,
       websiteUrl: user.profile?.websiteUrl || null,
@@ -229,9 +225,9 @@ export class UsersRepository {
       relationship,
       followingCount: user._count.following,
       followersCount: user._count.followers,
-
-      mutualsCount: mutualsCount ? mutualsCount : null,
-      mutualNames,
+      mutualsCount: mutualsCount && !isMyProfile ? mutualsCount : null,
+      mutualNames: mutualNames && !isMyProfile ? mutualNames : null,
+      email: isMyProfile ? user.email : undefined,
     };
   }
 
