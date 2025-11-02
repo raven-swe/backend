@@ -38,6 +38,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getUserFollowings(
     @Param('username') username: string,
+    @User() user: RequestUser,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -45,6 +46,7 @@ export class UsersController {
     const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
     const { items, pagination } = await this.usersService.getUserFollowings(
       username,
+      BigInt(user.id),
       parsedLimit,
       cursor,
     );
@@ -76,13 +78,15 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getUserFollowers(
     @Param('username') username: string,
-    @Query('limit') limit: string,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
     const parsed = Number(limit);
     const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
     const { items, pagination } = await this.usersService.getUserFollowers(
       username,
+      BigInt(user.id),
       parsedLimit,
       cursor,
     );

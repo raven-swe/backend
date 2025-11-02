@@ -315,11 +315,12 @@ export class UsersRepository {
 
   async getUserFollowings(
     requestedUserId: bigint,
+    excludeFollowerIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
-      where: { followerId: requestedUserId },
+      where: { followerId: requestedUserId, followedId: { notIn: excludeFollowerIds } },
       take: limit,
       cursor: prevCursor
         ? {
@@ -379,13 +380,14 @@ export class UsersRepository {
   async getUserMutualFollowers(
     requestedUserId: bigint,
     authFollowedIds: bigint[],
+    excludeFollowedIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
       where: {
         followedId: requestedUserId,
-        followerId: { in: authFollowedIds }, // Filter at DB level
+        followerId: { in: authFollowedIds, notIn: excludeFollowedIds }, // Filter at DB level
       },
       take: limit,
       cursor: prevCursor
@@ -428,11 +430,12 @@ export class UsersRepository {
 
   async getUserFollowers(
     requestedUserId: bigint,
+    excludeFollowerIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
-      where: { followedId: requestedUserId },
+      where: { followedId: requestedUserId, followerId: { notIn: excludeFollowerIds } },
       take: limit,
       cursor: prevCursor
         ? {
@@ -581,5 +584,14 @@ export class UsersRepository {
       },
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
+  }
+
+  async getBlockRelations(authUserId: bigint) {
+    return await this.prisma.block.findMany({
+      where: {
+        OR: [{ userId: authUserId }, { blockedId: authUserId }],
+      },
+      select: { userId: true, blockedId: true },
+    });
   }
 }

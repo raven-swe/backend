@@ -495,7 +495,12 @@ export class UsersService {
 
     return { message: 'User unmuted successfully.' };
   }
-  async getUserFollowers(username: string, limit: number = 20, prevCursor?: string) {
+  async getUserFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
     if (!requestedUser) {
@@ -516,8 +521,11 @@ export class UsersService {
       }
     }
 
+    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+
     const followers = await this.usersRepository.getUserFollowers(
       requestedUser.id,
+      excludeFollowedIds,
       limit + 1,
       decoded,
     );
@@ -541,6 +549,23 @@ export class UsersService {
     }));
 
     return { items, pagination };
+  }
+
+  async getUserBlocks(userId: bigint) {
+    const blockRelations = await this.usersRepository.getBlockRelations(userId);
+    const blockedByMe = new Set<bigint>();
+    const blockedMe = new Set<bigint>();
+
+    for (const block of blockRelations) {
+      if (block.userId === userId) {
+        blockedByMe.add(block.blockedId);
+      }
+      if (block.blockedId === userId) {
+        blockedMe.add(block.userId);
+      }
+    }
+
+    return Array.from(blockedByMe).concat(Array.from(blockedMe));
   }
 
   async getUserMutualFollowers(
@@ -569,12 +594,15 @@ export class UsersService {
       }
     }
 
+    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+
     const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
 
     const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
       requestedUser.id,
       authFollowedIds,
-      limit,
+      excludeFollowedIds,
+      limit + 1,
       decoded,
     );
 
@@ -599,7 +627,12 @@ export class UsersService {
     return { items, pagination };
   }
 
-  async getUserFollowings(username: string, limit: number = 20, prevCursor?: string) {
+  async getUserFollowings(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
     if (!requestedUser) {
@@ -620,9 +653,12 @@ export class UsersService {
       }
     }
 
+    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+
     const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
-      limit,
+      excludeFollowedIds,
+      limit + 1,
       decoded,
     );
 
