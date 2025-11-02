@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces/NewUser.interface';
@@ -6,9 +6,14 @@ import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/us
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from './constants/users';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
 export class UsersRepository {
+  private readonly logger = new Logger(UsersRepository.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string) {
@@ -27,6 +32,14 @@ export class UsersRepository {
     return await this.prisma.user.findFirst({
       where: {
         OR: [{ email: identifier }, { username: identifier }],
+      },
+    });
+  }
+
+  async findByIdentifierWithPhone(identifier: string) {
+    return await this.prisma.user.findFirst({
+      where: {
+        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
       },
     });
   }
@@ -226,7 +239,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.UNAUTHORIZED,
       );
 
     if (user.username === newUsername) {
@@ -268,7 +281,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.FORBIDDEN,
       );
 
     if (user.username === username) {
@@ -427,6 +440,434 @@ export class UsersRepository {
       },
     });
     return !!mute || (await this.isBlocked(userId, mutedId));
+  }
+
+  async getUserDetails(userId: bigint) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        userDevices: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+        country: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    if (user.deletedAt)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+
+    const today = new Date();
+
+    const birthDate = new Date(user.birthdate);
+
+    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+
+    const monthDifference = today.getUTCMonth() - birthDate.getUTCMonth();
+
+    if (
+      monthDifference < 0 ||
+      (monthDifference === 0 && today.getUTCDate() < birthDate.getUTCDate())
+    )
+      age--;
+
+    const response = {
+      username: user.username,
+      email: user.email,
+      accountCreationDate: user.createdAt,
+      accountCreationIp: user.userDevices[0].ipAddress, // workaround as we currently don't store the original ip address of a user
+      country: user.country?.name || null,
+      languages: [user.languageCode],
+      gender: user.gender,
+      birthDate: user.birthdate.toISOString().split('T')[0] || null,
+      age,
+    };
+
+    this.logger.log(`Finished getting user details for ${user.username}`);
+
+    return response;
+  }
+
+  async updateBirthDate(userId: bigint, birthDate: Date) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        birthdate: birthDate,
+      },
+    });
+
+    this.logger.log(`Update birthdate completed for ${user.username}`);
+
+    return { message: 'Birth date updated successfully.' };
+  }
+
+  async getUserSSOs(userId: bigint) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    const userExternalAccounts = await this.prisma.userExternalAccount.findMany({
+      where: { userId },
+    });
+
+    const filteredUserExternalAccounts = userExternalAccounts.map((acc) => {
+      return {
+        provider: acc.provider,
+        displayIdentifier: user.email,
+        status: 'Connected',
+        connectedAt: acc.createdAt,
+      };
+    });
+
+    this.logger.log(`Getting the user external accounts for ${user.username}`);
+
+    return filteredUserExternalAccounts;
+  }
+
+  async validateLoggedInUser(userId: bigint, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    if (user.passwordHash) {
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
+      if (isMatch) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async removeUserSSO(userId: bigint, provider: string) {
+    const userExternalAccount = await this.prisma.userExternalAccount.findUnique({
+      where: {
+        userId_provider: {
+          userId,
+          provider,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!userExternalAccount)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    await this.prisma.userExternalAccount.delete({
+      where: {
+        userId_provider: {
+          userId,
+          provider,
+        },
+      },
+    });
+
+    this.logger.log(`${provider} account removed for ${userExternalAccount.user.username}`);
+  }
+
+  async getCountries() {
+    const data = await this.prisma.country.findMany({});
+
+    const filteredCountries = data.map((country) => {
+      return {
+        code: country.code,
+        name: country.name,
+      };
+    });
+
+    return filteredCountries;
+  }
+
+  async checkCountry(countryName: string) {
+    const country = await this.prisma.country.findFirst({
+      where: {
+        name: countryName,
+      },
+    });
+
+    if (!country)
+      throw new BadRequestException(
+        createValidationError('invalidCountry', {
+          invalidCountry: 'The country you entered is not supported',
+        }),
+      );
+
+    return country;
+  }
+
+  async updateCountry(
+    userId: bigint,
+    country: {
+      id: number;
+      name: string;
+      code: string;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      include: {
+        country: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    if (user.country && user.country.name === country.name) return;
+
+    await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        countryId: country.id,
+      },
+    });
+  }
+
+  async updateGender(userId: bigint, gender: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { gender: gender === 'Male' ? 'MALE' : 'FEMALE' },
+    });
+  }
+
+  async updateLanguage(userId: bigint, language: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { languageCode: language === 'AR' ? 'AR' : 'EN' },
+    });
+  }
+
+  private hashStringDeterministic(str: string) {
+    const hash = crypto.createHash('sha256');
+    hash.update(str);
+    return hash.digest('hex');
+  }
+
+  private async getTokenByHash(hash: string) {
+    return await this.prisma.refreshToken.findUnique({
+      where: {
+        tokenHash: hash,
+      },
+      include: {
+        userDevice: true,
+      },
+    });
+  }
+
+  async getSessions(userId: bigint, refreshToken: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    let currentDeviceId: bigint | null = null;
+
+    try {
+      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+      const token = await this.getTokenByHash(hashedRefreshToken);
+      if (token && token.expiresAt >= new Date()) {
+        currentDeviceId = token.deviceId;
+      }
+    } catch {
+      this.logger.warn('Failed to identify current device from refresh token');
+    }
+
+    const userSessions = await this.prisma.userDevice.findMany({
+      where: { userId: userId },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+
+    const filteredSessions = userSessions.map((session) => {
+      return {
+        id: session.id.toString(),
+        deviceType: session.deviceType,
+        lastActive: session.lastUsedAt,
+        isCurrent: currentDeviceId ? session.id === currentDeviceId : false,
+      };
+    });
+
+    this.logger.log(`Getting sessions for ${user.username}`);
+
+    return filteredSessions;
+  }
+
+  async deleteSession(userId: bigint, sessionId: bigint, refreshToken: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      include: {
+        userDevices: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+
+    let currentDeviceId: bigint | null = null;
+
+    try {
+      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+      const token = await this.getTokenByHash(hashedRefreshToken);
+      if (token && token.expiresAt >= new Date()) {
+        currentDeviceId = token.deviceId;
+      }
+    } catch {
+      this.logger.warn('Failed to identify current device from refresh token');
+    }
+
+    if (currentDeviceId === sessionId)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_DELETE_CURRENT_SESSION,
+          code: USERS_ERROR_CODES.CANNOT_DELETE_CURRENT_SESSION,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    const sessionToBeDeleted = user.userDevices.find((device) => device.id === sessionId);
+
+    if (!sessionToBeDeleted)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.SESSION_NOT_FOUND,
+          code: USERS_ERROR_CODES.SESSION_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    await this.prisma.refreshToken.deleteMany({
+      where: { deviceId: sessionToBeDeleted.id },
+    });
+
+    await this.prisma.userDevice.delete({
+      where: { id: sessionToBeDeleted.id },
+    });
+
+    this.logger.log(`Session ${sessionId} deleted for user ${user.username}`);
   }
 
   async updateBanner(userId: bigint, bannerUrl: string) {

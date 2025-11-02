@@ -1,0 +1,26 @@
+meta {
+  name: change-country
+  type: http
+  seq: 9
+}
+
+put {
+  url: http://localhost:3000/me/settings/country
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "countryName": "eg"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
