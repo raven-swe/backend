@@ -9,7 +9,6 @@ import { DEFAULT_PROFILE_PICTURE } from './constants/users';
 import { FollowsCursor } from 'src/common/utils/cursor-pagination.util';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import * as bcrypt from 'bcrypt';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 @Injectable()
