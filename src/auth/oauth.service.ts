@@ -9,6 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
+import { generate } from 'rxjs';
+import { generateUsernames } from 'src/common/utils/generate-vaildate-usernames.util';
 
 @Injectable()
 export class OAuthService {
@@ -169,7 +171,7 @@ export class OAuthService {
 
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,
-      payload.email, // TODO USERNAME STRATEGY
+      (await generateUsernames(payload.name, 1))[0],
       new Date(birthDate),
       payload.name,
       payload.avatar_url,
