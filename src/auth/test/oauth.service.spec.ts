@@ -112,7 +112,7 @@ describe('OAuthService', () => {
         mockIpAddress,
       );
 
-      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
+      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123', mockDeviceType);
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
@@ -147,7 +147,7 @@ describe('OAuthService', () => {
         mockIpAddress,
       );
 
-      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
+      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123', mockDeviceType);
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
