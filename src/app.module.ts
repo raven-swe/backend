@@ -19,7 +19,6 @@ import { MediaModule } from './media/media.module';
 import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
-import { TweetsModule } from './tweets/tweets.module';
 
 @Module({
   imports: [
