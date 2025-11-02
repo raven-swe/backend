@@ -93,7 +93,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png, webp).',
               }),
             ),
             false,
@@ -123,7 +123,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: 'Only image files are allowed (jpg, jpeg, png, webp).',
               }),
             ),
             false,
