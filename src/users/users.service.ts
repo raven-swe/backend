@@ -569,37 +569,33 @@ export class UsersService {
       }
     }
 
-    const followers = await this.usersRepository.getUserFollowers(requestedUser.id, limit, decoded);
+    const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
 
-    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+    const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
+      requestedUser.id,
+      authFollowedIds,
+      limit,
+      decoded,
+    );
+
+    const pagination = paginateComposite(mutualFollowers, limit, prevCursor, (item) => ({
       followerId: item.followerId.toString(),
       followedId: item.followedId.toString(),
     }));
 
-    const followerIds = followers.map((f) => f.followerUser.id);
-    const relationRows = await this.usersRepository.getMutualRelations(authUserId, followerIds);
+    const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
+    const relationRows = await this.usersRepository.getMutualRelations(authUserId, mutualIds);
 
-    const setAuthFollows = new Set<bigint>();
     const setTheyFollowAuth = new Set<bigint>();
-
     for (const r of relationRows) {
-      if (r.followerId === authUserId) setAuthFollows.add(r.followedId);
       if (r.followedId === authUserId) setTheyFollowAuth.add(r.followerId);
     }
 
-    const items = followers
-      .map((f) => ({
-        id: f.followerUser.id,
-        username: f.followerUser.username,
-        profile: f.followerUser.profile,
-      }))
-      .filter((c) => setAuthFollows.has(c.id))
-      .map((c) => ({
-        ...c.profile,
-        username: c.username,
-        isFollowing: setTheyFollowAuth.has(c.id),
-      }));
-
+    const items = mutualFollowers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: setTheyFollowAuth.has(f.followerUser.id),
+    }));
     return { items, pagination };
   }
 

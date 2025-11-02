@@ -368,6 +368,54 @@ export class UsersRepository {
     });
   }
 
+  async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+    return follows.map((f) => f.followedId);
+  }
+
+  async getUserMutualFollowers(
+    requestedUserId: bigint,
+    authFollowedIds: bigint[],
+    limit: number,
+    prevCursor: FollowsCursor | undefined,
+  ) {
+    return await this.prisma.follow.findMany({
+      where: {
+        followedId: requestedUserId,
+        followerId: { in: authFollowedIds }, // Filter at DB level
+      },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
+      include: {
+        followerUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                bioEntities: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getFollowBacksForFollowings(requestedUserId: bigint, followingIds: bigint[]) {
     return await this.prisma.follow.findMany({
       where: {
