@@ -1,4 +1,6 @@
 import { PrismaClient, NotificationType } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +34,7 @@ async function main() {
   await prisma.userExternalAccount.deleteMany();
   await prisma.profile.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.country.deleteMany();
 
   await prisma.$executeRaw`ALTER SEQUENCE "users_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "refresh_tokens_id_seq" RESTART WITH 1;`;
@@ -42,6 +45,30 @@ async function main() {
   await prisma.$executeRaw`ALTER SEQUENCE "conversations_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "notifications_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "media_id_seq" RESTART WITH 1;`;
+  await prisma.$executeRaw`ALTER SEQUENCE "countries_id_seq" RESTART WITH 1;`;
+
+  const countriesPath = path.join(__dirname, 'countries.json');
+  const countriesData = JSON.parse(fs.readFileSync(countriesPath, 'utf-8')) as Array<{
+    name: string;
+    'alpha-2': string;
+    'country-code': string;
+  }>;
+
+  for (const country of countriesData) {
+    await prisma.country.create({
+      data: {
+        name: country.name,
+        code: country['alpha-2'],
+      },
+    });
+  }
+
+  const egypt = await prisma.country.findFirst({ where: { code: 'EG' } });
+  const usa = await prisma.country.findFirst({ where: { code: 'US' } });
+  const uk = await prisma.country.findFirst({ where: { code: 'GB' } });
+  const canada = await prisma.country.findFirst({ where: { code: 'CA' } });
+  const germany = await prisma.country.findFirst({ where: { code: 'DE' } });
+  const france = await prisma.country.findFirst({ where: { code: 'FR' } });
 
   const usersToCreate = [
     {
@@ -49,6 +76,7 @@ async function main() {
       email: 'omar@gmail.com',
       passwordHash: '$2a$10$skJLBvUxlf0KBnUGNAG0BuDb.v6mUbKgGlVfWaTEsHNJtk00qvBNS',
       birthdate: new Date('2003-08-04'),
+      countryId: egypt?.id,
       profile: { create: { displayName: 'Omar Hassan' } },
     },
     {
@@ -56,6 +84,7 @@ async function main() {
       email: 'omarg@gmail.com',
       passwordHash: '$2a$10$OQw7ZoP7SETenCXbALgfD.eAKegNI0FUMwpqpPS977X017JaMG6dC',
       birthdate: new Date('2003-12-04'),
+      countryId: egypt?.id,
       profile: {
         create: {
           displayName: 'Omar Gamal',
@@ -70,6 +99,7 @@ async function main() {
       passwordHash: '$2a$10$SAgbBSiZOk8LW/9IaD2PzOtlQi39JWaLLkmRrTobcLWqZIRoNptYu',
       birthdate: new Date('2004-08-04'),
       phone: '01001013205',
+      countryId: egypt?.id,
       profile: { create: { displayName: 'Tasneem', bio: 'Life is good.' } },
     },
     {
@@ -78,6 +108,7 @@ async function main() {
       passwordHash: '$2a$10$F.6W9pCnJ9PNq1X7ExOZ1OcF1RIke/nqVxCUbgi.FDl.jrCBdC7wq',
       birthdate: new Date('2004-08-04'),
       phone: '01005013203',
+      countryId: egypt?.id,
       profile: { create: { displayName: 'Anas' } },
     },
     {
@@ -86,6 +117,7 @@ async function main() {
       passwordHash: '$2a$10$QHBO7om6Al91AXUn7kzVf.ftg3fMhQBDUAKUn5q7X3ymjmT5f68R2',
       birthdate: new Date('2003-12-05'),
       phone: '01005013209',
+      countryId: egypt?.id,
       profile: { create: { displayName: 'Mostafa' } },
     },
     {
@@ -93,6 +125,7 @@ async function main() {
       email: 'layla@gmail.com',
       passwordHash: '$2a$10$bE.9Z9.E1c.g2k4Z3H1fO.B5n1X2w3V4u5s6t7y8Z9A0B1c2d3E4',
       birthdate: new Date('2002-05-15'),
+      countryId: usa?.id,
       profile: { create: { displayName: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
     },
     {
@@ -100,6 +133,7 @@ async function main() {
       email: 'karim@gmail.com',
       passwordHash: '$2a$10$fG.8h7j6K5L4M3N2P1q0R.o9s8d7f6g5h4j3k2l1I0E9F8d7c6b5',
       birthdate: new Date('2003-11-20'),
+      countryId: uk?.id,
       profile: { create: { displayName: 'karim', bio: 'Just here for the memes.' } },
     },
     {
@@ -108,6 +142,7 @@ async function main() {
       passwordHash: '$2a$10$aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIjKlMnOp',
       birthdate: new Date('2001-03-10'),
       phone: '01001234567',
+      countryId: canada?.id,
       profile: { create: { displayName: 'Sara Ahmed', bio: 'Backend dev & coffee addict ☕' } },
     },
     {
@@ -115,6 +150,7 @@ async function main() {
       email: 'ahmedz@gmail.com',
       passwordHash: '$2a$10$QrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz012345',
       birthdate: new Date('2004-07-22'),
+      countryId: germany?.id,
       profile: { create: { displayName: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
     },
     {
@@ -122,6 +158,7 @@ async function main() {
       email: 'nour@gmail.com',
       passwordHash: '$2a$10$1234567890AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCdEfG',
       birthdate: new Date('2002-09-18'),
+      countryId: france?.id,
       profile: { create: { displayName: 'Nour', bio: 'Full-stack explorer.' } },
     },
     {
@@ -130,6 +167,7 @@ async function main() {
       passwordHash: '$2a$10$hIjKlMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvW',
       birthdate: new Date('2003-02-14'),
       phone: '01009876543',
+      countryId: egypt?.id,
       profile: { create: { displayName: 'Youssef', bio: 'AI enthusiast 🤖' } },
     },
     {
@@ -137,6 +175,7 @@ async function main() {
       email: 'fatma@gmail.com',
       passwordHash: '$2a$10$xYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd',
       birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
       profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
     },
   ];

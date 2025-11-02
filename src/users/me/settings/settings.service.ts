@@ -33,6 +33,10 @@ export class SettingsService {
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
+  async getUserDetails(userId: bigint) {
+    return this.usersService.getUserDetails(userId);
+  }
+
   async checkNewEmail(
     userId: bigint,
     inititateEmailUpdateDto: InititateEmailUpdateDto,
@@ -182,5 +186,55 @@ export class SettingsService {
     this.logger.log(`Update username completed for ${updateUsernameDto.newUsername}`);
 
     return res;
+  }
+
+  async updateBirthDate(userId: bigint, birthDate: Date) {
+    return this.usersService.updateBirthDate(userId, birthDate);
+  }
+
+  async getUserSSOs(userId: bigint) {
+    return this.usersService.getUserSSOs(userId);
+  }
+
+  async removeUserSSO(userId: bigint, provider: string, currentPassword: string) {
+    return this.usersService.removeUserSSO(userId, provider, currentPassword);
+  }
+
+  async getCountries() {
+    return this.usersService.getCountries();
+  }
+
+  async changeCountry(userId: bigint, countryName: string) {
+    return this.usersService.changeCountry(userId, countryName);
+  }
+
+  async updateGender(userId: bigint, gender: string) {
+    return this.usersService.updateGender(userId, gender);
+  }
+
+  async updateLanguage(userId: bigint, gender: string) {
+    return this.usersService.updateLanguage(userId, gender);
+  }
+
+  async validatePassword(userId: bigint, password: string) {
+    const valid = await this.usersService.validateLoggedInUser(userId, password);
+
+    if (valid) return { isValid: true };
+    else
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
+          code: USERS_ERROR_CODES.INVALID_PASSWORD,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+  }
+
+  async getSessions(userId: bigint, refreshToken: string) {
+    return this.usersService.getSessions(userId, refreshToken);
+  }
+
+  async deleteSession(userId: bigint, sessionId: bigint, refreshToken: string) {
+    return this.usersService.deleteSession(userId, sessionId, refreshToken);
   }
 }
