@@ -24,8 +24,6 @@ async function getOrCreateHashtag(tag: string) {
 }
 
 async function main() {
-  console.log('--- Starting: Rich & Realistic Timeline Seed ---');
-
   // Step 1: Clean slate for this specific seed's data.
   console.log('[1/5] Cleaning up old seed data...');
   await prisma.tweetHashtag.deleteMany({});
