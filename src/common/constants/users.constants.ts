@@ -22,6 +22,10 @@ export const USERS_ERROR_CODES = {
   CANNOT_UNMUTE_USER: 'CANNOT_UNMUTE_USER',
   CANNOT_UNBLOCK_USER: 'CANNOT_UNBLOCK_USER',
   CANNOT_UNFOLLOW_USER: 'CANNOT_UNFOLLOW_USER',
+  INVALID_PASSWORD: 'INVALID_PASSWORD',
+  SSO_DOESNOT_EXIST: 'SSO_DOESNOT_EXIST',
+  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
+  CANNOT_DELETE_CURRENT_SESSION: 'CANNOT_DELETE_CURRENT_SESSION',
   BANNER_NOT_FOUND: 'BANNER_NOT_FOUND',
 } as const;
 
@@ -50,5 +54,10 @@ export const USERS_ERROR_MESSAGES = {
   CANNOT_UNMUTE_USER: 'You cannot unmute this user',
   CANNOT_UNBLOCK_USER: 'You cannot unblock this user',
   CANNOT_UNFOLLOW_USER: 'You cannot unfollow this user',
+  INVALID_PASSWORD: 'Wrong password',
+  SSO_DOESNOT_EXIST: "You haven't used this provider before",
+  SESSION_NOT_FOUND: 'Session not found or does not belong to this user',
+  CANNOT_DELETE_CURRENT_SESSION:
+    "You can't delete your active session from here. If you want to do this, please logout instead.",
   BANNER_NOT_FOUND: 'Banner not found for the user',
 } as const;

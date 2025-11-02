@@ -7,6 +7,7 @@ export const AUTH_ERROR_CODES = {
   OTP_RESEND_LIMIT_EXCEEDED: 'OTP_RESEND_LIMIT_EXCEEDED',
   BOTH_IDENTIFIERS_EMPTY: 'BOTH_IDENTIFIERS_EMPTY',
   INVALID_PASSWORD: 'INVALID_PASSWORD',
+  INVALID_PROVIDER: 'INVALID_PROVIDER',
 } as const;
 
 export const AUTH_ERROR_MESSAGES = {
@@ -22,6 +23,7 @@ export const AUTH_ERROR_MESSAGES = {
   INVALID_CREATION_TOKEN: 'Invalid or expired creation token',
   MISSING_CLIENT_TYPE_HEADER: 'X-Client-Type header is required',
   INVALID_CLIENT_TYPE_HEADER: 'X-Client-Type header is invalid',
+  INVALID_PROVIDER: 'Only github and google are supported',
 } as const;
 
 export const REDIS_KEYS = {

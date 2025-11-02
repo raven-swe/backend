@@ -27,6 +27,17 @@ describe('SettingsService', () => {
     findById: jest.fn(),
     updateUserEmail: jest.fn(),
     updateUsernameById: jest.fn(),
+    getUserDetails: jest.fn(),
+    updateBirthDate: jest.fn(),
+    getUserSSOs: jest.fn(),
+    removeUserSSO: jest.fn(),
+    getCountries: jest.fn(),
+    changeCountry: jest.fn(),
+    updateGender: jest.fn(),
+    updateLanguage: jest.fn(),
+    validateLoggedInUser: jest.fn(),
+    getSessions: jest.fn(),
+    deleteSession: jest.fn(),
   };
 
   const mockRedisService = {
@@ -537,6 +548,302 @@ describe('SettingsService', () => {
       expect(loggerSpy).toHaveBeenCalledWith(
         `Update username completed for ${testDto.newUsername}`,
       );
+    });
+  });
+
+  describe('getUserDetails', () => {
+    it('should return user details successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const expectedDetails = {
+        username: 'testuser',
+        email: 'test@example.com',
+        accountCreationDate: new Date(),
+        accountCreationIp: '127.0.0.1',
+        country: 'Egypt',
+        languages: ['EN'],
+        gender: 'Male',
+        birthDate: '1990-01-01',
+        age: 34,
+      };
+
+      mockUsersService.getUserDetails.mockResolvedValue(expectedDetails);
+
+      // Act
+      const result = await service.getUserDetails(userId);
+
+      // Assert
+      expect(result).toEqual(expectedDetails);
+      expect(mockUsersService.getUserDetails).toHaveBeenCalledWith(userId);
+      expect(mockUsersService.getUserDetails).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateBirthDate', () => {
+    it('should update birth date successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const birthDate = new Date('1995-05-15');
+      const expectedResult = { message: 'Birth date updated successfully.' };
+
+      mockUsersService.updateBirthDate.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateBirthDate(userId, birthDate);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.updateBirthDate).toHaveBeenCalledWith(userId, birthDate);
+      expect(mockUsersService.updateBirthDate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getUserSSOs', () => {
+    it('should return user SSOs successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const expectedSSOs = [
+        {
+          provider: 'google',
+          displayIdentifier: 'test@gmail.com',
+          status: 'Connected',
+          connectedAt: new Date(),
+        },
+      ];
+
+      mockUsersService.getUserSSOs.mockResolvedValue(expectedSSOs);
+
+      // Act
+      const result = await service.getUserSSOs(userId);
+
+      // Assert
+      expect(result).toEqual(expectedSSOs);
+      expect(mockUsersService.getUserSSOs).toHaveBeenCalledWith(userId);
+      expect(mockUsersService.getUserSSOs).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('removeUserSSO', () => {
+    it('should remove user SSO successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const provider = 'google';
+      const currentPassword = 'password123';
+      const expectedResult = { message: 'Account disconnected successfully.' };
+
+      mockUsersService.removeUserSSO.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.removeUserSSO(userId, provider, currentPassword);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.removeUserSSO).toHaveBeenCalledWith(
+        userId,
+        provider,
+        currentPassword,
+      );
+      expect(mockUsersService.removeUserSSO).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getCountries', () => {
+    it('should return list of countries successfully', async () => {
+      // Arrange
+      const expectedCountries = [
+        { code: 'EG', name: 'Egypt' },
+        { code: 'US', name: 'United States' },
+        { code: 'GB', name: 'United Kingdom' },
+      ];
+
+      mockUsersService.getCountries.mockResolvedValue(expectedCountries);
+
+      // Act
+      const result = await service.getCountries();
+
+      // Assert
+      expect(result).toEqual(expectedCountries);
+      expect(mockUsersService.getCountries).toHaveBeenCalled();
+      expect(mockUsersService.getCountries).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('changeCountry', () => {
+    it('should change country successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const countryName = 'Egypt';
+      const expectedResult = { message: 'Country updated successfully.' };
+
+      mockUsersService.changeCountry.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.changeCountry(userId, countryName);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.changeCountry).toHaveBeenCalledWith(userId, countryName);
+      expect(mockUsersService.changeCountry).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateGender', () => {
+    it('should update gender successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const gender = 'Male';
+      const expectedResult = { message: 'Gender updated successfully.' };
+
+      mockUsersService.updateGender.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateGender(userId, gender);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.updateGender).toHaveBeenCalledWith(userId, gender);
+      expect(mockUsersService.updateGender).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update gender to Female', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const gender = 'Female';
+      const expectedResult = { message: 'Gender updated successfully.' };
+
+      mockUsersService.updateGender.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateGender(userId, gender);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.updateGender).toHaveBeenCalledWith(userId, gender);
+    });
+  });
+
+  describe('updateLanguage', () => {
+    it('should update language successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const language = 'EN';
+      const expectedResult = { message: 'Default language updated successfully.' };
+
+      mockUsersService.updateLanguage.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateLanguage(userId, language);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.updateLanguage).toHaveBeenCalledWith(userId, language);
+      expect(mockUsersService.updateLanguage).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update language to Arabic', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const language = 'AR';
+      const expectedResult = { message: 'Default language updated successfully.' };
+
+      mockUsersService.updateLanguage.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.updateLanguage(userId, language);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.updateLanguage).toHaveBeenCalledWith(userId, language);
+    });
+  });
+
+  describe('validatePassword', () => {
+    it('should return isValid true for correct password', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const password = 'correctPassword123';
+
+      mockUsersService.validateLoggedInUser.mockResolvedValue(true);
+
+      // Act
+      const result = await service.validatePassword(userId, password);
+
+      // Assert
+      expect(result).toEqual({ isValid: true });
+      expect(mockUsersService.validateLoggedInUser).toHaveBeenCalledWith(userId, password);
+      expect(mockUsersService.validateLoggedInUser).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw error for incorrect password', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const password = 'wrongPassword';
+
+      mockUsersService.validateLoggedInUser.mockResolvedValue(false);
+
+      // Act & Assert
+      await expect(service.validatePassword(userId, password)).rejects.toThrow(HttpException);
+      await expect(service.validatePassword(userId, password)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
+          code: USERS_ERROR_CODES.INVALID_PASSWORD,
+        },
+        status: HttpStatus.FORBIDDEN,
+      });
+
+      expect(mockUsersService.validateLoggedInUser).toHaveBeenCalledWith(userId, password);
+    });
+  });
+
+  describe('getSessions', () => {
+    it('should return user sessions successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const refreshToken = 'valid-refresh-token';
+      const expectedSessions = [
+        {
+          id: BigInt(1),
+          deviceType: 'Web',
+          lastActive: new Date(),
+          isCurrent: true,
+        },
+        {
+          id: BigInt(2),
+          deviceType: 'Mobile',
+          lastActive: new Date(),
+          isCurrent: false,
+        },
+      ];
+
+      mockUsersService.getSessions.mockResolvedValue(expectedSessions);
+
+      // Act
+      const result = await service.getSessions(userId, refreshToken);
+
+      // Assert
+      expect(result).toEqual(expectedSessions);
+      expect(mockUsersService.getSessions).toHaveBeenCalledWith(userId, refreshToken);
+      expect(mockUsersService.getSessions).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('deleteSession', () => {
+    it('should delete session successfully', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const sessionId = BigInt(2);
+      const refreshToken = 'valid-refresh-token';
+      const expectedResult = { message: 'Session terminated successfully.' };
+
+      mockUsersService.deleteSession.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.deleteSession(userId, sessionId, refreshToken);
+
+      // Assert
+      expect(result).toEqual(expectedResult);
+      expect(mockUsersService.deleteSession).toHaveBeenCalledWith(userId, sessionId, refreshToken);
+      expect(mockUsersService.deleteSession).toHaveBeenCalledTimes(1);
     });
   });
 });
