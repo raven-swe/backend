@@ -5,6 +5,13 @@ export type FollowsCursor = {
   followedId: string;
 };
 
+export type LikeCursor = {
+  userId_tweetId: {
+    userId: bigint;
+    tweetId: bigint;
+  };
+};
+
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 export const decodeCursor = (cursor: string | undefined) => {
   if (!cursor) return undefined;
