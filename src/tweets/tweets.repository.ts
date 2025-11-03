@@ -240,4 +240,83 @@ export class TweetsRepository {
       where: { id: tweetId },
     });
   }
+
+  async getLikedTweetsByUsername(
+    currentUserId: bigint,
+    username: string,
+    blockedUserIds: bigint[],
+    limit: number = 20,
+    cursor?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+    if (!user) return [];
+
+    const blockedSet = new Set(blockedUserIds);
+    const validTweetIds: bigint[] = [];
+    let currentCursor = cursor;
+    const batchSize = 50; // Fetch in batches
+
+    // Keep fetching until we have enough valid tweets or run out of likes
+    while (validTweetIds.length < limit) {
+      const likes = await this.prisma.like.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        cursor: currentCursor
+          ? { userId_tweetId: { userId: user.id, tweetId: BigInt(currentCursor) } }
+          : undefined,
+        take: batchSize,
+        select: {
+          tweetId: true,
+          tweet: {
+            select: {
+              userId: true,
+              isDeleted: true,
+            },
+          },
+        },
+      });
+
+      // No more likes available
+      if (likes.length === 0) break;
+
+      // Filter valid tweets
+      for (const like of likes) {
+        if (!like.tweet.isDeleted && !blockedSet.has(like.tweet.userId)) {
+          validTweetIds.push(like.tweetId);
+          if (validTweetIds.length >= limit) break;
+        }
+      }
+
+      // Update cursor for next iteration
+      const lastLike = likes[likes.length - 1];
+      currentCursor = lastLike.tweetId.toString();
+
+      // If we got fewer results than batch size, we've reached the end
+      if (likes.length < batchSize) break;
+    }
+
+    if (validTweetIds.length === 0) return [];
+
+    // Fetch full tweet details for valid tweets
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: validTweetIds },
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: { include: tweetInclude(currentUserId) },
+      },
+    });
+
+    // Sort tweets by the order of validTweetIds to maintain chronological order
+    const tweetMap = new Map(tweets.map((t) => [t.id, t]));
+    const sortedTweets = validTweetIds
+      .map((id) => tweetMap.get(id))
+      .filter((t): t is NonNullable<typeof t> => t !== undefined);
+
+    return sortedTweets.map((tweet) => this.mapToTweetDto(tweet));
+  }
 }
