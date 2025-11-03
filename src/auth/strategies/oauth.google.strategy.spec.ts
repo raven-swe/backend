@@ -18,7 +18,7 @@ describe('GoogleOAuthStrategy', () => {
   const mockConfig = {
     GOOGLE_CLIENT_ID: 'test-google-client-id',
     GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
-    GOOGLE_REDIRECT_URI: 'http://localhost:3000/auth/google/callback',
+    GOOGLE_REDIRECT_URI_WEB: 'http://localhost:3000/auth/google/callback',
   };
 
   const mockGoogleTokenResponse = {
@@ -79,7 +79,7 @@ describe('GoogleOAuthStrategy', () => {
         getPayload: () => mockTokenPayload,
       } as never);
 
-      const result = await strategy.validateToken(mockProviderToken);
+      const result = await strategy.validateToken(mockProviderToken, 'web');
 
       const expected: ProviderProfile = {
         provider: 'google',
@@ -111,7 +111,7 @@ describe('GoogleOAuthStrategy', () => {
         })),
       } as never);
 
-      const result = await strategy.validateToken(mockProviderToken);
+      const result = await strategy.validateToken(mockProviderToken, 'web');
 
       expect(result.avatar_url).toBeNull();
     });
@@ -122,7 +122,9 @@ describe('GoogleOAuthStrategy', () => {
         status: 400,
       });
 
-      await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(BadRequestException);
+      await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when id_token is missing', async () => {
@@ -135,7 +137,9 @@ describe('GoogleOAuthStrategy', () => {
         }),
       });
 
-      await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(BadRequestException);
+      await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when ID token verification fails', async () => {
@@ -146,7 +150,9 @@ describe('GoogleOAuthStrategy', () => {
 
       mockOAuth2Client.verifyIdToken.mockResolvedValueOnce(null as never);
 
-      await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(BadRequestException);
+      await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     describe('Incomplete user profile', () => {
@@ -160,7 +166,7 @@ describe('GoogleOAuthStrategy', () => {
           getPayload: jest.fn(() => null),
         } as never);
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -178,7 +184,7 @@ describe('GoogleOAuthStrategy', () => {
           })),
         } as never);
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -196,7 +202,7 @@ describe('GoogleOAuthStrategy', () => {
           })),
         } as never);
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -215,7 +221,7 @@ describe('GoogleOAuthStrategy', () => {
           })),
         } as never);
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -232,7 +238,7 @@ describe('GoogleOAuthStrategy', () => {
           getPayload: jest.fn(() => mockTokenPayload),
         } as never);
 
-        await strategy.validateToken(mockProviderToken);
+        await strategy.validateToken(mockProviderToken, 'web');
 
         expect(fetch).toHaveBeenCalledWith('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -248,7 +254,7 @@ describe('GoogleOAuthStrategy', () => {
         expect(bodyParams.body.get('code')).toBe(mockProviderToken);
         expect(bodyParams.body.get('client_id')).toBe(mockConfig.GOOGLE_CLIENT_ID);
         expect(bodyParams.body.get('client_secret')).toBe(mockConfig.GOOGLE_CLIENT_SECRET);
-        expect(bodyParams.body.get('redirect_uri')).toBe(mockConfig.GOOGLE_REDIRECT_URI);
+        expect(bodyParams.body.get('redirect_uri')).toBe(mockConfig.GOOGLE_REDIRECT_URI_WEB);
         expect(bodyParams.body.get('grant_type')).toBe('authorization_code');
       });
 
@@ -262,7 +268,7 @@ describe('GoogleOAuthStrategy', () => {
           getPayload: jest.fn(() => mockTokenPayload),
         } as never);
 
-        await strategy.validateToken(mockProviderToken);
+        await strategy.validateToken(mockProviderToken, 'web');
 
         expect(fetch).toHaveBeenCalledWith(
           'https://oauth2.googleapis.com/token',
@@ -275,7 +281,9 @@ describe('GoogleOAuthStrategy', () => {
       it('should handle network errors during token exchange', async () => {
         (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network timeout'));
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow('Network timeout');
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
+          'Network timeout',
+        );
       });
 
       it('should handle malformed JSON in token response', async () => {
@@ -284,7 +292,9 @@ describe('GoogleOAuthStrategy', () => {
           json: jest.fn().mockRejectedValue(new Error('Invalid JSON')),
         });
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow('Invalid JSON');
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
+          'Invalid JSON',
+        );
       });
 
       it('should handle verifyIdToken throwing error', async () => {
@@ -297,7 +307,7 @@ describe('GoogleOAuthStrategy', () => {
           new Error('Token verification failed'),
         );
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           'Token verification failed',
         );
       });
@@ -316,7 +326,7 @@ describe('GoogleOAuthStrategy', () => {
           })),
         } as never);
 
-        await expect(strategy.validateToken(mockProviderToken)).rejects.toThrow(
+        await expect(strategy.validateToken(mockProviderToken, 'web')).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -333,7 +343,7 @@ describe('GoogleOAuthStrategy', () => {
           getPayload: () => mockTokenPayload,
         } as never);
 
-        const result = await strategy.validateToken(mockProviderToken);
+        const result = await strategy.validateToken(mockProviderToken, 'web');
 
         expect(result).toHaveProperty('provider');
         expect(result).toHaveProperty('id');
@@ -361,7 +371,7 @@ describe('GoogleOAuthStrategy', () => {
           getPayload: jest.fn(() => customPayload),
         } as never);
 
-        const result = await strategy.validateToken(mockProviderToken);
+        const result = await strategy.validateToken(mockProviderToken, 'web');
 
         expect(result.id).toBe('custom-id-999');
         expect(result.email).toBe('custom@example.com');

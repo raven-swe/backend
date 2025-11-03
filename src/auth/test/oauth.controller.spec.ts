@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OauthController } from '../oauth.controller';
 import { OAuthService } from '../oauth.service';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 
 describe('OauthController', () => {
@@ -95,6 +95,7 @@ describe('OauthController', () => {
         'mock-token-123',
         mockDeviceType,
         mockIpAddress,
+        'web',
       );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
@@ -171,6 +172,7 @@ describe('OauthController', () => {
         'mock-token-123',
         mockDeviceType,
         mockIpAddress,
+        'mobile',
       );
       expect(mockOAuthService.handleOauthToken).toHaveBeenCalledTimes(1);
     });
@@ -209,7 +211,7 @@ describe('OauthController', () => {
       expect(mockOAuthService.handleOauthToken).not.toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException when clientType header is missing', async () => {
+    it('should throw BadReq when clientType header is missing', async () => {
       const mockResponse = createMockResponse();
       const mockLoginResponse = {
         accessToken: 'mock-access-token',
@@ -227,7 +229,7 @@ describe('OauthController', () => {
           mockResponse as Response,
           null as unknown as 'web',
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle service errors gracefully', async () => {
@@ -413,26 +415,52 @@ describe('OauthController', () => {
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle missing X-Client-Type header', async () => {
-      const mockResponse = createMockResponse();
-      const mockOauthCallbackDto = { providerToken: 'token-123' };
+  describe('getProviderBridge', () => {
+    const mockState = Buffer.from(
+      JSON.stringify({ redirect: 'https://app.example.com/oauth' }),
+    ).toString('base64');
 
-      mockOAuthService.handleOauthToken.mockResolvedValue({
-        accessToken: 'token',
-        refreshToken: 'refresh',
+    it('should return redirect URL with code parameter', () => {
+      const query = { code: 'auth-code-123', state: mockState };
+      const result = controller.getProviderBridge('github', query);
+
+      expect(result).toEqual({
+        url: 'https://app.example.com/oauth?provider=github&code=auth-code-123',
       });
+    });
 
-      await expect(
-        controller.providerCallback(
-          'github',
-          mockOauthCallbackDto,
-          '127.0.0.1',
-          'device-type',
-          mockResponse as Response,
-          '' as 'web',
-        ),
-      ).rejects.toThrow(UnauthorizedException);
+    it('should return redirect URL with error parameters', () => {
+      const query = {
+        error: 'access_denied',
+        errorDescription: 'User denied access',
+        state: mockState,
+      };
+      const result = controller.getProviderBridge('google', query);
+
+      expect(result).toEqual({
+        url: 'https://app.example.com/oauth?provider=google&error=access_denied&errorDescription=User+denied+access',
+      });
+    });
+
+    it('should throw BadRequestException for unsupported provider', () => {
+      const query = { code: 'code-123', state: mockState };
+      expect(() => controller.getProviderBridge('facebook', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for missing state', () => {
+      const query = { code: 'code-123', state: '' };
+      expect(() => controller.getProviderBridge('github', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for invalid state', () => {
+      const query = { code: 'code-123', state: 'invalid-base64' };
+      expect(() => controller.getProviderBridge('google', query)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for missing redirect in state', () => {
+      const invalidState = Buffer.from(JSON.stringify({})).toString('base64');
+      const query = { code: 'code-123', state: invalidState };
+      expect(() => controller.getProviderBridge('github', query)).toThrow(BadRequestException);
     });
   });
 });

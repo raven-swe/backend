@@ -15,6 +15,7 @@ export class TweetDto {
   isRetweeted: boolean;
 
   entities: TweetEntitiesDto;
+  media: [];
   // TODO media field will be added later
 
   replyToTweetId: string | null;
