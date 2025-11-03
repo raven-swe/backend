@@ -6,6 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 
+jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+}));
+
 describe('OAuthService', () => {
   let service: OAuthService;
 
@@ -368,7 +372,7 @@ describe('OAuthService', () => {
 
       expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledWith(
         'newuser@example.com',
-        'new',
+        'testuser1',
         new Date(mockBirthDate),
         'New User',
         'https://avatar.url',

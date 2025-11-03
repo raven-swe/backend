@@ -62,6 +62,10 @@ jest.mock('./utils/password.util', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
+jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+}));
+
 const createMockPrismaService = () => {
   return {
     user: {

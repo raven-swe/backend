@@ -42,7 +42,7 @@ import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.in
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { generateUsernames } from 'src/common/utils/generate-vaildate-usernames.util';
+import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class AuthService {

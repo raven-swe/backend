@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import {
   filterUsedGeneratedUsernames,
   generateUsernames,
-} from './generate-vaildate-usernames.util';
+} from './generate-validate-usernames.util';
 
 const MIN_USERNAME_LEN = 3;
 const MAX_USERNAME_LEN = 30;

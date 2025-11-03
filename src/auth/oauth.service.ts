@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
-import { generateUsernames } from 'src/common/utils/generate-vaildate-usernames.util';
+import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class OAuthService {
