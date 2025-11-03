@@ -1,0 +1,21 @@
+meta {
+  name: get-liked-tweets
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/users/OmarHassan/likes?limit=1&cursor
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 1
+  cursor: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
