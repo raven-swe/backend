@@ -5,7 +5,7 @@ import {
 } from './generate-validate-usernames.util';
 
 const MIN_USERNAME_LEN = 3;
-const MAX_USERNAME_LEN = 30;
+const MAX_USERNAME_LEN = 15;
 
 // Helper to create a mock Prisma client
 function createMockPrisma(takenUsernames: string[] = []) {

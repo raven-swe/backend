@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const defaultPrisma = new PrismaClient();
 
 const MIN_USERNAME_LEN = 3;
-const MAX_USERNAME_LEN = 30;
+const MAX_USERNAME_LEN = 15;
 
 let fakerInstance: typeof import('@faker-js/faker').faker | null = null;
 async function getFaker() {
@@ -115,7 +115,7 @@ export async function generateUsernames(
           .toString()
           .padStart(3, '0');
 
-      const base = first || 'user';
+      const base = 'u';
       const newCandidate = `${base}${timestamp}`;
       if (validUsername(newCandidate)) candidates.add(newCandidate);
     }
