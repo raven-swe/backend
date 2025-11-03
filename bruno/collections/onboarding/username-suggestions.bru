@@ -1,0 +1,28 @@
+meta {
+  name: username-suggestions
+  type: http
+  seq: 10
+}
+
+get {
+  url: http://localhost:3000/test/otp?identifier=ogamal1011@gmail.com&type=registration
+  body: none
+  auth: inherit
+}
+
+params:query {
+  identifier: ogamal1011@gmail.com
+  type: registration
+}
+
+body:json {
+  {
+    "type":"registration",
+    "identifier":"ogamal1011@gmail.com"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
