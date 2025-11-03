@@ -169,9 +169,20 @@ export class AuthService {
     }
     const hashedPassword = await hashPassword(completeRegistrationDto.password);
 
+    const generated = await generateUsernames(
+      registrationData.name,
+      registrationData.email,
+      undefined,
+      1,
+    );
+    // Fallback to email if username generation fails
+    // VERY VERY UNLIKELY TO HAPPEN
+    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
+    const username = generated && generated.length > 0 ? generated[0] : registrationData.email;
+
     const userData = {
       email: registrationData.email,
-      username: (await generateUsernames(registrationData.name, 1))[0],
+      username,
       name: registrationData.name,
       passwordHash: hashedPassword,
       birthDate: registrationData.birthDate,

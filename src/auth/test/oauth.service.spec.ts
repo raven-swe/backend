@@ -340,7 +340,7 @@ describe('OAuthService', () => {
       mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
       mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
         id: BigInt(1),
-        username: 'newuser@example.com',
+        username: 'new',
         email: 'newuser@example.com',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
@@ -359,7 +359,7 @@ describe('OAuthService', () => {
 
       expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledWith(
         'newuser@example.com',
-        'newuser@example.com',
+        'new',
         new Date(mockBirthDate),
         'New User',
         'https://avatar.url',
