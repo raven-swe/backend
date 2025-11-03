@@ -43,7 +43,7 @@ function ContainsLetter(validationOptions?: ValidationOptions) {
       constraints: [],
       validator: {
         validate(value: string) {
-          return /[a-zA-Z]/.test(value);
+          return /[a-zA-Z\u0600-\u06FF]/.test(value);
         },
       },
     });
