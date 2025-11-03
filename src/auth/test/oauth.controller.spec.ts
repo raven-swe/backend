@@ -82,7 +82,7 @@ describe('OauthController', () => {
 
       expect(result).toEqual({ accessToken: 'mock-access-token' });
       expect(mockResponse.cookie).toHaveBeenCalledWith(
-        'refresh_token',
+        'refreshToken',
         'mock-refresh-token',
         expect.objectContaining({
           httpOnly: true,
@@ -277,7 +277,7 @@ describe('OauthController', () => {
 
       expect(result).toEqual({ accessToken: 'mock-access-token' });
       expect(mockResponse.cookie).toHaveBeenCalledWith(
-        'refresh_token',
+        'refreshToken',
         'mock-refresh-token',
         expect.objectContaining({
           httpOnly: true,
