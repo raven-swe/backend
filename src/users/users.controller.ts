@@ -1,8 +1,10 @@
-import { Controller, Delete, Param, Post, UseGuards, Get } from '@nestjs/common';
+import { Controller, Delete, Param, Post, UseGuards, Get, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { plainToInstance } from 'class-transformer';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/auth/types';
+import { TweetDto } from 'src/tweets/dtos/tweet.dto';
 
 @Controller('users')
 export class UsersController {
@@ -28,5 +30,25 @@ export class UsersController {
   async getUserProfile(@Param('username') username: string, @User() user: RequestUser) {
     const currentUserId = BigInt(user.id);
     return this.usersService.getUserProfile(username, currentUserId);
+  }
+
+  @Get(':username/likes')
+  @UseGuards(JwtAuthGuard)
+  async getUserLikedTweets(
+    @Param('username') username: string,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.usersService.getUserLikedTweets(
+      username,
+      BigInt(user.id),
+      parsedLimit,
+      cursor,
+    );
+    const itemsDto = plainToInstance(TweetDto, items);
+    return { items: itemsDto, pagination };
   }
 }

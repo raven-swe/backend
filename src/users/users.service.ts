@@ -15,6 +15,13 @@ import { createValidationError } from 'src/common/utils/create-validation-error.
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
+import {
+  decodeCompositeCursor,
+  LikeCursor,
+  paginateComposite,
+} from 'src/common/utils/cursor-pagination.util';
+import { VALIDATION_ERROR_CODES } from 'src/common/validation-error-codes';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +31,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    private readonly tweetsRepository: TweetsRepository,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -606,5 +614,92 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  async getUserBlocks(userId: bigint) {
+    const blockRelations = await this.usersRepository.getBlockRelations(userId);
+    const blockedByMe = new Set<bigint>();
+    const blockedMe = new Set<bigint>();
+
+    for (const block of blockRelations) {
+      if (block.userId === userId) {
+        blockedByMe.add(block.blockedId);
+      }
+      if (block.blockedId === userId) {
+        blockedMe.add(block.userId);
+      }
+    }
+
+    return Array.from(blockedByMe).concat(Array.from(blockedMe));
+  }
+
+  async getUserLikedTweets(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: LikeCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<LikeCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedEitherWay = await this.getUserBlocks(authUserId);
+
+    Logger.log(decodedCursor, 'DECODED');
+
+    const likedTweets = await this.tweetsRepository.getLikedTweetsByUsername(
+      authUserId,
+      username,
+      blockedEitherWay,
+      limit + 1,
+      decodedCursor?.userId_tweetId.tweetId.toString(),
+    );
+
+    const hasMore = likedTweets.length > limit;
+    const items = hasMore ? likedTweets.slice(0, limit) : likedTweets;
+
+    const nextCursor =
+      hasMore && items.length > 0
+        ? {
+            userId_tweetId: {
+              userId: requestedUser.id.toString(),
+              tweetId: items[items.length - 1].id,
+            },
+          }
+        : null;
+
+    Logger.log(nextCursor, 'NEXT GHERE');
+
+    const encodedCursor = nextCursor
+      ? Buffer.from(JSON.stringify(nextCursor)).toString('base64')
+      : null;
+
+    return {
+      items,
+      pagination: {
+        nextCursor: encodedCursor,
+        hasMore,
+      },
+    };
   }
 }

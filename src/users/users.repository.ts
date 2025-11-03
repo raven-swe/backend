@@ -912,4 +912,13 @@ export class UsersRepository {
       return { bannerUrl: profile?.bannerUrl || null };
     });
   }
+
+  async getBlockRelations(authUserId: bigint) {
+    return await this.prisma.block.findMany({
+      where: {
+        OR: [{ userId: authUserId }, { blockedId: authUserId }],
+      },
+      select: { userId: true, blockedId: true },
+    });
+  }
 }
