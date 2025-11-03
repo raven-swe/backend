@@ -83,9 +83,12 @@ export async function generateUsernames(
     let attempts = 0;
     while (candidates.size < expectedCount * 2.5 && attempts < 50) {
       attempts++;
-      const newCandidate = faker.internet
+      let newCandidate = faker.internet
         .username({ firstName: first, lastName: last })
         .toLowerCase();
+      if (newCandidate.length > MAX_USERNAME_LEN) {
+        newCandidate = newCandidate.slice(0, MAX_USERNAME_LEN);
+      }
       if (validUsername(newCandidate)) candidates.add(newCandidate);
     }
     available = await filterUsedGeneratedUsernames([...candidates], prisma ?? defaultPrisma);
@@ -97,8 +100,11 @@ export async function generateUsernames(
     let attempts = 0;
     while (candidates.size < expectedCount * 3 && attempts < 50) {
       attempts++;
-      const newCandidate =
+      let newCandidate =
         `${emailPrefix}${String(Math.floor(100 + Math.random() * 900))}`.toLowerCase();
+      if (newCandidate.length > MAX_USERNAME_LEN) {
+        newCandidate = newCandidate.slice(0, MAX_USERNAME_LEN);
+      }
       if (validUsername(newCandidate)) candidates.add(newCandidate);
     }
     available = await filterUsedGeneratedUsernames([...candidates], prisma ?? defaultPrisma);
@@ -116,12 +122,14 @@ export async function generateUsernames(
           .padStart(3, '0');
 
       const base = 'u';
-      const newCandidate = `${base}${timestamp}`;
+      let newCandidate = `${base}${timestamp}`;
+      if (newCandidate.length > MAX_USERNAME_LEN) {
+        newCandidate = newCandidate.slice(0, MAX_USERNAME_LEN);
+      }
       if (validUsername(newCandidate)) candidates.add(newCandidate);
     }
     available = await filterUsedGeneratedUsernames([...candidates], prisma ?? defaultPrisma);
   }
 
-  console.log(available);
   return available.slice(0, expectedCount);
 }
