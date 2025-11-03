@@ -78,6 +78,7 @@ export async function generateUsernames(
   let available = await filterUsedGeneratedUsernames([...candidates], prisma ?? defaultPrisma);
 
   if (available.length === 0) {
+    candidates.clear();
     // Approach two some faker uername combinations
     const faker = await getFaker();
     let attempts = 0;
@@ -95,6 +96,8 @@ export async function generateUsernames(
   }
 
   if (available.length === 0) {
+    candidates.clear();
+
     // before last approach take first part of email and add some 3 digit number to to it
     const emailPrefix = email ? email.split('@')[0] : 'user';
     let attempts = 0;
@@ -111,6 +114,8 @@ export async function generateUsernames(
   }
 
   if (available.length === 0) {
+    candidates.clear();
+
     // Final approach: add username timestamp suffix
     let attempts = 0;
     while (candidates.size < expectedCount * 3 && attempts < 50) {
