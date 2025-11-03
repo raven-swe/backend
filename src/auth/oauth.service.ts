@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
+import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class OAuthService {
@@ -168,9 +169,16 @@ export class OAuthService {
       );
     }
 
+    const generated = await generateUsernames(payload.name, payload.email, undefined, 1);
+    // Fallback to email if username generation fails
+    // VERY VERY UNLIKELY TO HAPPEN
+    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
+
+    const username = generated && generated.length > 0 ? generated[0] : payload.email;
+
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,
-      payload.email, // TODO USERNAME STRATEGY
+      username,
       new Date(birthDate),
       payload.name,
       payload.avatar_url,
