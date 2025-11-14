@@ -72,7 +72,7 @@ export class OauthController {
         return { accessToken, refreshToken };
       }
 
-      res.cookie('refresh_token', refreshToken, {
+      res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: this.configService.get('NODE_ENV') === 'production',
         sameSite: 'none',
@@ -112,7 +112,7 @@ export class OauthController {
       return { accessToken, refreshToken };
     }
 
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: this.configService.get('NODE_ENV') === 'production',
       sameSite: 'none',

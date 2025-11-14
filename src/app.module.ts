@@ -19,6 +19,7 @@ import { MediaModule } from './media/media.module';
 import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
+import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { HealthController } from './health/health.controller';
           limit: RATE_LIMIT.GLOBAL.LIMIT,
         },
       ],
+      skipIf: shouldSkipRateLimit,
     }),
     BullModule.forRoot({
       connection: {
