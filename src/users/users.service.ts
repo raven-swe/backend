@@ -152,7 +152,7 @@ export class UsersService {
       banner?: Express.Multer.File[];
     },
   ) {
-    const user = await this.usersRepository.findById(userId);
+    const user = await this.usersRepository.findByIdWithProfile(userId);
     if (!user) {
       throw new HttpException(
         {
@@ -191,16 +191,26 @@ export class UsersService {
 
         uploadedFiles = await this.mediaService.uploadAvatarOrBanner(user.id, filesToUpload);
 
+        // Delete previous avatar or banner of the user from the db and s3
+        if (user.profile?.avatarUrl && uploadedFiles.avatarUrl) {
+          await this.mediaService.deleteMedia(user.profile.avatarUrl, user.id);
+        }
+
+        if (user.profile?.bannerUrl && uploadedFiles.bannerUrl) {
+          await this.mediaService.deleteMedia(user.profile.bannerUrl, user.id);
+        }
+
         // Assign URLs if they were uploaded to return them to the user
         avatarUrl = uploadedFiles.avatarUrl ?? undefined;
         bannerUrl = uploadedFiles.bannerUrl ?? undefined;
       }
 
-      // TODO: delete previous avatar or banner of the user from the db and s3
-
-      // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
-      // TODO: banner should be deleted from storage as well
+      // If deleteBanner is true and no new banner is uploaded, delete existing banner
       if (data.deleteBanner && !files?.banner?.length) {
+        if (user.profile?.bannerUrl) {
+          await this.mediaService.deleteMedia(user.profile.bannerUrl, user.id);
+        }
+
         bannerUrl = null;
       }
 
@@ -221,6 +231,8 @@ export class UsersService {
       }
 
       this.logger.error('Failed to update user profile', error);
+
+      throw error;
     }
   }
 

@@ -44,6 +44,13 @@ export class UsersRepository {
     });
   }
 
+  async findByIdWithProfile(id: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      include: { profile: true },
+    });
+  }
+
   async createUser(newUser: NewUser, prismaClient: Prisma.TransactionClient = this.prisma) {
     const { email, passwordHash, username, languageCode, birthDate } = newUser;
     return await prismaClient.user.create({
