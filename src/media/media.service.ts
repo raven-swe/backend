@@ -172,7 +172,7 @@ export class MediaService {
     }
   }
 
-  async uploadAvatarAndBanner(
+  async uploadAvatarOrBanner(
     userId: bigint,
     files: {
       avatar?: Express.Multer.File;

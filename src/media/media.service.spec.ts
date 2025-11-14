@@ -212,7 +212,7 @@ describe('MediaService', () => {
     });
   });
 
-  describe('uploadAvatarAndBanner', () => {
+  describe('uploadAvatarOrBanner', () => {
     it('should upload both avatar and banner', async () => {
       // Arrange
       const mockAvatarFile = createMockFile({ originalname: 'avatar.jpg' });
@@ -256,7 +256,7 @@ describe('MediaService', () => {
           altText,
         });
 
-      const result = await service.uploadAvatarAndBanner(userId, {
+      const result = await service.uploadAvatarOrBanner(userId, {
         avatar: mockAvatarFile,
         banner: mockBannerFile,
       });
@@ -290,7 +290,7 @@ describe('MediaService', () => {
         altText: null,
       });
 
-      const result = await service.uploadAvatarAndBanner(userId, {
+      const result = await service.uploadAvatarOrBanner(userId, {
         avatar: mockAvatarFile,
       });
 
@@ -322,7 +322,7 @@ describe('MediaService', () => {
         altText: null,
       });
 
-      const result = await service.uploadAvatarAndBanner(userId, {
+      const result = await service.uploadAvatarOrBanner(userId, {
         banner: mockBannerFile,
       });
 
@@ -334,7 +334,7 @@ describe('MediaService', () => {
     it('should throw HttpException when both avatar and banner are missing', async () => {
       const userId = BigInt(1);
 
-      await expect(service.uploadAvatarAndBanner(userId, {})).rejects.toThrow(
+      await expect(service.uploadAvatarOrBanner(userId, {})).rejects.toThrow(
         new HttpException(
           {
             message: 'No files provided for upload',

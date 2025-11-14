@@ -189,12 +189,14 @@ export class UsersService {
           banner: files.banner ? files.banner[0] : undefined,
         };
 
-        uploadedFiles = await this.mediaService.uploadAvatarAndBanner(user.id, filesToUpload);
+        uploadedFiles = await this.mediaService.uploadAvatarOrBanner(user.id, filesToUpload);
 
         // Assign URLs if they were uploaded to return them to the user
         avatarUrl = uploadedFiles.avatarUrl ?? undefined;
         bannerUrl = uploadedFiles.bannerUrl ?? undefined;
       }
+
+      // TODO: delete previous avatar or banner of the user from the db and s3
 
       // If deleteBanner is true and no new banner is uploaded, set bannerUrl to null
       // TODO: banner should be deleted from storage as well
