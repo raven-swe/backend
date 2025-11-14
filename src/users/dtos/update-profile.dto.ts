@@ -8,7 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { IsMinYearsOld } from 'src/auth/dto/start-registration.dto';
+import { IsMinYearsOld } from 'src/auth/validators/is-min-years-old';
 
 export class UpdateProfileDto {
   @Transform(({ value }: { value: string | null }) => (value === null ? '' : value?.trim()))

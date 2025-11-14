@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../types/oauth.type';
@@ -15,7 +15,15 @@ interface GithubUserResponse {
 export class GithubOAuthStrategy implements OAuthProviderStrategy {
   constructor(private readonly config: ConfigService) {}
 
-  async validateToken(providerToken: string): Promise<ProviderProfile> {
+  async validateToken(providerToken: string, clientType: string): Promise<ProviderProfile> {
+    const redirectUri =
+      clientType === 'mobile'
+        ? this.config.get<string>('GITHUB_REDIRECT_URI')!
+        : this.config.get<string>('GITHUB_REDIRECT_URI')!;
+
+    Logger.log(clientType, 'Client of GithubStrategy');
+    Logger.log(redirectUri, 'GithubOauthStrategy');
+
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -26,7 +34,7 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
         client_id: this.config.get<string>('GITHUB_CLIENT_ID')!,
         client_secret: this.config.get<string>('GITHUB_CLIENT_SECRET')!,
         code: providerToken,
-        redirect_uri: this.config.get<string>('GITHUB_REDIRECT_URI')!,
+        redirect_uri: redirectUri,
       }),
     });
 
@@ -88,11 +96,13 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
 
       email = primaryVerified.email;
     }
+    let name = githubData.name;
+    if (!name) name = email.split('@')[0]; // handle missing name from github
 
     return {
       id: String(githubData.id),
       email,
-      name: githubData.name,
+      name,
       avatar_url: githubData.avatar_url || null,
       provider: 'github',
     };

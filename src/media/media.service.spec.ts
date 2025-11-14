@@ -346,7 +346,7 @@ describe('MediaService', () => {
     });
   });
 
-  describe('deleteFile', () => {
+  describe('deleteMedia', () => {
     it('should successfully delete file from database and S3', async () => {
       // Arrange
       const url = 'http://example.com/avatars/file.jpg';
@@ -367,7 +367,7 @@ describe('MediaService', () => {
       mockS3Service.deleteFile.mockResolvedValue(undefined);
 
       // Act
-      await service.deleteFile(url, userId);
+      await service.deleteMedia(url, userId);
 
       // Assert
       expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(url);
@@ -384,7 +384,7 @@ describe('MediaService', () => {
       mockMediaRepository.findByUrl.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.deleteFile(url, userId)).rejects.toThrow(
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.MEDIA_NOT_FOUND,
@@ -416,7 +416,7 @@ describe('MediaService', () => {
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
 
       // Act & Assert
-      await expect(service.deleteFile(url, userId)).rejects.toThrow(
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.UNAUTHORIZED_DELETE,
@@ -452,7 +452,7 @@ describe('MediaService', () => {
       mockMediaRepository.saveMedia.mockResolvedValue(mockMediaRecord);
 
       // Act & Assert
-      await expect(service.deleteFile(url, userId)).rejects.toThrow(
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
         new Error('S3 deletion failed'),
       );
 

@@ -41,6 +41,17 @@ model CursorPagination {
   hasNextPage: boolean;
 }
 
+@doc("Query parameters for cursor-based pagination")
+model CursorPaginationParameters {
+  @query
+  @doc("The cursor position to start fetching from")
+  cursor: string;
+
+  @query
+  @doc("The number of items to return per page (default: 20)")
+  limit: int32 = 20;
+}
+
 @doc("Success response wrapper with data")
 model ApiSuccessResponse<T> {
   success: true;
@@ -59,7 +70,7 @@ model ApiSuccessResponseWithPagination<T> {
 @doc("Success response for operations that only return a message (like POST/DELETE)")
 model ApiMessageResponse {
   success: true;
-  message: string;
+  message?: string;
 }
 
 @doc("Error response wrapper")
@@ -167,10 +178,28 @@ model InternalServerErrorResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("Single user session, providing details about the device, location, and activity status.")
+model SessionResponse {
+  @doc("Unique identifier for the session.")
+  id: string;
+
+  @doc("The type of device or client used for this session (e.g., 'Linux', 'Android', 'Web', 'Windows').")
+  deviceType: string;
+
+  @doc("The location where the session was initiated or active")
+  location: string | null;
+
+  @doc("The UTC timestamp indicating the last time this session was active. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  lastActive: utcDateTime;
+
+  @doc("A boolean flag indicating whether this session is the one currently making the API request.")
+  isCurrent: boolean;
+}
+
 model RegisterStartBody {
   name: string;
   email: string;
-  birthDate: plainDate;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
   recaptchaToken: string; // token from client side recaptcha v2
 }
 
@@ -188,8 +217,62 @@ model MessageResponse<TMessage extends string> {
   ...OkResponse;
   ...Body<{
     success: true;
-    message: TMessage;
+    message?: TMessage; // optional message field on success
   }>;
+}
+
+model AccountInfo {
+  username: string;
+  email: string | null;
+  accountCreationDate: utcDateTime; // ISO 8601 format (e.g., '2024-01-15T14:30:00Z')
+  accountCreationIp: string | null;
+  country: string;
+  languages: LanguageCode[];
+  gender: Gender;
+  birthDate: plainDate; // ISO 8601 date format (YYYY-MM-DD)
+  age: int32;
+}
+
+enum LanguageCode {
+  AR,
+  EN,
+}
+
+enum Gender {
+  Male,
+  Female,
+}
+
+alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
+alias FollowUserResponse = MessageResponse<"user followed successfully">;
+alias BlockUserResponse = MessageResponse<"user blocked successfully">;
+alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
+alias MuteUserResponse = MessageResponse<"user muted successfully">;
+alias SessionListResponse = DataResponse<SessionResponse[]>;
+alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
+@doc("A single external social account connected to the user's primary account.")
+model ConnectedAccountResponse {
+  @doc("The name of the external provider (e.g., 'google', 'github').")
+  provider: string;
+
+  @doc("The unique identifier (e.g., email address) associated with the user")
+  displayIdentifier: string;
+
+  @doc("The connection status.")
+  status: "Connected" | "Error";
+
+  @doc("The timestamp when this external account was first linked. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  connectedAt: utcDateTime;
+}
+
+@doc("Country information for user settings and selection dropdowns")
+model Country {
+  @doc("ISO 3166-1 alpha-2 country code (e.g., 'US', 'EG', 'GB')")
+  code: string;
+
+  @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
+  name: string;
 }
 
 @doc("Entity mention in bio")
@@ -435,6 +518,89 @@ model UpdatedProfile {
   updatedAt: utcDateTime;
 }
 
+@doc("The type of media file.")
+enum MediaType {
+  IMAGE,
+  VIDEO,
+  GIF,
+}
+
+@doc("Detailed information about an attached media item.")
+model MediaItem {
+  @doc("The type of media.")
+  type: MediaType;
+
+  @doc("URL to access the media file.")
+  url: string;
+
+  @doc("Alt text for accessibility.")
+  altText: string;
+
+  @doc("The width of the media item (in pixels for image/video).")
+  width: int32;
+
+  @doc("The height of the media item (in pixels for image/video).")
+  height: int32;
+}
+
+@doc("Entities containing mentions and hashtags for tweet content")
+model TweetEntities {
+  @doc("Array of mention entities in the tweet")
+  mentions: MentionEntity[] | null;
+
+  @doc("Array of hashtag entities in the tweet")
+  hashtags: HashtagEntity[] | null;
+}
+
+@doc("A compact representation of a tweet, used when nesting or in lists.")
+model CompactTweet {
+  @doc("The unique identifier for the tweet.")
+  id: string;
+
+  @doc("The user who created the tweet.")
+  author: UserMetadata;
+
+  @doc("The text content of the tweet.")
+  content: string | null;
+
+  @doc("The time the tweet was created. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  createdAt: utcDateTime;
+
+  @doc("Number of replies to this tweet.")
+  replyCount: int32;
+
+  @doc("Number of retweets of this tweet.")
+  retweetCount: int32;
+
+  @doc("Number of likes on this tweet.")
+  likeCount: int32;
+
+  @doc("Indicates if the authenticated user has liked this tweet.")
+  isLiked: boolean;
+
+  @doc("Indicates if the authenticated user has retweeted this tweet.")
+  isRetweeted: boolean;
+
+  @doc("Structured data entities (mentions, hashtags) found in the tweet content.")
+  entities: TweetEntities;
+
+  @doc("Optional array of media ids attached to the tweet (max 4 items)")
+  media: MediaItem[] | null;
+}
+
+model Tweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId: string | null;
+
+  @doc("The full object of the tweet being quoted, for easy display.")
+  quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -480,6 +646,7 @@ namespace Auth {
     @summary("Complete the registration process by setting a password")
     @route("/complete")
     op completeRegister(
+      @header("X-Client-Type") clientType: "web" | "mobile",
       @body body: {
         creationToken: string;
         password: string;
@@ -581,11 +748,31 @@ namespace Auth {
 
   @get
   @summary("Check if a username or email is already taken")
+  @doc("""
+    This endpoint checks whether a given identifier (username or email) is already taken in the system.
+    to be used in login in shared field which can be either username or email.
+    """)
   @route("/check-identifier")
   op checkIdentifier(@query identifier: string): DataResponse<{
     exists: boolean;
     type: "username" | "email";
   }> | ValidationErrorResponse | InternalServerErrorResponse;
+
+  @get
+  @summary("Check if a username is already taken")
+  @doc("""
+    This endpoint checks whether a given username is already taken in the system.
+    """)
+  @useAuth(BearerAuth)
+  @route("/check-username")
+  op checkUsername(@query username: string):
+    | DataResponse<{
+        exists: boolean;
+      }>
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
 
   @post
   @route("/logout")
@@ -653,9 +840,76 @@ namespace Me {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @post
+  @route("/banner")
+  op updateBanner(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      banner: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        bannerUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/banner")
+  op deleteBanner():
+    | MessageResponse<"Banner deleted successfully.">
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | NotFoundResponse;
+
+  @post
+  @route("/profile-picture")
+  op updateProfilePicture(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: {
+      profilePicture: HttpPart<File>;
+    },
+  ):
+    | DataResponse<{
+        avatarUrl: string;
+      }>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @useAuth(BearerAuth)
   @route("/settings")
   namespace Settings {
+    @summary("Validate the current user's password")
+    @doc("This endpoint allows an already authenticated user to verify their password. It is used in order to show account info in the settings page.")
+    @useAuth(BearerAuth)
+    @post
+    @route("password/validate")
+    op validatePassword(
+      @body body: {
+        password: string;
+      },
+    ):
+      | DataResponse<{
+          isValid: boolean;
+        }>
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | ValidationErrorResponse
+      | InternalServerErrorResponse;
+
+    @summary("Get the authenticated user's account information")
+    @doc("Retrieves detailed profile and account settings for the currently authenticated user, identified by their JWT.")
+    @get
+    op getAccountInfo():
+      | DataResponse<AccountInfo>
+      | UnauthorizedResponse
+      | InternalServerErrorResponse
+      | ForbiddenResponse;
+
     @put
     @route("/email")
     @summary("Initiates update of the authenticated user's email address")
@@ -698,6 +952,213 @@ namespace Me {
       | MessageResponse<"Email address updated successfully.">
       | BadRequestResponse
       | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @patch(#{ implicitOptionality: false })
+    @route("/username")
+    @summary("Change the authenticated user's username")
+    op updateUsername(
+      @body body: {
+        newUsername: string;
+      },
+    ):
+      | MessageResponse<"Username changed successfully.">
+      | ValidationErrorResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/country")
+    @summary("Update the authenticated user's country")
+    op updateCountry(
+      @body body: {
+        countryName: string;
+      },
+    ):
+      | MessageResponse<"Country updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/gender")
+    @summary("Update the authenticated user's gender")
+    op updateGender(
+      @body body: {
+        gender: Gender;
+      },
+    ):
+      | MessageResponse<"Gender updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/birthdate")
+    @summary("Update the authenticated user's birth date")
+    op updateBirthDate(
+      @body body: {
+        date: plainDate | null; // ISO 8601 date format (YYYY-MM-DD)
+      },
+    ):
+      | MessageResponse<"Birth date updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @put
+    @route("/language")
+    @summary("Update the authenticated user's default language")
+    op updateLanguage(
+      @body body: {
+        language: LanguageCode;
+      },
+    ):
+      | MessageResponse<"Default language updated successfully.">
+      | BadRequestResponse
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/sessions")
+    @summary("Retrieve all active and recent sessions for the authenticated user.")
+    op getSessions(): SessionListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @delete
+    @route("/sessions/{sessionId}")
+    @summary("Log out or terminate a specific session by its ID.")
+    op deleteSession(@path sessionId: string):
+      | MessageResponse<"Session terminated successfully.">
+      | NotFoundResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/connected-accounts")
+    @summary("Retrieve a list of all external social accounts connected for login.")
+    op getConnectedAccounts(
+    ): DataResponse<ConnectedAccountResponse[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+    @post
+    @route("/connected-accounts/{provider}")
+    @summary("Disconnect an external social account by its provider (e.g., 'google', 'github').")
+    op disconnectAccount(
+      @path provider: string,
+      @body body: {
+        currentPassword: string;
+      },
+    ):
+      | MessageResponse<"Account disconnected successfully.">
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
+
+    @get
+    @route("/country")
+    @summary("Get all supported countries(for country selection dropdowns)")
+    op getSupportedCountries(
+    ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+  }
+
+  @route("/blocks")
+  @useAuth(BearerAuth)
+  namespace Blocks {
+    @summary("Block a user")
+    @post
+    @route("/{username}")
+    op blockUser(
+      @path
+      username: string,
+    ):
+      | BlockUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unblock a user")
+    @delete
+    @route("/{username}")
+    op unblockUser(
+      @path
+      username: string,
+    ):
+      | UnblockUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+
+  @route("/mutes")
+  @useAuth(BearerAuth)
+  namespace Mutes {
+    @summary("Mute a user")
+    @post
+    @route("/{username}")
+    op muteUser(
+      @path
+      username: string,
+    ):
+      | MuteUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unmute a user")
+    @delete
+    @route("/{username}")
+    op unmuteUser(
+      @path
+      username: string,
+    ):
+      | UnmuteUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
+  }
+}
+
+@tag("Users")
+@route("/users")
+@useAuth(BearerAuth)
+namespace Users {
+  @route("/{username}/following")
+  namespace Following {
+    @summary("Follow a user")
+    @post
+    op followUser(
+      @path
+      username: string,
+    ):
+      | FollowUserResponse
+      | NotFoundResponse
+      | ConflictResponse
+      | UnauthorizedResponse
+      | ForbiddenResponse
+      | InternalServerErrorResponse;
+
+    @summary("Unfollow a user")
+    @delete
+    op unfollowUser(
+      @path
+      username: string,
+    ):
+      | UnfollowUserResponse
+      | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
   }
@@ -766,5 +1227,91 @@ namespace Oauth {
       }>
     | BadRequestResponse
     | ValidationErrorResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{provider}/bridge")
+  @summary("OAuth bridge endpoint for handling provider redirects")
+  @doc("""
+    This endpoint acts as a bridge between OAuth providers and the client application.
+    
+    **Redirect URL format(Sent back to client):**
+    All fields are optional except provider.
+    `{redirect}?provider={provider}&code={code}&error={error}&errorDescription={errorDescription}`
+    
+    **State parameter format (base64 encoded JSON):**
+    ```json
+    {
+      "redirect": "https://app.example.com/oauth?provider=google&code=200&error=err&errorDescription=errordescription"
+    }
+    ```
+    """)
+  op getProviderBridge(
+    @path provider: string,
+    @query code?: string,
+    @query error?: string,
+    @query errorDescription?: string,
+    @query state: string,
+  ):
+    | Response<302> // redirect response
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Timeline")
+@route("/timeline")
+@useAuth(BearerAuth)
+namespace Timeline {
+  @get
+  @route("/following")
+  @summary("Get tweets from users the authenticated user follows")
+  op getFollowingFeed(
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Tweets")
+@route("/tweets")
+@useAuth(BearerAuth)
+namespace Tweets {
+  @post
+  @route("/{id}/like")
+  @summary("Like a tweet")
+  op likeTweet(@path id: string):
+    | MessageResponse<"Tweet liked successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/like")
+  @summary("Unlike a tweet")
+  op unlikeTweet(@path id: string):
+    | MessageResponse<"Tweet unliked successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/{id}/retweet")
+  @summary("Retweet a tweet")
+  op retweetTweet(@path id: string):
+    | MessageResponse<"Tweet retweeted successfully.">
+    | NotFoundResponse
+    | ConflictResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @delete
+  @route("/{id}/retweet")
+  @summary("Undo retweet")
+  op unretweetTweet(@path id: string):
+    | MessageResponse<"Retweet undone successfully.">
+    | NotFoundResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
     | InternalServerErrorResponse;
 }

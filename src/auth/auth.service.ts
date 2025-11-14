@@ -42,6 +42,7 @@ import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.in
 import type { RequestUser } from './types';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class AuthService {
@@ -168,9 +169,20 @@ export class AuthService {
     }
     const hashedPassword = await hashPassword(completeRegistrationDto.password);
 
+    const generated = await generateUsernames(
+      registrationData.name,
+      registrationData.email,
+      undefined,
+      1,
+    );
+    // Fallback to email if username generation fails
+    // VERY VERY UNLIKELY TO HAPPEN
+    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
+    const username = generated && generated.length > 0 ? generated[0] : registrationData.email;
+
     const userData = {
       email: registrationData.email,
-      username: registrationData.email,
+      username,
       name: registrationData.name,
       passwordHash: hashedPassword,
       birthDate: registrationData.birthDate,
@@ -238,6 +250,11 @@ export class AuthService {
   async checkEmail(email: string): Promise<{ message: string; exists: boolean }> {
     const user = await this.usersService.findByEmail(email);
     return { message: user ? 'Email already exists' : 'Email is available', exists: !!user };
+  }
+
+  async checkUsername(id: string, username: string): Promise<{ message: string; exists: boolean }> {
+    const user = await this.usersService.checkUsernameExistence(id, username);
+    return { message: user ? 'Username already exists' : 'Username is available', exists: !!user };
   }
 
   async verifyRecaptcha(token: string): Promise<boolean> {

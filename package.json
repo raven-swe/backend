@@ -27,6 +27,7 @@
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force && prisma db seed",
     "db:seed": "prisma db seed",
+    "db:seed-timeline": "ts-node prisma/timeline-seed.ts",
     "spec:generate": "pnpm --package=@typespec/compiler --package=@typespec/http --package=@typespec/rest --package=@typespec/openapi3 dlx tsp compile api-spec/implemented-spec --emit @typespec/openapi3",
     "complete-spec:generate": "tsp compile api-spec/complete-spec --output-dir ./api-spec/complete-spec/",
     "spec:format": "tsp format \"./**/*.tsp\"",
@@ -38,6 +39,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.920.0",
     "@aws-sdk/lib-storage": "^3.920.0",
+    "@faker-js/faker": "^10.1.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
@@ -52,21 +54,22 @@
     "bullmq": "^5.61.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
-    "google-auth-library": "^10.4.2",
     "cookie-parser": "^1.4.7",
+    "faker-js": "^1.0.0",
+    "google-auth-library": "^10.4.2",
     "ioredis": "^5.8.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.9",
-    "passport-github2": "^0.1.12",
-    "useragent": "^2.3.0",
     "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "prisma": "^6.17.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.4",
-    "ua-parser-js": "^2.0.6"
+    "ua-parser-js": "^2.0.6",
+    "useragent": "^2.3.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -143,7 +146,8 @@
       "prismaservice\\.ts",
       "redis\\.service\\.ts",
       "redisservice\\.ts",
-      "common/validation-error-codes\\.ts"
+      "common/validation-error-codes\\.ts",
+      "testing"
     ]
   }
 }

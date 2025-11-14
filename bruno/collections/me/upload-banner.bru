@@ -1,0 +1,24 @@
+meta {
+  name: upload-banner
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://localhost:3000/me/banner
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:multipart-form {
+  banner: @file(/home/tasneem/Pictures/Ontherun_brand_logo.png)
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

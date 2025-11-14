@@ -6,12 +6,12 @@ meta {
 
 patch {
   url: http://localhost:3000/me
-  body: json
+  body: multipartForm
   auth: bearer
 }
 
 auth:bearer {
-  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMiLCJ1c2VybmFtZSI6IlRhc25lZW0iLCJpYXQiOjE3NjE3NjE1MDQsImV4cCI6MTc2MTc2MjQwNH0.OaUUopb2J5Sx6z0B3Ew25FLBL96PViZgv6MAs_3Ohdk
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjUiLCJpYXQiOjE3NjE5NjQ3OTQsImV4cCI6MTc2MTk2NTY5NH0.MCJ1AHJdojkbJr9V5g_DCl7ms1vYqnvYinRQGdGHInY
 }
 
 body:json {
@@ -19,6 +19,10 @@ body:json {
     "displayName": "hiiii"
     "birthDate": null
   }
+}
+
+body:multipart-form {
+  avatar: @file(/home/tasneem/Pictures/osi meme.jpeg)
 }
 
 settings {

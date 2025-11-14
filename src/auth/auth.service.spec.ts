@@ -62,6 +62,10 @@ jest.mock('./utils/password.util', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
+jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+}));
+
 const createMockPrismaService = () => {
   return {
     user: {
@@ -101,6 +105,7 @@ describe('AuthService with mock ConfigService', () => {
     updatePasswordById: jest.fn(),
     findByEmail: jest.fn(),
     createUser: jest.fn(),
+    checkUsernameExistence: jest.fn(),
   };
 
   const mockDevicesService = {
@@ -830,6 +835,91 @@ describe('AuthService with mock ConfigService', () => {
       const result = await service.checkEmail('new@example.com');
       expect(result).toStrictEqual({
         message: 'Email is available',
+        exists: false,
+      });
+    });
+  });
+
+  describe('checkUsername', () => {
+    it('should return { message and exists: true } if username is taken by another user', async () => {
+      const existingUser = {
+        id: BigInt(2),
+        email: 'other@example.com',
+        username: 'takenusername',
+        password_hash: 'hash',
+      };
+      mockUsersService.checkUsernameExistence.mockResolvedValue(existingUser);
+
+      const result = await service.checkUsername('1', 'takenusername');
+
+      expect(result).toStrictEqual({
+        message: 'Username already exists',
+        exists: true,
+      });
+      expect(mockUsersService.checkUsernameExistence).toHaveBeenCalledWith('1', 'takenusername');
+    });
+
+    it('should return { message and exists: false } if username is available', async () => {
+      mockUsersService.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsername('1', 'availableusername');
+
+      expect(result).toStrictEqual({
+        message: 'Username is available',
+        exists: false,
+      });
+      expect(mockUsersService.checkUsernameExistence).toHaveBeenCalledWith(
+        '1',
+        'availableusername',
+      );
+    });
+
+    it('should return { message and exists: false } for same username (case-sensitive match)', async () => {
+      mockUsersService.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsername('1', 'currentusername');
+
+      expect(result).toStrictEqual({
+        message: 'Username is available',
+        exists: false,
+      });
+    });
+
+    it('should return { message and exists: false } for case-only change of own username', async () => {
+      mockUsersService.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsername('1', 'CurrentUsername');
+
+      expect(result).toStrictEqual({
+        message: 'Username is available',
+        exists: false,
+      });
+    });
+
+    it('should return { message and exists: true } for case variation of another users username', async () => {
+      const existingUser = {
+        id: BigInt(2),
+        email: 'john@example.com',
+        username: 'johndoe',
+        password_hash: 'hash',
+      };
+      mockUsersService.checkUsernameExistence.mockResolvedValue(existingUser);
+
+      const result = await service.checkUsername('1', 'JohnDoe');
+
+      expect(result).toStrictEqual({
+        message: 'Username already exists',
+        exists: true,
+      });
+    });
+
+    it('should handle special characters in username', async () => {
+      mockUsersService.checkUsernameExistence.mockResolvedValue(null);
+
+      const result = await service.checkUsername('1', 'user_123');
+
+      expect(result).toStrictEqual({
+        message: 'Username is available',
         exists: false,
       });
     });

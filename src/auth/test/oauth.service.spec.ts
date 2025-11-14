@@ -6,6 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 
+jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+}));
+
 describe('OAuthService', () => {
   let service: OAuthService;
 
@@ -65,6 +69,7 @@ describe('OAuthService', () => {
   describe('handleOauthToken', () => {
     const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
     const mockIpAddress = '127.0.0.1';
+    const mockClientType = 'web';
     const mockProviderProfile = {
       id: 'github-123',
       email: 'test@example.com',
@@ -80,7 +85,13 @@ describe('OAuthService', () => {
     it('should throw BadRequestException for unsupported provider', async () => {
       await expect(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        service.handleOauthToken('facebook' as any, 'token-123', mockDeviceType, mockIpAddress),
+        service.handleOauthToken(
+          'facebook' as any,
+          'token-123',
+          mockDeviceType,
+          mockIpAddress,
+          mockClientType,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -110,9 +121,10 @@ describe('OAuthService', () => {
         'token-123',
         mockDeviceType,
         mockIpAddress,
+        mockClientType,
       );
 
-      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
+      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123', mockClientType);
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
@@ -145,9 +157,10 @@ describe('OAuthService', () => {
         'token-123',
         mockDeviceType,
         mockIpAddress,
+        mockClientType,
       );
 
-      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123');
+      expect(mockStrategy.validateToken).toHaveBeenCalledWith('token-123', mockClientType);
       expect(mockStrategy.validateToken).toHaveBeenCalledTimes(1);
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
@@ -340,7 +353,7 @@ describe('OAuthService', () => {
       mockOAuthRepository.findUserByEmailWithExternalAccounts.mockResolvedValue(null);
       mockOAuthRepository.createUserWithProfileAndExternalAccount.mockResolvedValue({
         id: BigInt(1),
-        username: 'newuser@example.com',
+        username: 'new',
         email: 'newuser@example.com',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
@@ -359,7 +372,7 @@ describe('OAuthService', () => {
 
       expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledWith(
         'newuser@example.com',
-        'newuser@example.com',
+        'testuser1',
         new Date(mockBirthDate),
         'New User',
         'https://avatar.url',

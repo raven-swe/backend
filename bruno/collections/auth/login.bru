@@ -16,15 +16,15 @@ headers {
 
 body:json {
   {
-    "identifier":"gelgel",
-    "password":"test1234"
+    "identifier":"omarhassanelsherif2003@gmail.com",
+    "password":"Test$12345"
   }
 }
 
 script:post-response {
   const responseBody = res.getBody();
   if (responseBody && typeof responseBody === 'object') {
-    const token = responseBody.data.accessToken;
+    const token = responseBody.data?.accessToken;
     if (token) {
       bru.setEnvVar('access_token', token);
     }
