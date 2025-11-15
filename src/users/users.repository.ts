@@ -596,10 +596,10 @@ export class UsersRepository {
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
 
-  async getBlockRelations(authUserId: bigint) {
+  async getUserBlocks(userId: bigint) {
     return await this.prisma.block.findMany({
       where: {
-        OR: [{ userId: authUserId }, { blockedId: authUserId }],
+        userId,
       },
       select: { userId: true, blockedId: true },
     });

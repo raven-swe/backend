@@ -529,11 +529,17 @@ export class UsersService {
       }
     }
 
-    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
 
     const followers = await this.usersRepository.getUserFollowers(
       requestedUser.id,
-      [...excludeFollowedIds, authUserId],
+      [authUserId],
       limit + 1,
       decoded,
     );
@@ -554,26 +560,10 @@ export class UsersService {
       ...f.followerUser.profile,
       username: f.followerUser.username,
       isFollowing: followBackSet.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
     }));
 
     return { items, pagination };
-  }
-
-  async getUserBlocks(userId: bigint) {
-    const blockRelations = await this.usersRepository.getBlockRelations(userId);
-    const blockedByMe = new Set<bigint>();
-    const blockedMe = new Set<bigint>();
-
-    for (const block of blockRelations) {
-      if (block.userId === userId) {
-        blockedByMe.add(block.blockedId);
-      }
-      if (block.blockedId === userId) {
-        blockedMe.add(block.userId);
-      }
-    }
-
-    return Array.from(blockedByMe).concat(Array.from(blockedMe));
   }
 
   async getUserMutualFollowers(
@@ -605,14 +595,20 @@ export class UsersService {
       }
     }
 
-    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
 
     const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
 
     const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
       requestedUser.id,
       authFollowedIds,
-      [...excludeFollowedIds, authUserId],
+      [authUserId],
       limit + 1,
       decoded,
     );
@@ -634,6 +630,7 @@ export class UsersService {
       ...f.followerUser.profile,
       username: f.followerUser.username,
       isFollowing: setTheyFollowAuth.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
     }));
     return { items, pagination };
   }
@@ -667,11 +664,17 @@ export class UsersService {
       }
     }
 
-    const excludeFollowedIds = await this.getUserBlocks(authUserId);
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
 
     const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
-      [...excludeFollowedIds, authUserId],
+      [authUserId],
       limit + 1,
       decoded,
     );
@@ -693,6 +696,7 @@ export class UsersService {
       ...f.followedUser.profile,
       username: f.followedUser.username,
       isFollowing: followBackSet.has(f.followedUser.id),
+      isBlocked: blockedIdsSet.has(f.followedUser.id),
     }));
 
     return { items, pagination };
