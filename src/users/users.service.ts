@@ -176,13 +176,10 @@ export class UsersService {
 
     let uploadedAvatarUrl: string | undefined;
     let uploadedBannerUrl: string | undefined;
-    let oldAvatarUrl: string | undefined;
-    let oldBannerUrl: string | undefined;
+    const oldAvatarUrl: string | undefined = user.profile?.avatarUrl ?? undefined;
+    const oldBannerUrl: string | undefined = user.profile?.bannerUrl ?? undefined;
 
     try {
-      oldAvatarUrl = user.profile?.avatarUrl ?? undefined;
-      oldBannerUrl = user.profile?.bannerUrl ?? undefined;
-
       // Upload new files if provided
       if (files?.avatar?.[0] || files?.banner?.[0]) {
         const uploaded = await this.mediaService.uploadAvatarOrBanner(user.id, {

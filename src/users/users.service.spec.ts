@@ -58,6 +58,7 @@ describe('UsersService', () => {
     findByUsername: jest.fn(),
     findByIdentifier: jest.fn(),
     findById: jest.fn(),
+    findByIdWithProfile: jest.fn(),
     createUser: jest.fn(),
     updatePasswordById: jest.fn(),
     updateProfile: jest.fn(),
@@ -421,14 +422,14 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = (await service.updateProfile(BigInt(1), updateProfileDto))!;
 
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
-      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.findByIdWithProfile).toHaveBeenCalledWith(BigInt(1));
       expect(mockRepository.updateProfile).toHaveBeenCalledWith(
         BigInt(1),
         updateProfileDto,
@@ -448,13 +449,13 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = (await service.updateProfile(BigInt(1), partialUpdateDto))!;
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
-      expect(mockRepository.findById).toHaveBeenCalledWith(BigInt(1));
+      expect(mockRepository.findByIdWithProfile).toHaveBeenCalledWith(BigInt(1));
       expect(mockRepository.updateProfile).toHaveBeenCalledWith(
         BigInt(1),
         partialUpdateDto,
@@ -464,7 +465,7 @@ describe('UsersService', () => {
     });
 
     test('should throw error if user not found', async () => {
-      mockRepository.findById.mockResolvedValue(null);
+      mockRepository.findByIdWithProfile.mockResolvedValue(null);
 
       await expect(service.updateProfile(BigInt(1), updateProfileDto)).rejects.toThrow(
         new HttpException(
@@ -479,7 +480,7 @@ describe('UsersService', () => {
 
     it('should handle empty update data', async () => {
       const emptyUpdateDto: UpdateProfileDto = {};
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
       const { message, ...result } = (await service.updateProfile(BigInt(1), emptyUpdateDto))!;
@@ -503,7 +504,7 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ avatarUrl });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
@@ -533,7 +534,7 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ bannerUrl });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
@@ -562,7 +563,7 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = (await service.updateProfile(BigInt(1), {
@@ -581,7 +582,7 @@ describe('UsersService', () => {
     });
 
     test('should throw error when both deleteBanner and banner upload are requested', async () => {
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
 
       await expect(
         service.updateProfile(
@@ -604,11 +605,14 @@ describe('UsersService', () => {
       const avatarUrl = 'https://example.com/new-avatar.jpg';
       const bannerUrl = 'https://example.com/new-banner.jpg';
 
-      mockRepository.findById.mockResolvedValue(mockUser);
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ avatarUrl, bannerUrl });
+      mockMediaService.deleteMedia.mockResolvedValue(undefined);
       mockRepository.updateProfile.mockRejectedValue(new Error('Database error'));
 
-      await service.updateProfile(BigInt(1), updateProfileDto, mockFiles);
+      await expect(service.updateProfile(BigInt(1), updateProfileDto, mockFiles)).rejects.toThrow(
+        'Database error',
+      );
 
       expect(mockMediaService.uploadAvatarOrBanner).toHaveBeenCalledWith(BigInt(1), {
         avatar: mockFiles.avatar[0],
