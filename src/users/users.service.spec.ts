@@ -581,6 +581,51 @@ describe('UsersService', () => {
       );
     });
 
+    test('should delete avatar when deleteAvatar is true', async () => {
+      const updatedProfile = {
+        ...updateProfileDto,
+        avatarUrl: null,
+        updatedAt: new Date(),
+      };
+
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const { message, ...profile } = await service.updateProfile(BigInt(1), {
+        ...updateProfileDto,
+        deleteAvatar: true,
+      });
+
+      expect(profile).toEqual(updatedProfile);
+      expect(message).toEqual('Profile updated successfully');
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        { ...updateProfileDto, deleteAvatar: true },
+        null,
+        undefined,
+      );
+    });
+
+    test('should throw error when both deleteAvatar and avatar upload are requested', async () => {
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+
+      await expect(
+        service.updateProfile(
+          BigInt(1),
+          { ...updateProfileDto, deleteAvatar: true },
+          { avatar: mockFiles.avatar },
+        ),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
+            code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+          },
+          HttpStatus.CONFLICT,
+        ),
+      );
+    });
+
     test('should throw error when both deleteBanner and banner upload are requested', async () => {
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
 
