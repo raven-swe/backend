@@ -1,9 +1,9 @@
 import { Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
-import type { RequestUser } from 'src/auth/types';
-import { ParseBigIntPipe } from 'src/common/pipes/parse-bigint.pipe';
+import type { RequestUser } from 'src/common/interfaces';
+import { ParseBigIntPipe } from 'src/common/pipes';
 
 @Controller('tweets')
 @UseGuards(JwtAuthGuard)

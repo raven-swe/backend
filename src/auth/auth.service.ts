@@ -14,35 +14,29 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { StartRegistrationDto } from './dtos/start-registration.dto';
-import { VerifyOtpDto } from './dtos/verify-otp.dto';
-import { CompleteRegistrationDto } from './dtos/complete-registration.dto';
-import { ForgotPasswordDto } from './dtos/forgot-password.dto';
-import { LanguageCode } from '@prisma/client';
 import {
-  AUTH_ERROR_MESSAGES,
-  AUTH_ERROR_CODES,
-  REDIS_KEYS,
-  AUTH_CONFIG,
-} from 'src/auth/constants/auth.constants';
-import { VerifyForgotPasswordDto } from './dtos/verify-forgot-password.dto';
-import { ResetPasswordDto } from './dtos/reset-password.dto';
-import { hashPassword } from './utils/password.util';
-import { ResendPasswordOtpDto } from './dtos/resend-password-otp.dto';
-import { generateAndStoreOtp } from './utils/otp.util';
+  StartRegistrationDto,
+  VerifyOtpDto,
+  CompleteRegistrationDto,
+  ForgotPasswordDto,
+  VerifyForgotPasswordDto,
+  ResetPasswordDto,
+  ResendPasswordOtpDto,
+} from './dtos';
+import { LanguageCode } from '@prisma/client';
+import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES, REDIS_KEYS, AUTH_CONFIG } from 'src/auth/constants';
+import { hashPassword, generateAndStoreOtp } from './utils';
 import { DevicesService } from 'src/devices/devices.service';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { OtpType } from 'src/email/interfaces';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { Device } from 'src/devices/interfaces/device.interface';
-import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
-import { CachedRegistrationData } from './interfaces/cached-registration-data.interface';
-import { NewUser } from 'src/users/interfaces/NewUser.interface';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
-import type { RequestUser } from './types';
+import { Device } from 'src/devices/interfaces';
+import { RefreshToken } from 'src/refresh-tokens/interfaces';
+import { CachedRegistrationData, CachedPasswordResetData } from './interfaces';
+import { NewUser } from 'src/users/interfaces';
+import { createValidationError, generateUsernames } from 'src/common/utils';
+import type { RequestUser } from '../common/interfaces';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class AuthService {

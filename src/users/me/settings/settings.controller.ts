@@ -15,29 +15,32 @@ import {
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+  UpdateBirthDateDto,
+  UpdateUsernameDto,
+  RemoveUserSSODto,
+  ChangeCountryDto,
+  ChangeGenderDto,
+  ChangeLanguageDto,
+  ValidatePasswordDto,
+} from 'src/users/dtos';
+import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
-import type { RequestUser, RequestWithCookies } from 'src/auth/types';
-import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
-import { UpdateBirthDateDto } from 'src/users/dtos/update-birth-date.dto';
+import type { RequestUser, RequestWithCookies } from 'src/common/interfaces';
 import {
   SUPPORTED_OAUTH_PROVIDERS,
   SupportedOAuthProvider,
-} from 'src/auth/constants/supported-oauth-providers';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { RemoveUserSSODto } from 'src/users/dtos/remove-user-sso.dto';
-import { ChangeCountryDto } from 'src/users/dtos/change-country.dto';
-import { ChangeGenderDto } from 'src/users/dtos/change-gender.dto';
-import { ChangeLanguageDto } from 'src/users/dtos/change-language.dto';
-import { ValidatePasswordDto } from 'src/users/dtos/validate-password.dto';
+  AUTH_ERROR_CODES,
+  AUTH_ERROR_MESSAGES,
+} from 'src/auth/constants';
+import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
 
 @Controller('me/settings')
 export class SettingsController {

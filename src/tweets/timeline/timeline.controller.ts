@@ -1,9 +1,9 @@
 import { Controller, Get, HttpCode, Query, UseGuards } from '@nestjs/common';
 import { User } from 'src/auth/decorators';
-import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
+import { PaginationQueryDto } from 'src/common/dtos';
 import { TweetsService } from '../tweets.service';
-import type { RequestUser } from 'src/auth/types';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/auth/guards';
+import type { RequestUser } from 'src/common/interfaces';
 
 @UseGuards(JwtAuthGuard)
 @Controller('timeline')

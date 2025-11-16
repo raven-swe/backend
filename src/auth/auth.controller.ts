@@ -17,7 +17,7 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
 import { User, IPAddress, DeviceType } from './decorators';
-import type { RequestUser, RequestWithCookies } from './types';
+import type { RequestUser, RequestWithCookies } from '../common/interfaces';
 import { ConfigService } from '@nestjs/config';
 import {
   CheckIdentifierQueryDto,

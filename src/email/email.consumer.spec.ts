@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { EmailConsumer } from './email.consumer';
 import { EmailService } from './email.service';
 import { Job } from 'bullmq';
-import { EmailJobData, OtpType } from './interfaces/email.interfaces';
+import { EmailJobData, OtpType } from './interfaces';
 
 describe('EmailConsumer', () => {
   let consumer: EmailConsumer;

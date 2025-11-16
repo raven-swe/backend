@@ -1,8 +1,8 @@
 import { Controller, UseGuards, Get, UnauthorizedException } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from './guards/';
 import { User } from 'src/auth/decorators';
-import type { RequestUser } from 'src/auth/types';
-import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
+import type { RequestUser } from '../common/interfaces';
+import { generateUsernames } from 'src/common/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('onboarding')

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TweetsController } from './tweets.controller';
 import { TweetsService } from './tweets.service';
-import type { RequestUser } from 'src/auth/types';
+import type { RequestUser } from 'src/common/interfaces';
 
 describe('TweetsController', () => {
   let controller: TweetsController;

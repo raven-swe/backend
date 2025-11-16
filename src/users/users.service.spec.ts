@@ -7,17 +7,15 @@ import { NewUser } from './interfaces/new-user.interface';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import { LanguageCode } from '@prisma/client';
-import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { OtpType } from 'src/email/interfaces';
+import { comparePassword, hashPassword } from 'src/auth/utils';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { MediaService } from 'src/media/media.service';
+import { MediaFolder } from 'src/media/enums/media-folder.enum';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('./utils/validate-password-format.util');
-
-import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { UpdateProfileDto } from './dtos/update-profile.dto';
-import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
 
 // Cast to jest mocks for TypeScript
 const mockComparePassword = comparePassword as jest.MockedFunction<typeof comparePassword>;

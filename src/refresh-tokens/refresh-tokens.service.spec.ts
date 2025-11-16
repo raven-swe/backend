@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { RefreshTokensService } from './refresh-tokens.service';
 import { RefreshTokensRepository } from './refresh-tokens.repository'; // The primary dependency to mock.
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RefreshToken } from './interfaces/refresh-token.interface';
+import { RefreshToken } from './interfaces';
 
 describe('RefreshTokensService', () => {
   let service: RefreshTokensService;

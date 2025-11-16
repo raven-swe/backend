@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MeController } from './me.controller';
 import { UsersService } from '../users.service';
-import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
-import { RequestUser } from 'src/auth/types';
+import { ChangePasswordBasicDto } from '../dtos';
+import type { RequestUser } from 'src/common/interfaces';
 
 describe('MeController', () => {
   let controller: MeController;

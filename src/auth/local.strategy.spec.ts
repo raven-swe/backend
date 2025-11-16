@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LocalStrategy } from './local.strategy';
 import { AuthService } from '../auth/auth.service';
 import { UnauthorizedException } from '@nestjs/common';
-import { RequestUser } from '../auth/types';
+import { RequestUser } from '../common/interfaces';
 
 const mockAuthService = {
   validateUser: jest.fn(),

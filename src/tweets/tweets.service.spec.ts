@@ -3,7 +3,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { TweetsRepository } from './tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants/tweets.constant';
+import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('TweetsService', () => {

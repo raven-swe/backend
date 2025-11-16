@@ -13,18 +13,13 @@ import { UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import {
-  AUTH_CONFIG,
-  AUTH_ERROR_CODES,
-  AUTH_ERROR_MESSAGES,
-  REDIS_KEYS,
-} from './constants/auth.constants';
+import { AUTH_CONFIG, AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES, REDIS_KEYS } from './constants';
 import { LanguageCode, Prisma } from '@prisma/client';
-import { RequestUser } from './types';
-import { generateAndStoreOtp } from './utils/otp.util';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { CachedRegistrationData } from './interfaces/cached-registration-data.interface';
+import { RequestUser } from '../common/interfaces';
+import { generateAndStoreOtp } from './utils';
+import { OtpType } from 'src/email/interfaces';
+import { createValidationError } from 'src/common/utils';
+import { CachedRegistrationData } from './interfaces';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (

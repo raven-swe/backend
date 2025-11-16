@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SettingsController } from './settings.controller';
 import { SettingsService } from './settings.service';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { RequestUser, RequestWithCookies } from 'src/auth/types';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+} from 'src/users/dtos';
+import type { RequestUser, RequestWithCookies } from 'src/common/interfaces';
 import { BadRequestException, HttpException } from '@nestjs/common';
 
 describe('SettingsController', () => {

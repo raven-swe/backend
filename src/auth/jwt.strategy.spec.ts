@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtStrategy } from './jwt.strategy';
 import { ConfigService } from '@nestjs/config';
-import { RequestUser } from './types';
+import { RequestUser } from '../common/interfaces';
 
 const mockConfigService = {
   get: jest.fn((key: string) => {

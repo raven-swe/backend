@@ -11,7 +11,7 @@ import {
   StartRegistrationDto,
   CompleteRegistrationDto,
 } from './dtos';
-import { RequestUser, RequestWithCookies } from './types';
+import type { RequestUser, RequestWithCookies } from '../common/interfaces';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 function mockRequestWithCookies(

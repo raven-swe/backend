@@ -5,15 +5,17 @@ import { RedisService } from 'src/redis/redis.service';
 import { Queue } from 'bullmq';
 import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+} from 'src/users/dtos';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
+import { OtpType } from 'src/email/interfaces';
 import * as bcrypt from 'bcrypt';
-import * as otpUtil from 'src/auth/utils/otp.util';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import * as otpUtil from 'src/auth/utils';
+import { createValidationError } from 'src/common/utils';
 
 jest.mock('src/auth/utils/otp.util');
 

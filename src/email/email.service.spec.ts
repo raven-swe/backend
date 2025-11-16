@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
-import { OtpType } from './interfaces/email.interfaces';
+import { OtpType } from './interfaces';
 import * as nodemailer from 'nodemailer';
 
 jest.mock('nodemailer');
