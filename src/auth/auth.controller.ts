@@ -12,28 +12,32 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import { StartRegistrationDto } from './dto/start-registration.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { ResendOtpDto } from './dto/resend-otp.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
-import { CheckEmailDto } from './dto/check-email-dto';
 import { AUTH_CONFIG } from './constants/auth.constants';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { User, IPAddress } from './decorators';
 import { DeviceType } from './decorators/';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
-import { CheckIdentifierQueryDto, LogoutDto, RefreshTokenDto } from './dtos';
+import {
+  CheckIdentifierQueryDto,
+  LogoutDto,
+  RefreshTokenDto,
+  StartRegistrationDto,
+  VerifyOtpDto,
+  CompleteRegistrationDto,
+  ResendOtpDto,
+  ForgotPasswordDto,
+  VerifyForgotPasswordDto,
+  ResetPasswordDto,
+  ResendPasswordOtpDto,
+  CheckEmailDto,
+  CheckUsernameDto,
+} from './dto';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { CheckUsernameDto } from './dto/check-username-dto';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
