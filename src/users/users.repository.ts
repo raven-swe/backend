@@ -74,7 +74,7 @@ export class UsersRepository {
   async updateProfile(
     userId: bigint,
     data: UpdateProfileDto,
-    avatarUrl?: string,
+    avatarUrl?: string | null,
     bannerUrl?: string | null,
   ) {
     return await this.prisma.$transaction(async (tx) => {

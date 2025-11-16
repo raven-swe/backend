@@ -138,8 +138,13 @@ export class UsersService {
   /**
    * Updates the profile of a user, including optional avatar and banner image uploads.
    *
+   * This method supports:
+   * - Uploading a new avatar and/or banner image
+   * - Deleting the existing avatar and/or banner
+   * - Updating basic profile fields from the DTO
+   *
    * @param userId - The ID of the user whose profile is to be updated.
-   * @param data - The profile data to be updated.
+   * @param data  - DTO containing profile fields and optional delete flags.
    * @param files - Optional files containing avatar and banner images.
    *
    * @returns An object containing a success message and the updated profile data.
@@ -163,8 +168,11 @@ export class UsersService {
       );
     }
 
+    const hasNewAvatar = Boolean(files?.avatar?.[0]);
+    const hasNewBanner = Boolean(files?.banner?.[0]);
+
     // Validate delete + upload banner conflict
-    if (data.deleteBanner && files?.banner?.length) {
+    if ((data.deleteBanner && hasNewBanner) || (data.deleteAvatar && hasNewAvatar)) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
@@ -176,35 +184,33 @@ export class UsersService {
 
     let uploadedAvatarUrl: string | undefined;
     let uploadedBannerUrl: string | undefined;
-    const oldAvatarUrl: string | undefined = user.profile?.avatarUrl ?? undefined;
-    const oldBannerUrl: string | undefined = user.profile?.bannerUrl ?? undefined;
+    const oldAvatarUrl: string | null = user.profile?.avatarUrl ?? null;
+    const oldBannerUrl: string | null = user.profile?.bannerUrl ?? null;
 
     try {
       // Upload new files if provided
-      if (files?.avatar?.[0] || files?.banner?.[0]) {
+      if (hasNewAvatar || hasNewBanner) {
         const uploaded = await this.mediaService.uploadAvatarOrBanner(user.id, {
-          avatar: files.avatar?.[0],
-          banner: files.banner?.[0],
+          avatar: files?.avatar?.[0],
+          banner: files?.banner?.[0],
         });
 
         uploadedAvatarUrl = uploaded.avatarUrl ?? undefined;
         uploadedBannerUrl = uploaded.bannerUrl ?? undefined;
       }
 
-      let finalBannerUrl: string | undefined | null = uploadedBannerUrl;
-
-      // Handle explicit deletion
-      if (data.deleteBanner && !files?.banner?.length) {
-        finalBannerUrl = null;
-      }
+      // Handle final URLs considering deletions and uploads
+      const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
+      const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
 
       // Update database
       const profile = await this.usersRepository.updateProfile(
         userId,
         data,
-        uploadedAvatarUrl,
+        finalAvatarUrl,
         finalBannerUrl,
       );
+      this.logger.log(`Profile updated for user ID: ${user.id}`);
 
       // Delete old files from S3 AFTER successful DB update
       if (uploadedAvatarUrl && oldAvatarUrl) {
@@ -219,10 +225,17 @@ export class UsersService {
           .catch((err) => this.logger.warn('Failed to delete old banner', err));
       }
 
+      // Handle deletions if explicitly requested
       if (finalBannerUrl === null && oldBannerUrl && data.deleteBanner) {
         await this.mediaService
           .deleteMedia(oldBannerUrl, user.id)
           .catch((err) => this.logger.warn('Failed to delete old banner', err));
+      }
+
+      if (finalAvatarUrl === null && oldAvatarUrl && data.deleteAvatar) {
+        await this.mediaService
+          .deleteMedia(oldAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old avatar', err));
       }
 
       return {

@@ -73,4 +73,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   deleteBanner?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  deleteAvatar?: boolean;
 }
