@@ -1,7 +1,7 @@
 import { BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
-import { ProviderProfile } from '../types/oauth.type';
+import { ProviderProfile } from '../interfaces';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 
 interface GithubUserResponse {

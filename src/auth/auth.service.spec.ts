@@ -24,7 +24,7 @@ import { RequestUser } from './types';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
+import { CachedRegistrationData } from './interfaces/cached-registration-data.interface';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (

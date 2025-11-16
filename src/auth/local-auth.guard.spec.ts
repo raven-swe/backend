@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LocalAuthGuard } from './local-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ExecutionContext, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { validateOrReject, ValidationError } from 'class-validator';

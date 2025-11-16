@@ -2,14 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { StartRegistrationDto } from './dto/start-registration.dto';
-import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { AUTH_CONFIG } from './constants/auth.constants';
+import { AUTH_CONFIG } from './constants';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CheckIdentifierQueryDto, LogoutDto } from './dtos';
+import {
+  CheckIdentifierQueryDto,
+  LogoutDto,
+  RefreshTokenDto,
+  StartRegistrationDto,
+  CompleteRegistrationDto,
+} from './dtos';
 import { RequestUser, RequestWithCookies } from './types';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { RefreshTokenDto } from './dtos';
 
 function mockRequestWithCookies(
   cookies: Record<string, string | undefined> = {},

@@ -12,12 +12,11 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import { AUTH_CONFIG } from './constants/auth.constants';
+import { AUTH_CONFIG } from './constants';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './local-auth.guard';
-import { User, IPAddress } from './decorators';
-import { DeviceType } from './decorators/';
+import { LocalAuthGuard, JwtAuthGuard } from './guards';
+import { User, IPAddress, DeviceType } from './decorators';
 import type { RequestUser, RequestWithCookies } from './types';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -34,12 +33,11 @@ import {
   ResendPasswordOtpDto,
   CheckEmailDto,
   CheckUsernameDto,
-} from './dto';
+} from './dtos';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {

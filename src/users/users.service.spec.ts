@@ -3,7 +3,7 @@ import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
-import { NewUser } from './interfaces/NewUser.interface';
+import { NewUser } from './interfaces/new-user.interface';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import { LanguageCode } from '@prisma/client';

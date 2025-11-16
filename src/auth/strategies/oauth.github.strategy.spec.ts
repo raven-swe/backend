@@ -1,7 +1,7 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GithubOAuthStrategy } from './oauth.github.strategy';
-import { ProviderProfile } from '../types/oauth.type';
+import { ProviderProfile } from '../interfaces';
 
 // Mock fetch globally
 global.fetch = jest.fn();

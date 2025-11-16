@@ -14,10 +14,10 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { StartRegistrationDto } from './dto/start-registration.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { StartRegistrationDto } from './dtos/start-registration.dto';
+import { VerifyOtpDto } from './dtos/verify-otp.dto';
+import { CompleteRegistrationDto } from './dtos/complete-registration.dto';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { LanguageCode } from '@prisma/client';
 import {
   AUTH_ERROR_MESSAGES,
@@ -25,17 +25,17 @@ import {
   REDIS_KEYS,
   AUTH_CONFIG,
 } from 'src/auth/constants/auth.constants';
-import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyForgotPasswordDto } from './dtos/verify-forgot-password.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
 import { hashPassword } from './utils/password.util';
-import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
+import { ResendPasswordOtpDto } from './dtos/resend-password-otp.dto';
 import { generateAndStoreOtp } from './utils/otp.util';
 import { DevicesService } from 'src/devices/devices.service';
 import { OtpType } from 'src/email/interfaces/email.interfaces';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { Device } from 'src/devices/interfaces/device.interface';
 import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
-import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
+import { CachedRegistrationData } from './interfaces/cached-registration-data.interface';
 import { NewUser } from 'src/users/interfaces/NewUser.interface';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';

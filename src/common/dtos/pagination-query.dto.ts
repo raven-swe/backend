@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString } from 'class-validator';
-import { PAGINATION_DEFAULT_LIMIT } from './constants/generic.constants';
+import { PAGINATION_DEFAULT_LIMIT } from '../constants/generic.constants';
 
 export class PaginationQueryDto {
   @IsOptional()

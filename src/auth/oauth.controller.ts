@@ -19,7 +19,7 @@ import {
   SupportedOAuthProvider,
 } from './constants/supported-oauth-providers';
 import type { Response } from 'express';
-import { OAuthBridgeQueryDto, OauthCallbackDto, OauthCompleteDto } from './dto';
+import { OAuthBridgeQueryDto, OauthCallbackDto, OauthCompleteDto } from './dtos';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { DeviceType, IPAddress } from './decorators';
 import { ConfigService } from '@nestjs/config';
