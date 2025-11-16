@@ -184,8 +184,8 @@ export class UsersService {
 
     let uploadedAvatarUrl: string | undefined;
     let uploadedBannerUrl: string | undefined;
-    const oldAvatarUrl: string | null = user.profile?.avatarUrl ?? null;
-    const oldBannerUrl: string | null = user.profile?.bannerUrl ?? null;
+    const oldAvatarUrl: string | undefined = user.profile?.avatarUrl ?? undefined;
+    const oldBannerUrl: string | undefined = user.profile?.bannerUrl ?? undefined;
 
     try {
       // Upload new files if provided

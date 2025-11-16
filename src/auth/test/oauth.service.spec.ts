@@ -84,7 +84,6 @@ describe('OAuthService', () => {
 
     it('should throw BadRequestException for unsupported provider', async () => {
       await expect(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
         service.handleOauthToken(
           'facebook' as any,
           'token-123',

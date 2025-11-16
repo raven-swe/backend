@@ -425,7 +425,7 @@ describe('UsersService', () => {
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...result } = (await service.updateProfile(BigInt(1), updateProfileDto))!;
+      const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
 
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
@@ -452,7 +452,7 @@ describe('UsersService', () => {
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...result } = (await service.updateProfile(BigInt(1), partialUpdateDto))!;
+      const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findByIdWithProfile).toHaveBeenCalledWith(BigInt(1));
@@ -483,7 +483,7 @@ describe('UsersService', () => {
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
-      const { message, ...result } = (await service.updateProfile(BigInt(1), emptyUpdateDto))!;
+      const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
 
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
@@ -508,9 +508,9 @@ describe('UsersService', () => {
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ avatarUrl });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...profile } = (await service.updateProfile(BigInt(1), updateProfileDto, {
+      const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
         avatar: mockFiles.avatar,
-      }))!;
+      });
 
       expect(profile).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
@@ -538,9 +538,9 @@ describe('UsersService', () => {
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ bannerUrl });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...profile } = (await service.updateProfile(BigInt(1), updateProfileDto, {
+      const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
         banner: mockFiles.banner,
-      }))!;
+      });
 
       expect(profile).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
@@ -566,10 +566,10 @@ describe('UsersService', () => {
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
-      const { message, ...profile } = (await service.updateProfile(BigInt(1), {
+      const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
         deleteBanner: true,
-      }))!;
+      });
 
       expect(profile).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
