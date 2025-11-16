@@ -488,8 +488,11 @@ model ProfileDataFields {
   @maxLength(255)
   bannerUrl?: string | null;
 
-  @doc("Set to true to delete the current banner (If bannerUrl is also provided, an error will be returned).")
+  @doc("Set to true to delete the current banner (If bannerUrl is also provided, a conflict error will be returned).")
   deleteBanner?: boolean;
+
+  @doc("Set to true to delete the current avatar (If avatarUrl is also provided, a conflict error will be returned).")
+  deleteAvatar?: boolean;
 }
 
 model UpdatedProfile {
