@@ -8,7 +8,7 @@ import {
   registerDecorator,
 } from 'class-validator';
 
-import { IsMinYearsOld } from '../validators/is-min-years-old';
+import { IsMinYearsOld } from '../validators';
 
 export class StartRegistrationDto {
   @IsNotEmpty()
