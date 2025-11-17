@@ -12,6 +12,9 @@ import { MEDIA_CODES, MEDIA_MESSAGES } from './constants';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
+  private readonly IMAGE_QUALITY = 85;
+  private readonly MAX_WIDTH = 1024;
+  private readonly MAX_HEIGHT = 1024;
 
   constructor(
     private readonly s3Service: S3Service,
@@ -43,16 +46,23 @@ export class MediaService {
     try {
       const mediaType = detectMediaType(file);
 
+      let processedBuffer = file.buffer;
+      let width = 0;
+      let height = 0;
+
+      if (mediaType === MediaType.IMAGE) {
+        const processedImage = await this.processImage(file);
+        processedBuffer = processedImage.buffer;
+        width = processedImage.width;
+        height = processedImage.height;
+        file.buffer = processedBuffer;
+      }
+
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
 
       this.logger.log(`File uploaded to S3 with URL: ${url}`);
-
-      const { width, height } =
-        mediaType == MediaType.IMAGE
-          ? await this.getImageDimensions(file)
-          : { width: 0, height: 0 };
 
       const mediaDto: MediaDto = {
         userId,
@@ -91,6 +101,50 @@ export class MediaService {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async processImage(
+    file: Express.Multer.File,
+  ): Promise<{ buffer: Buffer; width: number; height: number }> {
+    try {
+      let image = sharp(file.buffer);
+      const metadata = await image.metadata();
+
+      if (
+        (metadata.width && metadata.width > this.MAX_WIDTH) ||
+        (metadata.height && metadata.height > this.MAX_HEIGHT)
+      ) {
+        image = image.resize(this.MAX_WIDTH, this.MAX_HEIGHT, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+      }
+
+      // Convert to JPEG with specified quality for optimization
+      if (metadata.format === 'png') {
+        image = image.png({
+          quality: this.IMAGE_QUALITY,
+          compressionLevel: 9,
+        });
+      } else {
+        image = image.jpeg({
+          quality: this.IMAGE_QUALITY,
+          progressive: true,
+        });
+      }
+
+      const processedBuffer = await image.toBuffer();
+      const processedMetadata = await sharp(processedBuffer).metadata();
+
+      return {
+        buffer: processedBuffer,
+        width: processedMetadata.width ?? 0,
+        height: processedMetadata.height ?? 0,
+      };
+    } catch (error) {
+      this.logger.error('Failed to process image', error);
+      throw error;
     }
   }
 
