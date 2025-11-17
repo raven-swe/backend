@@ -1,12 +1,10 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ProviderProfile } from './types/oauth.type';
-import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
-import { GithubOAuthStrategy } from './strategies/oauth.github.strategy';
-import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
-import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
+import { ProviderProfile } from './interfaces/';
+import { OAuthProviderStrategy, GithubOAuthStrategy, GoogleOAuthStrategy } from './strategies';
+import { SupportedOAuthProvider } from './constants';
 import { ConfigService } from '@nestjs/config';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { createValidationError, generateUsernames } from 'src/common/utils';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
 
@@ -168,9 +166,16 @@ export class OAuthService {
       );
     }
 
+    const generated = await generateUsernames(payload.name, payload.email, undefined, 1);
+    // Fallback to email if username generation fails
+    // VERY VERY UNLIKELY TO HAPPEN
+    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
+
+    const username = generated && generated.length > 0 ? generated[0] : payload.email;
+
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,
-      payload.email, // TODO USERNAME STRATEGY
+      username,
       new Date(birthDate),
       payload.name,
       payload.avatar_url,

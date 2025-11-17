@@ -1,5 +1,5 @@
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
-import { ProviderProfile } from '../types/oauth.type';
+import { ProviderProfile } from '../interfaces/oauth.inteface';
 import { BadRequestException, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';

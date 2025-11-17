@@ -1,18 +1,20 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+  UpdateUsernameDto,
+} from 'src/users/dtos';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
-import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants/auth.constants';
-import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
+import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants';
+import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { RedisService } from 'src/redis/redis.service';
-import { generateAndStoreOtp } from 'src/auth/utils/otp.util';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
+import { generateAndStoreOtp } from 'src/auth/utils';
+import { createValidationError } from 'src/common/utils';
 
 interface CachedEmailUpdateData {
   userId: string;
