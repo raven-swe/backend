@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RefreshTokensRepository } from './refresh-tokens.repository';
-import { RefreshToken } from './interfaces/refresh-token.interface';
-import { Logger } from '@nestjs/common';
+import { RefreshToken } from './interfaces';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
