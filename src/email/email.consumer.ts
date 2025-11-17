@@ -8,7 +8,7 @@ import {
   ChangePasswordJob,
   UpdateEmailOtpJob,
   UpdateEmailJob,
-} from './interfaces/email.interfaces';
+} from './interfaces';
 import { Job } from 'bullmq';
 import { EmailService } from './email.service';
 

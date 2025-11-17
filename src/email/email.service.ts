@@ -9,8 +9,8 @@ import {
   OtpType,
   UpdateEmailOtpJob,
   UpdateEmailJob,
-} from './interfaces/email.interfaces';
-import { maskEmail } from 'src/users/utils/mask-email.util';
+} from './interfaces';
+import { maskEmail } from 'src/users/utils';
 
 @Injectable()
 export class EmailService {

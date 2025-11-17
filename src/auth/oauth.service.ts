@@ -1,15 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ProviderProfile } from './types/oauth.type';
-import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
-import { GithubOAuthStrategy } from './strategies/oauth.github.strategy';
-import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
-import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
+import { ProviderProfile } from './interfaces/';
+import { OAuthProviderStrategy, GithubOAuthStrategy, GoogleOAuthStrategy } from './strategies';
+import { SupportedOAuthProvider } from './constants';
 import { ConfigService } from '@nestjs/config';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { createValidationError, generateUsernames } from 'src/common/utils';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
-import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
 
 @Injectable()
 export class OAuthService {

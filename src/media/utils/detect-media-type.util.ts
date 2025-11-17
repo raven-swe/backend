@@ -1,7 +1,7 @@
 import { MediaType } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants/media.constant';
+import { createValidationError } from 'src/common/utils';
+import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants';
 
 /**
  * Detects media type from file extension and magic bytes

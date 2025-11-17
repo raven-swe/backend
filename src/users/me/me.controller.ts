@@ -14,13 +14,12 @@ import {
   UploadedFiles,
 } from '@nestjs/common';
 import { UsersService } from '../users.service';
-import { ChangePasswordBasicDto } from '../dtos/change-password-basic.dto';
+import { ChangePasswordBasicDto, UpdateProfileDto } from '../dtos';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/auth/guards';
+import type { RequestUser } from 'src/common/interfaces';
 import { User } from 'src/auth/decorators';
-import type { RequestUser } from 'src/auth/types';
-import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
-import { UpdateProfileDto } from '../dtos/update-profile.dto';
+import { RATE_LIMIT } from 'src/common/constants';
 import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';

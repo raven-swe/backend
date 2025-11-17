@@ -2,17 +2,16 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { NewUser } from './interfaces/NewUser.interface';
-import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
+import { NewUser } from './interfaces';
+import { comparePassword, hashPassword } from 'src/auth/utils';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
-import { validateNewPasswordFormat } from './utils/validate-password-format.util';
-import { UpdateProfileDto } from './dtos/update-profile.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { EmailJobData, OtpType } from 'src/email/interfaces';
+import { validateNewPasswordFormat } from './utils';
+import { createValidationError } from 'src/common/utils';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
 @Injectable()

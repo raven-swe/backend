@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
-import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../validation-error-codes';
+import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../constants/validation-error-codes';
 import { MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
 
 @Catch()

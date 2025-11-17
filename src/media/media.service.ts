@@ -2,12 +2,12 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { S3Service } from './s3/s3.service';
 import { MediaRepository } from './media.repository';
-import { MediaFolder } from './enums/media-folder.enum';
+import { MediaFolder } from './enums';
 import sharp from 'sharp';
-import { MediaDto } from './dtos/media.dto';
-import { detectMediaType } from './utils/detect-media-type.util';
+import { MediaDto } from './dtos';
+import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
-import { MEDIA_CODES, MEDIA_MESSAGES } from './constants/media.constant';
+import { MEDIA_CODES, MEDIA_MESSAGES } from './constants';
 
 @Injectable()
 export class MediaService {

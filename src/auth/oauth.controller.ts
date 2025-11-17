@@ -14,15 +14,10 @@ import {
 } from '@nestjs/common';
 import { OAuthService } from './oauth.service';
 import { BadRequestException } from '@nestjs/common';
-import {
-  SUPPORTED_OAUTH_PROVIDERS,
-  SupportedOAuthProvider,
-} from './constants/supported-oauth-providers';
-import { OauthCallbackDto } from './dto/oauth-callback.dto';
+import { SUPPORTED_OAUTH_PROVIDERS, SupportedOAuthProvider } from './constants';
 import type { Response } from 'express';
-import { OauthCompleteDto } from './dto/oauth-complete.dto';
-import { OAuthBridgeQueryDto } from './dto/oauth-bridge-query.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { OAuthBridgeQueryDto, OauthCallbackDto, OauthCompleteDto } from './dtos';
+import { createValidationError } from 'src/common/utils';
 import { DeviceType, IPAddress } from './decorators';
 import { ConfigService } from '@nestjs/config';
 
