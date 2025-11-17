@@ -6,11 +6,12 @@ import { RecaptchaModule } from 'src/recaptcha/recaptcha.module';
 import { BullModule } from '@nestjs/bullmq';
 import { DevicesModule } from 'src/devices/devices.module';
 import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
-import { LocalStrategy } from './local.strategy';
+import { LocalStrategy } from './strategies/local.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtStrategy } from './jwt.strategy';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { OnboardingController } from './onboarding.controller';
 
 @Module({
   imports: [
@@ -40,7 +41,7 @@ import { JwtStrategy } from './jwt.strategy';
       },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, OnboardingController],
   providers: [AuthService, LocalStrategy, JwtStrategy, Logger],
   exports: [AuthService],
 })

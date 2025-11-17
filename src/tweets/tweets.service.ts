@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants/tweets.constant';
+import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { UsersRepository } from 'src/users/users.repository';
-import { decodeCursor, paginateSingle } from 'src/common/utils/cursor-pagination.util';
+import { decodeCursor, paginateSingle } from 'src/common/utils';
 
 @Injectable()
 export class TweetsService {
