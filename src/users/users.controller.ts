@@ -1,9 +1,8 @@
 import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
-import { FollowingUserDto } from './dtos/following-user.dto';
+import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
-
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 

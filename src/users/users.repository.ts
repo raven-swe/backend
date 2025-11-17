@@ -1,15 +1,13 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { FollowsCursor } from 'src/common/utils/cursor-pagination.util';
 import { NewUser } from './interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
 import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { createValidationError } from 'src/common/utils';
-
+import { createValidationError, FollowsCursor } from 'src/common/utils';
 
 @Injectable()
 export class UsersRepository {
