@@ -554,11 +554,11 @@ export class UsersService {
     }));
     const followerIds = followers.map((f) => f.followerUser.id);
 
-    const followBacks = await this.usersRepository.getFollowBacksForFollowers(
-      requestedUser.id,
+    const followBacks = await this.usersRepository.getUsersWhoFollowAuthUser(
+      authUserId,
       followerIds,
     );
-    const followBackSet = new Set(followBacks.map((f) => f.followedId));
+    const followBackSet = new Set(followBacks.map((f) => f.followerId));
 
     const items = followers.map((f) => ({
       ...f.followerUser.profile,
@@ -623,17 +623,17 @@ export class UsersService {
     }));
 
     const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
-    const relationRows = await this.usersRepository.getMutualRelations(authUserId, mutualIds);
+    const relationRows = await this.usersRepository.getUsersWhoFollowAuthUser(
+      authUserId,
+      mutualIds,
+    );
 
-    const setTheyFollowAuth = new Set<bigint>();
-    for (const r of relationRows) {
-      if (r.followedId === authUserId) setTheyFollowAuth.add(r.followerId);
-    }
+    const followBackSet = new Set(relationRows.map((f) => f.followerId));
 
     const items = mutualFollowers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      isFollowing: setTheyFollowAuth.has(f.followerUser.id),
+      isFollowing: followBackSet.has(f.followerUser.id),
       isBlocked: blockedIdsSet.has(f.followerUser.id),
     }));
     return { items, pagination };
@@ -690,8 +690,8 @@ export class UsersService {
 
     const followingIds = followings.map((f) => f.followedUser.id);
 
-    const followBacks = await this.usersRepository.getFollowBacksForFollowings(
-      requestedUser.id,
+    const followBacks = await this.usersRepository.getUsersWhoFollowAuthUser(
+      authUserId,
       followingIds,
     );
     const followBackSet = new Set(followBacks.map((f) => f.followerId));
