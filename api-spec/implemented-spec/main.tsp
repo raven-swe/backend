@@ -243,6 +243,7 @@ enum Gender {
   Female,
 }
 
+alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -1028,6 +1029,13 @@ namespace Me {
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
     @get
     @route("/sessions")
