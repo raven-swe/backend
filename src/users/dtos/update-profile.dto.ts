@@ -1,4 +1,12 @@
-import { IsDate, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsMinYearsOld } from 'src/auth/validators/is-min-years-old';
 
@@ -63,10 +71,10 @@ export class UpdateProfileDto {
   websiteUrl?: string | null;
 
   @IsOptional()
-  @IsString()
-  avatarUrl?: string | null;
+  @IsBoolean()
+  deleteBanner?: boolean;
 
   @IsOptional()
-  @IsString()
-  bannerUrl?: string | null;
+  @IsBoolean()
+  deleteAvatar?: boolean;
 }
