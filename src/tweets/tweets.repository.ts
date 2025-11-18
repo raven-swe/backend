@@ -48,6 +48,21 @@ const tweetInclude = (currentUserId: bigint) =>
         },
       },
     },
+    tweetMedia: {
+      select: {
+        order: true,
+        media: {
+          select: {
+            url: true,
+            type: true,
+            altText: true,
+            width: true,
+            height: true,
+          },
+        },
+      },
+      orderBy: { order: 'asc' },
+    },
   }) satisfies Prisma.TweetInclude;
 
 type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
@@ -125,7 +140,13 @@ export class TweetsRepository {
           startPosition: hashtag.startingIndex,
         })),
       },
-      media: [],
+      media: tweet.tweetMedia?.map((media) => ({
+        url: media.media.url,
+        type: media.media.type,
+        altText: media.media.altText,
+        width: media.media.width ?? 0,
+        height: media.media.height ?? 0,
+      })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
