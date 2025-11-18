@@ -40,7 +40,7 @@ import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 
 @Controller('me/settings')
 export class SettingsController {
