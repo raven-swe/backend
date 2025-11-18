@@ -1,4 +1,4 @@
-import { Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
@@ -34,5 +34,10 @@ export class TweetsController {
   async unretweetTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.unretweetTweet(userId, tweetId);
+  }
+
+  @Get(':id')
+  async getTweet(@Param('id', ParseBigIntPipe) tweetId: bigint) {
+    return await this.tweetsService.getTweet(tweetId);
   }
 }

@@ -180,4 +180,8 @@ export class TweetsService {
   }
 
   // --------------------------------------
+
+  async getTweet(tweetId: bigint) {
+    
+  }
 }
