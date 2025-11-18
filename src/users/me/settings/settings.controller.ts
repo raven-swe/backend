@@ -12,6 +12,7 @@ import {
   Delete,
   HttpException,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
@@ -270,5 +271,23 @@ export class SettingsController {
     const userId = BigInt(user.id);
     const sessId = BigInt(sessionId);
     return this.settingsService.deleteSession(userId, sessId, refreshToken);
+  }
+
+  @Get('blocks')
+  @UseGuards(JwtAuthGuard)
+  async getUserBlockedUsers(
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.settingsService.getUserBlockedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    return { items, pagination };
   }
 }
