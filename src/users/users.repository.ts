@@ -524,7 +524,7 @@ export class UsersRepository {
         followerId: { in: userIds },
         followedId: authUserId,
       },
-      select: { followedId: true },
+      select: { followerId: true },
     });
   }
 
