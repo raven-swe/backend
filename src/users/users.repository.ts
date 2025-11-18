@@ -425,16 +425,6 @@ export class UsersRepository {
     });
   }
 
-  async getFollowBacksForFollowings(requestedUserId: bigint, followingIds: bigint[]) {
-    return await this.prisma.follow.findMany({
-      where: {
-        followedId: requestedUserId,
-        followerId: { in: followingIds },
-      },
-      select: { followerId: true },
-    });
-  }
-
   async getUserFollowers(
     requestedUserId: bigint,
     excludeFollowerIds: bigint[],
