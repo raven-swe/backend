@@ -13,7 +13,7 @@ import { validateNewPasswordFormat } from './utils';
 import { createValidationError } from 'src/common/utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { MediaFolder } from 'src/media/enums';
 
 @Injectable()
 export class UsersService {
