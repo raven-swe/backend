@@ -20,7 +20,6 @@ import {
   NON_VALIDATION_ERROR_CODES,
   NON_VALIDATION_ERROR_MESSAGES,
 } from 'src/common/constants/non-validation-error-codes';
-import { UsersRepository } from 'src/users/users.repository';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -38,7 +37,6 @@ export class SettingsService {
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
-    private readonly usersRepository: UsersRepository,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -264,7 +262,7 @@ export class SettingsService {
       }
     }
 
-    const blockedUsers = await this.usersRepository.getUserBlockedUsers(userId, limit + 1, decoded);
+    const blockedUsers = await this.usersService.getUserBlocks(userId, limit + 1, decoded);
 
     const pagination = paginateComposite(blockedUsers, limit, prevCursor, (item) => ({
       userId: item.userId.toString(),

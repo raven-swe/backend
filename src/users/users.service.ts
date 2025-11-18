@@ -14,6 +14,7 @@ import { createValidationError } from 'src/common/utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
+import { BlocksCursor } from 'src/common/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -605,5 +606,9 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
   }
 }

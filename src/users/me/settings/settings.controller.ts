@@ -288,6 +288,7 @@ export class SettingsController {
       parsedLimit,
       cursor,
     );
+    // TODO:  const itemsDto = plainToInstance(CompactUserDto, items); after merging the follows
     return { items, pagination };
   }
 }
