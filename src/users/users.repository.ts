@@ -659,7 +659,7 @@ export class UsersRepository {
     if (!country)
       throw new BadRequestException(
         createValidationError('invalidCountry', {
-          invalidCountry: 'The country you entered is not supported',
+          invalidCountry: USERS_ERROR_MESSAGES.INVALID_COUNTRY,
         }),
       );
 

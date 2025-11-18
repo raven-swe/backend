@@ -60,4 +60,8 @@ export const USERS_ERROR_MESSAGES = {
   CANNOT_DELETE_CURRENT_SESSION:
     "You can't delete your active session. Please log out if you want to remove it.",
   BANNER_NOT_FOUND: 'User banner not found.',
+  INVALID_COUNTRY: 'The specified country is not supported.',
+  ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
+  INVALID_GENDER: 'Invalid gender, valid options are Male and Female only.',
+  INVALID_LANGUAGE: 'Invalid language, valid options are AR and EN only.',
 } as const;

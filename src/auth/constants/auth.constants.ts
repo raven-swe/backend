@@ -8,6 +8,7 @@ export const AUTH_ERROR_CODES = {
   BOTH_IDENTIFIERS_EMPTY: 'BOTH_IDENTIFIERS_EMPTY',
   INVALID_PASSWORD: 'INVALID_PASSWORD',
   INVALID_PROVIDER: 'INVALID_PROVIDER',
+  REFRESH_TOKEN_NOT_PROVIDED: 'REFRESH_TOKEN_NOT_PROVIDED',
 } as const;
 
 export const AUTH_ERROR_MESSAGES = {
@@ -24,6 +25,16 @@ export const AUTH_ERROR_MESSAGES = {
   MISSING_CLIENT_TYPE_HEADER: 'X-Client-Type header is required.',
   INVALID_CLIENT_TYPE_HEADER: 'X-Client-Type header is invalid.',
   INVALID_PROVIDER: 'Only GitHub and Google are supported.',
+  REFRESH_TOKEN_NOT_STRING: 'Refresh token must be a string',
+  REFRESH_TOKEN_NOT_PROVIDED: 'Refresh token not provided, please log in again.',
+  REFRESH_TOKEN_NOT_PROVIDED_MOBILE:
+    'Refresh token must be provided in the body for mobile clients',
+  STATE_PARAM_EMPTY: 'State parameter is required.',
+  INVALID_STATE_PARAM: 'Invalid state parameter.',
+  INVALID_GITHUB_AUTHORIZATION_TOKEN:
+    'The GitHub authorization token is invalid or expired. Please try logging in again.',
+  INVALID_GOOGLE_AUTHORIZATION_TOKEN:
+    'The Google authorization token is invalid or expired. Please try logging in again.',
 } as const;
 
 export const REDIS_KEYS = {

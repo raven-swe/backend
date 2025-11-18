@@ -18,7 +18,7 @@ import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
 import { User } from 'src/auth/decorators';
-import { RATE_LIMIT } from 'src/common/constants';
+import { RATE_LIMIT, USERS_ERROR_MESSAGES } from 'src/common/constants';
 import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createValidationError } from 'src/common/utils';
@@ -92,7 +92,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
               }),
             ),
             false,
@@ -122,7 +122,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
               }),
             ),
             false,
