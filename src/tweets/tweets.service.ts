@@ -3,6 +3,7 @@ import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { UsersRepository } from 'src/users/users.repository';
 import { decodeCursor, paginateSingle } from 'src/common/utils';
+import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 
 @Injectable()
 export class TweetsService {
@@ -180,8 +181,19 @@ export class TweetsService {
   }
 
   // --------------------------------------
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
+    const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
-  async getTweet(tweetId: bigint) {
-    
+    if (!tweet) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return tweet;
   }
 }

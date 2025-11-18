@@ -37,7 +37,9 @@ export class TweetsController {
   }
 
   @Get(':id')
-  async getTweet(@Param('id', ParseBigIntPipe) tweetId: bigint) {
-    return await this.tweetsService.getTweet(tweetId);
+  @UseGuards(JwtAuthGuard)
+  async getTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
+    const userId = BigInt(user.id);
+    return await this.tweetsService.getTweet(tweetId, userId);
   }
 }

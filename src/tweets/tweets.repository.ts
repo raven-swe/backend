@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
+import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -57,6 +58,11 @@ type TweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
 };
 
+type DetailedTweetWithIncludes = BaseTweetWithIncludes & {
+  quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
+  replyToTweet?: (BaseTweetWithIncludes & { replyToTweet?: null }) | null;
+};
+
 @Injectable()
 export class TweetsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -94,7 +100,7 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  private mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  public mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -123,6 +129,17 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
+    };
+  }
+
+  private mapToDetailedTweetDto(
+    tweet: DetailedTweetWithIncludes,
+  ): TweetDto & { replyToTweet?: TweetDto } {
+    const baseTweet = this.mapToTweetDto(tweet);
+
+    return {
+      ...baseTweet,
+      replyToTweet: tweet.replyToTweet ? this.mapToTweetDto(tweet.replyToTweet) : undefined,
     };
   }
 
@@ -233,6 +250,26 @@ export class TweetsRepository {
       },
     });
     return !!retweet;
+  }
+
+  async getDetailedTweetById(
+    tweetId: bigint,
+    currentUserId: bigint,
+  ): Promise<GetTweetResponseDto | null> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+    });
+
+    return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
   }
 
   async findTweetById(tweetId: bigint) {
