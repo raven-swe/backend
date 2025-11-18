@@ -388,6 +388,23 @@ describe('MeController', () => {
       ).rejects.toThrow('Failed to update profile');
       expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
     });
+
+    it('should handle invalid data when updating profile', async () => {
+      // Arrange
+      const invalidUpdateProfileDto = {
+        displayName: '', // Empty displayName
+        bio: 'Software Developer',
+      };
+
+      const error = new Error('Invalid profile data');
+      mockUsersService.updateProfile.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(
+        controller.updateProfile({ id: '18' }, {}, invalidUpdateProfileDto),
+      ).rejects.toThrow('Invalid profile data');
+      expect(mockUsersService.updateProfile).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('POST /me/profile-picture', () => {
@@ -414,6 +431,19 @@ describe('MeController', () => {
       expect(mockUsersService.uploadAvatar).toHaveBeenCalledWith(expectedUserId, avatar);
       expect(mockUsersService.uploadAvatar).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.uploadAvatar', async () => {
+      // Arrange
+      const error = new Error('Failed to upload avatar');
+
+      mockUsersService.uploadAvatar.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.uploadAvatar({ id: '18' }, avatar)).rejects.toThrow(
+        'Failed to upload avatar',
+      );
+      expect(mockUsersService.uploadAvatar).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -442,6 +472,19 @@ describe('MeController', () => {
       expect(mockUsersService.uploadBanner).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
     });
+
+    it('should handle errors thrown by usersService.uploadBanner', async () => {
+      // Arrange
+      const error = new Error('Failed to upload banner');
+
+      mockUsersService.uploadBanner.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.uploadBanner({ id: '18' }, banner)).rejects.toThrow(
+        'Failed to upload banner',
+      );
+      expect(mockUsersService.uploadBanner).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('DELETE /me/banner', () => {
@@ -459,6 +502,19 @@ describe('MeController', () => {
       expect(mockUsersService.deleteBanner).toHaveBeenCalledWith(expectedUserId);
       expect(mockUsersService.deleteBanner).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.deleteBanner', async () => {
+      // Arrange
+      const error = new Error('Failed to delete banner');
+
+      mockUsersService.deleteBanner.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.deleteBanner({ id: '18' })).rejects.toThrow(
+        'Failed to delete banner',
+      );
+      expect(mockUsersService.deleteBanner).toHaveBeenCalledTimes(1);
     });
   });
 });
