@@ -9,6 +9,8 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { createValidationError } from 'src/common/utils';
 
+import { MutesCursor } from 'src/common/interfaces';
+
 @Injectable()
 export class UsersRepository {
   private readonly logger = new Logger(UsersRepository.name);
@@ -921,6 +923,38 @@ export class UsersRepository {
       });
 
       return { bannerUrl: profile?.bannerUrl || null };
+    });
+  }
+
+  async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return await this.prisma.mute.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_mutedId: {
+              userId: BigInt(prevCursor.userId),
+              mutedId: BigInt(prevCursor.mutedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { mutedId: 'asc' }],
+      include: {
+        mutedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 }
