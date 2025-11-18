@@ -14,7 +14,13 @@ import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants
 import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { RedisService } from 'src/redis/redis.service';
 import { generateAndStoreOtp } from 'src/auth/utils';
-import { createValidationError } from 'src/common/utils';
+import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
+import { BlocksCursor } from 'src/common/interfaces';
+import {
+  NON_VALIDATION_ERROR_CODES,
+  NON_VALIDATION_ERROR_MESSAGES,
+} from 'src/common/constants/non-validation-error-codes';
+import { UsersRepository } from 'src/users/users.repository';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -32,6 +38,7 @@ export class SettingsService {
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
+    private readonly usersRepository: UsersRepository,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -238,5 +245,37 @@ export class SettingsService {
 
   async deleteSession(userId: bigint, sessionId: bigint, refreshToken: string) {
     return this.usersService.deleteSession(userId, sessionId, refreshToken);
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number = 20, prevCursor?: string) {
+    let decoded: BlocksCursor | undefined;
+
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<BlocksCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: NON_VALIDATION_ERROR_CODES.INVALID_CURSOR,
+            code: NON_VALIDATION_ERROR_MESSAGES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlockedUsers(userId, limit + 1, decoded);
+
+    const pagination = paginateComposite(blockedUsers, limit, prevCursor, (item) => ({
+      userId: item.userId.toString(),
+      blockedId: item.blockedId.toString(),
+    }));
+
+    const items = blockedUsers.map((b) => ({
+      ...b.blockedUser.profile,
+      username: b.blockedUser.username,
+    }));
+
+    return { items, pagination };
   }
 }
