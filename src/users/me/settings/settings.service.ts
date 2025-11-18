@@ -21,7 +21,6 @@ import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants/pagination-error-codes';
-
 interface CachedEmailUpdateData {
   userId: string;
   otp: string;
@@ -263,7 +262,7 @@ export class SettingsService {
       }
     }
 
-    const mutedUsers = await this.usersRepository.getUserMutedUsers(userId, limit + 1, decoded);
+    const mutedUsers = await this.usersService.getUserMutes(userId, limit + 1, decoded);
 
     const pagination = paginateComposite(mutedUsers, limit, prevCursor, (item) => ({
       userId: item.userId.toString(),

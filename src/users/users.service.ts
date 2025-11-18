@@ -13,7 +13,10 @@ import { validateNewPasswordFormat } from './utils';
 import { createValidationError } from 'src/common/utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { MediaFolder } from 'src/media/enums';
+
+import { MutesCursor } from 'src/common/interfaces';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -710,5 +713,8 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+  async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
   }
 }
