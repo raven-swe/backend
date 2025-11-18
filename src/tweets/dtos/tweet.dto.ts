@@ -4,7 +4,8 @@ import { AuthorDto } from './author.dto';
 export class TweetDto {
   id: string;
   author: AuthorDto;
-  content: string; //TODO null content will be handled later for media tweets
+  //TODO null content will be handled later for media tweets
+  content: string;
   createdAt: Date;
 
   replyCount: number;
