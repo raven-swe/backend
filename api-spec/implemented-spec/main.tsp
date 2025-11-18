@@ -446,8 +446,20 @@ model UserBio {
   bioEntities: BioEntities | null;
 }
 
-@doc("Request body for updating profile")
+@doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
+  @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
+  data: HttpPart<ProfileDataFields>;
+
+  @doc("Avatar image file (jpg, jpeg, png). Max size: 5MB")
+  avatar?: HttpPart<bytes>;
+
+  @doc("Banner image file (jpg, jpeg, png). Max size: 5MB")
+  banner?: HttpPart<bytes>;
+}
+
+@doc("Profile data fields (sent as JSON string in 'data' field)")
+model ProfileDataFields {
   @doc("The user's display name.")
   @minLength(1)
   @maxLength(100)
@@ -475,6 +487,12 @@ model UpdateProfileRequest {
   @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   bannerUrl?: string | null;
+
+  @doc("Set to true to delete the current banner (If bannerUrl is also provided, a conflict error will be returned).")
+  deleteBanner?: boolean;
+
+  @doc("Set to true to delete the current avatar (If avatarUrl is also provided, a conflict error will be returned).")
+  deleteAvatar?: boolean;
 }
 
 model UpdatedProfile {
@@ -816,7 +834,10 @@ namespace Me {
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
-  op updateMyProfile(@body body: UpdateProfileRequest):
+  op updateMyProfile(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UpdateProfileRequest,
+  ):
     | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse

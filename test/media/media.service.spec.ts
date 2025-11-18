@@ -212,7 +212,7 @@ describe('MediaService', () => {
     });
   });
 
-  describe('uploadAvatarAndBanner', () => {
+  describe('uploadAvatarOrBanner', () => {
     it('should upload both avatar and banner', async () => {
       // Arrange
       const mockAvatarFile = createMockFile({ originalname: 'avatar.jpg' });
@@ -256,17 +256,12 @@ describe('MediaService', () => {
           altText,
         });
 
-      const result = await service.uploadAvatarAndBanner(
-        userId,
-        {
-          avatar: [mockAvatarFile],
-          banner: [mockBannerFile],
-        },
-        altText,
-      );
+      const result = await service.uploadAvatarOrBanner(userId, {
+        avatar: mockAvatarFile,
+        banner: mockBannerFile,
+      });
 
       // Assert
-      expect(result.message).toBe('Avatar and/or banner uploaded successfully');
       expect(result.avatarUrl).toBe(avatarS3Response.url);
       expect(result.bannerUrl).toBe(bannerS3Response.url);
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(2);
@@ -295,11 +290,10 @@ describe('MediaService', () => {
         altText: null,
       });
 
-      const result = await service.uploadAvatarAndBanner(userId, {
-        avatar: [mockAvatarFile],
+      const result = await service.uploadAvatarOrBanner(userId, {
+        avatar: mockAvatarFile,
       });
 
-      expect(result.message).toBe('Avatar and/or banner uploaded successfully');
       expect(result.avatarUrl).toBe(avatarS3Response.url);
       expect(result.bannerUrl).toBeNull();
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
@@ -328,11 +322,10 @@ describe('MediaService', () => {
         altText: null,
       });
 
-      const result = await service.uploadAvatarAndBanner(userId, {
-        banner: [mockBannerFile],
+      const result = await service.uploadAvatarOrBanner(userId, {
+        banner: mockBannerFile,
       });
 
-      expect(result.message).toBe('Avatar and/or banner uploaded successfully');
       expect(result.avatarUrl).toBeNull();
       expect(result.bannerUrl).toBe(bannerS3Response.url);
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
@@ -341,7 +334,7 @@ describe('MediaService', () => {
     it('should throw HttpException when both avatar and banner are missing', async () => {
       const userId = BigInt(1);
 
-      await expect(service.uploadAvatarAndBanner(userId, {})).rejects.toThrow(
+      await expect(service.uploadAvatarOrBanner(userId, {})).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
