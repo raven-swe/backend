@@ -67,4 +67,5 @@ export const USERS_ERROR_MESSAGES = {
   ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
   INVALID_GENDER: 'Invalid gender, valid options are Male and Female only.',
   INVALID_LANGUAGE: 'Invalid language, valid options are AR and EN only.',
+  INVALID_REQUEST_COMBINATION: 'Cannot upload and delete the same media in a single request',
 } as const;
