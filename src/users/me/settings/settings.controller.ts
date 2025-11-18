@@ -271,4 +271,22 @@ export class SettingsController {
     const sessId = BigInt(sessionId);
     return this.settingsService.deleteSession(userId, sessId, refreshToken);
   }
+
+  @Get('mutes')
+  @UseGuards(JwtAuthGuard)
+  async getUserMutedUsers(
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const { items, pagination } = await this.settingsService.getUserMutedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    return { items, pagination };
+  }
 }
