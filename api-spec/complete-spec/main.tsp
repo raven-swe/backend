@@ -715,18 +715,18 @@ model SendMessageRequest {
 model TopSuggestedUsers {
   @doc("Suggested Users when typing")
   @maxItems(10)
-  users: UserMetadata[];
+  users: UserMetadataWithFollowInfo[];
 }
 
 model SuggestedUsersForSearchResults {
   @doc("The top 10 matching users after searching")
   @maxItems(10)
-  topUsers: UserMetadata[];
+  topUsers: UserMetadataWithFollowInfo[];
 }
 
 model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
-  users: UserMetadata[];
+  users: UserMetadataWithFollowInfo[];
 }
 
 model TopHashtags {
