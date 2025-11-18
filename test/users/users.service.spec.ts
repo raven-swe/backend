@@ -2435,4 +2435,273 @@ describe('UsersService', () => {
       expect(result.pagination.nextCursor).toBeNull();
     });
   });
+
+  describe('getUserFollowings', () => {
+    const mockUsername = 'testuser';
+    const authUserId = BigInt(100);
+    const requestedUserId = BigInt(1);
+    const limit = 2;
+
+    // Helper to encode a valid cursor
+    const encodeValidCursor = (followerId: string, followedId: string): string => {
+      const cursorObj = { followerId, followedId };
+      return Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+    };
+
+    beforeEach(() => {
+      // Mock the requested user lookup
+      mockRepository.findByUsername.mockResolvedValue({
+        id: requestedUserId,
+        username: mockUsername,
+      });
+    });
+
+    it('should return followings without cursor (first page)', async () => {
+      // Arrange: 3 followings returned (limit+1 to detect hasNextPage)
+      const mockFollowings = [
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(2),
+          followedUser: {
+            id: BigInt(2),
+            username: 'followed1',
+            profile: { displayName: 'Followed One', bio: 'Bio 1' },
+          },
+        },
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(3),
+          followedUser: {
+            id: BigInt(3),
+            username: 'followed2',
+            profile: { displayName: 'Followed Two', bio: 'Bio 2' },
+          },
+        },
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(4),
+          followedUser: {
+            id: BigInt(4),
+            username: 'followed3',
+            profile: { displayName: 'Followed Three', bio: 'Bio 3' },
+          },
+        },
+      ];
+
+      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
+      mockRepository.getUsersWhoFollowAuthUser.mockResolvedValue([
+        { followerId: BigInt(2), followedId: authUserId }, // the followed1 follows the auth user
+      ]);
+
+      // Act
+      const result = await service.getUserFollowings(mockUsername, authUserId, limit);
+
+      // Assert
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(mockUsername);
+      expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
+      expect(mockRepository.getUserFollowings).toHaveBeenCalledWith(
+        requestedUserId,
+        [authUserId],
+        limit + 1,
+        undefined, // no cursor decoded
+      );
+      // Note: paginateComposite removes the extra item, so only first 2 follower IDs are passed
+      expect(mockRepository.getUsersWhoFollowAuthUser).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+
+      // Only first 2 items returned (limit=2), third is used for pagination
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        displayName: 'Followed One',
+        username: 'followed1',
+        isFollowing: true, // auth follows back
+        isBlocked: false,
+      });
+      expect(result.items[1]).toMatchObject({
+        displayName: 'Followed Two',
+        username: 'followed2',
+        isFollowing: false,
+        isBlocked: false,
+      });
+
+      // Pagination should indicate next page
+      expect(result.pagination.hasNextPage).toBe(true);
+      expect(result.pagination.nextCursor).toBeTruthy();
+    });
+
+    it('should return followings with valid cursor (subsequent page)', async () => {
+      // Arrange
+      const validCursor = encodeValidCursor('2', '1'); // followerId=2, followedId=1
+      const mockFollowings = [
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(5),
+          followedUser: {
+            id: BigInt(5),
+            username: 'followed5',
+            profile: { displayName: 'Followed Five', bio: 'Bio 5' },
+          },
+        },
+        {
+          followedId: BigInt(6),
+          followerId: requestedUserId,
+          followedUser: {
+            id: BigInt(6),
+            username: 'followed6',
+            profile: { displayName: 'Followed Six', bio: 'Bio 6' },
+          },
+        },
+      ];
+
+      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
+      mockRepository.getUsersWhoFollowAuthUser.mockResolvedValue([]);
+
+      // Act
+      const result = await service.getUserFollowings(mockUsername, authUserId, limit, validCursor);
+
+      // Assert
+      expect(mockRepository.getUserFollowings).toHaveBeenCalledWith(
+        requestedUserId,
+        [authUserId],
+        limit + 1,
+        { followerId: '2', followedId: '1' }, // decoded cursor
+      );
+
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination.cursor).toBe(validCursor); // prevCursor echoed back
+      expect(result.pagination.hasNextPage).toBe(false); // only 2 items, no extra
+    });
+
+    it('should throw BadRequest for invalid cursor format', async () => {
+      // Arrange: a cursor that is not valid base64 JSON
+      const invalidCursor = 'not-valid-base64!!!';
+
+      // Act & Assert
+      await expect(
+        service.getUserFollowings(mockUsername, authUserId, limit, invalidCursor),
+      ).rejects.toThrow(HttpException);
+
+      await expect(
+        service.getUserFollowings(mockUsername, authUserId, limit, invalidCursor),
+      ).rejects.toMatchObject({
+        response: {
+          message: 'Invalid cursor format',
+          code: 'INVALID_FORMAT',
+        },
+        status: HttpStatus.BAD_REQUEST,
+      });
+    });
+
+    it('should filter out blocked users in the response', async () => {
+      // Arrange
+      const mockFollowings = [
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(2),
+          followedUser: {
+            id: BigInt(2),
+            username: 'followed1',
+            profile: { displayName: 'Followed One' },
+          },
+        },
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(3),
+          followedUser: {
+            id: BigInt(3),
+            username: 'followed2',
+            profile: { displayName: 'Followed Two' },
+          },
+        },
+      ];
+
+      mockRepository.getUserBlocks.mockResolvedValue([
+        { blockerId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
+      ]);
+      mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
+      mockRepository.getUsersWhoFollowAuthUser.mockResolvedValue([]);
+
+      // Act
+      const result = await service.getUserFollowings(mockUsername, authUserId, limit);
+
+      // Assert
+      expect(result.items[0].isBlocked).toBe(true); // followed1 is blocked
+      expect(result.items[1].isBlocked).toBe(false); // followed2 is not blocked
+    });
+
+    it('should correctly set isFollowing flag based on follow backs', async () => {
+      // Arrange
+      const mockFollowings = [
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(2),
+          followedUser: {
+            id: BigInt(2),
+            username: 'followed1',
+            profile: { displayName: 'Followed One' },
+          },
+        },
+        {
+          followerId: requestedUserId,
+          followedId: BigInt(3),
+          followedUser: {
+            id: BigInt(3),
+            username: 'followed2',
+            profile: { displayName: 'Followed Two' },
+          },
+        },
+      ];
+
+      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
+      mockRepository.getUsersWhoFollowAuthUser.mockResolvedValue([
+        { followerId: BigInt(3), followedId: authUserId },
+      ]);
+
+      // Act
+      const result = await service.getUserFollowings(mockUsername, authUserId, limit);
+      // Assert
+      expect(result.items[0].isFollowing).toBe(false); // followed1 not followed back
+      expect(result.items[1].isFollowing).toBe(true); // followed2 followed back
+    });
+
+    it('should throw NOT_FOUND if requested user does not exist', async () => {
+      // Arrange
+      mockRepository.findByUsername.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.getUserFollowings(mockUsername, authUserId, limit)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(
+        service.getUserFollowings(mockUsername, authUserId, limit),
+      ).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+
+    it('should return empty items when user has no followings', async () => {
+      // Arrange
+      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserFollowings.mockResolvedValue([]);
+      mockRepository.getUsersWhoFollowAuthUser.mockResolvedValue([]);
+
+      // Act
+      const result = await service.getUserFollowings(mockUsername, authUserId, limit);
+
+      // Assert
+      expect(result.items).toEqual([]);
+      expect(result.pagination.hasNextPage).toBe(false);
+      expect(result.pagination.nextCursor).toBeNull();
+    });
+  });
 });
