@@ -25,7 +25,6 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
-
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -146,8 +145,29 @@ export class UsersService {
     return { message: 'Password changed successfully.' };
   }
 
-  async updateProfile(userId: bigint, data: UpdateProfileDto) {
-    const user = await this.usersRepository.findById(userId);
+  /**
+   * Updates the profile of a user, including optional avatar and banner image uploads.
+   *
+   * This method supports:
+   * - Uploading a new avatar and/or banner image
+   * - Deleting the existing avatar and/or banner
+   * - Updating basic profile fields from the DTO
+   *
+   * @param userId - The ID of the user whose profile is to be updated.
+   * @param data  - DTO containing profile fields and optional delete flags.
+   * @param files - Optional files containing avatar and banner images.
+   *
+   * @returns An object containing a success message and the updated profile data.
+   */
+  async updateProfile(
+    userId: bigint,
+    data: UpdateProfileDto,
+    files?: {
+      avatar?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
+    },
+  ) {
+    const user = await this.usersRepository.findByIdWithProfile(userId);
     if (!user) {
       throw new HttpException(
         {
@@ -158,12 +178,97 @@ export class UsersService {
       );
     }
 
-    const profile = await this.usersRepository.updateProfile(userId, data);
+    const hasNewAvatar = Boolean(files?.avatar?.[0]);
+    const hasNewBanner = Boolean(files?.banner?.[0]);
 
-    return {
-      message: 'Profile updated successfully',
-      ...profile,
-    };
+    // Validate delete + upload banner conflict
+    if ((data.deleteBanner && hasNewBanner) || (data.deleteAvatar && hasNewAvatar)) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
+          code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    let uploadedAvatarUrl: string | undefined;
+    let uploadedBannerUrl: string | undefined;
+    const oldAvatarUrl: string | undefined = user.profile?.avatarUrl ?? undefined;
+    const oldBannerUrl: string | undefined = user.profile?.bannerUrl ?? undefined;
+
+    try {
+      // Upload new files if provided
+      if (hasNewAvatar || hasNewBanner) {
+        const uploaded = await this.mediaService.uploadAvatarOrBanner(user.id, {
+          avatar: files?.avatar?.[0],
+          banner: files?.banner?.[0],
+        });
+
+        uploadedAvatarUrl = uploaded.avatarUrl ?? undefined;
+        uploadedBannerUrl = uploaded.bannerUrl ?? undefined;
+      }
+
+      // Handle final URLs considering deletions and uploads
+      const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
+      const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
+
+      // Update database
+      const profile = await this.usersRepository.updateProfile(
+        userId,
+        data,
+        finalAvatarUrl,
+        finalBannerUrl,
+      );
+      this.logger.log(`Profile updated for user ID: ${user.id}`);
+
+      // Delete old files from S3 AFTER successful DB update
+      if (uploadedAvatarUrl && oldAvatarUrl) {
+        await this.mediaService
+          .deleteMedia(oldAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old avatar', err));
+      }
+
+      if (uploadedBannerUrl && oldBannerUrl) {
+        await this.mediaService
+          .deleteMedia(oldBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old banner', err));
+      }
+
+      // Handle deletions if explicitly requested
+      if (finalBannerUrl === null && oldBannerUrl && data.deleteBanner) {
+        await this.mediaService
+          .deleteMedia(oldBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old banner', err));
+      }
+
+      if (finalAvatarUrl === null && oldAvatarUrl && data.deleteAvatar) {
+        await this.mediaService
+          .deleteMedia(oldAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old avatar', err));
+      }
+
+      return {
+        message: 'Profile updated successfully',
+        ...profile,
+      };
+    } catch (error) {
+      // Rollback: Delete newly uploaded files only
+      if (uploadedAvatarUrl) {
+        await this.mediaService
+          .deleteMedia(uploadedAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Rollback failed for avatar', err));
+      }
+
+      if (uploadedBannerUrl) {
+        await this.mediaService
+          .deleteMedia(uploadedBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Rollback failed for banner', err));
+      }
+
+      this.logger.error('Failed to update user profile', error);
+      throw error;
+    }
   }
 
   /**
