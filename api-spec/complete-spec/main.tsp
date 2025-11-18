@@ -559,13 +559,17 @@ model Tweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quoteToTweetId: string | null;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
 }
 
 @doc("Defines the filter categories for the notifications list.")
@@ -1662,7 +1666,7 @@ namespace Tweets {
   @route("/{id}")
   @summary("Get a specific tweet by ID")
   op getTweet(@path id: string):
-    | DataResponse<Tweet>
+    | DataResponse<TweetWithReplyTo>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
