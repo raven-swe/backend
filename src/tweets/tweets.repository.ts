@@ -305,6 +305,18 @@ export class TweetsRepository {
       where: {
         quotedTweetId: tweetId,
         isDeleted: false,
+        user: {
+          blockedBy: {
+            none: {
+              userId: currentUserId,
+            },
+          },
+          mutedBy: {
+            none: {
+              userId: currentUserId,
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
