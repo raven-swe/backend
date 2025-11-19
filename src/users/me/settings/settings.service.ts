@@ -17,9 +17,9 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { BlocksCursor } from 'src/common/interfaces';
 import {
-  NON_VALIDATION_ERROR_CODES,
-  NON_VALIDATION_ERROR_MESSAGES,
-} from 'src/common/constants/non-validation-error-codes';
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+} from 'src/common/constants/pagination-error-codes';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -254,8 +254,8 @@ export class SettingsService {
       } catch {
         throw new HttpException(
           {
-            message: NON_VALIDATION_ERROR_CODES.INVALID_CURSOR,
-            code: NON_VALIDATION_ERROR_MESSAGES.INVALID_CURSOR,
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
           },
           HttpStatus.BAD_REQUEST,
         );
