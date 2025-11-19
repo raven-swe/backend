@@ -763,7 +763,8 @@ model MessageResponse<TMessage extends string> {
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
-  isBlocked:boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
 }
 
 model AccountInfo {

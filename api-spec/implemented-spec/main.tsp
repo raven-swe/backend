@@ -224,7 +224,8 @@ model MessageResponse<TMessage extends string> {
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
-  isBlocked:boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
 }
 
 model AccountInfo {
@@ -1173,36 +1174,36 @@ namespace Users {
       @get
       op listUserFollowing(@path username: string, ...CursorPaginationParameters):
         | FollowingListResponse
-      | BadRequestResponse
+        | BadRequestResponse
         | NotFoundResponse
         | UnauthorizedResponse
         | InternalServerErrorResponse;
 
-    @summary("Follow a user")
-    @post
-    op followUser(
-      @path
-      username: string,
-    ):
-      | FollowUserResponse
-      | NotFoundResponse
-      | ConflictResponse
-      | UnauthorizedResponse
-      | ForbiddenResponse
-      | InternalServerErrorResponse;
+      @summary("Follow a user")
+      @post
+      op followUser(
+        @path
+        username: string,
+      ):
+        | FollowUserResponse
+        | NotFoundResponse
+        | ConflictResponse
+        | UnauthorizedResponse
+        | ForbiddenResponse
+        | InternalServerErrorResponse;
 
-    @summary("Unfollow a user")
-    @delete
-    op unfollowUser(
-      @path
-      username: string,
-    ):
-      | UnfollowUserResponse
-      | NotFoundResponse
-      | BadRequestResponse
-      | UnauthorizedResponse
-      | InternalServerErrorResponse;
-  }
+      @summary("Unfollow a user")
+      @delete
+      op unfollowUser(
+        @path
+        username: string,
+      ):
+        | UnfollowUserResponse
+        | NotFoundResponse
+        | BadRequestResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+    }
   }
 }
 
