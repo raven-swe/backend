@@ -12,6 +12,7 @@ import {
   Delete,
   HttpException,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
