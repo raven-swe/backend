@@ -1,0 +1,15 @@
+meta {
+  name: get-quotes
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:3000/tweets/1/quotes
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

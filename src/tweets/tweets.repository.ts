@@ -4,6 +4,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
+import { QuotesCursor } from 'src/common/types/cursors';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -291,6 +292,37 @@ export class TweetsRepository {
     });
 
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
+  }
+
+  async getQuotesForTweet(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: QuotesCursor | undefined,
+  ): Promise<TweetDto[]> {
+    const quotes = await this.prisma.tweet.findMany({
+      where: {
+        quotedTweetId: tweetId,
+        isDeleted: false,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+      cursor: prevCursor
+        ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
+        : undefined,
+      take: limit,
+      skip: prevCursor ? 1 : 0,
+    });
+
+    const quoteDtos = quotes.map((quote) => this.mapToTweetDto(quote));
+    return quoteDtos;
   }
 
   async findTweetById(tweetId: bigint) {

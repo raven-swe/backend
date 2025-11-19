@@ -2,8 +2,14 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { UsersRepository } from 'src/users/users.repository';
-import { decodeCursor, paginateSingle } from 'src/common/utils';
+import {
+  decodeCompositeCursor,
+  decodeCursor,
+  paginateComposite,
+  paginateSingle,
+} from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
+import { QuotesCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class TweetsService {
@@ -195,5 +201,58 @@ export class TweetsService {
     }
 
     return tweet;
+  }
+
+  async getTweetQuotes(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const tweet = await this.tweetsRepository.findTweetById(tweetId);
+    if (!tweet) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Decode cursor if provided
+    let decodedCursor: QuotesCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<QuotesCursor>(prevCursor);
+        console.log('Decoded cursor in getTweetQuotes:', decodedCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
+            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const items = await this.tweetsRepository.getQuotesForTweet(
+      tweetId,
+      currentUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(items, limit, prevCursor, (quote) => ({
+      createdAt: quote.createdAt,
+      id: quote.id.toString(),
+    }));
+
+    this.logger.log(
+      `Fetched ${items.length} quotes for tweet ID: ${tweetId} by user ID: ${currentUserId}`,
+    );
+
+    return { items, pagination };
   }
 }

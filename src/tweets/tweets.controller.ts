@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
@@ -41,5 +41,18 @@ export class TweetsController {
   async getTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);
     return await this.tweetsService.getTweet(tweetId, userId);
+  }
+
+  @Get(':id/quotes')
+  @UseGuards(JwtAuthGuard)
+  async getTweetQuotes(
+    @Param('id', ParseBigIntPipe) tweetId: bigint,
+    @User() user: RequestUser,
+    @Query('limit') limit: string,
+    @Query('cursor') cursor: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const userId = BigInt(user.id);
+    return await this.tweetsService.getTweetQuotes(tweetId, userId, parsedLimit, cursor);
   }
 }
