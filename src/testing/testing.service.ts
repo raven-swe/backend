@@ -46,9 +46,11 @@ export class TestService {
 
   async createUser(username: string, email: string, password: string) {
     // Implementation for creating a user for testing purposes and return it for testers to use it
+    // const existingUser = await this.usersService.findByUsername(username);
+    // if (existingUser) {
     const passwordHash = await hashPassword(password);
 
-    return this.usersService.createUser({
+    return await this.usersService.createUser({
       username,
       email,
       passwordHash,
