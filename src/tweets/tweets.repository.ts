@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RetweeterDto, TweetDto } from './dtos';
+import { UserInteractionDto, TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { QuotesCursor, RetweetersCursor } from 'src/common/types/cursors';
+import { UserInteractionsCursor, QuotesCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
+import { plainToInstance } from 'class-transformer';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -338,43 +339,38 @@ export class TweetsRepository {
     return quoteDtos;
   }
 
-  async getRetweetersForTweet(
+  private async getUserInteractionsForTweet(
+    model: 'like' | 'retweet',
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,
-    prevCursor: RetweetersCursor | undefined,
-  ): Promise<RetweeterDto[]> {
-    const retweeters = await this.prisma.retweet.findMany({
-      where: { tweetId, userId: { not: currentUserId } },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-                bio: true,
-                bioEntities: true,
-              },
-            },
-            followers: {
-              where: { followerId: currentUserId },
-            },
-            following: {
-              where: { followedId: currentUserId },
-            },
-            blockedBy: {
-              where: { userId: currentUserId },
-            },
-            mutedBy: {
-              where: { userId: currentUserId },
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<UserInteractionDto[]> {
+    const select = {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          profile: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+              bio: true,
+              bioEntities: true,
             },
           },
+          followers: { where: { followerId: currentUserId } },
+          following: { where: { followedId: currentUserId } },
+          blockedBy: { where: { userId: currentUserId } },
+          mutedBy: { where: { userId: currentUserId } },
         },
       },
+    };
+
+    const commonQueryArgs = {
+      where: { tweetId, userId: { not: currentUserId } },
+      orderBy: { createdAt: 'desc' } as const,
+      select,
       take: limit,
       cursor: prevCursor
         ? {
@@ -385,20 +381,25 @@ export class TweetsRepository {
           }
         : undefined,
       skip: prevCursor ? 1 : 0,
-    });
+    };
 
-    return retweeters.map((retweet) => {
-      const user = retweet.user;
+    const interactions =
+      model === 'like'
+        ? await this.prisma.like.findMany(commonQueryArgs)
+        : await this.prisma.retweet.findMany(commonQueryArgs);
+
+    const rawDtos = interactions.map((record) => {
+      const user = record.user;
       return {
         userId: user.id.toString(),
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
         bio:
-          retweet.user.profile?.bio && retweet.user.profile?.bioEntities
+          user.profile?.bio && user.profile?.bioEntities
             ? {
-                text: retweet.user.profile.bio,
-                bioEntities: retweet.user.profile.bioEntities as unknown as BioEntitiesDto,
+                text: user.profile.bio,
+                bioEntities: user.profile.bioEntities as unknown as BioEntitiesDto,
               }
             : null,
         isFollowing: user.followers.length > 0,
@@ -407,6 +408,25 @@ export class TweetsRepository {
         isMuted: user.mutedBy.length > 0,
       };
     });
+    return plainToInstance(UserInteractionDto, rawDtos);
+  }
+
+  async getRetweetersForTweet(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<UserInteractionDto[]> {
+    return this.getUserInteractionsForTweet('retweet', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  async getLikersForTweet(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<UserInteractionDto[]> {
+    return this.getUserInteractionsForTweet('like', tweetId, currentUserId, limit, prevCursor);
   }
 
   async findTweetById(tweetId: bigint) {

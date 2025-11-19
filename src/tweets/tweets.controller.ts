@@ -68,4 +68,17 @@ export class TweetsController {
     const userId = BigInt(user.id);
     return await this.tweetsService.getTweetRetweeters(tweetId, userId, parsedLimit, cursor);
   }
+
+  @Get(':id/likes')
+  @UseGuards(JwtAuthGuard)
+  async getTweetLikers(
+    @Param('id', ParseBigIntPipe) tweetId: bigint,
+    @User() user: RequestUser,
+    @Query('limit') limit: string,
+    @Query('cursor') cursor: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const userId = BigInt(user.id);
+    return await this.tweetsService.getTweetLikers(tweetId, userId, parsedLimit, cursor);
+  }
 }

@@ -1,7 +1,7 @@
 import { Exclude } from 'class-transformer';
 import { BioDto } from 'src/users/dtos';
 
-export class RetweeterDto {
+export class UserInteractionDto {
   @Exclude()
   userId: string;
 

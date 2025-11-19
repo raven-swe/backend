@@ -9,7 +9,7 @@ import {
   paginateSingle,
 } from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { QuotesCursor, RetweetersCursor } from 'src/common/types/cursors';
+import { QuotesCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class TweetsService {
@@ -211,12 +211,26 @@ export class TweetsService {
     limit: number,
     prevCursor?: string,
   ) {
+    return this.getTweetInteractions('retweets', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  async getTweetLikers(tweetId: bigint, currentUserId: bigint, limit: number, prevCursor?: string) {
+    return this.getTweetInteractions('likes', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  private async getTweetInteractions(
+    type: 'likes' | 'retweets',
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor?: string,
+  ) {
     await this.checkIfTweetExists(tweetId);
 
-    let decodedCursor: RetweetersCursor | undefined;
+    let decodedCursor: UserInteractionsCursor | undefined;
     if (prevCursor) {
       try {
-        decodedCursor = decodeCompositeCursor<RetweetersCursor>(prevCursor);
+        decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
       } catch {
         throw new HttpException(
           {
@@ -228,19 +242,27 @@ export class TweetsService {
       }
     }
 
-    const items = await this.tweetsRepository.getRetweetersForTweet(
-      tweetId,
-      currentUserId,
-      limit + 1,
-      decodedCursor,
-    );
+    const items =
+      type === 'likes'
+        ? await this.tweetsRepository.getLikersForTweet(
+            tweetId,
+            currentUserId,
+            limit + 1,
+            decodedCursor,
+          )
+        : await this.tweetsRepository.getRetweetersForTweet(
+            tweetId,
+            currentUserId,
+            limit + 1,
+            decodedCursor,
+          );
 
-    const pagination = paginateComposite(items, limit, prevCursor, (retweeter) => ({
-      userId: retweeter.userId.toString(),
+    const pagination = paginateComposite(items, limit, prevCursor, (interaction) => ({
+      userId: interaction.userId.toString(),
       tweetId: tweetId.toString(),
     }));
 
-    this.logger.log(`Fetched ${items.length} retweeters for tweet ID: ${tweetId}`);
+    this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 
     return { items, pagination };
   }
