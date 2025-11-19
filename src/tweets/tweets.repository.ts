@@ -354,6 +354,12 @@ export class TweetsRepository {
             following: {
               where: { followedId: currentUserId },
             },
+            blockedBy: {
+              where: { userId: currentUserId },
+            },
+            mutedBy: {
+              where: { userId: currentUserId },
+            },
           },
         },
       },
@@ -385,13 +391,15 @@ export class TweetsRepository {
             : null,
         isFollowing: user.followers.length > 0,
         isFollower: user.following.length > 0,
+        isBlocked: user.blockedBy.length > 0,
+        isMuted: user.mutedBy.length > 0,
       };
     });
   }
 
   async findTweetById(tweetId: bigint) {
     return this.prisma.tweet.findUnique({
-      where: { id: tweetId },
+      where: { id: tweetId, isDeleted: false },
     });
   }
 }

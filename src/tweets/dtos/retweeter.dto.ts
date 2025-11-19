@@ -10,5 +10,7 @@ export class RetweeterDto {
   avatarUrl: string;
   isFollowing: boolean;
   isFollower: boolean;
+  isBlocked: boolean;
+  isMuted: boolean;
   bio: BioDto | null;
 }
