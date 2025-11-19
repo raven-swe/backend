@@ -35,17 +35,7 @@ export class TweetsService {
   // --------------------------------------
 
   async likeTweet(userId: bigint, tweetId: bigint) {
-    // Check if tweet exists
-    const tweet = await this.tweetsRepository.findTweetById(tweetId);
-    if (!tweet || tweet.isDeleted) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    const tweet = await this.checkIfTweetExists(tweetId);
 
     // Check for blocks
     if (userId !== tweet.userId) {
@@ -80,17 +70,7 @@ export class TweetsService {
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    // Check if tweet exists
-    const tweet = await this.tweetsRepository.findTweetById(tweetId);
-    if (!tweet || tweet.isDeleted) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    await this.checkIfTweetExists(tweetId);
 
     // Tweet already not liked by user
     const hasLiked = await this.tweetsRepository.hasUserLikedTweet(userId, tweetId);
@@ -111,17 +91,7 @@ export class TweetsService {
   }
 
   async retweetTweet(userId: bigint, tweetId: bigint) {
-    // Check if tweet exists
-    const tweet = await this.tweetsRepository.findTweetById(tweetId);
-    if (!tweet || tweet.isDeleted) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    const tweet = await this.checkIfTweetExists(tweetId);
 
     // Check for blocks
     if (userId !== tweet.userId) {
@@ -157,16 +127,7 @@ export class TweetsService {
 
   async unretweetTweet(userId: bigint, tweetId: bigint) {
     // Check if tweet exists
-    const tweet = await this.tweetsRepository.findTweetById(tweetId);
-    if (!tweet) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    await this.checkIfTweetExists(tweetId);
 
     // Tweet already not retweeted by user
     const hasRetweeted = await this.tweetsRepository.hasUserRetweetedTweet(userId, tweetId);
@@ -209,23 +170,13 @@ export class TweetsService {
     limit: number = 20,
     prevCursor?: string,
   ) {
-    const tweet = await this.tweetsRepository.findTweetById(tweetId);
-    if (!tweet) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    await this.checkIfTweetExists(tweetId);
 
     // Decode cursor if provided
     let decodedCursor: QuotesCursor | undefined;
     if (prevCursor) {
       try {
         decodedCursor = decodeCompositeCursor<QuotesCursor>(prevCursor);
-        console.log('Decoded cursor in getTweetQuotes:', decodedCursor);
       } catch {
         throw new HttpException(
           {
@@ -254,5 +205,26 @@ export class TweetsService {
     );
 
     return { items, pagination };
+  }
+
+  async getTweetRetweeters(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    cursor?: string,
+  ) {}
+
+  async checkIfTweetExists(tweetId: bigint) {
+    const tweet = await this.tweetsRepository.findTweetById(tweetId);
+    if (!tweet || tweet.isDeleted) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return tweet;
   }
 }
