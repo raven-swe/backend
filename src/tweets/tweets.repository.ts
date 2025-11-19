@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto } from './dtos';
+import { RetweeterDto, TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { QuotesCursor } from 'src/common/types/cursors';
+import { QuotesCursor, RetweetersCursor } from 'src/common/types/cursors';
+import { BioEntitiesDto } from 'src/users/dtos';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -323,6 +324,69 @@ export class TweetsRepository {
 
     const quoteDtos = quotes.map((quote) => this.mapToTweetDto(quote));
     return quoteDtos;
+  }
+
+  async getRetweetersForTweet(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: RetweetersCursor | undefined,
+  ): Promise<RetweeterDto[]> {
+    const retweeters = await this.prisma.retweet.findMany({
+      where: { tweetId, userId: { not: currentUserId } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+                bio: true,
+                bioEntities: true,
+              },
+            },
+            followers: {
+              where: { followerId: currentUserId },
+            },
+            following: {
+              where: { followedId: currentUserId },
+            },
+          },
+        },
+      },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_tweetId: {
+              userId: BigInt(prevCursor.userId),
+              tweetId: BigInt(prevCursor.tweetId),
+            },
+          }
+        : undefined,
+      skip: prevCursor ? 1 : 0,
+    });
+
+    return retweeters.map((retweet) => {
+      const user = retweet.user;
+      return {
+        userId: user.id.toString(),
+        username: user.username,
+        displayName: user.profile?.displayName ?? '',
+        avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        bio:
+          retweet.user.profile?.bio && retweet.user.profile?.bioEntities
+            ? {
+                text: retweet.user.profile.bio,
+                bioEntities: retweet.user.profile.bioEntities as unknown as BioEntitiesDto,
+              }
+            : null,
+        isFollowing: user.followers.length > 0,
+        isFollower: user.following.length > 0,
+      };
+    });
   }
 
   async findTweetById(tweetId: bigint) {

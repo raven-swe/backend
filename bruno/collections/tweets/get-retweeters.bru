@@ -1,11 +1,11 @@
 meta {
-  name: get-quotes
+  name: get-retweeters
   type: http
-  seq: 6
+  seq: 7
 }
 
 get {
-  url: http://localhost:3000/tweets/1/quotes?limit=5
+  url: http://localhost:3000/tweets/1/retweets?limit=5
   body: none
   auth: bearer
 }

@@ -1,11 +1,12 @@
 import { MediaType } from '@prisma/client';
 
-class MentionDto {
+// TODO: should be moved to mentions/ and hashtags/ modules
+export class MentionDto {
   username: string;
   startPosition: number;
 }
 
-class HashtagDto {
+export class HashtagDto {
   hashtag: string;
   startPosition: number;
 }

@@ -9,7 +9,7 @@ import {
   paginateSingle,
 } from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { QuotesCursor } from 'src/common/types/cursors';
+import { QuotesCursor, RetweetersCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class TweetsService {
@@ -200,9 +200,7 @@ export class TweetsService {
       id: quote.id.toString(),
     }));
 
-    this.logger.log(
-      `Fetched ${items.length} quotes for tweet ID: ${tweetId} by user ID: ${currentUserId}`,
-    );
+    this.logger.log(`Fetched ${items.length} quotes for tweet ID: ${tweetId}`);
 
     return { items, pagination };
   }
@@ -211,8 +209,41 @@ export class TweetsService {
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,
-    cursor?: string,
-  ) {}
+    prevCursor?: string,
+  ) {
+    await this.checkIfTweetExists(tweetId);
+
+    let decodedCursor: RetweetersCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<RetweetersCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
+            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const items = await this.tweetsRepository.getRetweetersForTweet(
+      tweetId,
+      currentUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(items, limit, prevCursor, (retweeter) => ({
+      userId: retweeter.userId.toString(),
+      tweetId: tweetId.toString(),
+    }));
+
+    this.logger.log(`Fetched ${items.length} retweeters for tweet ID: ${tweetId}`);
+
+    return { items, pagination };
+  }
 
   async checkIfTweetExists(tweetId: bigint) {
     const tweet = await this.tweetsRepository.findTweetById(tweetId);

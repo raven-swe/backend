@@ -1,1 +1,1 @@
-export * from './quotes-cursor.type';
+export * from './cursor.type';
