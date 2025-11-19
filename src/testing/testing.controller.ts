@@ -12,9 +12,16 @@ export class TestController {
   }
 
   @Post('users')
-  async createUserForTesting(@Body() body: { username: string; email: string; password: string }) {
-    const { username, email, password } = body;
-    const user = await this.testService.createUser(username, email, password);
-    return { ...user, id: user.id.toString() };
+  async createUserForTesting() {
+    const result = await this.testService.createUser();
+    return {
+      id: result.id.toString(),
+      username: result.username,
+      email: result.email,
+      password: result.password,
+      passwordHash: result.passwordHash,
+      birthdate: result.birthdate,
+      createdAt: result.createdAt,
+    };
   }
 }

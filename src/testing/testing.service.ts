@@ -5,6 +5,8 @@ import { RedisService } from 'src/redis/redis.service';
 import { GetOtpDto, TestingOtpType } from './dtos/get-otp.dto';
 import { UsersService } from 'src/users/users.service';
 import { hashPassword } from 'src/auth/utils';
+import { Prisma } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class TestService {
@@ -44,19 +46,45 @@ export class TestService {
     return { otp };
   }
 
-  async createUser(username: string, email: string, password: string) {
-    // Implementation for creating a user for testing purposes and return it for testers to use it
-    // const existingUser = await this.usersService.findByUsername(username);
-    // if (existingUser) {
-    const passwordHash = await hashPassword(password);
+  async createUser() {
+    const maxAttempts = 10;
+    let attempt = 0;
 
-    return await this.usersService.createUser({
-      username,
-      email,
-      passwordHash,
-      name: username,
-      birthDate: new Date('2000-01-01'),
-      languageCode: 'EN',
-    });
+    while (attempt < maxAttempts) {
+      try {
+        const rand = crypto.randomBytes(4).toString('hex');
+        const timestamp = Date.now();
+        const username = `testuser_${rand}_${timestamp}`;
+        const email = `test_${rand}_${timestamp}@example.com`;
+        const password = `TestPass1_${crypto.randomBytes(8).toString('hex')}`;
+
+        const passwordHash = await hashPassword(password);
+
+        const user = await this.usersService.createUser({
+          username,
+          email,
+          passwordHash,
+          name: username,
+          birthDate: new Date('2000-01-01'),
+          languageCode: 'EN',
+        });
+
+        return {
+          ...user,
+          password,
+        };
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          attempt++;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error(
+      `Failed to create user after ${maxAttempts} attempts due to duplicate constraints`,
+    );
   }
 }
