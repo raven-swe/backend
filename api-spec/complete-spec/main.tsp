@@ -361,6 +361,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")

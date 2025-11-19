@@ -422,10 +422,10 @@ model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
+  isFollowing: boolean;
 
   @doc("Is the user following the current logged-in user")
-  isFollower: boolean | null;
+  isFollower: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -434,6 +434,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("User's biography with structured entities")
@@ -1328,6 +1334,33 @@ namespace Tweets {
   @summary("Get a specific tweet by ID")
   op getTweet(@path id: string):
     | DataResponse<TweetWithReplyTo>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

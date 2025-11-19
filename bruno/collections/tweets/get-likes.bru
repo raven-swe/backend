@@ -5,15 +5,20 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/tweets/6/likes?limit=5
+  url: http://localhost:3000/tweets/3/likes?limit=5
   body: none
-  auth: inherit
+  auth: bearer
 }
 
 params:query {
   limit: 5
 }
 
+auth:bearer {
+  token: {{access_token}}
+}
+
 settings {
   encodeUrl: true
+  timeout: 0
 }
