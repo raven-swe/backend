@@ -711,4 +711,8 @@ export class UsersService {
 
     return { message: 'Banner deleted successfully' };
   }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
+  }
 }

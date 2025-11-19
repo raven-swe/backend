@@ -56,6 +56,7 @@ export class TestService {
         const timestamp = Date.now();
         const username = `testuser_${rand}_${timestamp}`;
         const email = `test_${rand}_${timestamp}@example.com`;
+        const displayName = `testuser_${rand}`;
         const password = `TestPass1_${crypto.randomBytes(8).toString('hex')}`;
 
         const passwordHash = await hashPassword(password);
@@ -69,9 +70,12 @@ export class TestService {
           languageCode: 'EN',
         });
 
+        const userProfile = await this.usersService.createProfile(user.id, displayName);
+
         return {
           ...user,
           password,
+          displayName: userProfile.displayName,
         };
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

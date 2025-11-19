@@ -22,6 +22,7 @@ export class TestController {
       passwordHash: result.passwordHash,
       birthdate: result.birthdate,
       createdAt: result.createdAt,
+      displayName: result.displayName,
     };
   }
 }
