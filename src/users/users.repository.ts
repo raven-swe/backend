@@ -530,13 +530,15 @@ export class UsersRepository {
     });
   }
 
-  async getUsersWhoFollowAuthUser(authUserId: bigint, userIds: bigint[]) {
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.prisma.follow.findMany({
       where: {
-        followerId: { in: userIds },
-        followedId: authUserId,
+        OR: [
+          { followerId: userId, followedId: { in: userIds } }, // user-> them
+          { followerId: { in: userIds }, followedId: userId }, // them -> user
+        ],
       },
-      select: { followerId: true },
+      select: { followerId: true, followedId: true },
     });
   }
 
