@@ -421,4 +421,280 @@ describe('UsersController', () => {
       );
     });
   });
+  describe('GET /users/:username/followings', () => {
+    const mockUser = { id: '1' };
+    const username = 'testuser';
+
+    it('should return followings with default limit (20) when no limit provided', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'following1',
+            displayName: 'Following One',
+            isFollowing: true,
+            isBlocked: false,
+          },
+          {
+            username: 'following2',
+            displayName: 'Following Two',
+            isFollowing: false,
+            isBlocked: false,
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: 'abc123',
+          hasNextPage: true,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, undefined, undefined);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(1),
+        20, // default limit
+        undefined, // no cursor
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination).toEqual(mockServiceResult.pagination);
+    });
+
+    it('should return followings with custom limit when provided', async () => {
+      // Arrange
+      const customLimit = '10';
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'following1',
+            displayName: 'Following One',
+            isFollowing: true,
+            isBlocked: false,
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, customLimit, undefined);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(1),
+        10, // custom limit parsed
+        undefined,
+      );
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should return followings with cursor for pagination', async () => {
+      // Arrange
+      const cursor = 'eyJmb2xsb3dlcklkIjoiMiIsImZvbGxvd2VkSWQiOiIxIn0='; // base64 encoded cursor
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'following3',
+            displayName: 'Following Three',
+            isFollowing: false,
+            isBlocked: false,
+          },
+        ],
+        pagination: {
+          cursor,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, undefined, cursor);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(1),
+        20,
+        cursor, // cursor passed through
+      );
+      expect(result.pagination.cursor).toBe(cursor);
+    });
+
+    it('should use default limit (20) when invalid limit provided', async () => {
+      // Arrange
+      const invalidLimits = ['invalid', '-5', '0', 'NaN', ''];
+      const mockServiceResult = {
+        items: [],
+        pagination: { cursor: null, nextCursor: null, hasNextPage: false },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act & Assert
+      for (const invalidLimit of invalidLimits) {
+        await controller.getUserFollowings(username, mockUser, invalidLimit, undefined);
+
+        expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+          username,
+          BigInt(1),
+          20, // default limit used for invalid values
+          undefined,
+        );
+      }
+    });
+
+    it('should transform items to FollowingUserDto instances', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'following1',
+            displayName: 'Following One',
+            isFollowing: true,
+            isBlocked: false,
+          },
+          {
+            username: 'following2',
+            displayName: 'Following Two',
+            isFollowing: false,
+            isBlocked: true,
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, undefined, undefined);
+
+      // Assert
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toHaveProperty('username', 'following1');
+      expect(result.items[0]).toHaveProperty('displayName', 'Following One');
+      expect(result.items[0]).toHaveProperty('isFollowing', true);
+      expect(result.items[0]).toHaveProperty('isBlocked', false);
+    });
+
+    it('should return empty items array when user has no followings', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, undefined, undefined);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(1),
+        20,
+        undefined,
+      );
+      expect(result.items).toEqual([]);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should handle large limit values correctly', async () => {
+      // Arrange
+      const largeLimit = '100';
+      const mockServiceResult = {
+        items: new Array(100).fill(null).map((_, i) => ({
+          username: `following${i}`,
+          displayName: `Following ${i}`,
+          isFollowing: false,
+          isBlocked: false,
+        })),
+        pagination: {
+          cursor: null,
+          nextCursor: 'nextpage',
+          hasNextPage: true,
+        },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserFollowings(username, mockUser, largeLimit, undefined);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(1),
+        100,
+        undefined,
+      );
+      expect(result.items).toHaveLength(100);
+    });
+
+    it('should pass through service errors (user not found)', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      (mockUsersService.getUserFollowings as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(
+        controller.getUserFollowings(username, mockUser, undefined, undefined),
+      ).rejects.toThrow('User not found');
+    });
+
+    it('should pass through service errors (invalid cursor)', async () => {
+      // Arrange
+      const invalidCursor = 'invalid!!!';
+      const error = new Error('Invalid cursor format');
+      (mockUsersService.getUserFollowings as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(
+        controller.getUserFollowings(username, mockUser, undefined, invalidCursor),
+      ).rejects.toThrow('Invalid cursor format');
+    });
+
+    it('should correctly convert user id string to BigInt', async () => {
+      // Arrange
+      const largeUserId = '9007199254740991'; // max safe integer
+      const mockServiceResult = {
+        items: [],
+        pagination: { cursor: null, nextCursor: null, hasNextPage: false },
+      };
+
+      (mockUsersService.getUserFollowings as jest.Mock).mockResolvedValue(mockServiceResult);
+
+      // Act
+      await controller.getUserFollowings(username, { id: largeUserId }, undefined, undefined);
+
+      // Assert
+      expect(mockUsersService.getUserFollowings).toHaveBeenCalledWith(
+        username,
+        BigInt(largeUserId),
+        20,
+        undefined,
+      );
+    });
+  });
 });
