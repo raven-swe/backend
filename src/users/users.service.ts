@@ -678,8 +678,8 @@ export class UsersService {
     const items = followers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      isFollowing: followsYouSet.has(f.followerUser.id),
-      followsYou: followingSet.has(f.followerUser.id),
+      isFollowing: followingSet.has(f.followerUser.id),
+      followsYou: followsYouSet.has(f.followerUser.id),
       isBlocked: blockedIdsSet.has(f.followerUser.id),
     }));
 
