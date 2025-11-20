@@ -126,8 +126,16 @@ export class TweetsService {
   }
 
   async unretweetTweet(userId: bigint, tweetId: bigint) {
-    // Check if tweet exists
-    await this.checkIfTweetExists(tweetId);
+    const tweet = await this.tweetsRepository.findTweetById(tweetId);
+    if (!tweet) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     // Tweet already not retweeted by user
     const hasRetweeted = await this.tweetsRepository.hasUserRetweetedTweet(userId, tweetId);

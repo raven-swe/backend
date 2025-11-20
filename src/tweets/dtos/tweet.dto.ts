@@ -17,7 +17,6 @@ export class TweetDto {
 
   entities: TweetEntitiesDto;
   media: MediaResponseDto[];
-  // TODO media field will be added later
 
   replyToTweetId: string | null;
   quoteToTweetId: string | null;
