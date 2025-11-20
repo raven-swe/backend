@@ -4,7 +4,7 @@ import { User } from 'src/auth/decorators';
 import type { RequestUser } from '../common/interfaces';
 import { generateUsernames } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 
 @Controller('onboarding')
 export class OnboardingController {
