@@ -45,7 +45,7 @@ async function filterUsedGeneratedUsernames(
 }
 
 export async function generateUsernames(
-  usersRepository?: UsersRepository,
+  usersRepository: UsersRepository,
   displayName?: string,
   email?: string,
   typed?: string,
@@ -56,10 +56,6 @@ export async function generateUsernames(
 
   if (expectedCount <= 0) {
     throw new Error('expectedCount must be greater than 0');
-  }
-
-  if (!usersRepository) {
-    throw new Error('usersRepository is required');
   }
 
   if (expectedCount > 10) {
