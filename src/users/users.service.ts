@@ -4,19 +4,15 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
-import {
-  USERS_ERROR_CODES,
-  USERS_ERROR_MESSAGES,
-  VALIDATION_ERROR_CODES,
-} from 'src/common/constants';
+import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
   decodeCompositeCursor,
-  FollowsCursor,
   paginateComposite,
   createValidationError,
+  FollowsCursor,
 } from 'src/common/utils';
 
 import { EmailJobData, OtpType } from 'src/email/interfaces';
@@ -25,6 +21,7 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -941,8 +938,8 @@ export class UsersService {
     if (!bannerUrl) {
       throw new HttpException(
         {
-          message: USERS_ERROR_CODES.BANNER_NOT_FOUND,
-          code: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          message: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          code: USERS_ERROR_CODES.BANNER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
       );
