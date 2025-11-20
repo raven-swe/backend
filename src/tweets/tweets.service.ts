@@ -2,7 +2,18 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { UsersRepository } from 'src/users/users.repository';
-import { decodeCursor, paginateSingle } from 'src/common/utils';
+import {
+  decodeCompositeCursor,
+  decodeCursor,
+  paginateComposite,
+  paginateSingle,
+} from 'src/common/utils';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import {
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+} from 'src/common/constants/pagination-error-codes';
 
 @Injectable()
 export class TweetsService {
@@ -180,4 +191,53 @@ export class TweetsService {
   }
 
   // --------------------------------------
+  //
+  async getUserProfileTweets(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decoded: TweetsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<TweetsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getUserProfileTweets(
+      requestedUser.id,
+      authUserId,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (item) => ({
+      id: item.id.toString(),
+    }));
+
+    const items = tweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+
+    return { items, pagination };
+  }
 }
