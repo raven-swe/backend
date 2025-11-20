@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { MediaDto } from './dtos';
 import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
-import { MEDIA_CODES, MEDIA_MESSAGES } from './constants';
+import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -254,12 +254,44 @@ export class MediaService {
    *
    * This job finds all media records where:
    * - pending = true
-   * - createdAt is older than the threshold (default 24 hours)
+   * - createdAt is older than the threshold
    *
    * For each found record, it deletes the file from S3 and the record from the database.
    */
   @Cron(CronExpression.EVERY_WEEK)
-  cleanUpPendingMedia() {
+  async cleanUpPendingMedia() {
     this.logger.log('Starting cleanup of pending media...');
+
+    const thresholdDate = new Date();
+    thresholdDate.setHours(thresholdDate.getHours() - PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS);
+
+    this.logger.log(`Threshold date for cleanup: ${thresholdDate.toISOString()}`);
+
+    // Find pending media older than the threshold
+    const pendingMediaRecords = await this.mediaRepository.findPendingMediaOlderThan(thresholdDate);
+
+    if (pendingMediaRecords.length === 0) {
+      this.logger.log('No pending media found for cleanup');
+      return;
+    }
+
+    this.logger.log(`Found ${pendingMediaRecords.length} pending media records to clean up`);
+
+    for (const media of pendingMediaRecords) {
+      try {
+        // Delete from database
+        await this.mediaRepository.deleteMedia(media.id);
+        this.logger.debug(`Deleted pending media record from database: ID ${media.id}`);
+
+        // Delete from S3
+        const key = this.s3Service.extractKeyFromUrl(media.url);
+        await this.s3Service.deleteFile(key);
+        this.logger.debug(`Deleted pending media from S3: ${media.url}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to clean up pending media ID ${media.id} URL ${media.url}: ${error}`,
+        );
+      }
+    }
   }
 }
