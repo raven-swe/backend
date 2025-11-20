@@ -3,11 +3,9 @@ import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { decodeCursor, paginateSingle } from 'src/common/utils';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
-import { TrendingService } from 'src/trending/trending.service';
-import { parseContent } from 'src/common/utils/parse-content.util';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { UsersRepository } from 'src/users/users.repository';
-import { Hashtag, Mention, CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
-import { Prisma } from '@prisma/client';
+import { CreateTweetData } from './interfaces';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -17,7 +15,7 @@ export class TweetsService {
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
-    private readonly trendingService: TrendingService,
+    private readonly contentParsingService: ContentParsingService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -36,13 +34,11 @@ export class TweetsService {
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<{ message: string }> {
     this.logger.log(`tweet content: ${createTweetDto.content}`);
-    const parsedContent = parseContent(createTweetDto.content);
-    this.logger.log(`Parsed mentions: ${JSON.stringify(parsedContent.mentions)}`);
-    this.logger.log(`Parsed hashtags: ${JSON.stringify(parsedContent.hashtags)}`);
     await this.prisma.$transaction(async (tx) => {
-      const mentions = await this.checkUsernamesExistence(parsedContent.mentions, tx);
-      const hashtags = await this.getHashtagIds(parsedContent.hashtags, tx);
-      console.log('Final mentions with IDs:', mentions);
+      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+        createTweetDto.content,
+        tx,
+      );
       const tweetData: CreateTweetData = {
         userId,
         content: createTweetDto.content,
@@ -59,34 +55,6 @@ export class TweetsService {
     return { message: 'Tweet created successfully' };
   }
 
-  /**
-   *
-   * @param usernames array of mentions (usernames and starting positions)
-   * @param tx transaction client passed from the create tweet function in tweet service
-   * @returns a new array of mention IDs of real existing users
-   */
-  private async checkUsernamesExistence(
-    mentions: PlainMention[],
-    tx: Prisma.TransactionClient,
-  ): Promise<Mention[]> {
-    return await this.usersRepository.checkUsernamesExistenceAndReplaceIds(mentions, tx);
-  }
-
-  /**
-   *
-   * @param hashtags array of hashtags (tags and starting positions)
-   * @param tx transaction client passed from the create tweet function in tweet service
-   * @returns a new array of hashtag IDs (existing or newly created)
-   */
-  private async getHashtagIds(
-    hashtags: PlainHashtag[],
-    tx: Prisma.TransactionClient,
-  ): Promise<Hashtag[]> {
-    if (!hashtags || hashtags.length === 0) {
-      return [];
-    }
-    return this.trendingService.getOrCreateHashtagIds(hashtags, tx);
-  }
   // --------------------------------------
 
   async likeTweet(userId: bigint, tweetId: bigint) {

@@ -22,6 +22,7 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
+import { Mention, PlainMention } from 'src/tweets/interfaces';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -950,5 +951,29 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  /**
+   *
+   * @param usernames array of mentions (usernames and starting positions)
+   * @param tx transaction client passed from the create tweet function in tweet service
+   * @returns a new array of mention IDs of real existing users
+   */
+  async checkUsernamesExistenceAndReplaceIds(
+    usernames: PlainMention[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<Mention[]> {
+    const existingUsernames = await this.usersRepository.checkBatchUsernamesExistence(
+      usernames,
+      prismaClient,
+    );
+
+    return usernames.reduce((acc, mention) => {
+      const user = existingUsernames.find((u) => u.username === mention.username);
+      if (user) {
+        acc.push({ userId: user.id, startPosition: mention.startPosition });
+      }
+      return acc;
+    }, [] as Mention[]);
   }
 }

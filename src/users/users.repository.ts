@@ -8,7 +8,7 @@ import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { createValidationError, FollowsCursor } from 'src/common/utils';
-import { PlainMention, Mention } from 'src/tweets/interfaces';
+import { PlainMention } from 'src/tweets/interfaces';
 @Injectable()
 export class UsersRepository {
   private readonly logger = new Logger(UsersRepository.name);
@@ -1066,11 +1066,10 @@ export class UsersRepository {
     });
   }
 
-  //batched check usernames existence
-  async checkUsernamesExistenceAndReplaceIds(
+  async checkBatchUsernamesExistence(
     usernames: PlainMention[],
     prismaClient: Prisma.TransactionClient = this.prisma,
-  ): Promise<Mention[]> {
+  ): Promise<Array<{ id: bigint; username: string }>> {
     const existingUsers = await prismaClient.user.findMany({
       where: {
         username: {
@@ -1083,16 +1082,6 @@ export class UsersRepository {
       },
     });
 
-    const existingUsernamesSet = new Set(existingUsers.map((user) => user.username));
-
-    return usernames
-      .filter((mention) => existingUsernamesSet.has(mention.username))
-      .reduce((acc, mention) => {
-        const user = existingUsers.find((u) => u.username === mention.username);
-        if (user) {
-          acc.push({ userId: user.id, startPosition: mention.startPosition });
-        }
-        return acc;
-      }, [] as Mention[]);
+    return existingUsers;
   }
 }
