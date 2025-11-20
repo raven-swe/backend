@@ -10,7 +10,7 @@ import {
   VerifyEmailUpdateDto,
   ResendEmailUpdateOtp,
 } from 'src/users/dtos';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { OtpType } from 'src/email/interfaces';
 import * as bcrypt from 'bcrypt';
