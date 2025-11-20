@@ -212,7 +212,7 @@ export class TweetsService {
     return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, true);
   }
 
-  async getGenericProfileFeed(
+  private async getGenericProfileFeed(
     username: string,
     authUserId: bigint,
     limit: number,
