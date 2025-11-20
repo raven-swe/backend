@@ -4,17 +4,20 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-  Logger,
   ValidationError,
+  Injectable,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiErrorResponse, ApiValidationErrorResponse } from '../interfaces/response.interface';
 import { CONSTRAINT_TO_ERROR_CODE_MAP } from '../constants/validation-error-codes';
 import { MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
-
+import { AppLogger } from 'src/logger/logger.service';
+import { Prisma } from '@prisma/client';
 @Catch()
+@Injectable()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor(private readonly logger: AppLogger) {}
+  private readonly isProduction = process.env.NODE_ENV === 'production';
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -31,33 +34,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       },
     };
 
+    const logMeta: Record<string, unknown> = {};
+
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      const isValidationErrorArray = (val: unknown): val is { message: ValidationError[] } => {
-        if (typeof val !== 'object' || val === null || !('message' in val)) {
-          return false;
-        }
-
-        const message = (val as Record<string, unknown>).message as unknown[];
-
-        if (!Array.isArray(message) || message.length === 0) {
-          return false;
-        }
-
-        const first = message[0];
-        return (
-          typeof first === 'object' &&
-          first !== null &&
-          'property' in first &&
-          'constraints' in first
-        );
-      };
-
-      // Handle validation errors (typically from class-validator)
-      if (status === HttpStatus.BAD_REQUEST && isValidationErrorArray(exceptionResponse)) {
-        this.logger.warn(`Validation failed: ${JSON.stringify(exceptionResponse)}`);
+      // Handle validation errors (from class-validator or called from createValidationError.util)
+      if (status === HttpStatus.BAD_REQUEST && this.isValidationErrorArray(exceptionResponse)) {
         const message = (exceptionResponse as { message: ValidationError[] }).message;
         errorResponse = this.formatValidationErrors(message);
         status = HttpStatus.UNPROCESSABLE_ENTITY;
@@ -65,6 +49,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         // standard http execptions
         errorResponse = this.formatHttpException(status, exceptionResponse);
       }
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      const { status: prismaStatus, response: prismaResponse } = this.formatPrismaError(exception);
+      status = prismaStatus;
+      errorResponse = prismaResponse;
     } else {
       // Handle unknown exceptions
       errorResponse = {
@@ -76,10 +64,30 @@ export class HttpExceptionFilter implements ExceptionFilter {
       };
     }
 
-    this.logger.error(
-      `${request.method} ${request.url} ${status}`,
-      exception instanceof Error ? exception.stack : String(exception),
-    );
+    // stack traces in dev for all errors except validation ones, they're too much noise, I include the reposnse instead
+    if (!this.isProduction) {
+      if (exception instanceof Error)
+        if (status !== HttpStatus.UNPROCESSABLE_ENTITY) logMeta.stack = exception.stack;
+        else logMeta.response = errorResponse;
+    } else {
+      // stack traces in prod only for 500 and prisma errors
+      if (
+        status >= HttpStatus.INTERNAL_SERVER_ERROR ||
+        exception instanceof Prisma.PrismaClientKnownRequestError
+      ) {
+        if (exception instanceof Error) logMeta.stack = exception.stack;
+      }
+    }
+    const logMessage = `${request.method} ${request.url} ${status} - ${errorResponse.error.message || ''}`;
+
+    if (
+      status >= HttpStatus.INTERNAL_SERVER_ERROR ||
+      exception instanceof Prisma.PrismaClientKnownRequestError
+    ) {
+      this.logger.error(logMessage, logMeta);
+    } else {
+      this.logger.warn(logMessage, logMeta);
+    }
 
     response.status(status).json(errorResponse);
   }
@@ -200,5 +208,76 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ...additionalFields,
       },
     };
+  }
+
+  private formatPrismaError(exception: Prisma.PrismaClientKnownRequestError): {
+    status: number;
+    response: ApiErrorResponse;
+  } {
+    let status = HttpStatus.BAD_REQUEST;
+    let code = 'DB_ERROR';
+    let message = 'Database Error';
+    const meta = exception.meta;
+
+    switch (exception.code) {
+      case 'P2002': {
+        // Unique constraint
+        // may get triggered on some edge cases
+        status = HttpStatus.CONFLICT;
+        code = 'ALREADY_EXISTS';
+        const target = meta?.target as string[];
+        message = target
+          ? `Unique constraint failed on the fields: (${target.join(', ')})`
+          : 'Record already exists';
+        break;
+      }
+
+      case 'P2025': // Record not found
+        status = HttpStatus.NOT_FOUND;
+        code = 'NOT_FOUND';
+        message = 'The record you are trying to access does not exist';
+        break;
+
+      case 'P2003': // Foreign key violations
+        // this would normally not be hit
+        status = HttpStatus.BAD_REQUEST;
+        code = 'INVALID_RELATION';
+        message = 'Operation depends on a record that does not exist';
+        break;
+
+      default:
+        // hopefully we never hit this :)
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        message = `Unhandled Database error: ${exception.message}`;
+        break;
+    }
+
+    return {
+      status,
+      response: {
+        success: false,
+        error: {
+          code,
+          message,
+        },
+      },
+    };
+  }
+
+  private isValidationErrorArray(val: unknown): val is { message: ValidationError[] } {
+    if (typeof val !== 'object' || val === null || !('message' in val)) {
+      return false;
+    }
+
+    const message = (val as Record<string, unknown>).message as unknown[];
+
+    if (!Array.isArray(message) || message.length === 0) {
+      return false;
+    }
+
+    const first = message[0];
+    return (
+      typeof first === 'object' && first !== null && 'property' in first && 'constraints' in first
+    );
   }
 }
