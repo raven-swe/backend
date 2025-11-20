@@ -296,7 +296,7 @@ export class TweetsRepository {
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
   }
 
-  async getQuotesForTweet(
+  async getTweetQuotes(
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,
@@ -411,7 +411,7 @@ export class TweetsRepository {
     return plainToInstance(UserInteractionDto, rawDtos);
   }
 
-  async getRetweetersForTweet(
+  async getTweetRetweeters(
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,
@@ -420,7 +420,7 @@ export class TweetsRepository {
     return this.getUserInteractionsForTweet('retweet', tweetId, currentUserId, limit, prevCursor);
   }
 
-  async getLikersForTweet(
+  async getTweetLikers(
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,

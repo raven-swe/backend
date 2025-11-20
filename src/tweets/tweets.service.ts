@@ -196,7 +196,7 @@ export class TweetsService {
       }
     }
 
-    const items = await this.tweetsRepository.getQuotesForTweet(
+    const items = await this.tweetsRepository.getTweetQuotes(
       tweetId,
       currentUserId,
       limit + 1,
@@ -252,13 +252,13 @@ export class TweetsService {
 
     const items =
       type === 'likes'
-        ? await this.tweetsRepository.getLikersForTweet(
+        ? await this.tweetsRepository.getTweetLikers(
             tweetId,
             currentUserId,
             limit + 1,
             decodedCursor,
           )
-        : await this.tweetsRepository.getRetweetersForTweet(
+        : await this.tweetsRepository.getTweetRetweeters(
             tweetId,
             currentUserId,
             limit + 1,
