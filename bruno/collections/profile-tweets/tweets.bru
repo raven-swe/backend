@@ -1,0 +1,19 @@
+meta {
+  name: tweets
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/users/:username/tweets
+  body: none
+  auth: inherit
+}
+
+params:path {
+  username: 
+}
+
+settings {
+  encodeUrl: true
+}
