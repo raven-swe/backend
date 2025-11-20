@@ -8,11 +8,12 @@ import {
   Req,
   Query,
   Res,
-  UnauthorizedException,
   UseGuards,
   Headers,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
-import { AUTH_CONFIG } from './constants';
+import { AUTH_CONFIG, AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from './constants';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
@@ -133,9 +134,11 @@ export class AuthController {
   ) {
     this.validateClientType(clientType);
     const { accessToken, refreshToken } = await this.authService.login(user, deviceType, ipAddress);
+
     if (clientType === 'mobile') {
       return { accessToken, refreshToken };
     }
+
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: this.config.get('NODE_ENV') === 'production',
@@ -164,13 +167,22 @@ export class AuthController {
 
       if (errors.length > 0) {
         throw new BadRequestException(
-          createValidationError('refreshToken', { isString: 'Refresh token must be a string' }),
+          createValidationError('refreshToken', {
+            isString: AUTH_ERROR_MESSAGES.REFRESH_TOKEN_NOT_STRING,
+          }),
         );
       }
       refreshToken = dto.refreshToken;
     }
+
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token not provided, please log in again.');
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.REFRESH_TOKEN_NOT_PROVIDED,
+          code: AUTH_ERROR_CODES.REFRESH_TOKEN_NOT_PROVIDED,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const { accessToken, refreshToken: newRefreshToken } =
@@ -217,7 +229,7 @@ export class AuthController {
       if (!logoutDto?.refreshToken) {
         throw new BadRequestException(
           createValidationError('refreshToken', {
-            isEmpty: 'Refresh token must be provided in the body for mobile clients',
+            isEmpty: AUTH_ERROR_MESSAGES.REFRESH_TOKEN_NOT_PROVIDED_MOBILE,
           }),
         );
       }
@@ -232,14 +244,19 @@ export class AuthController {
 
   private validateClientType(clientType: string) {
     if (!clientType) {
-      throw new BadRequestException({
-        message: 'Missing X-Client-Type header',
-      });
+      throw new BadRequestException(
+        createValidationError('X-Client-Type', {
+          message: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
+        }),
+      );
     }
+
     if (!clientType.toUpperCase().includes('WEB') && !clientType.toUpperCase().includes('MOBILE')) {
-      throw new BadRequestException({
-        message: 'Invalid X-Client-Type header',
-      });
+      throw new BadRequestException(
+        createValidationError('X-Client-Type', {
+          message: AUTH_ERROR_MESSAGES.INVALID_CLIENT_TYPE_HEADER,
+        }),
+      );
     }
   }
 }

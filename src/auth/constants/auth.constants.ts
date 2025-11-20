@@ -8,22 +8,33 @@ export const AUTH_ERROR_CODES = {
   BOTH_IDENTIFIERS_EMPTY: 'BOTH_IDENTIFIERS_EMPTY',
   INVALID_PASSWORD: 'INVALID_PASSWORD',
   INVALID_PROVIDER: 'INVALID_PROVIDER',
+  REFRESH_TOKEN_NOT_PROVIDED: 'REFRESH_TOKEN_NOT_PROVIDED',
 } as const;
 
 export const AUTH_ERROR_MESSAGES = {
-  EMAIL_REGISTERED: 'Email is already registered',
-  INVALID_CONFIRMATION_TOKEN: 'Invalid or expired confirmation token',
-  USER_NOT_FOUND: 'User not found',
-  OTP_INVALID: 'Invalid or expired OTP',
-  OTP_NOT_VERIFIED: 'OTP not verified',
+  EMAIL_REGISTERED: 'Email is already registered.',
+  INVALID_CONFIRMATION_TOKEN: 'Confirmation token is invalid or expired.',
+  USER_NOT_FOUND: 'User not found.',
+  OTP_INVALID: 'OTP is invalid or expired.',
+  OTP_NOT_VERIFIED: 'OTP has not been verified.',
   OTP_RESEND_LIMIT_EXCEEDED: 'OTP resend limit reached. Please try again later.',
-  BOTH_IDENTIFIERS_EMPTY: 'Email or username must be provided',
-  INVALID_PASSWORD: 'Invalid password',
-  INVALID_RECAPTCHA_TOKEN: 'The provided reCAPTCHA token is invalid or expired',
-  INVALID_CREATION_TOKEN: 'Invalid or expired creation token',
-  MISSING_CLIENT_TYPE_HEADER: 'X-Client-Type header is required',
-  INVALID_CLIENT_TYPE_HEADER: 'X-Client-Type header is invalid',
-  INVALID_PROVIDER: 'Only github and google are supported',
+  BOTH_IDENTIFIERS_EMPTY: 'Email or username must be provided.',
+  INVALID_PASSWORD: 'Password is invalid.',
+  INVALID_RECAPTCHA_TOKEN: 'reCAPTCHA token is invalid or expired.',
+  INVALID_CREATION_TOKEN: 'Creation token is invalid or expired.',
+  MISSING_CLIENT_TYPE_HEADER: 'X-Client-Type header is required.',
+  INVALID_CLIENT_TYPE_HEADER: 'X-Client-Type header is invalid.',
+  INVALID_PROVIDER: 'Only GitHub and Google are supported.',
+  REFRESH_TOKEN_NOT_STRING: 'Refresh token must be a string',
+  REFRESH_TOKEN_NOT_PROVIDED: 'Refresh token not provided, please log in again.',
+  REFRESH_TOKEN_NOT_PROVIDED_MOBILE:
+    'Refresh token must be provided in the body for mobile clients',
+  STATE_PARAM_EMPTY: 'State parameter is required.',
+  INVALID_STATE_PARAM: 'Invalid state parameter.',
+  INVALID_GITHUB_AUTHORIZATION_TOKEN:
+    'The GitHub authorization token is invalid or expired. Please try logging in again.',
+  INVALID_GOOGLE_AUTHORIZATION_TOKEN:
+    'The Google authorization token is invalid or expired. Please try logging in again.',
 } as const;
 
 export const REDIS_KEYS = {

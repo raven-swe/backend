@@ -72,8 +72,8 @@ export class AuthService {
     if (existingUser) {
       throw new HttpException(
         {
-          message: 'Email is already registered',
-          code: 'EMAIL_REGISTERED',
+          message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
+          code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -522,6 +522,7 @@ export class AuthService {
     }
     return { exists: false };
   }
+
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date();

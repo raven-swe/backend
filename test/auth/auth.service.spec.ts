@@ -515,7 +515,10 @@ describe('AuthService with mock ConfigService', () => {
 
       await expect(service.startRegistration(startRegistrationDto)).rejects.toEqual(
         new HttpException(
-          { message: 'Email is already registered', code: 'EMAIL_REGISTERED' },
+          {
+            message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
+            code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
+          },
           HttpStatus.BAD_REQUEST,
         ),
       );
