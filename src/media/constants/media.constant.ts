@@ -10,12 +10,12 @@ export const MEDIA_CODES = {
   MEDIA_NOT_FOUND: 'MEDIA_NOT_FOUND',
   INVALID_URL: 'INVALID_URL',
   UNAUTHORIZED_DELETE: 'UNAUTHORIZED_DELETE',
-};
+} as const;
 
 export const MEDIA_MESSAGES = {
-  MEDIA_UPLOAD_SAVE_FAILED: 'Failed to upload and save media',
-  NO_FILES_PROVIDED: 'No files provided for upload',
-  MEDIA_NOT_FOUND: 'Media not found',
-  INVALID_URL: 'Invalid URL',
-  UNAUTHORIZED_DELETE: 'Unauthorized delete attempt',
-};
+  MEDIA_UPLOAD_SAVE_FAILED: 'Failed to upload and save media.',
+  NO_FILES_PROVIDED: 'No files were provided for upload.',
+  MEDIA_NOT_FOUND: 'Media not found.',
+  INVALID_URL: 'The provided URL is invalid.',
+  UNAUTHORIZED_DELETE: 'Unauthorized attempt to delete media.',
+} as const;
