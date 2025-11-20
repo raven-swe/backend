@@ -20,6 +20,7 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
     DevicesModule,
     MediaModule,
     TweetsModule,
+    ConversationsModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
   ],
   controllers: [HealthController],
