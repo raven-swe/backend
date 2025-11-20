@@ -95,7 +95,7 @@ describe('MediaService', () => {
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
       // Assert
-      expect(result).toBe(mockS3Response.url);
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
       expect(mockS3Service.uploadFile).toHaveBeenCalledWith({ file: mockFile, folder });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -135,7 +135,7 @@ describe('MediaService', () => {
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
       // Assert
-      expect(result).toBe(mockS3Response.url);
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           type: MediaType.VIDEO,
@@ -202,7 +202,7 @@ describe('MediaService', () => {
 
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
-      expect(result).toBe(mockS3Response.url);
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           width: 0,
