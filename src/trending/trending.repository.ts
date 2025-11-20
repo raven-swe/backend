@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Hashtag } from 'src/common/interfaces/hashtag-interface';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { PlainHashtag } from 'src/tweets/interfaces';
 
 @Injectable()
 export class TrendingRepository {
@@ -14,7 +14,7 @@ export class TrendingRepository {
    * @returns Array of hashtag ids in the same order as input
    */
   async getOrCreateHashtagIds(
-    hashtags: Hashtag[],
+    hashtags: PlainHashtag[],
     prismaClient: Prisma.TransactionClient,
   ): Promise<bigint[]> {
     if (!hashtags || hashtags.length === 0) {
@@ -22,7 +22,7 @@ export class TrendingRepository {
     }
 
     // for less db work, they are case-insensitive anyways
-    const keywords = Array.from(new Set(hashtags.map((hashtag) => hashtag.tag.toLowerCase())));
+    const keywords = Array.from(new Set(hashtags.map((hashtag) => hashtag.keyword.toLowerCase())));
 
     const existing = await prismaClient.trendingKeyword.findMany({
       where: { keyword: { in: keywords }, isHashtag: true },
@@ -55,7 +55,7 @@ export class TrendingRepository {
 
     // map ids to original input
     // the ! at the end is safe, we are sure all exist
-    return hashtags.map((hashtag) => map.get(hashtag.tag.toLowerCase())!);
+    return hashtags.map((hashtag) => map.get(hashtag.keyword.toLowerCase())!);
   }
 
   // ---------------
