@@ -18,4 +18,6 @@ export const MEDIA_MESSAGES = {
   MEDIA_NOT_FOUND: 'Media not found.',
   INVALID_URL: 'The provided URL is invalid.',
   UNAUTHORIZED_DELETE: 'Unauthorized attempt to delete media.',
+  ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
+  ALLOWED_VIDEO_TYPES: 'Only video files are allowed (mp4, mkv, webm, mov).',
 } as const;

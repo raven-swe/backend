@@ -203,4 +203,44 @@ export class MediaService {
 
     return { avatarUrl, bannerUrl };
   }
+
+  async uploadImage(
+    userId: bigint,
+    file: Express.Multer.File,
+    folder: MediaFolder,
+    altText?: string,
+  ) {
+    if (!file) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+          code: MEDIA_CODES.NO_FILES_PROVIDED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const url = await this.uploadAndSaveMedia(file, userId, folder, altText);
+    return { url, message: 'Image uploaded successfully.' };
+  }
+
+  async uploadVideo(
+    userId: bigint,
+    file: Express.Multer.File,
+    folder: MediaFolder,
+    altText?: string,
+  ) {
+    if (!file) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+          code: MEDIA_CODES.NO_FILES_PROVIDED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const url = await this.uploadAndSaveMedia(file, userId, folder, altText);
+    return { url, message: 'Video uploaded successfully.' };
+  }
 }
