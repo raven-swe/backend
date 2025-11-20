@@ -7,13 +7,23 @@ meta {
 get {
   url: {{base_url}}/users/:username/tweets
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+params:query {
+  ~limit: 2
+  ~cursor: eyJpZCI6IjEwIiwiY3JlYXRlZEF0IjoiMjAyNS0xMS0wMlQwMTo1MDoyMi4zNjRaIn0=
 }
 
 params:path {
-  username: 
+  username: gelgel
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }
