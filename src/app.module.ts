@@ -23,6 +23,7 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { LoggerModule } from './logger/logger.module';
 import { AppLogger } from './logger/logger.service';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AppLogger } from './logger/logger.service';
     DevicesModule,
     MediaModule,
     TweetsModule,
+    ConversationsModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     LoggerModule,
   ],

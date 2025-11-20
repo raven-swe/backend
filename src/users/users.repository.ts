@@ -336,6 +336,15 @@ export class UsersRepository {
     return existingUser && existingUser.id !== userId ? existingUser : null;
   }
 
+  async getUserByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username: username },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   async updateUserEmail(
     userId: bigint,
     emailUpdateData: {
@@ -1159,6 +1168,14 @@ export class UsersRepository {
       data: {
         userId,
         displayName,
+      },
+    });
+  }
+
+  async getUserBlockedBy(userId: bigint) {
+    return this.prisma.block.findMany({
+      where: {
+        blockedId: userId,
       },
     });
   }
