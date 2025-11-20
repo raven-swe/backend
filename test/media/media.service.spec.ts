@@ -166,8 +166,8 @@ describe('MediaService', () => {
       await expect(service.uploadAndSaveMedia(mockFile, userId, folder)).rejects.toThrow(
         new HttpException(
           {
-            message: 'Failed to upload and save media',
-            code: 'MEDIA_UPLOAD_SAVE_FAILED',
+            message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
+            code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
           },
           HttpStatus.INTERNAL_SERVER_ERROR,
         ),
@@ -337,8 +337,8 @@ describe('MediaService', () => {
       await expect(service.uploadAvatarOrBanner(userId, {})).rejects.toThrow(
         new HttpException(
           {
-            message: 'No files provided for upload',
-            code: 'NO_FILES_PROVIDED',
+            message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+            code: MEDIA_CODES.NO_FILES_PROVIDED,
           },
           HttpStatus.BAD_REQUEST,
         ),
