@@ -53,13 +53,14 @@ export async function generateUsernames(
   fallback = true,
 ): Promise<string[]> {
   const GEN_ATTEMPTS = 32;
+  const MAX_GENERATED_USERNAMES = 10;
 
   if (expectedCount <= 0) {
     throw new Error('expectedCount must be greater than 0');
   }
 
-  if (expectedCount > 10) {
-    expectedCount = 10;
+  if (expectedCount > MAX_GENERATED_USERNAMES) {
+    expectedCount = MAX_GENERATED_USERNAMES;
   }
 
   if (!displayName) {
