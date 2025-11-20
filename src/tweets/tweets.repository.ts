@@ -4,9 +4,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UserInteractionDto, TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { UserInteractionsCursor, QuotesCursor } from 'src/common/types/cursors';
+import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
+import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -300,7 +301,7 @@ export class TweetsRepository {
     tweetId: bigint,
     currentUserId: bigint,
     limit: number,
-    prevCursor: QuotesCursor | undefined,
+    prevCursor: TweetRelationsCursor | undefined,
   ): Promise<TweetDto[]> {
     const quotes = await this.prisma.tweet.findMany({
       where: {
@@ -337,6 +338,51 @@ export class TweetsRepository {
 
     const quoteDtos = quotes.map((quote) => this.mapToTweetDto(quote));
     return quoteDtos;
+  }
+
+  async getTweetReplies(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: TweetRelationsCursor | undefined,
+  ): Promise<ReplyTweetDto[]> {
+    const replies = await this.prisma.tweet.findMany({
+      where: {
+        replyToTweetId: tweetId,
+        isDeleted: false,
+        user: {
+          blockedBy: {
+            none: {
+              userId: currentUserId,
+            },
+          },
+          mutedBy: {
+            none: {
+              userId: currentUserId,
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+      cursor: prevCursor
+        ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
+        : undefined,
+      take: limit,
+      skip: prevCursor ? 1 : 0,
+    });
+
+    const replyDtos = replies.map((reply) => {
+      const baseDto = this.mapToTweetDto(reply);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { quotedTweet, quoteToTweetId, ...replyDto } = baseDto;
+      return replyDto as ReplyTweetDto;
+    });
+    return replyDtos;
   }
 
   private async getUserInteractionsForTweet(

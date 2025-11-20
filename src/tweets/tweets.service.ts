@@ -9,7 +9,7 @@ import {
   paginateSingle,
 } from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { QuotesCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class TweetsService {
@@ -178,13 +178,39 @@ export class TweetsService {
     limit: number = 20,
     prevCursor?: string,
   ) {
+    return this.getTweetRelations('quotes', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  getTweetReplies(tweetId: bigint, currentUserId: bigint, limit: number = 20, prevCursor?: string) {
+    return this.getTweetRelations('replies', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  async getTweetRetweeters(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    return this.getTweetUserInteractions('retweets', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  async getTweetLikers(tweetId: bigint, currentUserId: bigint, limit: number, prevCursor?: string) {
+    return this.getTweetUserInteractions('likes', tweetId, currentUserId, limit, prevCursor);
+  }
+
+  async getTweetRelations(
+    type: 'replies' | 'quotes',
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor?: string,
+  ) {
     await this.checkIfTweetExists(tweetId);
 
-    // Decode cursor if provided
-    let decodedCursor: QuotesCursor | undefined;
+    let decodedCursor: TweetRelationsCursor | undefined;
     if (prevCursor) {
       try {
-        decodedCursor = decodeCompositeCursor<QuotesCursor>(prevCursor);
+        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
       } catch {
         throw new HttpException(
           {
@@ -196,37 +222,32 @@ export class TweetsService {
       }
     }
 
-    const items = await this.tweetsRepository.getTweetQuotes(
-      tweetId,
-      currentUserId,
-      limit + 1,
-      decodedCursor,
-    );
+    const items =
+      type === 'replies'
+        ? await this.tweetsRepository.getTweetReplies(
+            tweetId,
+            currentUserId,
+            limit + 1,
+            decodedCursor,
+          )
+        : await this.tweetsRepository.getTweetQuotes(
+            tweetId,
+            currentUserId,
+            limit + 1,
+            decodedCursor,
+          );
 
-    const pagination = paginateComposite(items, limit, prevCursor, (quote) => ({
-      createdAt: quote.createdAt,
-      id: quote.id.toString(),
+    const pagination = paginateComposite(items, limit, prevCursor, (relation) => ({
+      createdAt: relation.createdAt,
+      id: relation.id.toString(),
     }));
 
-    this.logger.log(`Fetched ${items.length} quotes for tweet ID: ${tweetId}`);
+    this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 
     return { items, pagination };
   }
 
-  async getTweetRetweeters(
-    tweetId: bigint,
-    currentUserId: bigint,
-    limit: number,
-    prevCursor?: string,
-  ) {
-    return this.getTweetInteractions('retweets', tweetId, currentUserId, limit, prevCursor);
-  }
-
-  async getTweetLikers(tweetId: bigint, currentUserId: bigint, limit: number, prevCursor?: string) {
-    return this.getTweetInteractions('likes', tweetId, currentUserId, limit, prevCursor);
-  }
-
-  private async getTweetInteractions(
+  private async getTweetUserInteractions(
     type: 'likes' | 'retweets',
     tweetId: bigint,
     currentUserId: bigint,
