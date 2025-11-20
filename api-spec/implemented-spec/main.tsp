@@ -446,6 +446,28 @@ model UserBio {
   bioEntities: BioEntities | null;
 }
 
+model UploadImageRequest {
+  @doc("Image file to upload (jpg, jpeg, png, webp). Max size: 5MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+model UploadVideoRequest {
+  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
 @doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
   @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
@@ -1272,6 +1294,41 @@ namespace Timeline {
   op getFollowingFeed(
     ...CursorPaginationParameters,
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Media")
+@route("/media")
+@useAuth(BearerAuth)
+namespace Media {
+  @get
+  @route("/upload/image")
+  @summary("Upload an image media file")
+  op uploadImage(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadImageRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/upload/video")
+  @summary("Upload a video media file")
+  op uploadVideo(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadVideoRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Tweets")
