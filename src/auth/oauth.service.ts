@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { createValidationError, generateUsernames } from 'src/common/utils';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
+import { UsersRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class OAuthService {
@@ -17,6 +18,7 @@ export class OAuthService {
     private readonly config: ConfigService,
     private readonly authService: AuthService,
     private readonly oauthRepository: OAuthRepository,
+    private readonly usersRepository: UsersRepository,
   ) {
     this.strategies = {
       github: new GithubOAuthStrategy(this.config),
@@ -166,12 +168,14 @@ export class OAuthService {
       );
     }
 
-    const generated = await generateUsernames(payload.name, payload.email, undefined, 1);
-    // Fallback to email if username generation fails
-    // VERY VERY UNLIKELY TO HAPPEN
-    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
-
-    const username = generated && generated.length > 0 ? generated[0] : payload.email;
+    const generated = await generateUsernames(
+      this.usersRepository,
+      payload.name,
+      payload.email,
+      undefined,
+      1,
+    );
+    const username = generated[0];
 
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,
