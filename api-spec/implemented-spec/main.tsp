@@ -1380,5 +1380,4 @@ namespace Onboarding {
   ): DataResponse<{
     suggestions: string[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
-
 }
