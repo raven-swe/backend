@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ProviderProfile } from './interfaces/';
 import { OAuthProviderStrategy, GithubOAuthStrategy, GoogleOAuthStrategy } from './strategies';
-import { SupportedOAuthProvider } from './constants';
+import { AUTH_ERROR_MESSAGES, SupportedOAuthProvider } from './constants';
 import { ConfigService } from '@nestjs/config';
 import { createValidationError, generateUsernames } from 'src/common/utils';
 import { AuthService } from './auth.service';
@@ -35,7 +35,7 @@ export class OAuthService {
     if (!strategy) {
       throw new BadRequestException(
         createValidationError('provider', {
-          invalidParam: `Unsupported OAuth provider: ${provider}`,
+          invalidParam: AUTH_ERROR_MESSAGES.INVALID_PROVIDER,
         }),
       );
     }
@@ -115,7 +115,7 @@ export class OAuthService {
       if (payload.type !== 'creation') {
         throw new BadRequestException(
           createValidationError('creationToken', {
-            invalidToken: 'The provided token is not a valid account creation token.',
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN,
           }),
         );
       }
@@ -123,7 +123,7 @@ export class OAuthService {
       let reason = 'Invalid or malformed token. Please try again.';
 
       if (err instanceof Error && err.name === 'TokenExpiredError') {
-        reason = 'This creation token has expired. Please restart the registration process.';
+        reason = AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN;
       }
 
       throw new BadRequestException(
@@ -160,8 +160,7 @@ export class OAuthService {
       // User exists but doesn't have this external account (Should not reach here normally)
       throw new BadRequestException(
         createValidationError('creationToken', {
-          invalidToken:
-            'An account with this email already exists. Please log in using your existing credentials.',
+          invalidToken: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
         }),
       );
     }

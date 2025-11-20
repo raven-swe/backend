@@ -154,7 +154,6 @@ export class TweetsService {
 
     return { message: 'Tweet unretweeted successfully' };
   }
-
   // --------------------------------------
   async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);

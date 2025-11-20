@@ -12,4 +12,4 @@ export const TWEETS_ERROR_MESSAGES = {
   CONFLICTING_RETWEET: 'User has already retweeted/unretweeted this tweet.',
   USER_BLOCKED: 'User is blocked from interacting with this tweet.',
   INVALID_CURSOR: 'The provided cursor is invalid.',
-};
+} as const;
