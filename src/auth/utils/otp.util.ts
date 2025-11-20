@@ -37,7 +37,11 @@ export async function generateAndStoreOtp<T extends { otp: string; verified: boo
   // Track resend attempts to rate-limit
   const attempts = await redisService.get(resendKey);
 
-  if (process.env.NODE_ENV !== 'testing' && attempts && parseInt(attempts) >= AUTH_CONFIG.OTP_RESEND_LIMIT) {
+  if (
+    process.env.NODE_ENV !== 'testing' &&
+    attempts &&
+    parseInt(attempts) >= AUTH_CONFIG.OTP_RESEND_LIMIT
+  ) {
     const remainingTTL = await redisService.ttl(resendKey);
     throw new HttpException(
       {
