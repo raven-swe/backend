@@ -10,7 +10,7 @@ export class ProfileTweetsController {
 
   @Get('tweets')
   @UseGuards(JwtAuthGuard)
-  async getUserFollowings(
+  async test(
     @Param('username') username: string,
     @User() user: RequestUser,
     @Query('limit') limit?: string,
@@ -18,12 +18,11 @@ export class ProfileTweetsController {
   ) {
     const parsed = Number(limit);
     const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
-    const { items, pagination } = await this.tweetsService.getUserProfileTweets(
+    return await this.tweetsService.getUserProfilePosts(
       username,
       BigInt(user.id),
       parsedLimit,
       cursor,
     );
-    return { items, pagination };
   }
 }
