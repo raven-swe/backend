@@ -59,13 +59,9 @@ jest.mock('src/auth/utils/password.util', () => ({
 }));
 
 jest.mock('src/common/utils/generate-usernames.util', () => ({
-  generateUsernames: jest
-    .fn()
-    .mockImplementation(
-      async (usersRepository, displayName, email, typed, expectedCount, fallback) => {
-        return ['testuser1', 'testuser2', 'testuser3'];
-      },
-    ),
+  generateUsernames: jest.fn().mockImplementation(() => {
+    return ['testuser1', 'testuser2', 'testuser3'];
+  }),
 }));
 
 const createMockPrismaService = () => {

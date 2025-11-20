@@ -8,13 +8,9 @@ import { AuthService } from 'src/auth/auth.service';
 import { UsersRepository } from 'src/users/users.repository';
 
 jest.mock('src/common/utils/generate-usernames.util', () => ({
-  generateUsernames: jest
-    .fn()
-    .mockImplementation(
-      async (usersRepository, displayName, email, typed, expectedCount, fallback) => {
-        return ['testuser1', 'testuser2', 'testuser3'];
-      },
-    ),
+  generateUsernames: jest.fn().mockImplementation(() => {
+    return ['testuser1', 'testuser2', 'testuser3'];
+  }),
 }));
 
 describe('OAuthService', () => {
