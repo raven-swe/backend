@@ -20,6 +20,7 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { OtpType } from 'src/email/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { CachedRegistrationData } from 'src/auth/interfaces';
+import { UsersRepository } from 'src/users/users.repository';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (
@@ -57,8 +58,12 @@ jest.mock('src/auth/utils/password.util', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
-jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
-  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+jest.mock('src/common/utils/generate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockImplementation(
+    async (usersRepository, displayName, email, typed, expectedCount, fallback) => {
+      return ['testuser1', 'testuser2', 'testuser3'];
+    },
+  ),
 }));
 
 const createMockPrismaService = () => {
@@ -101,6 +106,11 @@ describe('AuthService with mock ConfigService', () => {
     findByEmail: jest.fn(),
     createUser: jest.fn(),
     checkUsernameExistence: jest.fn(),
+  };
+
+  const mockUsersRepository = {
+    findTakenUsernames: jest.fn(),
+    getUserEmailAndDisplayName: jest.fn(),
   };
 
   const mockDevicesService = {
@@ -166,6 +176,7 @@ describe('AuthService with mock ConfigService', () => {
         Logger,
         { provide: RedisService, useValue: mockRedisService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: DevicesService, useValue: mockDevicesService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: RecaptchaService, useValue: mockRecaptchaService },
