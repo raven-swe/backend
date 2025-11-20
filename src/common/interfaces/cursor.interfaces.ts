@@ -7,3 +7,7 @@ export type BlocksCursor = {
   userId: string;
   blockedId: string;
 };
+
+export type TweetsCursor = {
+  id: string;
+};
