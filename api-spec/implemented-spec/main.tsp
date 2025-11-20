@@ -597,6 +597,11 @@ model CompactTweet {
   media: MediaItem[] | null;
 }
 
+model ReplyTweet extends CompactTweet {
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string;
+}
+
 model Tweet {
   ...CompactTweet;
 
@@ -1361,6 +1366,15 @@ namespace Tweets {
   @summary("Get users who liked my tweet")
   op getTweetLikes(@path id: string, ...CursorPaginationParameters):
     | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
