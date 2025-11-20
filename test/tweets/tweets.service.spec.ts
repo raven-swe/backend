@@ -5,6 +5,8 @@ import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from 'src/tweets/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { get } from 'http';
+import { MediaType } from '@prisma/client';
 
 describe('TweetsService', () => {
   let service: TweetsService;
@@ -18,6 +20,11 @@ describe('TweetsService', () => {
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
     getTimelineForUser: jest.fn(),
+    getDetailedTweetById: jest.fn(),
+    getTweetLikes: jest.fn(),
+    getTweetRetweets: jest.fn(),
+    getTweetReplies: jest.fn(),
+    getTweetQuotes: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -434,4 +441,79 @@ describe('TweetsService', () => {
       expect(result).toEqual({ message: 'Tweet unretweeted successfully' });
     });
   });
+
+  describe('getTweet', () => {
+    const tweetId = BigInt(1);
+    const currentUserId = BigInt(1);
+
+    const mockDetailedTweet = {
+      id: tweetId,
+      author: {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      },
+      content: 'Test tweet',
+      hasMedia: false,
+      hasHashtags: false,
+      hasMentions: false,
+      likeCount: 10,
+      retweetCount: 5,
+      replyCount: 2,
+      isDeleted: false,
+      isLiked: true,
+      isRetweeted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      entities: {
+        mentions: [
+          { username: 'omar', startPosition: '1' },
+          { username: 'mostafa', startPosition: '5' },
+        ],
+        hashtags: [],
+      },
+      media: [
+        {
+          url: 'http://media-url.com',
+          type: MediaType.IMAGE,
+          width: 1024,
+          height: 1024,
+        },
+      ],
+      replyToTweetId: '2',
+      quoteToTweetId: null,
+    };
+
+    it('should return detailed tweet when found', async () => {
+      // Arrange
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result).toEqual(mockDetailedTweet);
+      expect(mockTweetsRepository.getDetailedTweetById).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+      );
+    });
+
+    it('should throw NOT_FOUND if tweet does not exist', async () => {
+      // Arrange
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.getTweet(tweetId, currentUserId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+  });
+
 });
