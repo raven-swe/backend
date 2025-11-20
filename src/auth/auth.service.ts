@@ -67,7 +67,7 @@ export class AuthService {
     }
 
     const existingUser = await this.usersService.findByEmail(startRegistrationDto.email);
-    if (!existingUser) {
+    if (existingUser) {
       throw new HttpException(
         {
           message: 'Email is already registered',
