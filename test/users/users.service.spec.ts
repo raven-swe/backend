@@ -333,7 +333,7 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
             code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.BAD_REQUEST,
         ),
       );
     });
@@ -348,7 +348,7 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
             code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.BAD_REQUEST,
         ),
       );
     });
