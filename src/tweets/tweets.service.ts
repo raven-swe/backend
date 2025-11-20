@@ -9,7 +9,7 @@ import {
   paginateSingle,
 } from 'src/common/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
-import { TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedCursor, TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
 import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
@@ -192,11 +192,12 @@ export class TweetsService {
 
   // --------------------------------------
   //
-  async getUserProfileTweets(
+
+  async getUserProfilePosts(
     username: string,
     authUserId: bigint,
-    limit: number = 20,
-    prevCursor?: string,
+    limit: number,
+    prevCursor: string | undefined,
   ) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
@@ -210,10 +211,10 @@ export class TweetsService {
       );
     }
 
-    let decoded: TweetsCursor | undefined;
+    let decoded: FeedCursor | undefined;
     if (prevCursor) {
       try {
-        decoded = decodeCompositeCursor<TweetsCursor>(prevCursor);
+        decoded = decodeCompositeCursor<FeedCursor>(prevCursor);
       } catch {
         throw new HttpException(
           {
@@ -225,18 +226,38 @@ export class TweetsService {
       }
     }
 
-    const tweets = await this.tweetsRepository.getUserProfileTweets(
+    const feedItems = await this.tweetsRepository.getFeedSkeletonSQL(
       requestedUser.id,
-      authUserId,
       limit + 1,
       decoded,
     );
 
-    const pagination = paginateComposite(tweets, limit, prevCursor, (item) => ({
-      id: item.id.toString(),
+    const pagination = paginateComposite(feedItems, limit, prevCursor, (item) => ({
+      id: item?.id.toString(),
+      createdAt: item?.created_at,
     }));
 
-    const items = tweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+    const tweetIds = [...new Set(feedItems.map((item) => item.id))];
+
+    const fullTweets = await this.tweetsRepository.hydrateTweetsInList(authUserId, tweetIds);
+
+    const fullTweetsDto = fullTweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+
+    const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
+
+    const items = feedItems
+      .map((item) => {
+        const tweetData = tweetsMap.get(item.id.toString());
+
+        if (!tweetData) return null; // Should technically never happen
+
+        return {
+          ...tweetData,
+          isRepost: item.type === 'repost',
+          createdAt: item.created_at,
+        };
+      })
+      .filter(Boolean); // Remove any nulls
 
     return { items, pagination };
   }
