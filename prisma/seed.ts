@@ -597,7 +597,29 @@ async function main() {
     },
   });
 
-  const privMsg1 = await prisma.message.create({
+  await prisma.message.create({
+    data: {
+      content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      conversationId: privateConv1.id,
+      userId: 6,
+      messageEntities: {
+        text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      },
+    },
+  });
+
+  await prisma.message.create({
+    data: {
+      content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      conversationId: privateConv1.id,
+      userId: 3,
+      messageEntities: {
+        text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      },
+    },
+  });
+
+  const privMsg3 = await prisma.message.create({
     data: {
       content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
       conversationId: privateConv1.id,
@@ -610,7 +632,7 @@ async function main() {
 
   await prisma.conversation.update({
     where: { id: privateConv1.id },
-    data: { lastMessageId: privMsg1.id },
+    data: { lastMessageId: privMsg3.id },
   });
 
   const groupConversation2 = await prisma.conversation.create({
