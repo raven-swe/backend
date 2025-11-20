@@ -42,6 +42,7 @@ import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { PAGINATION } from 'src/common/constants';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -282,7 +283,10 @@ export class SettingsController {
   ) {
     const userId = BigInt(user.id);
     const parsed = Number(limit);
-    const parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
     const { items, pagination } = await this.settingsService.getUserMutedUsers(
       userId,
       parsedLimit,
