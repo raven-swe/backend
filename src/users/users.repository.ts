@@ -2,7 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
@@ -250,7 +250,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.username === newUsername) {
@@ -631,7 +631,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.deletedAt)
@@ -682,7 +682,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -706,7 +706,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     const userExternalAccounts = await this.prisma.userExternalAccount.findMany({
@@ -740,7 +740,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.passwordHash) {
@@ -813,7 +813,7 @@ export class UsersRepository {
     if (!country)
       throw new BadRequestException(
         createValidationError('invalidCountry', {
-          invalidCountry: 'The country you entered is not supported',
+          invalidCountry: USERS_ERROR_MESSAGES.INVALID_COUNTRY,
         }),
       );
 
@@ -847,7 +847,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.country && user.country.name === country.name) return;
@@ -875,7 +875,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -897,7 +897,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -936,7 +936,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     let currentDeviceId: bigint | null = null;
@@ -990,7 +990,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     let currentDeviceId: bigint | null = null;
@@ -1011,7 +1011,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.CANNOT_DELETE_CURRENT_SESSION,
           code: USERS_ERROR_CODES.CANNOT_DELETE_CURRENT_SESSION,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.FORBIDDEN,
       );
     const sessionToBeDeleted = user.userDevices.find((device) => device.id === sessionId);
 

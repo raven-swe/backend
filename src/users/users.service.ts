@@ -91,7 +91,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
     }
 
@@ -107,7 +107,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -866,7 +866,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
 
     await this.usersRepository.removeUserSSO(userId, provider);
