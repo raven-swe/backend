@@ -11,3 +11,8 @@ export type BlocksCursor = {
 export type TweetsCursor = {
   id: string;
 };
+
+export type FeedCursor = {
+  createdAt: Date;
+  id: string;
+};
