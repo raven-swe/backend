@@ -15,6 +15,7 @@ export class MediaRepository {
         width: mediaDto.width,
         height: mediaDto.height,
         altText: mediaDto.altText,
+        pending: mediaDto.pending,
       },
     });
 

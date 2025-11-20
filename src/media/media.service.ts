@@ -37,6 +37,7 @@ export class MediaService {
     userId: bigint,
     folder: MediaFolder,
     altText?: string,
+    pending: boolean = false,
   ): Promise<string> {
     let uploadedKey: string | null = null;
 
@@ -61,6 +62,7 @@ export class MediaService {
         width,
         height,
         altText,
+        pending,
       };
 
       const savedMedia = await this.mediaRepository.saveMedia(mediaDto);
@@ -143,6 +145,7 @@ export class MediaService {
             width: mediaRecord.width!,
             height: mediaRecord.height!,
             altText: mediaRecord.altText ?? undefined,
+            pending: mediaRecord.pending,
           });
           this.logger.log(`Successfully restored media metadata: ${mediaRecord.id}`);
         } catch (rollbackError) {
@@ -220,7 +223,7 @@ export class MediaService {
       );
     }
 
-    const url = await this.uploadAndSaveMedia(file, userId, folder, altText);
+    const url = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
     return { url, message: 'Image uploaded successfully.' };
   }
 
@@ -240,7 +243,7 @@ export class MediaService {
       );
     }
 
-    const url = await this.uploadAndSaveMedia(file, userId, folder, altText);
+    const url = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
     return { url, message: 'Video uploaded successfully.' };
   }
 }
