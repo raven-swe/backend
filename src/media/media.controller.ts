@@ -17,6 +17,7 @@ import {
   MEDIA_MESSAGES,
   IMAGE_EXTENSIONS,
   VIDEO_EXTENSIONS,
+  GIF_EXTENSIONS,
 } from './constants/media.constant';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
@@ -32,7 +33,7 @@ export class MediaController {
       limits: { fileSize: MAX_FILE_SIZE_BYTES },
       fileFilter: (req, file, callback) => {
         const ext = file.originalname.split('.').pop()?.toLowerCase();
-        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
+        if (!ext || ![...IMAGE_EXTENSIONS, ...GIF_EXTENSIONS].includes(ext)) {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
