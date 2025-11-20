@@ -9,7 +9,6 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor } from 'src/common/interfaces';
-import { createValidationError } from 'src/common/utils';
 
 @Injectable()
 export class UsersRepository {
