@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
-import { FeedCursor, TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 
 const tweetInclude = (currentUserId: bigint) =>
@@ -243,42 +243,21 @@ export class TweetsRepository {
     });
   }
 
-  async getUserProfileTweets(
-    userId: bigint,
-    authUserId: bigint,
-    limit: number,
-    prevCursor: TweetsCursor | undefined,
-  ) {
-    const tweets = await this.prisma.tweet.findMany({
-      where: {
-        userId,
-      },
-      cursor: prevCursor ? { id: BigInt(prevCursor.id) } : undefined,
-      take: limit,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: {
-        ...tweetInclude(authUserId),
-        quotedTweet: {
-          include: tweetInclude(authUserId),
-        },
-      },
-    });
-    return tweets;
-  }
-
   async getFeedSkeletonSQL(
     targetUserId: bigint,
     limit: number,
-    cursor?: FeedCursor,
+    cursor: FeedCursor | undefined,
+    includeReplies: boolean,
   ): Promise<FeedSkeleton[]> {
-    // 1. Convert Cursor Date to a pure Number (Milliseconds)
-    // e.g. 1730512222425
     const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
     const cursorId = cursor ? BigInt(cursor.id) : null;
 
-    // 2. The "Math" Cursor Clause
-    // We tell Postgres: "Convert the row's date to milliseconds. Compare it to my number."
-    // We use tuple syntax (time, id) <= (time, id) for efficient logic.
+    // 1. Dynamic Filter Logic
+    // If includeReplies is TRUE, we want EVERYTHING (empty string).
+    // If includeReplies is FALSE, we filter out items that have a parent.
+    const replyFilter = includeReplies ? Prisma.sql`` : Prisma.sql`AND "reply_to_tweet_id" IS NULL`;
+
+    // 2. Cursor Logic (The Epoch Math )
     const cursorClause =
       cursor && cursorTime !== null
         ? Prisma.sql`
@@ -290,15 +269,15 @@ export class TweetsRepository {
 
     return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
     SELECT * FROM (
-      -- 1. Tweets
+      -- 1. Tweets (Applied dynamic filter here)
       SELECT id, "created_at", 'tweet' as type 
       FROM "tweets"
       WHERE "user_id" = ${targetUserId} 
-      AND "reply_to_tweet_id" IS NULL
+      ${replyFilter}
       
       UNION ALL
       
-      -- 2. Reposts
+      -- 2. Reposts (Always included in both tabs usually)
       SELECT "tweet_id" as id, "created_at", 'repost' as type 
       FROM "retweets"
       WHERE "user_id" = ${targetUserId}
@@ -308,6 +287,7 @@ export class TweetsRepository {
     LIMIT ${limit}
   `;
   }
+
   async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
     return await this.prisma.tweet.findMany({
       where: {
