@@ -132,7 +132,7 @@ async function main() {
         'Final UI mockups for the new feature are ready! So excited to see this go live. #uidesign',
       createdAt: new Date(baseTime - 1000 * 60 * 120), // 2 hours ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startingIndex: 80 } },
+      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startPosition: 80 } },
     },
   });
 
@@ -144,8 +144,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 90), // 90 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startingIndex: 76 } },
-      tweetMentions: { create: { userId: omarHassan.id, startingIndex: 87 } },
+      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startPosition: 76 } },
+      tweetMentions: { create: { userId: omarHassan.id, startPosition: 87 } },
     },
   });
 
@@ -157,7 +157,7 @@ async function main() {
       replyToTweetId: anasLaunchTweet.id,
       createdAt: new Date(baseTime - 1000 * 60 * 88), // 88 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: anas.id, startingIndex: 85 } },
+      tweetMentions: { create: { userId: anas.id, startPosition: 85 } },
     },
   });
 
@@ -168,7 +168,7 @@ async function main() {
         'That feeling when the production build works on the first try. A rare moment. #devlife',
       createdAt: new Date(baseTime - 1000 * 60 * 85), // 85 mins ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startingIndex: 78 } },
+      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startPosition: 78 } },
     },
   });
 
@@ -180,7 +180,7 @@ async function main() {
         'Uh oh... I think I found a small CSS bug on the new login page. The main button is misaligned on mobile. @omargamal',
       createdAt: new Date(baseTime - 1000 * 60 * 60), // 60 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 105 } },
+      tweetMentions: { create: { userId: omarGamal.id, startPosition: 105 } },
     },
   });
 
@@ -201,8 +201,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 58), // 58 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 62 } },
-      tweetMentions: { create: { userId: tasneem.id, startingIndex: 28 } },
+      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startPosition: 62 } },
+      tweetMentions: { create: { userId: tasneem.id, startPosition: 28 } },
     },
   });
 
@@ -216,8 +216,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 85), // 85 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: speedHashtag.id, startingIndex: 40 } },
-      tweetMentions: { create: { userId: loay.id, startingIndex: 81 } },
+      tweetHashtags: { create: { hashtagId: speedHashtag.id, startPosition: 40 } },
+      tweetMentions: { create: { userId: loay.id, startPosition: 81 } },
     },
   });
 
@@ -270,7 +270,7 @@ async function main() {
       replyToTweetId: omarStreamTweet.id,
       createdAt: new Date(baseTime - 1000 * 60 * 80), // 80 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 23 } },
+      tweetMentions: { create: { userId: omarGamal.id, startPosition: 23 } },
     },
   });
 
@@ -296,7 +296,7 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 35),
       hasHashtags: true,
       tweetHashtags: {
-        create: { hashtagId: nestjsHashtag.id, startingIndex: 4 },
+        create: { hashtagId: nestjsHashtag.id, startPosition: 4 },
       },
     },
   });

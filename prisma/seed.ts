@@ -88,8 +88,8 @@ async function main() {
       profile: {
         create: {
           displayName: 'Omar Gamal',
-          bio: 'Frontend enthusiast.',
-          location: 'Alexandria, Egypt',
+          bio: 'NOT a Frontend enthusiast.',
+          location: 'October, Egypt',
         },
       },
     },
@@ -261,12 +261,12 @@ async function main() {
       hasMentions: true,
       tweetHashtags: {
         create: [
-          { hashtagId: nestHashtag.id, startingIndex: 31 },
-          { hashtagId: tsHashtag.id, startingIndex: 88 },
+          { hashtagId: nestHashtag.id, startPosition: 31 },
+          { hashtagId: tsHashtag.id, startPosition: 88 },
         ],
       },
       tweetMentions: {
-        create: [{ userId: 1, startingIndex: 118 }],
+        create: [{ userId: 1, startPosition: 118 }],
       },
     },
   });
@@ -278,7 +278,7 @@ async function main() {
       replyToTweetId: anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 4, startingIndex: 65 }],
+        create: [{ userId: 4, startPosition: 65 }],
       },
     },
   });
@@ -290,7 +290,7 @@ async function main() {
       replyToTweetId: anasTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: authHashtag.id, startingIndex: 72 }],
+        create: [{ hashtagId: authHashtag.id, startPosition: 72 }],
       },
     },
   });
@@ -302,7 +302,7 @@ async function main() {
       replyToTweetId: omarHReply1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 1, startingIndex: 52 }],
+        create: [{ userId: 1, startPosition: 52 }],
       },
     },
   });
@@ -329,13 +329,13 @@ async function main() {
       hasMentions: true,
       tweetHashtags: {
         create: [
-          { hashtagId: cairoHashtag.id, startingIndex: 41 },
-          { hashtagId: foodHashtag.id, startingIndex: 64 },
-          { hashtagId: egyptHashtag.id, startingIndex: 78 },
+          { hashtagId: cairoHashtag.id, startPosition: 41 },
+          { hashtagId: foodHashtag.id, startPosition: 64 },
+          { hashtagId: egyptHashtag.id, startPosition: 78 },
         ],
       },
       tweetMentions: {
-        create: [{ userId: 3, startingIndex: 92 }],
+        create: [{ userId: 3, startPosition: 92 }],
       },
     },
   });
@@ -347,7 +347,7 @@ async function main() {
       replyToTweetId: laylaTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 6, startingIndex: 40 }],
+        create: [{ userId: 6, startPosition: 40 }],
       },
     },
   });
@@ -370,8 +370,8 @@ async function main() {
       hasHashtags: true,
       tweetHashtags: {
         create: [
-          { hashtagId: internetHashtag.id, startingIndex: 25 },
-          { hashtagId: memeHashtag.id, startingIndex: 58 },
+          { hashtagId: internetHashtag.id, startPosition: 25 },
+          { hashtagId: memeHashtag.id, startPosition: 58 },
         ],
       },
     },
@@ -384,7 +384,7 @@ async function main() {
       quotedTweetId: karimTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 7, startingIndex: 58 }],
+        create: [{ userId: 7, startPosition: 58 }],
       },
     },
   });
@@ -410,13 +410,13 @@ async function main() {
       hasMentions: true,
       tweetHashtags: {
         create: [
-          { hashtagId: uiuxHashtag.id, startingIndex: 22 },
-          { hashtagId: designHashtag.id, startingIndex: 60 },
-          { hashtagId: tsHashtag.id, startingIndex: 67 },
+          { hashtagId: uiuxHashtag.id, startPosition: 22 },
+          { hashtagId: designHashtag.id, startPosition: 60 },
+          { hashtagId: tsHashtag.id, startPosition: 67 },
         ],
       },
       tweetMentions: {
-        create: [{ userId: 9, startingIndex: 74 }],
+        create: [{ userId: 9, startPosition: 74 }],
       },
     },
   });
@@ -428,7 +428,7 @@ async function main() {
       replyToTweetId: fatmaTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 12, startingIndex: 52 }],
+        create: [{ userId: 12, startPosition: 52 }],
       },
     },
   });
@@ -441,7 +441,7 @@ async function main() {
       content: 'AI is changing everything. Excited for the future! #ai @YoussefTech self-promo 😏',
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: aiHashtag.id, startingIndex: 38 }],
+        create: [{ hashtagId: aiHashtag.id, startPosition: 38 }],
       },
     },
   });
@@ -454,7 +454,7 @@ async function main() {
       content: 'Diving deep into #graphql today. Resolvers got me hooked! @NourCodes',
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: graphqlHashtag.id, startingIndex: 15 }],
+        create: [{ hashtagId: graphqlHashtag.id, startPosition: 15 }],
       },
     },
   });
@@ -637,7 +637,7 @@ async function main() {
         mentions: [
           {
             name: '@ZakiDev',
-            startingIndex: '41',
+            startPosition: '41',
           },
         ],
       },
