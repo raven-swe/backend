@@ -1,11 +1,10 @@
 import { ParsedContent } from '../interfaces/parsed-content.interface';
-import { Mention } from '../interfaces/mention-interface';
-import { Hashtag } from '../interfaces/hashtag-interface';
-
+import { PlainMention, PlainHashtag } from 'src/tweets/interfaces';
 /**
  *
  * @param content The text to parse (tweet, bio or message)
- * @returns a
+ * @returns An array of mentions and hashtags with their starting positions (need to be checked against db)
+ * // TODO make the db check centralized in a function instead of being in multiple repos
  */
 export function parseContent(content: string): ParsedContent {
   if (!content || content.length === 0) {
@@ -23,16 +22,16 @@ export function parseContent(content: string): ParsedContent {
   const mentionMatches = content.matchAll(mentionRegex);
   const hashtagMatches = content.matchAll(hashtagRegex);
 
-  const usernames: Array<Mention> = Array.from(mentionMatches).map((match) => {
+  const usernames: Array<PlainMention> = Array.from(mentionMatches).map((match) => {
     return {
       username: match[1],
       startPosition: match.index,
     };
   });
 
-  const hashtags: Array<Hashtag> = Array.from(hashtagMatches).map((match) => {
+  const hashtags: Array<PlainHashtag> = Array.from(hashtagMatches).map((match) => {
     return {
-      hashtag: match[1],
+      keyword: match[1],
       startPosition: match.index,
     };
   });

@@ -1,7 +1,6 @@
-import { Mention } from './mention-interface';
-import { Hashtag } from './hashtag-interface';
+import { PlainMention, PlainHashtag } from 'src/tweets/interfaces';
 
 export interface ParsedContent {
-  mentions: Mention[];
-  hashtags: Hashtag[];
+  mentions: PlainMention[];
+  hashtags: PlainHashtag[];
 }

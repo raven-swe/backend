@@ -1,19 +1,12 @@
-export interface CreateMentionData {
-  userId: bigint;
-  startingIndex: number;
-}
-
-export interface CreateHashtagData {
-  hashtagId: bigint;
-  startingIndex: number;
-}
+import { Hashtag } from './hashtag.interface';
+import { Mention } from './mention.interface';
 
 export interface CreateTweetData {
   userId: bigint;
   content: string;
 
-  Mentions: CreateMentionData[];
-  Hashtags: CreateHashtagData[];
+  Mentions: Mention[];
+  Hashtags: Hashtag[];
 
   replyToTweetId: bigint | null;
   quotedTweetId: bigint | null;
