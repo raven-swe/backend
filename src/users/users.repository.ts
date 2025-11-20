@@ -2,7 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
@@ -671,7 +671,7 @@ export class UsersRepository {
     if (!country)
       throw new BadRequestException(
         createValidationError('invalidCountry', {
-          invalidCountry: 'The country you entered is not supported',
+          invalidCountry: USERS_ERROR_MESSAGES.INVALID_COUNTRY,
         }),
       );
 

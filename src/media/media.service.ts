@@ -89,7 +89,7 @@ export class MediaService {
           message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
           code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
   }

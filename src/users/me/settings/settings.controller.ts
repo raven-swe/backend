@@ -40,7 +40,7 @@ import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -155,7 +155,7 @@ export class SettingsController {
     if (changeGenderDto.gender !== 'Male' && changeGenderDto.gender !== 'Female') {
       throw new BadRequestException(
         createValidationError('gender', {
-          invalidGender: `Invalid gender: ${changeGenderDto.gender}. Valid Options are 'Male' and 'Female' only`,
+          invalidGender: USERS_ERROR_MESSAGES.INVALID_GENDER,
         }),
       );
     }
@@ -171,7 +171,7 @@ export class SettingsController {
     if (changeLanguageDto.language !== 'AR' && changeLanguageDto.language !== 'EN') {
       throw new BadRequestException(
         createValidationError('language', {
-          invalidLanguage: `Invalid language: ${changeLanguageDto.language}. Valid Options are 'AR' and 'EN' only`,
+          invalidLanguage: USERS_ERROR_MESSAGES.INVALID_LANGUAGE,
         }),
       );
     }
