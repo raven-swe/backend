@@ -213,7 +213,7 @@ export class SettingsController {
             message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
             code: USERS_ERROR_CODES.USER_NOT_FOUND,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.NOT_FOUND,
         );
       }
       refreshToken = dto.refreshToken;
@@ -225,7 +225,7 @@ export class SettingsController {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     return this.settingsService.getSessions(userId, refreshToken);
@@ -252,7 +252,7 @@ export class SettingsController {
             message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
             code: USERS_ERROR_CODES.USER_NOT_FOUND,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.NOT_FOUND,
         );
       }
       refreshToken = dto.refreshToken;
@@ -264,7 +264,7 @@ export class SettingsController {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     const userId = BigInt(user.id);
