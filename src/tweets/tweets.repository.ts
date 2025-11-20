@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
+import { TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -94,7 +95,7 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  private mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -239,5 +240,28 @@ export class TweetsRepository {
     return this.prisma.tweet.findUnique({
       where: { id: tweetId },
     });
+  }
+
+  async getUserProfileTweets(
+    userId: bigint,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: TweetsCursor | undefined,
+  ) {
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        userId,
+      },
+      cursor: prevCursor ? { id: BigInt(prevCursor.id) } : undefined,
+      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: {
+        ...tweetInclude(authUserId),
+        quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+      },
+    });
+    return tweets;
   }
 }
