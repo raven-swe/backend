@@ -1,0 +1,15 @@
+meta {
+  name: create-tweet
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://localhost:3000/api/tweets
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
