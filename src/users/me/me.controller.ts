@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   BadRequestException,
   UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { ChangePasswordBasicDto, UpdateProfileDto } from '../dtos';
@@ -18,10 +19,14 @@ import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
 import { User } from 'src/auth/decorators';
-import { RATE_LIMIT } from 'src/common/constants';
+import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
+import { USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { ParseJsonBodyPipe } from '../pipes/parse-json-body.pipe';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { createValidationError } from 'src/common/utils';
+
 @Controller('me')
 export class MeController {
   constructor(private readonly usersService: UsersService) {}
@@ -72,9 +77,43 @@ export class MeController {
 
   @Patch()
   @UseGuards(JwtAuthGuard)
-  async updateProfile(@Body() updateProfileDto: UpdateProfileDto, @User() user: RequestUser) {
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'avatar', maxCount: 1 },
+        { name: 'banner', maxCount: 1 },
+      ],
+      {
+        fileFilter: (req, file, callback) => {
+          const ext = file.originalname.split('.').pop()?.toLowerCase();
+          if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
+            return callback(
+              new BadRequestException(
+                createValidationError(file.fieldname, {
+                  invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                }),
+              ),
+              false,
+            );
+          }
+
+          callback(null, true);
+        },
+        limits: { fileSize: MAX_FILE_SIZE_BYTES },
+      },
+    ),
+  )
+  async updateProfile(
+    @User() user: RequestUser,
+    @UploadedFiles()
+    files: {
+      avatar?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
+    },
+    @Body('data', ParseJsonBodyPipe) updateProfileDto: UpdateProfileDto,
+  ) {
     const userId = BigInt(user.id);
-    return await this.usersService.updateProfile(userId, updateProfileDto);
+    return await this.usersService.updateProfile(userId, updateProfileDto, files);
   }
 
   @Get()
@@ -92,7 +131,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
               }),
             ),
             false,
@@ -122,7 +161,7 @@ export class MeController {
           return callback(
             new BadRequestException(
               createValidationError(file.fieldname, {
-                invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
+                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
               }),
             ),
             false,

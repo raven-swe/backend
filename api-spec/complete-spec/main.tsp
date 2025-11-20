@@ -660,9 +660,6 @@ model Message {
   @doc("Unique identifier for the message")
   id: string;
 
-  @doc("The user who sent the message")
-  sender: UserMetadata;
-
   @doc("Text content of the message (max 10,000 characters *For now)")
   @maxLength(10000)
   content: string;
@@ -718,18 +715,18 @@ model SendMessageRequest {
 model TopSuggestedUsers {
   @doc("Suggested Users when typing")
   @maxItems(10)
-  users: UserMetadata[];
+  users: UserMetadataWithFollowInfo[];
 }
 
 model SuggestedUsersForSearchResults {
   @doc("The top 10 matching users after searching")
   @maxItems(10)
-  topUsers: UserMetadata[];
+  topUsers: UserMetadataWithFollowInfo[];
 }
 
 model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
-  users: UserMetadata[];
+  users: UserMetadataWithFollowInfo[];
 }
 
 model TopHashtags {
@@ -766,6 +763,8 @@ model MessageResponse<TMessage extends string> {
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
 }
 
 model AccountInfo {
@@ -806,7 +805,10 @@ alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
 
 // Conversation and Messages response aliases
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
-alias MessageListResponse = DataResponseWithPagination<Message[]>;
+alias MessageListResponse = DataResponseWithPagination<{
+  participant: UserMetadata;
+  messages: Message[];
+}>;
 alias ConversationResponse = DataResponse<Conversation>;
 alias ConversationMessageResponse = DataResponse<Message>;
 alias MuteConversationResponse = MessageResponse<"Conversation muted successfully">;
@@ -1171,6 +1173,7 @@ namespace Users {
     op listUserFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
       | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
@@ -1179,6 +1182,7 @@ namespace Users {
     @summary("List mutual followers with a user given their username")
     op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
@@ -1189,6 +1193,7 @@ namespace Users {
       @get
       op listUserFollowing(@path username: string, ...CursorPaginationParameters):
         | FollowingListResponse
+        | BadRequestResponse
         | NotFoundResponse
         | UnauthorizedResponse
         | InternalServerErrorResponse;
@@ -1810,19 +1815,6 @@ namespace Conversations {
     | InternalServerErrorResponse;
 
   @get
-  @route("/{conversationId}")
-  @summary("Get conversation details by ID")
-  @doc("""
-    Retrieves conversation details using the conversation ID (obtained from list or create endpoints).
-    """)
-  op getConversation(@path conversationId: string):
-    | ConversationResponse
-    | UnauthorizedResponse
-    | ForbiddenResponse
-    | NotFoundResponse
-    | InternalServerErrorResponse;
-
-  @get
   @route("/{conversationId}/messages")
   @summary("List messages in a conversation by ID")
   @doc("""
@@ -1835,22 +1827,6 @@ namespace Conversations {
     | UnauthorizedResponse
     | ForbiddenResponse
     | NotFoundResponse
-    | InternalServerErrorResponse;
-
-  @post
-  @route("/{conversationId}/messages")
-  @summary("Send a new message in a conversation by ID")
-  @doc("""
-    Sends a message in an existing conversation using the conversation ID.
-    Conversation must exist (use POST /conversations/with/{username} first to create or retrieve existing one).
-    """)
-  op sendMessage(@path conversationId: string, @body body: SendMessageRequest):
-    | ConversationMessageResponse
-    | BadRequestResponse
-    | UnauthorizedResponse
-    | ForbiddenResponse
-    | NotFoundResponse
-    | ValidationErrorResponse
     | InternalServerErrorResponse;
 
   @delete

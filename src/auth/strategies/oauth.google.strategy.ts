@@ -4,6 +4,7 @@ import { BadRequestException, Logger, UnauthorizedException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { AUTH_ERROR_MESSAGES } from '../constants';
 
 interface GoogleUserResponse {
   access_token: string;
@@ -45,8 +46,7 @@ export class GoogleOAuthStrategy implements OAuthProviderStrategy {
     if (!res.ok) {
       throw new BadRequestException(
         createValidationError('providerToken', {
-          invalidValue:
-            'The Google authorization token is invalid or expired. Please try logging in again.',
+          invalidValue: AUTH_ERROR_MESSAGES.INVALID_GOOGLE_AUTHORIZATION_TOKEN,
         }),
       );
     }
