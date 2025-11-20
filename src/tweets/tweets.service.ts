@@ -192,12 +192,32 @@ export class TweetsService {
 
   // --------------------------------------
   //
-
-  async getUserProfilePosts(
+  async getUserPosts(
     username: string,
     authUserId: bigint,
     limit: number,
     prevCursor: string | undefined,
+  ) {
+    // False = Filter OUT replies
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, false);
+  }
+
+  async getUserPostsAndReplies(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    // False = Filter OUT replies
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, true);
+  }
+
+  async getGenericProfileFeed(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+    includeReplies: boolean,
   ) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
@@ -230,6 +250,7 @@ export class TweetsService {
       requestedUser.id,
       limit + 1,
       decoded,
+      includeReplies,
     );
 
     const pagination = paginateComposite(feedItems, limit, prevCursor, (item) => ({
