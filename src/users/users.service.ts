@@ -667,7 +667,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
-    const bannerUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
       userId,
       MediaFolder.BANNERS,
@@ -680,7 +680,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
-    const avatarUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
       userId,
       MediaFolder.AVATARS,

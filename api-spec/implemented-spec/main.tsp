@@ -1300,7 +1300,7 @@ namespace Timeline {
 @route("/media")
 @useAuth(BearerAuth)
 namespace Media {
-  @get
+  @post
   @route("/upload/image")
   @summary("Upload an image media file")
   op uploadImage(
@@ -1309,13 +1309,14 @@ namespace Media {
   ):
     | DataResponse<{
         url: string;
+        id: string;
         message: string;
       }>
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @get
+  @post
   @route("/upload/video")
   @summary("Upload a video media file")
   op uploadVideo(
@@ -1324,6 +1325,7 @@ namespace Media {
   ):
     | DataResponse<{
         url: string;
+        id: string;
         message: string;
       }>
     | BadRequestResponse

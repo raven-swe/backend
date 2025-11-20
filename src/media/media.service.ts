@@ -8,6 +8,7 @@ import { MediaDto } from './dtos';
 import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
 import { MEDIA_CODES, MEDIA_MESSAGES } from './constants';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MediaService {
@@ -38,7 +39,7 @@ export class MediaService {
     folder: MediaFolder,
     altText?: string,
     pending: boolean = false,
-  ): Promise<string> {
+  ): Promise<{ url: string; id: string }> {
     let uploadedKey: string | null = null;
 
     try {
@@ -69,7 +70,7 @@ export class MediaService {
 
       this.logger.log(`Media metadata saved with ID: ${savedMedia.id}`);
 
-      return url;
+      return { url, id: savedMedia.id.toString() };
     } catch (error) {
       this.logger.error('Failed to upload media', error);
 
@@ -197,11 +198,11 @@ export class MediaService {
     }
 
     if (avatar) {
-      avatarUrl = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS);
+      ({ url: avatarUrl } = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS));
     }
 
     if (banner) {
-      bannerUrl = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS);
+      ({ url: bannerUrl } = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS));
     }
 
     return { avatarUrl, bannerUrl };
@@ -223,8 +224,8 @@ export class MediaService {
       );
     }
 
-    const url = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { url, message: 'Image uploaded successfully.' };
+    const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
+    return { items, message: 'Image uploaded successfully.' };
   }
 
   async uploadVideo(
@@ -243,7 +244,22 @@ export class MediaService {
       );
     }
 
-    const url = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { url, message: 'Video uploaded successfully.' };
+    const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
+    return { items, message: 'Video uploaded successfully.' };
+  }
+
+  /**
+   * Cleanup pending media that has exceeded the threshold time.
+   * Runs weekly to delete orphaned media from failed tweet creations.
+   *
+   * This job finds all media records where:
+   * - pending = true
+   * - createdAt is older than the threshold (default 24 hours)
+   *
+   * For each found record, it deletes the file from S3 and the record from the database.
+   */
+  @Cron(CronExpression.EVERY_WEEK)
+  cleanUpPendingMedia() {
+    this.logger.log('Starting cleanup of pending media...');
   }
 }

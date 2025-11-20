@@ -20,6 +20,7 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
         port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     OauthModule,
     UsersModule,

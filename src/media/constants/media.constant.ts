@@ -4,6 +4,7 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png'];
 export const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'webm', 'mov'];
 export const GIF_EXTENSIONS = ['gif'];
 export const ALLOWED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...GIF_EXTENSIONS];
+export const PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS = 24;
 
 export const MEDIA_CODES = {
   MEDIA_UPLOAD_SAVE_FAILED: 'MEDIA_UPLOAD_SAVE_FAILED',
