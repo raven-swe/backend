@@ -208,7 +208,7 @@ export class MediaService {
     return { avatarUrl, bannerUrl };
   }
 
-  async uploadImage(
+  async uploadMedia(
     userId: bigint,
     file: Express.Multer.File,
     folder: MediaFolder,
@@ -225,27 +225,7 @@ export class MediaService {
     }
 
     const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { items, message: 'Image uploaded successfully.' };
-  }
-
-  async uploadVideo(
-    userId: bigint,
-    file: Express.Multer.File,
-    folder: MediaFolder,
-    altText?: string,
-  ) {
-    if (!file) {
-      throw new HttpException(
-        {
-          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
-          code: MEDIA_CODES.NO_FILES_PROVIDED,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { items, message: 'Video uploaded successfully.' };
+    return { items, message: 'Media uploaded successfully.' };
   }
 
   /**

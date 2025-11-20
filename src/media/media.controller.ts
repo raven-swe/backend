@@ -55,7 +55,7 @@ export class MediaController {
     @Body('altText') altText?: string,
     @Body('folder') folder: MediaFolder = MediaFolder.TWEETS,
   ) {
-    return this.mediaService.uploadImage(BigInt(user.id), file, folder, altText);
+    return this.mediaService.uploadMedia(BigInt(user.id), file, folder, altText);
   }
 
   @Post('/upload/video')
@@ -86,6 +86,6 @@ export class MediaController {
     @Body('altText') altText?: string,
     @Body('folder') folder: MediaFolder = MediaFolder.TWEETS,
   ) {
-    return this.mediaService.uploadVideo(BigInt(user.id), file, folder, altText);
+    return this.mediaService.uploadMedia(BigInt(user.id), file, folder, altText);
   }
 }

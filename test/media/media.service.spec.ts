@@ -9,7 +9,11 @@ import { Readable } from 'stream';
 import * as sharp from 'sharp';
 
 import { detectMediaType } from 'src/media/utils';
-import { MEDIA_CODES, MEDIA_MESSAGES } from 'src/media/constants';
+import {
+  MEDIA_CODES,
+  MEDIA_MESSAGES,
+  PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS,
+} from 'src/media/constants';
 
 // Mock sharp
 jest.mock('sharp');
@@ -29,6 +33,7 @@ const mockMediaRepository = {
   saveMedia: jest.fn(),
   deleteMedia: jest.fn(),
   findByUrl: jest.fn(),
+  findPendingMediaOlderThan: jest.fn(),
 };
 
 const createMockFile = (overrides?: Partial<Express.Multer.File>): Express.Multer.File => ({
@@ -465,6 +470,149 @@ describe('MediaService', () => {
         height: mockMediaRecord.height,
         altText: undefined,
       });
+    });
+  });
+
+  describe('uploadMedia', () => {
+    it('should throw a bad request error when file is not provided', async () => {
+      const error = new HttpException(
+        {
+          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+          code: MEDIA_CODES.NO_FILES_PROVIDED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+      await expect(() =>
+        service.uploadMedia(
+          BigInt(1),
+          undefined as unknown as Express.Multer.File,
+          MediaFolder.AVATARS,
+        ),
+      ).rejects.toThrow(error);
+    });
+
+    it('should call uploadAndSaveMedia with correct parameters', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      const file = {
+        buffer: Buffer.from('test'),
+        originalname: 'test.jpg',
+        mimetype: 'image/jpeg',
+        size: 100,
+      } as unknown as Express.Multer.File;
+      const folder = MediaFolder.AVATARS;
+      const altText = 'Test image';
+
+      const expectedResult = { url: 'http://example.com/test.jpg', id: '1' };
+      const uploadAndSaveMediaSpy = jest
+        .spyOn(service, 'uploadAndSaveMedia')
+        .mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await service.uploadMedia(userId, file, folder, altText);
+
+      // Assert
+      expect(uploadAndSaveMediaSpy).toHaveBeenCalledWith(file, userId, folder, altText, true);
+      expect(result).toEqual({ items: expectedResult, message: 'Media uploaded successfully.' });
+    });
+  });
+
+  describe('cleanUpPendingMedia', () => {
+    it('should do nothing when no pending media is found', async () => {
+      // Arrange
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue([]);
+
+      // Act
+      await service.cleanUpPendingMedia();
+
+      // Assert
+      expect(mockMediaRepository.findPendingMediaOlderThan).toHaveBeenCalled();
+      expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
+      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it('should calculate the correct threshold date', async () => {
+      // Arrange
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue([]);
+      const now = new Date('2023-10-10T12:00:00Z');
+      jest.useFakeTimers({ now: now });
+
+      // Act
+      await service.cleanUpPendingMedia();
+
+      // Assert
+      const expectedThreshold = new Date(now);
+      expectedThreshold.setHours(now.getHours() - PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS);
+
+      expect(mockMediaRepository.findPendingMediaOlderThan).toHaveBeenCalledWith(expectedThreshold);
+
+      jest.useRealTimers();
+    });
+
+    it('should delete pending media from DB and S3 when found', async () => {
+      // Arrange
+      const mockPendingMedia = [
+        {
+          id: BigInt(1),
+          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
+        },
+        {
+          id: BigInt(2),
+          url: 'https://cdn.raven.cmp27.space/tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
+        },
+      ];
+
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
+      mockS3Service.extractKeyFromUrl.mockReturnValueOnce('key1').mockReturnValueOnce('key2');
+      mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
+
+      // Act
+      await service.cleanUpPendingMedia();
+
+      // Assert
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledTimes(2);
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(2));
+
+      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(
+        'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
+      );
+      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(
+        'https://cdn.raven.cmp27.space/tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
+      );
+
+      expect(mockS3Service.deleteFile).toHaveBeenCalledTimes(2);
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key1');
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key2');
+    });
+
+    it('should handle error gracefully for individual items and continue processing', async () => {
+      // Arrange
+      const mockPendingMedia = [
+        {
+          id: BigInt(1),
+          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767/fail.png',
+        },
+        {
+          id: BigInt(2),
+          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767/success.png',
+        },
+      ];
+
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
+
+      // First item fails at DB deletion
+      mockMediaRepository.deleteMedia
+        .mockRejectedValueOnce(new Error('DB Delete Failed'))
+        .mockResolvedValueOnce(undefined); // Second succeeds
+      mockS3Service.extractKeyFromUrl.mockReturnValue('key2');
+
+      // Act
+      await expect(service.cleanUpPendingMedia()).resolves.not.toThrow();
+
+      // Assert
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key2');
     });
   });
 });
