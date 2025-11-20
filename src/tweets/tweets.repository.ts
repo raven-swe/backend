@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
-import { TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedCursor, TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedSkeleton } from './interfaces';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -263,5 +264,61 @@ export class TweetsRepository {
       },
     });
     return tweets;
+  }
+
+  async getFeedSkeletonSQL(
+    targetUserId: bigint,
+    limit: number,
+    cursor?: FeedCursor,
+  ): Promise<FeedSkeleton[]> {
+    // 1. Convert Cursor Date to a pure Number (Milliseconds)
+    // e.g. 1730512222425
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    // 2. The "Math" Cursor Clause
+    // We tell Postgres: "Convert the row's date to milliseconds. Compare it to my number."
+    // We use tuple syntax (time, id) <= (time, id) for efficient logic.
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM "created_at") * 1000, 
+          "id"
+        ) <= (${cursorTime}, ${cursorId})`
+        : Prisma.sql``;
+
+    return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
+    SELECT * FROM (
+      -- 1. Tweets
+      SELECT id, "created_at", 'tweet' as type 
+      FROM "tweets"
+      WHERE "user_id" = ${targetUserId} 
+      AND "reply_to_tweet_id" IS NULL
+      
+      UNION ALL
+      
+      -- 2. Reposts
+      SELECT "tweet_id" as id, "created_at", 'repost' as type 
+      FROM "retweets"
+      WHERE "user_id" = ${targetUserId}
+    ) AS feed
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "created_at" DESC, "id" DESC
+    LIMIT ${limit}
+  `;
+  }
+  async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
+    return await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+      },
+      include: {
+        ...tweetInclude(authUserId),
+        quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+      },
+    });
   }
 }
