@@ -6,11 +6,7 @@ import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { TrendingService } from 'src/trending/trending.service';
 import { parseContent } from 'src/common/utils/parse-content.util';
 import { UsersRepository } from 'src/users/users.repository';
-import {
-  CreateHashtagData,
-  CreateMentionData,
-  CreateTweetData,
-} from './interfaces/create-tweet-data.interface';
+import { Hashtag, Mention, CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -39,12 +35,14 @@ export class TweetsService {
   }
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<{ message: string }> {
-    console.log('tweet content:', createTweetDto);
+    this.logger.log(`tweet content: ${createTweetDto.content}`);
     const parsedContent = parseContent(createTweetDto.content);
+    this.logger.log(`Parsed mentions: ${JSON.stringify(parsedContent.mentions)}`);
+    this.logger.log(`Parsed hashtags: ${JSON.stringify(parsedContent.hashtags)}`);
     await this.prisma.$transaction(async (tx) => {
       const mentions = await this.checkUsernamesExistence(parsedContent.mentions, tx);
       const hashtags = await this.getHashtagIds(parsedContent.hashtags, tx);
-
+      console.log('Final mentions with IDs:', mentions);
       const tweetData: CreateTweetData = {
         userId,
         content: createTweetDto.content,
@@ -63,20 +61,27 @@ export class TweetsService {
 
   /**
    *
-   * @param usernames array of mentions
-   * @returns a new array of mentions or real existing users
+   * @param usernames array of mentions (usernames and starting positions)
+   * @param tx transaction client passed from the create tweet function in tweet service
+   * @returns a new array of mention IDs of real existing users
    */
   private async checkUsernamesExistence(
-    mentions: Mention[],
+    mentions: PlainMention[],
     tx: Prisma.TransactionClient,
-  ): Promise<CreateMentionData[]> {
+  ): Promise<Mention[]> {
     return await this.usersRepository.checkUsernamesExistenceAndReplaceIds(mentions, tx);
   }
 
+  /**
+   *
+   * @param hashtags array of hashtags (tags and starting positions)
+   * @param tx transaction client passed from the create tweet function in tweet service
+   * @returns a new array of hashtag IDs (existing or newly created)
+   */
   private async getHashtagIds(
-    hashtags: Hashtag[],
+    hashtags: PlainHashtag[],
     tx: Prisma.TransactionClient,
-  ): Promise<CreateHashtagData[]> {
+  ): Promise<Hashtag[]> {
     if (!hashtags || hashtags.length === 0) {
       return [];
     }

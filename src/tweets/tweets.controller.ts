@@ -1,9 +1,10 @@
-import { Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Param, Post, UseGuards } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { ParseBigIntPipe } from 'src/common/pipes';
+import { CreateTweetDto } from './dtos';
 
 @Controller('tweets')
 @UseGuards(JwtAuthGuard)
@@ -11,11 +12,11 @@ export class TweetsController {
   constructor(private readonly tweetsService: TweetsService) {}
 
   @Post()
-  createTweet(createTweetDto: CreateTweetDto) {
-    return this.tweetsService.createTweet(createTweetDto, 1n);
+  createTweet(@User() user: RequestUser, @Body() createTweetDto: CreateTweetDto) {
+    const userId = BigInt(user.id);
+    return this.tweetsService.createTweet(createTweetDto, userId);
   }
   // --------------------------------------
-  constructor(private readonly tweetsService: TweetsService) {}
 
   @Post(':id/like')
   async likeTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
