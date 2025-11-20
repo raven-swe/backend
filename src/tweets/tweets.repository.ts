@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
+import { DEFAULT_TIMELINE_PAGINATION_LIMIT } from './constants';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -88,7 +89,7 @@ export class TweetsRepository {
         },
       },
       cursor: cursor ? { id: BigInt(cursor) } : undefined,
-      take: limit,
+      take: limit || DEFAULT_TIMELINE_PAGINATION_LIMIT,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
