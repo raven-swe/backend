@@ -4,16 +4,24 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import {
+  decodeCompositeCursor,
+  paginateComposite,
+  createValidationError,
+  FollowsCursor,
+} from 'src/common/utils';
+
 import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { validateNewPasswordFormat } from './utils';
-import { createValidationError } from 'src/common/utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
+
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -598,6 +606,238 @@ export class UsersService {
     return { message: 'User unmuted successfully.' };
   }
 
+  async getUserFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const followers = await this.usersRepository.getUserFollowers(
+      requestedUser.id,
+      [authUserId],
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+    const followerIds = followers.map((f) => f.followerUser.id);
+
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      followerIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = followers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: followingSet.has(f.followerUser.id),
+      followsYou: followsYouSet.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
+    }));
+
+    return { items, pagination };
+  }
+
+  async getUserMutualFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
+
+    const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
+      requestedUser.id,
+      authFollowedIds,
+      [authUserId],
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(mutualFollowers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      mutualIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = mutualFollowers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: followingSet.has(f.followerUser.id),
+      followsYou: followsYouSet.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
+    }));
+    return { items, pagination };
+  }
+
+  async getUserFollowings(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const followings = await this.usersRepository.getUserFollowings(
+      requestedUser.id,
+      [authUserId],
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followings, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const followingIds = followings.map((f) => f.followedUser.id);
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      followingIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = followings.map((f) => ({
+      ...f.followedUser.profile,
+      username: f.followedUser.username,
+      isFollowing: followingSet.has(f.followedUser.id),
+      followsYou: followsYouSet.has(f.followedUser.id),
+      isBlocked: blockedIdsSet.has(f.followedUser.id),
+    }));
+
+    return { items, pagination };
+  }
   async getUserDetails(userId: bigint) {
     return this.usersRepository.getUserDetails(userId);
   }
@@ -698,8 +938,8 @@ export class UsersService {
     if (!bannerUrl) {
       throw new HttpException(
         {
-          message: USERS_ERROR_CODES.BANNER_NOT_FOUND,
-          code: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          message: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          code: USERS_ERROR_CODES.BANNER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
       );
@@ -710,5 +950,9 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
   }
 }
