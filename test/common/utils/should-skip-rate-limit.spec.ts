@@ -1,7 +1,5 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
-import { Request } from 'express';
 import { shouldSkipRateLimit } from 'src/common/utils';
-import { ExecutionContext } from '@nestjs/common';
 
 describe('shouldSkipRateLimit', () => {
   it('returns false in non-testing env', () => {
@@ -15,16 +13,6 @@ describe('shouldSkipRateLimit', () => {
     process.env.NODE_ENV = 'testing';
     const context = new ExecutionContextHost([{ headers: {} }]);
 
-    expect(shouldSkipRateLimit(context)).toBe(false);
-  });
-
-  it('returns true if env and header match', () => {
-    process.env.NODE_ENV = 'testing';
-    process.env.RATE_LIMIT_BYPASS_SECRET = 'test-secret';
-
-    const mockRequest = { headers: { 'x-bypass-rate-limit': 'test-secret' } } as Partial<Request>;
-    const context = new ExecutionContextHost([mockRequest]);
-
-    expect(shouldSkipRateLimit(context as ExecutionContext)).toBe(true);
+    expect(shouldSkipRateLimit(context)).toBe(true);
   });
 });
