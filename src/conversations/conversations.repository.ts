@@ -164,4 +164,33 @@ export class ConversationsRepository {
       },
     });
   }
+
+  async countUnseenConversations(userId: bigint) {
+    const conversations = await this.prisma.conversationParticipant.findMany({
+      where: {
+        userId,
+        conversation: {
+          lastMessageId: { not: null },
+        },
+      },
+      select: {
+        lastSeenMessageId: true,
+        conversation: {
+          select: {
+            lastMessageId: true,
+          },
+        },
+      },
+    });
+
+    return conversations.filter((conv) => {
+      const { lastSeenMessageId, conversation } = conv;
+      const lastMessageId = conversation.lastMessageId;
+
+      if (!lastMessageId) return false;
+      if (!lastSeenMessageId) return true;
+
+      return lastSeenMessageId < lastMessageId;
+    }).length;
+  }
 }
