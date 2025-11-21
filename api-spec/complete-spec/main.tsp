@@ -785,6 +785,8 @@ model MessageResponse<TMessage extends string> {
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
 }
 
 model AccountInfo {
@@ -1193,6 +1195,7 @@ namespace Users {
     op listUserFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
       | NotFoundResponse
+      | BadRequestResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
@@ -1201,6 +1204,7 @@ namespace Users {
     @summary("List mutual followers with a user given their username")
     op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
       | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
@@ -1211,6 +1215,7 @@ namespace Users {
       @get
       op listUserFollowing(@path username: string, ...CursorPaginationParameters):
         | FollowingListResponse
+        | BadRequestResponse
         | NotFoundResponse
         | UnauthorizedResponse
         | InternalServerErrorResponse;
