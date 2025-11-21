@@ -18,10 +18,14 @@ describe('TweetsService', () => {
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
     getTimelineForUser: jest.fn(),
+    getFeedSkeletonSQL: jest.fn(),
+    hydrateTweetsInList: jest.fn(),
+    mapToTweetDto: jest.fn(),
   };
 
   const mockUsersRepository = {
     areUsersBlocked: jest.fn(),
+    findByUsername: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -432,6 +436,190 @@ describe('TweetsService', () => {
 
       // Assert
       expect(result).toEqual({ message: 'Tweet unretweeted successfully' });
+    });
+  });
+
+  describe('getUserPosts and getUserPostsAndReplies', () => {
+    const username = 'testuser';
+    const authUserId = BigInt(1);
+    const requestedUserId = BigInt(2);
+    const limit = 2;
+
+    const encodeValidCursor = (id: string, createdAt: string): string => {
+      return Buffer.from(JSON.stringify({ id, createdAt })).toString('base64');
+    };
+
+    beforeEach(() => {});
+
+    describe('getUserPosts', () => {
+      it('should call getGenericProfileFeed with includeReplies=false', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          undefined,
+          false, // includeReplies = false
+        );
+      });
+    });
+
+    describe('getUserPostsAndReplies', () => {
+      it('should call getGenericProfileFeed with includeReplies=true', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPostsAndReplies(username, authUserId, limit, undefined);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          undefined,
+          true, // includeReplies = true
+        );
+      });
+    });
+
+    describe('getGenericProfileFeed (via getUserPosts)', () => {
+      it('should throw NOT_FOUND when user does not exist', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue(null);
+
+        await expect(service.getUserPosts(username, authUserId, limit, undefined)).rejects.toThrow(
+          HttpException,
+        );
+        await expect(
+          service.getUserPosts(username, authUserId, limit, undefined),
+        ).rejects.toMatchObject({
+          status: HttpStatus.NOT_FOUND,
+        });
+      });
+
+      it('should throw BAD_REQUEST for invalid cursor', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        const invalidCursor = 'invalid!!!cursor';
+
+        await expect(
+          service.getUserPosts(username, authUserId, limit, invalidCursor),
+        ).rejects.toThrow(HttpException);
+        await expect(
+          service.getUserPosts(username, authUserId, limit, invalidCursor),
+        ).rejects.toMatchObject({
+          status: HttpStatus.BAD_REQUEST,
+        });
+      });
+
+      it('should decode valid cursor and pass to repository', async () => {
+        const validCursor = encodeValidCursor('123', '2024-01-01T00:00:00Z');
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, validCursor);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          { id: '123', createdAt: '2024-01-01T00:00:00Z' },
+          false,
+        );
+      });
+
+      it('should handle empty feed', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items).toEqual([]);
+        expect(result.pagination.hasNextPage).toBe(false);
+      });
+
+      it('should set isRepost=true for repost type items', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'repost', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(2), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
+        ];
+        const fullTweets = [
+          { id: BigInt(1), content: 'Tweet 1' },
+          { id: BigInt(2), content: 'Tweet 2' },
+        ];
+        const tweetDtos = [
+          { id: '1', content: 'Tweet 1' },
+          { id: '2', content: 'Tweet 2' },
+        ];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto
+          .mockReturnValueOnce(tweetDtos[0])
+          .mockReturnValueOnce(tweetDtos[1]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items[0]!.isRepost).toBe(true);
+        expect(result.items[1]!.isRepost).toBe(false);
+      });
+
+      it('should filter out null items when tweet data is missing', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'tweet', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(999), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
+        ];
+        const fullTweets = [{ id: BigInt(1), content: 'Tweet 1' }];
+        const tweetDtos = [{ id: '1', content: 'Tweet 1' }];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]!.id).toBe('1');
+      });
+
+      it('should deduplicate tweet IDs before hydration', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'tweet', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(1), type: 'repost', created_at: '2024-01-02T00:00:00Z' },
+        ];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, undefined);
+
+        // Should only hydrate unique IDs (BigInt(1) appears twice but only hydrated once)
+        expect(mockTweetsRepository.hydrateTweetsInList).toHaveBeenCalledWith(authUserId, [
+          BigInt(1),
+        ]);
+      });
+
+      it('should preserve createdAt from feed skeleton, not from tweet', async () => {
+        const feedCreatedAt = '2024-01-01T12:00:00Z';
+        const tweetCreatedAt = '2024-01-01T10:00:00Z';
+        const feedItems = [{ id: BigInt(1), type: 'repost', created_at: feedCreatedAt }];
+        const fullTweets = [{ id: BigInt(1), content: 'Tweet 1', createdAt: tweetCreatedAt }];
+        const tweetDtos = [{ id: '1', content: 'Tweet 1', createdAt: tweetCreatedAt }];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items[0]!.createdAt).toBe(feedCreatedAt);
+      });
     });
   });
 });
