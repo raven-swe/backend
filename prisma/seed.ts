@@ -74,7 +74,7 @@ async function main() {
     {
       username: 'OmarHassan',
       email: 'omar@gmail.com',
-      passwordHash: '$2a$10$M9iv6W7BcvAyhAxA74NycuHczfO2hr3gFipenQ/61ZhAXnkyWsNS6',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-08-04'),
       countryId: egypt?.id,
       profile: { create: { displayName: 'Omar Hassan' } },
@@ -82,7 +82,7 @@ async function main() {
     {
       username: 'notnowomar',
       email: 'omarg@gmail.com',
-      passwordHash: '$2a$10$QWeN3b.6LMY0Q9wnqU7vtOX5SdIglqVOum4O7lQSNmZwxUEslGuhu',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-12-04'),
       countryId: egypt?.id,
       profile: {
@@ -96,7 +96,7 @@ async function main() {
     {
       username: 'Tasneem',
       email: 'tasneem@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-08-04'),
       phone: '01001013205',
       countryId: egypt?.id,
@@ -105,7 +105,7 @@ async function main() {
     {
       username: 'anasbrahim',
       email: 'anas@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-08-04'),
       phone: '01005013203',
       countryId: egypt?.id,
@@ -114,7 +114,7 @@ async function main() {
     {
       username: 'gelgel',
       email: 'mostafa@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-12-05'),
       phone: '01005013209',
       countryId: egypt?.id,
@@ -123,7 +123,7 @@ async function main() {
     {
       username: 'Layla',
       email: 'layla@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2002-05-15'),
       countryId: usa?.id,
       profile: { create: { displayName: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
@@ -131,7 +131,7 @@ async function main() {
     {
       username: 'kimo',
       email: 'karim@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-11-20'),
       countryId: uk?.id,
       profile: { create: { displayName: 'karim', bio: 'Just here for the memes.' } },
@@ -139,7 +139,7 @@ async function main() {
     {
       username: 'SaraA',
       email: 'sara@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2001-03-10'),
       phone: '01001234567',
       countryId: canada?.id,
@@ -148,7 +148,7 @@ async function main() {
     {
       username: 'ZakiDev',
       email: 'ahmedz@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-07-22'),
       countryId: germany?.id,
       profile: { create: { displayName: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
@@ -156,7 +156,7 @@ async function main() {
     {
       username: 'NourCodes',
       email: 'nour@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2002-09-18'),
       countryId: france?.id,
       profile: { create: { displayName: 'Nour', bio: 'Full-stack explorer.' } },
@@ -164,7 +164,7 @@ async function main() {
     {
       username: 'YoussefTech',
       email: 'youssef@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-02-14'),
       phone: '01009876543',
       countryId: egypt?.id,
@@ -173,7 +173,7 @@ async function main() {
     {
       username: 'FatmaDesign',
       email: 'fatma@gmail.com',
-      passwordHash: '$2a$10$Uai/Ck1NYEkzn13UknOR7OXzFQ/4n/RQUKhFg/aDnwAH5qRAbPag.',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-11-30'),
       countryId: usa?.id,
       profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
