@@ -13,7 +13,7 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
 import { ConversationsService } from './conversations.service';
 import { PaginationQueryDto } from 'src/common/dtos';
-import { ConversationIdParamDto, UsernameParamDto } from './dtos';
+import { UsernameParamDto } from './dtos';
 
 @Controller('conversations')
 export class ConversationsController {
@@ -34,24 +34,5 @@ export class ConversationsController {
   async createOrFindConversation(@User() user: RequestUser, @Param() params: UsernameParamDto) {
     const userId = BigInt(user.id);
     return await this.conversationsService.createOrFindConversation(userId, params.username);
-  }
-
-  @Get('/:conversationId/messages')
-  @UseGuards(JwtAuthGuard)
-  async getMessagesInConversation(
-    @User() user: RequestUser,
-    @Param() params: ConversationIdParamDto,
-    @Query() pagination: PaginationQueryDto,
-  ) {
-    const userId = BigInt(user.id);
-    const conversationIdNum = BigInt(params.conversationId);
-    const { limit, cursor } = pagination;
-
-    return await this.conversationsService.getMessagesInConversation(
-      userId,
-      conversationIdNum,
-      limit,
-      cursor,
-    );
   }
 }
