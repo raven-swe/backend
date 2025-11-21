@@ -321,6 +321,7 @@ export class TweetsRepository {
         },
       },
       orderBy: {
+        likeCount: 'desc',
         createdAt: 'desc',
       },
       include: {
