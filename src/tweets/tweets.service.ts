@@ -259,6 +259,7 @@ export class TweetsService {
     if (prevCursor) {
       try {
         decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
+        console.log('Decoded Cursor:', decodedCursor);
       } catch {
         throw new HttpException(
           {
@@ -285,10 +286,16 @@ export class TweetsService {
             decodedCursor,
           );
 
-    const pagination = paginateComposite(items, limit, prevCursor, (interaction) => ({
-      userId: interaction.userId.toString(),
-      tweetId: tweetId.toString(),
-    }));
+    console.log('Items returned:', JSON.stringify(items, null, 2));
+    console.log('Last item:', items[items.length - 1]);
+
+    const pagination = paginateComposite(items, limit, prevCursor, (interaction) => {
+      console.log('Creating cursor for interaction:', interaction);
+      return {
+        userId: interaction.userId,
+        tweetId: tweetId.toString(),
+      };
+    });
 
     this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 

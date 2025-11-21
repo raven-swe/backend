@@ -341,7 +341,6 @@ export class TweetsRepository {
         ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
         : undefined,
       take: limit,
-      skip: prevCursor ? 1 : 0,
     });
 
     const quoteDtos = quotes.map((quote) => this.mapToTweetDto(quote));
@@ -371,9 +370,7 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
         ...tweetInclude(currentUserId),
       },
@@ -381,7 +378,6 @@ export class TweetsRepository {
         ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
         : undefined,
       take: limit,
-      skip: prevCursor ? 1 : 0,
     });
 
     const replyDtos = replies.map((reply) => {
@@ -399,7 +395,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     const select = {
       user: {
         select: {
@@ -419,11 +415,15 @@ export class TweetsRepository {
           mutedBy: { where: { userId: currentUserId } },
         },
       },
-    };
+    } as const;
 
     const commonQueryArgs = {
-      where: { tweetId, userId: { not: currentUserId } },
-      orderBy: { createdAt: 'desc' } as const,
+      where: { tweetId },
+      orderBy: [
+        { userId: 'asc' as const },
+        { tweetId: 'asc' as const },
+        { createdAt: 'desc' as const },
+      ],
       select,
       take: limit,
       cursor: prevCursor
@@ -434,7 +434,6 @@ export class TweetsRepository {
             },
           }
         : undefined,
-      skip: prevCursor ? 1 : 0,
     };
 
     const interactions =
@@ -444,8 +443,7 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      return {
-        userId: user.id.toString(),
+      const dto = plainToInstance(UserInteractionDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
@@ -460,9 +458,15 @@ export class TweetsRepository {
         isFollower: user.following.length > 0,
         isBlocked: user.blockedBy.length > 0,
         isMuted: user.mutedBy.length > 0,
+      });
+
+      return {
+        ...dto,
+        userId: user.id.toString(),
       };
     });
-    return plainToInstance(UserInteractionDto, rawDtos);
+
+    return rawDtos;
   }
 
   async getTweetRetweeters(
@@ -470,7 +474,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     return this.getUserInteractionsForTweet('retweet', tweetId, currentUserId, limit, prevCursor);
   }
 
@@ -479,7 +483,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     return this.getUserInteractionsForTweet('like', tweetId, currentUserId, limit, prevCursor);
   }
 
