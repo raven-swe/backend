@@ -1271,4 +1271,31 @@ export class UsersRepository {
       isMuted: false,
     };
   }
+
+  getFollowersUnPaginated(userId: bigint): Promise<bigint[]> {
+    return this.prisma.follow
+      .findMany({
+        where: { followedId: userId },
+        select: { followerId: true },
+      })
+      .then((followers) => followers.map((follow) => follow.followerId));
+  }
+
+  getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+    return this.prisma.mute
+      .findMany({
+        where: { mutedId },
+        select: { userId: true },
+      })
+      .then((mutings) => mutings.map((mute) => mute.userId));
+  }
+
+  getBlockingUsersUnPaginated(blockedId: bigint): Promise<bigint[]> {
+    return this.prisma.block
+      .findMany({
+        where: { blockedId },
+        select: { userId: true },
+      })
+      .then((blockings) => blockings.map((block) => block.userId));
+  }
 }

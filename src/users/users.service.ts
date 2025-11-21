@@ -993,4 +993,24 @@ export class UsersService {
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
+
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersForTweetFanout(userId: bigint): Promise<bigint[]> {
+    const allFollowers = await this.usersRepository.getFollowersUnPaginated(userId);
+    const mutingUsers = await this.usersRepository.getMutingUsersUnPaginated(userId);
+    const blockingUsers = await this.usersRepository.getBlockingUsersUnPaginated(userId);
+    const excludedFollowersSet = new Set<bigint>();
+
+    for (const mutingUser of mutingUsers) {
+      excludedFollowersSet.add(mutingUser);
+    }
+    for (const blockingUser of blockingUsers) {
+      excludedFollowersSet.add(blockingUser);
+    }
+
+    return allFollowers.filter((followerId) => !excludedFollowersSet.has(followerId));
+  }
 }
