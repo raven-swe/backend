@@ -29,10 +29,20 @@ function adjustLen(username: string) {
 }
 
 function parseTyped(typed: string) {
-  // replace invalid chars (except spaces) and underscores and numbers with ''
-  typed = typed.replace(/[^a-zA-Z\s]/g, '');
+  // replace invalid chars (arabic is valid) (except spaces) and underscores and numbers with ''
+  typed = typed.replace(/[^a-zA-Z\u0600-\u06FF\s]/g, '');
   // replace spaces with underscores
   typed = typed.replace(/\s+/g, '_');
+
+  if (typed.length >= MAX_USERNAME_LEN) {
+    typed = typed.slice(0, MAX_USERNAME_LEN - 3);
+  }
+
+  // if typed is only underscores, return empty string
+  if (/^_+$/.test(typed)) {
+    typed = '';
+  }
+
   return typed;
 }
 
