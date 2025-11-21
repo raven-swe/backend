@@ -702,12 +702,14 @@ async function main() {
   });
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error('Seeding failed:', e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+if (process.env.SEED_ENV) {
+  main()
+    .then(async () => {
+      await prisma.$disconnect();
+    })
+    .catch(async (e) => {
+      console.error('Seeding failed:', e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

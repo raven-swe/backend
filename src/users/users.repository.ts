@@ -1084,4 +1084,12 @@ export class UsersRepository {
 
     return existingUsers;
   }
+  async createProfile(userId: bigint, displayName: string) {
+    return await this.prisma.profile.create({
+      data: {
+        userId,
+        displayName,
+      },
+    });
+  }
 }

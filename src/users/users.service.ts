@@ -976,4 +976,8 @@ export class UsersService {
       return acc;
     }, [] as Mention[]);
   }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
+  }
 }
