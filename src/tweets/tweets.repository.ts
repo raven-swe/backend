@@ -283,7 +283,7 @@ export class TweetsRepository {
       WHERE "user_id" = ${targetUserId}
     ) AS feed
     WHERE 1=1 ${cursorClause}
-    ORDER BY "created_at" DESC, "id" DESC
+    ORDER BY "created_at" DESC, "id" DESC, "type" DESC
     LIMIT ${limit}
   `;
   }
