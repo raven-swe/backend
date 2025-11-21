@@ -516,7 +516,10 @@ export class AuthService {
     if (user) {
       return {
         exists: true,
-        type: identifier.toLowerCase() === user.username.toLowerCase() ? 'username' : 'email',
+        type:
+          user.username && identifier.toLowerCase() === user.username.toLowerCase()
+            ? 'username'
+            : 'email',
       };
     }
     return { exists: false };
