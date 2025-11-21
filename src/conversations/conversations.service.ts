@@ -175,4 +175,8 @@ export class ConversationsService {
       isBlockedBy,
     };
   }
+
+  async countUnseenConversations(userId: bigint) {
+    return this.conversationsRepository.countUnseenConversations(userId);
+  }
 }
