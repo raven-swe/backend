@@ -1075,14 +1075,14 @@ export class UsersRepository {
     });
   }
 
-async getUserBlockedBy(userId: bigint) {
+  async getUserBlockedBy(userId: bigint) {
     return this.prisma.block.findMany({
       where: {
         blockedId: userId,
       },
     });
   }
-  
+
   async createProfile(userId: bigint, displayName: string) {
     return await this.prisma.profile.create({
       data: {
