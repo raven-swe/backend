@@ -216,7 +216,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   } {
     let status = HttpStatus.BAD_REQUEST;
     let code = 'DB_ERROR';
-    let message = 'Database Error';
+    let message = 'An unexpected error occurred';
     const meta = exception.meta;
 
     switch (exception.code) {
@@ -248,7 +248,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       default:
         // hopefully we never hit this :)
         status = HttpStatus.INTERNAL_SERVER_ERROR;
-        message = `Unhandled Database error: ${exception.message}`;
+        this.logger.error(`Unhandled Database error: ${exception.message}`);
         break;
     }
 
