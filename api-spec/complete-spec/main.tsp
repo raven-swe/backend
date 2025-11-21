@@ -578,6 +578,13 @@ model Tweet {
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
+
+model TweetWithoutQuotedTweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string | null;
+}
 model TweetWithReplyTo extends Tweet {
   @doc("The tweet that this tweet is replying to.")
   replyToTweet: CompactTweet | null;
@@ -1691,7 +1698,7 @@ namespace Tweets {
   @route("/{id}/replies")
   @summary("Get replies to a specific tweet")
   op getTweetReplies(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<Tweet[]>
+    | DataResponseWithPagination<TweetWithoutQuotedTweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

@@ -447,13 +447,12 @@ export class TweetsRepository {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
-        bio:
-          user.profile?.bio && user.profile?.bioEntities
-            ? {
-                text: user.profile.bio,
-                bioEntities: user.profile.bioEntities as unknown as BioEntitiesDto,
-              }
-            : null,
+        bio: user.profile?.bio
+          ? {
+              text: user.profile.bio,
+              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
+            }
+          : null,
         isFollowing: user.followers.length > 0,
         isFollower: user.following.length > 0,
         isBlocked: user.blockedBy.length > 0,
