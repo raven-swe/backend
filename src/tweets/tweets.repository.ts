@@ -20,6 +20,12 @@ const tweetInclude = (currentUserId: bigint) =>
             avatarUrl: true,
           },
         },
+        blockedBy: {
+          where: { userId: currentUserId },
+        },
+        followers: {
+          where: { followerId: currentUserId },
+        },
       },
     },
     _count: {
@@ -126,6 +132,8 @@ export class TweetsRepository {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        isBlocked: tweet.user.blockedBy.length > 0,
+        isFollowing: tweet.user.followers.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
