@@ -5,11 +5,22 @@ meta {
 }
 
 post {
-  url: http://localhost:3000/api/tweets
-  body: none
-  auth: inherit
+  url: http://localhost:3000/tweets
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "content": "I love football so much, #football @notnowomar"
+  }
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

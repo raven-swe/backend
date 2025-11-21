@@ -56,7 +56,6 @@ export class TweetsService {
   }
 
   // --------------------------------------
-
   async likeTweet(userId: bigint, tweetId: bigint) {
     // Check if tweet exists
     const tweet = await this.tweetsRepository.findTweetById(tweetId);
