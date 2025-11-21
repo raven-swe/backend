@@ -1395,4 +1395,15 @@ namespace Tweets {
     | InternalServerErrorResponse
     | ConflictResponse
     | RateLimitResponse;
+
+  
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | InternalServerErrorResponse;
 }
