@@ -153,6 +153,8 @@
       "redis\\.service\\.ts",
       "redisservice\\.ts",
       "common/validation-error-codes\\.ts",
+      "common/middleware/request-logger\\.middleware\\.ts",
+      "common/pipes/parse-bigint\\.pipe\\.ts",
       "testing"
     ]
   }
