@@ -591,4 +591,50 @@ export class AuthService {
       ]);
     }
   }
+
+  async validateUserToken(token: string): Promise<{
+    id: bigint;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+  } | null> {
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payload = this.jwtService.verify<{ id: string }>(token);
+      const userId = BigInt(payload.id);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          profile: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      if (!user || !user.profile) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        username: user.username,
+        displayName: user.profile.displayName,
+        avatarUrl: user.profile.avatarUrl,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Failed to validate token: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return null;
+    }
+  }
 }
