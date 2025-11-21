@@ -509,15 +509,14 @@ export class AuthService {
   async checkIdentifier(identifier: string) {
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+        OR: [{ username: identifier }, { email: identifier }],
       },
     });
 
     if (user) {
       return {
         exists: true,
-        type:
-          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+        type: identifier.toLowerCase() === user.username.toLowerCase() ? 'username' : 'email',
       };
     }
     return { exists: false };
