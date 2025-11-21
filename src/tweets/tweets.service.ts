@@ -5,8 +5,9 @@ import { decodeCursor, paginateSingle } from 'src/common/utils';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { UsersRepository } from 'src/users/users.repository';
-import { CreateTweetData } from './interfaces';
+import { CreateTweetData, Hashtag, Mention } from './interfaces';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Tweet } from '@prisma/client';
 
 @Injectable()
 export class TweetsService {
@@ -32,9 +33,22 @@ export class TweetsService {
     };
   }
 
-  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<{ message: string }> {
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<object> {
+    if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_CREATION,
+          code: TWEETS_ERROR_CODES.INVALID_TWEET_CREATION,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.validateTweetExists(createTweetDto.replyToTweetId, createTweetDto.quoteToTweetId);
+
     this.logger.log(`tweet content: ${createTweetDto.content}`);
-    await this.prisma.$transaction(async (tx) => {
+
+    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
       const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
         createTweetDto.content,
         tx,
@@ -50,9 +64,72 @@ export class TweetsService {
         Hashtags: hashtags,
       };
 
-      await this.tweetsRepository.create(tweetData, tx);
+      const tweet = await this.tweetsRepository.create(tweetData, tx);
+      return { tweet, mentions, hashtags };
     });
-    return { message: 'Tweet created successfully' };
+
+    const returnedTweet = this.formatTweetCreationResponse(
+      tweet,
+      mentions,
+      hashtags,
+      createTweetDto.replyToTweetId,
+      createTweetDto.quoteToTweetId,
+    );
+    return { ...returnedTweet };
+  }
+
+  private formatTweetCreationResponse(
+    tweet: Tweet,
+    mentions: Mention[],
+    hashtags: Hashtag[],
+    replyToTweetId: string | undefined,
+    quoteToTweetId: string | undefined,
+  ) {
+    return {
+      id: tweet.id.toString(),
+      content: tweet.content,
+      createdAt: tweet.createdAt,
+      entities: {
+        mentions: mentions.map((mention) => ({ ...mention, userId: mention.userId.toString() })),
+        hashtags: hashtags.map((hashtag) => ({
+          ...hashtag,
+          hashtagId: hashtag.hashtagId.toString(),
+        })),
+      },
+      replyToTweetId,
+      quoteToTweetId,
+    };
+  }
+
+  private async validateTweetExists(
+    replyToTweetId: string | undefined,
+    quoteToTweetId: string | undefined,
+  ) {
+    if (
+      replyToTweetId &&
+      !(await this.tweetsRepository.checkExistingTweet(BigInt(replyToTweetId)))
+    ) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      quoteToTweetId &&
+      !(await this.tweetsRepository.checkExistingTweet(BigInt(quoteToTweetId)))
+    ) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 
   // --------------------------------------

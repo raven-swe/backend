@@ -95,7 +95,7 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  private mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -148,6 +148,14 @@ export class TweetsRepository {
         },
       },
     });
+  }
+
+  async checkExistingTweet(tweetId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId },
+      select: { id: true },
+    });
+    return !!tweet;
   }
   //--------------------------------------
   async likeTweet(userId: bigint, tweetId: bigint) {
