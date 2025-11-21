@@ -24,6 +24,9 @@ export class ContentParsingService {
     content: string,
     tx: Prisma.TransactionClient,
   ): Promise<{ mentions: Mention[]; hashtags: Hashtag[] }> {
+    if (!content || content.length === 0) {
+      return { mentions: [], hashtags: [] };
+    }
     const { mentions: plainMentions, hashtags: plainHashtags } = this.parsePlainContent(content);
     const mentions = await this.usersService.checkUsernamesExistenceAndReplaceIds(
       plainMentions,
