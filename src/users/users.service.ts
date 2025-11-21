@@ -4,19 +4,15 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
-import {
-  USERS_ERROR_CODES,
-  USERS_ERROR_MESSAGES,
-  VALIDATION_ERROR_CODES,
-} from 'src/common/constants';
+import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
   decodeCompositeCursor,
-  FollowsCursor,
   paginateComposite,
   createValidationError,
+  FollowsCursor,
 } from 'src/common/utils';
 
 import { EmailJobData, OtpType } from 'src/email/interfaces';
@@ -25,6 +21,7 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -91,7 +88,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
     }
 
@@ -107,7 +104,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -866,7 +863,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
 
     await this.usersRepository.removeUserSSO(userId, provider);
@@ -941,8 +938,8 @@ export class UsersService {
     if (!bannerUrl) {
       throw new HttpException(
         {
-          message: USERS_ERROR_CODES.BANNER_NOT_FOUND,
-          code: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          message: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          code: USERS_ERROR_CODES.BANNER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
       );
@@ -953,5 +950,9 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
   }
 }

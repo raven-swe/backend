@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from './oauth.provider.strategy';
 import { ProviderProfile } from '../interfaces';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { AUTH_ERROR_MESSAGES } from '../constants';
 
 interface GithubUserResponse {
   id: number | string;
@@ -41,8 +42,7 @@ export class GithubOAuthStrategy implements OAuthProviderStrategy {
     if (!res.ok) {
       throw new BadRequestException(
         createValidationError('providerToken', {
-          invalidValue:
-            'The GitHub authorization token is invalid or expired. Please try logging in again.',
+          invalidValue: AUTH_ERROR_MESSAGES.INVALID_GITHUB_AUTHORIZATION_TOKEN,
         }),
       );
     }
