@@ -48,8 +48,8 @@ export class TweetsController {
   async getTweetQuotes(
     @Param('id', ParseBigIntPipe) tweetId: bigint,
     @User() user: RequestUser,
-    @Query('limit') limit: string,
-    @Query('cursor') cursor: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const userId = BigInt(user.id);
@@ -61,8 +61,8 @@ export class TweetsController {
   async getTweetRetweeters(
     @Param('id', ParseBigIntPipe) tweetId: bigint,
     @User() user: RequestUser,
-    @Query('limit') limit: string,
-    @Query('cursor') cursor: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const userId = BigInt(user.id);
@@ -74,8 +74,8 @@ export class TweetsController {
   async getTweetLikers(
     @Param('id', ParseBigIntPipe) tweetId: bigint,
     @User() user: RequestUser,
-    @Query('limit') limit: string,
-    @Query('cursor') cursor: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const userId = BigInt(user.id);
@@ -87,8 +87,8 @@ export class TweetsController {
   async getTweetReplies(
     @Param('id', ParseBigIntPipe) tweetId: bigint,
     @User() user: RequestUser,
-    @Query('limit') limit: string,
-    @Query('cursor') cursor: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const userId = BigInt(user.id);
