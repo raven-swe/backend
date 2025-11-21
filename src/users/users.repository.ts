@@ -1099,6 +1099,7 @@ export class UsersRepository {
       return { bannerUrl: profile?.bannerUrl || null };
     });
   }
+
   async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
     return await this.prisma.mute.findMany({
       where: { userId },
