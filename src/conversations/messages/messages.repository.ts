@@ -31,4 +31,54 @@ export class MessagesRepository {
       },
     });
   }
+
+  async updateLastSeenMessage(conversationId: bigint, userId: bigint, lastSeenMessageId: bigint) {
+    const latestMessage = await this.prisma.message.findFirst({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (!latestMessage) {
+      return {
+        lastSeenMessageId: null,
+        unseenCount: 0,
+      };
+    }
+
+    const unseenCount = await this.prisma.message.count({
+      where: {
+        conversationId,
+        userId: { not: userId },
+        id: { gt: lastSeenMessageId, lte: latestMessage.id },
+      },
+    });
+
+    const updated = await this.prisma.conversationParticipant.update({
+      where: {
+        conversationId_userId: { conversationId, userId },
+      },
+      data: {
+        lastSeenMessageId: latestMessage.id,
+      },
+      select: {
+        lastSeenMessageId: true,
+      },
+    });
+
+    return {
+      ...updated,
+      unseenCount,
+    };
+  }
+
+  async createMessage(conversationId: bigint, senderId: bigint, body: string) {
+    return this.prisma.message.create({
+      data: {
+        userId: senderId,
+        conversationId,
+        content: body,
+      },
+    });
+  }
 }

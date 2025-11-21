@@ -92,4 +92,64 @@ export class MessagesService {
 
     return { items: { participant, messages: messagesDto }, pagination };
   }
+
+  async updateLastSeen(userId: string, conversationId: string, lastSeenMessageId: string) {
+    let userIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+    let lastSeenMessageIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(userId);
+      conversationIdBigInt = BigInt(conversationId);
+      lastSeenMessageIdBigInt = BigInt(lastSeenMessageId);
+    } catch {
+      return { error: 'INVALID_ID' };
+    }
+
+    const updatedParticipant = await this.messagesRepository.updateLastSeenMessage(
+      conversationIdBigInt,
+      userIdBigInt,
+      lastSeenMessageIdBigInt,
+    );
+
+    if (!updatedParticipant) {
+      return { error: 'UPDATE_FAILED' };
+    }
+
+    return {
+      lastSeenMessageId: updatedParticipant.lastSeenMessageId?.toString() ?? null,
+      seenAt: new Date(),
+      unseenCount: updatedParticipant.unseenCount,
+    };
+  }
+
+  async createMessage(conversationId: string, senderId: string, body: string) {
+    let userIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(senderId);
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return { error: 'INVALID_CONVERSATION_ID' };
+    }
+
+    const message = await this.messagesRepository.createMessage(
+      conversationIdBigInt,
+      userIdBigInt,
+      body,
+    );
+
+    if (!message) {
+      return { error: 'MESSAGE_CREATION_FAILED' };
+    }
+
+    await this.messagesRepository.updateLastSeenMessage(
+      conversationIdBigInt,
+      userIdBigInt,
+      message.id,
+    );
+
+    return { message };
+  }
 }
