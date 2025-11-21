@@ -16,8 +16,13 @@ export class TweetsController {
     const userId = BigInt(user.id);
     return this.tweetsService.createTweet(createTweetDto, userId);
   }
-  // --------------------------------------
 
+  @Delete(':id')
+  async deleteTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
+    const userId = BigInt(user.id);
+    return await this.tweetsService.deleteTweet(tweetId, userId);
+  }
+  // --------------------------------------
   @Post(':id/like')
   async likeTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);

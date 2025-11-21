@@ -48,6 +48,23 @@ const tweetInclude = (currentUserId: bigint) =>
         },
       },
     },
+    tweetMedia: {
+      select: {
+        order: true,
+        media: {
+          select: {
+            url: true,
+            type: true,
+            altText: true,
+            width: true,
+            height: true,
+          },
+        },
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    },
   }) satisfies Prisma.TweetInclude;
 
 type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
@@ -150,12 +167,43 @@ export class TweetsRepository {
     });
   }
 
+  async linkTweetMedia(
+    tweetId: bigint,
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    const tweetMediaData = mediaIds.map((mediaId, index) => ({
+      tweetId,
+      mediaId,
+      order: index,
+    }));
+
+    await prismaClient.tweetMedia.createMany({
+      data: tweetMediaData,
+    });
+  }
+
   async checkExistingTweet(tweetId: bigint): Promise<boolean> {
     const tweet = await this.prisma.tweet.findUnique({
-      where: { id: tweetId },
+      where: { id: tweetId, isDeleted: false },
       select: { id: true },
     });
     return !!tweet;
+  }
+
+  async checkTweetOwnership(tweetId: bigint, userId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, userId, isDeleted: false },
+      select: { id: true },
+    });
+    return !!tweet;
+  }
+
+  async deleteTweet(tweetId: bigint) {
+    await this.prisma.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true }, //:))
+    });
   }
   //--------------------------------------
   async likeTweet(userId: bigint, tweetId: bigint) {

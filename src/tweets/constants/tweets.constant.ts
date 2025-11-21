@@ -4,6 +4,10 @@ export const TWEETS_ERROR_CODES = {
   CONFLICTING_RETWEET: 'CONFLICTING_RETWEET',
   USER_BLOCKED: 'USER_BLOCKED',
   INVALID_TWEET_CREATION: 'INVALID_TWEET_CREATION',
+  INVALID_TWEET_PAYLOAD: 'INVALID_TWEET_PAYLOAD',
+  INVALID_MEDIA: 'INVALID_MEDIA',
+  TOO_MANY_MEDIA: 'TOO_MANY_MEDIA',
+  TWEET_FORBIDDEN_DELETION: 'TWEET_FORBIDDEN_DELETION',
 } as const;
 
 export const TWEETS_ERROR_MESSAGES = {
@@ -12,4 +16,8 @@ export const TWEETS_ERROR_MESSAGES = {
   CONFLICTING_RETWEET: 'You have already retweeted or unretweeted this tweet.',
   USER_BLOCKED: 'You are blocked from interacting with this tweet.',
   INVALID_TWEET_CREATION: 'Cannot reply and quote a tweet at the same time.',
+  INVALID_TWEET_PAYLOAD: 'Tweet must have content or media.',
+  INVALID_MEDIA: 'One or more media items are invalid.',
+  TOO_MANY_MEDIA: 'A tweet cannot have more than 4 media items.',
+  TWEET_FORBIDDEN_DELETION: 'You do not have permission to delete this tweet.',
 } as const;

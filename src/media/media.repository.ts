@@ -34,4 +34,13 @@ export class MediaRepository {
       where: { id },
     });
   }
+
+  async checkMediaExists(mediaIds: bigint[]): Promise<boolean> {
+    const count = await this.prisma.media.count({
+      where: {
+        id: { in: mediaIds },
+      },
+    });
+    return count === mediaIds.length;
+  }
 }

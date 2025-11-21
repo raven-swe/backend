@@ -6,9 +6,10 @@ import { TimelineController } from './timeline/timeline.controller';
 import { UsersModule } from 'src/users/users.module';
 import { TrendingModule } from 'src/trending/trending.module';
 import { ContentParsingModule } from 'src/content-parsing/content-parsing.module';
+import { MediaModule } from 'src/media/media.module';
 
 @Module({
-  imports: [UsersModule, TrendingModule, ContentParsingModule],
+  imports: [UsersModule, TrendingModule, ContentParsingModule, MediaModule],
   providers: [TweetsService, TweetsRepository],
   controllers: [TweetsController, TimelineController],
   exports: [TweetsService],
