@@ -798,14 +798,17 @@ describe('TweetsService', () => {
     const cursor = 'encoded_cursor';
 
     it('should successfully fetch likers', async () => {
+      // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
       (decodeCompositeCursor as jest.Mock).mockReturnValue({});
       const mockLikers = [{ userId: BigInt(50) }];
       mockTweetsRepository.getTweetLikers.mockResolvedValue(mockLikers);
       (paginateComposite as jest.Mock).mockReturnValue({});
 
+      // Act
       const result = await service.getTweetLikers(tweetId, currentUserId, limit, cursor);
 
+      // Assert
       expect(mockTweetsRepository.getTweetLikers).toHaveBeenCalledWith(
         tweetId,
         currentUserId,
@@ -816,11 +819,13 @@ describe('TweetsService', () => {
     });
 
     it('should throw BAD_REQUEST on invalid cursor for likers', async () => {
+      // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
       (decodeCompositeCursor as jest.Mock).mockImplementation(() => {
         throw new Error();
       });
 
+      // Act & Assert
       await expect(service.getTweetLikers(tweetId, currentUserId, limit, 'bad')).rejects.toThrow(
         new HttpException(
           {
@@ -839,13 +844,16 @@ describe('TweetsService', () => {
     const limit = 10;
 
     it('should successfully fetch retweeters', async () => {
+      // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
       const mockRetweeters = [{ userId: BigInt(60) }];
       mockTweetsRepository.getTweetRetweeters.mockResolvedValue(mockRetweeters);
       (paginateComposite as jest.Mock).mockReturnValue({});
 
+      // Act
       const result = await service.getTweetRetweeters(tweetId, currentUserId, limit);
 
+      // Assert
       expect(mockTweetsRepository.getTweetRetweeters).toHaveBeenCalledWith(
         tweetId,
         currentUserId,
@@ -853,6 +861,50 @@ describe('TweetsService', () => {
         undefined,
       );
       expect(result.items).toEqual(mockRetweeters);
+    });
+  });
+
+  describe('checkIfTweetExists', () => {
+    const tweetId = BigInt(100);
+
+    it('should not throw if tweet exists and is not deleted', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).resolves.not.toThrow();
+    });
+
+    it('should throw NOT_FOUND if tweet does not exist', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw NOT_FOUND if tweet is deleted', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: true });
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
     });
   });
 });
