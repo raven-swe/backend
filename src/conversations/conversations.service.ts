@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ConversationsRepository } from './conversations.repository';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
@@ -8,6 +9,7 @@ import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
 } from './constants/conversation-constants';
+import { ConversationDto } from './dtos';
 
 @Injectable()
 export class ConversationsService {
@@ -93,7 +95,9 @@ export class ConversationsService {
       conversationId: item.id.toString(),
     }));
 
-    return { conversationsWithBlockStatus, pagination };
+    const itemsDto = plainToInstance(ConversationDto, conversationsWithBlockStatus);
+
+    return { items: itemsDto, pagination };
   }
 
   async createOrFindConversation(userId: bigint, username: string) {

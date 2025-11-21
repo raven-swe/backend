@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ConversationsRepository } from '../conversations.repository';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
@@ -8,6 +9,7 @@ import {
   CONVERSATIONS_ERROR_MESSAGES,
 } from '../constants/conversation-constants';
 import { MessagesRepository } from './messages.repository';
+import { ParticipantDto, MessageDto } from './dtos';
 
 @Injectable()
 export class MessagesService {
@@ -80,14 +82,14 @@ export class MessagesService {
       messageId: item.id,
     }));
 
-    return {
-      participant: {
-        username: otherParticipant.user.username,
-        displayName: otherParticipant.user.profile?.displayName ?? '',
-        avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
-      },
-      messages: formattedMessages,
-      pagination,
-    };
+    const participant = plainToInstance(ParticipantDto, {
+      username: otherParticipant.user.username,
+      displayName: otherParticipant.user.profile?.displayName ?? '',
+      avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+    });
+
+    const messagesDto = plainToInstance(MessageDto, formattedMessages);
+
+    return { items: { participant, messages: messagesDto }, pagination };
   }
 }
