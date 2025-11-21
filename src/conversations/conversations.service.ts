@@ -176,6 +176,32 @@ export class ConversationsService {
     };
   }
 
+  async assertParticipant(userId: string, conversationId: string) {
+    let userIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(userId);
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return null;
+    }
+
+    return await this.conversationsRepository.assertParticipant(userIdBigInt, conversationIdBigInt);
+  }
+
+  async getConversationParticipants(conversationId: string) {
+    let conversationIdBigInt: bigint;
+
+    try {
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return null;
+    }
+
+    return this.conversationsRepository.getConversationParticipants(conversationIdBigInt);
+  }
+
   async countUnseenConversations(userId: bigint) {
     return this.conversationsRepository.countUnseenConversations(userId);
   }

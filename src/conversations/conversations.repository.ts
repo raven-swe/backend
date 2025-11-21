@@ -165,6 +165,36 @@ export class ConversationsRepository {
     });
   }
 
+  async assertParticipant(userId: bigint, conversationId: bigint) {
+    const participant = await this.prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: { conversationId, userId },
+      },
+    });
+
+    return !!participant;
+  }
+
+  async getConversationParticipants(conversationId: bigint) {
+    return this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: {
+        user: {
+          select: {
+            username: true,
+            id: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async countUnseenConversations(userId: bigint) {
     const conversations = await this.prisma.conversationParticipant.findMany({
       where: {
