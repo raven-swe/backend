@@ -196,6 +196,33 @@ model SessionResponse {
   isCurrent: boolean;
 }
 
+@doc("The content and optional media for creating a new tweet")
+model TweetBody {
+  @doc("Text content of the tweet (max 280 characters).")
+  @maxLength(280)
+  content: string | null;
+
+  @doc("Optional array of media items attached to the tweet (max 4 items)")
+  @maxItems(4)
+  media?: string[] | null;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId?: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId?: string | null;
+}
+
+model CreatedTweet{
+  id: string;
+  content?: string;
+  media?: string[];
+  entities?: TweetEntities;
+  createdAt: utcDateTime;
+  replyToTweetId?: string;
+  quotedTweetId?: string;
+}
+
 model RegisterStartBody {
   name: string;
   email: string;
@@ -1357,4 +1384,15 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @post
+  @summary("Create a new tweet")
+  op postTweet(@body body: TweetBody):
+    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | ConflictResponse
+    | RateLimitResponse;
 }
