@@ -2,8 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
-import { DEFAULT_TIMELINE_PAGINATION_LIMIT } from './constants';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -30,7 +29,7 @@ const tweetInclude = (currentUserId: bigint) =>
     },
     tweetMentions: {
       select: {
-        startingIndex: true,
+        startPosition: true,
         user: {
           select: {
             username: true,
@@ -40,7 +39,7 @@ const tweetInclude = (currentUserId: bigint) =>
     },
     tweetHashtags: {
       select: {
-        startingIndex: true,
+        startPosition: true,
         hashtag: {
           select: {
             keyword: true,
@@ -89,7 +88,7 @@ export class TweetsRepository {
         },
       },
       cursor: cursor ? { id: BigInt(cursor) } : undefined,
-      take: limit || DEFAULT_TIMELINE_PAGINATION_LIMIT,
+      take: limit || 20,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
@@ -113,11 +112,11 @@ export class TweetsRepository {
       entities: {
         mentions: tweet.tweetMentions.map((mention) => ({
           username: mention.user.username,
-          startPosition: mention.startingIndex,
+          startPosition: mention.startPosition,
         })),
         hashtags: tweet.tweetHashtags.map((hashtag) => ({
           hashtag: hashtag.hashtag.keyword,
-          startPosition: hashtag.startingIndex,
+          startPosition: hashtag.startPosition,
         })),
       },
       media: [],

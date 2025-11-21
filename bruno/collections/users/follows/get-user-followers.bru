@@ -1,17 +1,17 @@
 meta {
-  name: get-user-profile
+  name: get-user-followers
   type: http
   seq: 1
 }
 
 get {
-  url: http://localhost:3000/users/:username/profile
+  url: {{base_url}}/users/:username/followers
   body: none
   auth: bearer
 }
 
 params:path {
-  username: SaraA
+  username: gelgel
 }
 
 auth:bearer {
