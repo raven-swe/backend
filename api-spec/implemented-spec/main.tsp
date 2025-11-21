@@ -221,6 +221,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model FollowingUser {
+  ...CompactUser;
+  isFollowing: boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
+}
+
 model AccountInfo {
   username: string;
   email: string | null;
@@ -243,6 +250,8 @@ enum Gender {
   Female,
 }
 
+alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -1143,32 +1152,63 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-  @route("/{username}/following")
-  namespace Following {
-    @summary("Follow a user")
-    @post
-    op followUser(
-      @path
-      username: string,
-    ):
-      | FollowUserResponse
+  namespace Follows {
+    @summary("List a user's followers")
+    @get
+    @route("/{username}/followers")
+    op listUserFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
-      | ConflictResponse
       | UnauthorizedResponse
-      | ForbiddenResponse
       | InternalServerErrorResponse;
 
-    @summary("Unfollow a user")
-    @delete
-    op unfollowUser(
-      @path
-      username: string,
-    ):
-      | UnfollowUserResponse
-      | NotFoundResponse
+    @get
+    @route("/{username}/mutual")
+    @summary("List mutual followers with a user given their username")
+    op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
       | BadRequestResponse
+      | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @route("/{username}/following")
+    namespace Following {
+      @summary("List users a user is following")
+      @get
+      op listUserFollowing(@path username: string, ...CursorPaginationParameters):
+        | FollowingListResponse
+        | BadRequestResponse
+        | NotFoundResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+
+      @summary("Follow a user")
+      @post
+      op followUser(
+        @path
+        username: string,
+      ):
+        | FollowUserResponse
+        | NotFoundResponse
+        | ConflictResponse
+        | UnauthorizedResponse
+        | ForbiddenResponse
+        | InternalServerErrorResponse;
+
+      @summary("Unfollow a user")
+      @delete
+      op unfollowUser(
+        @path
+        username: string,
+      ):
+        | UnfollowUserResponse
+        | NotFoundResponse
+        | BadRequestResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+    }
   }
 }
 

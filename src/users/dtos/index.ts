@@ -12,3 +12,4 @@ export * from './update-username.dto';
 export * from './user-profile-response.dto';
 export * from './validate-password.dto';
 export * from './verify-email-update.dto';
+export * from './following-user.dto';

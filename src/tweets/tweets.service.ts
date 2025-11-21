@@ -8,8 +8,8 @@ import {
   paginateComposite,
   paginateSingle,
 } from 'src/common/utils';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
-import { FeedCursor, TweetsCursor } from 'src/common/interfaces/cursor.interfaces';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
@@ -189,7 +189,6 @@ export class TweetsService {
 
     return { message: 'Tweet unretweeted successfully' };
   }
-
   // --------------------------------------
   //
   async getUserPosts(
@@ -208,7 +207,6 @@ export class TweetsService {
     limit: number,
     prevCursor: string | undefined,
   ) {
-    // False = Filter OUT replies
     return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, true);
   }
 

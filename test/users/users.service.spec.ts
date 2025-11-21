@@ -10,7 +10,7 @@ import { LanguageCode } from '@prisma/client';
 import { ChangePasswordBasicDto, UpdateProfileDto } from 'src/users/dtos';
 import { OtpType } from 'src/email/interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 
@@ -333,7 +333,7 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
             code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.BAD_REQUEST,
         ),
       );
     });
@@ -348,7 +348,7 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
             code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.BAD_REQUEST,
         ),
       );
     });
@@ -1858,7 +1858,7 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
             code: USERS_ERROR_CODES.INVALID_PASSWORD,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.BAD_REQUEST,
         ),
       );
 

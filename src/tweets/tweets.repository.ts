@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({

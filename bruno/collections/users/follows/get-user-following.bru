@@ -1,0 +1,29 @@
+meta {
+  name: get-user-following
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/users/:username/following?limit=2&cursor=eyJmb2xsb3dlcklkIjoiNCIsImZvbGxvd2VkSWQiOiIyIn0=
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 2
+  cursor: eyJmb2xsb3dlcklkIjoiNCIsImZvbGxvd2VkSWQiOiIyIn0=
+}
+
+params:path {
+  username: notnowomar
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
