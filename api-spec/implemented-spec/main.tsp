@@ -1484,4 +1484,11 @@ namespace Conversations {
     | ForbiddenResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/unseen-count")
+  @summary("Get the count of conversations with unseen messages")
+  op getUnseenCounts(): DataResponse<{
+    count: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
