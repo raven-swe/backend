@@ -27,6 +27,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
 import { LoggerModule } from './logger/logger.module';
 import { AppLogger } from './logger/logger.service';
 import { ConversationsModule } from './conversations/conversations.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { ConversationsModule } from './conversations/conversations.module';
     MediaModule,
     TweetsModule,
     ConversationsModule,
+    SearchModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
