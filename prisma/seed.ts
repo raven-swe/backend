@@ -74,7 +74,7 @@ async function main() {
     {
       username: 'OmarHassan',
       email: 'omar@gmail.com',
-      passwordHash: '$2a$10$skJLBvUxlf0KBnUGNAG0BuDb.v6mUbKgGlVfWaTEsHNJtk00qvBNS',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-08-04'),
       countryId: egypt?.id,
       profile: { create: { displayName: 'Omar Hassan' } },
@@ -82,7 +82,7 @@ async function main() {
     {
       username: 'notnowomar',
       email: 'omarg@gmail.com',
-      passwordHash: '$2a$10$OQw7ZoP7SETenCXbALgfD.eAKegNI0FUMwpqpPS977X017JaMG6dC',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-12-04'),
       countryId: egypt?.id,
       profile: {
@@ -96,7 +96,7 @@ async function main() {
     {
       username: 'Tasneem',
       email: 'tasneem@gmail.com',
-      passwordHash: '$2a$10$SAgbBSiZOk8LW/9IaD2PzOtlQi39JWaLLkmRrTobcLWqZIRoNptYu',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-08-04'),
       phone: '01001013205',
       countryId: egypt?.id,
@@ -105,7 +105,7 @@ async function main() {
     {
       username: 'anasbrahim',
       email: 'anas@gmail.com',
-      passwordHash: '$2a$10$F.6W9pCnJ9PNq1X7ExOZ1OcF1RIke/nqVxCUbgi.FDl.jrCBdC7wq',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-08-04'),
       phone: '01005013203',
       countryId: egypt?.id,
@@ -114,7 +114,7 @@ async function main() {
     {
       username: 'gelgel',
       email: 'mostafa@gmail.com',
-      passwordHash: '$2a$10$QHBO7om6Al91AXUn7kzVf.ftg3fMhQBDUAKUn5q7X3ymjmT5f68R2',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-12-05'),
       phone: '01005013209',
       countryId: egypt?.id,
@@ -123,7 +123,7 @@ async function main() {
     {
       username: 'Layla',
       email: 'layla@gmail.com',
-      passwordHash: '$2a$10$bE.9Z9.E1c.g2k4Z3H1fO.B5n1X2w3V4u5s6t7y8Z9A0B1c2d3E4',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2002-05-15'),
       countryId: usa?.id,
       profile: { create: { displayName: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
@@ -131,7 +131,7 @@ async function main() {
     {
       username: 'kimo',
       email: 'karim@gmail.com',
-      passwordHash: '$2a$10$fG.8h7j6K5L4M3N2P1q0R.o9s8d7f6g5h4j3k2l1I0E9F8d7c6b5',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-11-20'),
       countryId: uk?.id,
       profile: { create: { displayName: 'karim', bio: 'Just here for the memes.' } },
@@ -139,7 +139,7 @@ async function main() {
     {
       username: 'SaraA',
       email: 'sara@gmail.com',
-      passwordHash: '$2a$10$aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIjKlMnOp',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2001-03-10'),
       phone: '01001234567',
       countryId: canada?.id,
@@ -148,7 +148,7 @@ async function main() {
     {
       username: 'ZakiDev',
       email: 'ahmedz@gmail.com',
-      passwordHash: '$2a$10$QrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz012345',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-07-22'),
       countryId: germany?.id,
       profile: { create: { displayName: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
@@ -156,7 +156,7 @@ async function main() {
     {
       username: 'NourCodes',
       email: 'nour@gmail.com',
-      passwordHash: '$2a$10$1234567890AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCdEfG',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2002-09-18'),
       countryId: france?.id,
       profile: { create: { displayName: 'Nour', bio: 'Full-stack explorer.' } },
@@ -164,7 +164,7 @@ async function main() {
     {
       username: 'YoussefTech',
       email: 'youssef@gmail.com',
-      passwordHash: '$2a$10$hIjKlMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvW',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2003-02-14'),
       phone: '01009876543',
       countryId: egypt?.id,
@@ -173,7 +173,7 @@ async function main() {
     {
       username: 'FatmaDesign',
       email: 'fatma@gmail.com',
-      passwordHash: '$2a$10$xYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2004-11-30'),
       countryId: usa?.id,
       profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
@@ -545,57 +545,38 @@ async function main() {
   await prisma.tweet.update({ where: { id: youssefTweet1.id }, data: { likeCount: 2 } });
   await prisma.tweet.update({ where: { id: nourTweet1.id }, data: { likeCount: 2 } });
 
-  const groupConversation1 = await prisma.conversation.create({
-    data: {
-      conversationParticipants: {
-        create: [
-          { userId: 4, notificationsMuted: false },
-          { userId: 1, notificationsMuted: true },
-          { userId: 2, lastSeenMessageId: null },
-        ],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Hey guys, thinking of making that NestJS project open source.',
-      conversationId: groupConversation1.id,
-      userId: 4,
-      messageEntities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
-    },
-  });
-  await prisma.message.create({
-    data: {
-      content: 'Great idea! I can help with the database schema design.',
-      conversationId: groupConversation1.id,
-      userId: 1,
-      messageEntities: { text: 'Great idea! I can help with the database schema design.' },
-    },
-  });
-  const msg1_3 = await prisma.message.create({
-    data: {
-      content: "I'm in! I can set up the frontend with React/Next.js.",
-      conversationId: groupConversation1.id,
-      userId: 2,
-      messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation1.id },
-    data: { lastMessageId: msg1_3.id },
-  });
-
   const privateConv1 = await prisma.conversation.create({
     data: {
+      creatorId: 6,
       conversationParticipants: {
         create: [{ userId: 6 }, { userId: 3, lastSeenMessageId: null }],
       },
     },
   });
 
-  const privMsg1 = await prisma.message.create({
+  await prisma.message.create({
+    data: {
+      content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      conversationId: privateConv1.id,
+      userId: 6,
+      messageEntities: {
+        text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      },
+    },
+  });
+
+  await prisma.message.create({
+    data: {
+      content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      conversationId: privateConv1.id,
+      userId: 3,
+      messageEntities: {
+        text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+      },
+    },
+  });
+
+  const privMsg3 = await prisma.message.create({
     data: {
       content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
       conversationId: privateConv1.id,
@@ -608,45 +589,7 @@ async function main() {
 
   await prisma.conversation.update({
     where: { id: privateConv1.id },
-    data: { lastMessageId: privMsg1.id },
-  });
-
-  const groupConversation2 = await prisma.conversation.create({
-    data: {
-      conversationParticipants: {
-        create: [{ userId: 8 }, { userId: 12, notificationsMuted: false }, { userId: 9 }],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Team, ideas for the new app redesign?',
-      conversationId: groupConversation2.id,
-      userId: 8,
-      messageEntities: { text: 'Team, ideas for the new app redesign?' },
-    },
-  });
-  const msg2_2 = await prisma.message.create({
-    data: {
-      content: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
-      conversationId: groupConversation2.id,
-      userId: 12,
-      messageEntities: {
-        text: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
-        mentions: [
-          {
-            name: '@ZakiDev',
-            startPosition: '41',
-          },
-        ],
-      },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation2.id },
-    data: { lastMessageId: msg2_2.id },
+    data: { lastMessageId: privMsg3.id },
   });
 
   await prisma.notification.createMany({
