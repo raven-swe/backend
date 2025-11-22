@@ -89,6 +89,10 @@ export class EmailService {
   }
 
   async sendEmail(email: string, subject: string, html: string): Promise<void> {
+    if(process.env.NODE_ENV === 'testing'){ 
+      this.logger.log(`Skipping email send in testing environment to ${email} - Subject: ${subject}`);
+      return;
+    }
     const mailOptions = {
       from: `${this.name} <${this.from}>`,
       to: email,

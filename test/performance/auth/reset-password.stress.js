@@ -18,7 +18,7 @@ export const options = {
   },
 };
 
-const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3000'; 
+const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3001'; 
 
 export default function () {
   const params = {
