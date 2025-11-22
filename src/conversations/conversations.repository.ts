@@ -32,6 +32,7 @@ export class ConversationsRepository {
           select: {
             userId: true,
             notificationsMuted: true,
+            lastSeenMessageId: true,
             user: {
               select: {
                 profile: {

@@ -84,6 +84,7 @@ export class ConversationsService {
                 content: conversation.lastMessage.content,
                 senderUsername: conversation.lastMessage.user.username,
                 sentAt: conversation.lastMessage.createdAt,
+                seen: conversation.lastMessageId === currentUserParticipant.lastSeenMessageId,
               }
             : null,
           isBlocking: isBlockedByMe,
