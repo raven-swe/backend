@@ -363,6 +363,15 @@ model UserMetadataWithBio {
   bio: UserBio | null;
 }
 
+@doc("Block relationship state between two users")
+model BlockRelationship {
+  @doc("Indicates if the requesting user has blocked the other user")
+  isBlocking: boolean;
+
+  @doc("Indicates if requesting user is blocked by the other user")
+  isBlockedBy: boolean;
+}
+
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
 model UserRelationship {
   @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
@@ -475,6 +484,28 @@ model UpdatedProfile {
 
   @doc("The timestamp when the profile was last updated.")
   updatedAt: utcDateTime;
+}
+
+model UploadImageRequest {
+  @doc("Image file to upload (jpg, jpeg, png, webp). Max size: 5MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+model UploadVideoRequest {
+  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
 }
 
 @doc("The type of media file.")
@@ -706,6 +737,8 @@ model Conversation {
     @doc("Timestamp of the last message. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
     sentAt: utcDateTime;
   } | null;
+
+  ...BlockRelationship;
 
   @doc("True if notifications are muted for this conversation")
   isMuted: boolean;
@@ -2066,6 +2099,43 @@ namespace Hashtags {
     | DataResponseWithPagination<Tweet[]>
     | ValidationErrorResponse
     | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Media")
+@route("/media")
+@useAuth(BearerAuth)
+namespace Media {
+  @post
+  @route("/upload/image")
+  @summary("Upload an image media file")
+  op uploadImage(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadImageRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/video")
+  @summary("Upload a video media file")
+  op uploadVideo(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadVideoRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
