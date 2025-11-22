@@ -20,6 +20,7 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
+import { ScheduleModule } from '@nestjs/schedule';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { LoggerModule } from './logger/logger.module';
 import { AppLogger } from './logger/logger.service';
@@ -43,6 +44,7 @@ import { ConversationsModule } from './conversations/conversations.module';
         port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     OauthModule,
     UsersModule,

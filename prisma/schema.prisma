@@ -308,6 +308,7 @@ model Media {
   altText    String?      @map("alt_text")
   width      Int?
   height     Int?
+  pending    Boolean      @default(false)
   createdAt  DateTime     @default(now()) @map("created_at")
   user       User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweetMedia TweetMedia[]

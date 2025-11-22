@@ -486,6 +486,28 @@ model UpdatedProfile {
   updatedAt: utcDateTime;
 }
 
+model UploadImageRequest {
+  @doc("Image file to upload (jpg, jpeg, png, webp). Max size: 5MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+model UploadVideoRequest {
+  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
 @doc("The type of media file.")
 enum MediaType {
   IMAGE,
@@ -2067,6 +2089,43 @@ namespace Hashtags {
     | DataResponseWithPagination<Tweet[]>
     | ValidationErrorResponse
     | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Media")
+@route("/media")
+@useAuth(BearerAuth)
+namespace Media {
+  @post
+  @route("/upload/image")
+  @summary("Upload an image media file")
+  op uploadImage(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadImageRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/video")
+  @summary("Upload a video media file")
+  op uploadVideo(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadVideoRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
