@@ -106,7 +106,7 @@ export class TweetsRepository {
         },
       },
       cursor: cursor ? { id: BigInt(cursor) } : undefined,
-      take: limit,
+      take: limit || 20,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));

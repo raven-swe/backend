@@ -51,7 +51,6 @@ function validationErrorHelper(
     {
       property,
       constraints,
-      children: [],
     },
   ];
 }

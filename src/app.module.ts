@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
@@ -22,6 +22,10 @@ import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
 import { TrendingModule } from './trending/trending.module';
 import { ContentParsingModule } from './content-parsing/content-parsing.module';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { LoggerModule } from './logger/logger.module';
+import { AppLogger } from './logger/logger.service';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -55,6 +59,7 @@ import { ContentParsingModule } from './content-parsing/content-parsing.module';
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
+    LoggerModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -70,6 +75,12 @@ import { ContentParsingModule } from './content-parsing/content-parsing.module';
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
     },
+    HttpExceptionFilter,
+    AppLogger,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}
