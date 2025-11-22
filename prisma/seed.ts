@@ -474,7 +474,7 @@ async function main() {
       quotedTweetId: anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 4, startingIndex: 67 }],
+        create: [{ userId: 4, startPosition: 67 }],
       },
     },
   });
@@ -494,7 +494,7 @@ async function main() {
       quotedTweetId: laylaTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: foodHashtag.id, startingIndex: 40 }],
+        create: [{ hashtagId: foodHashtag.id, startPosition: 40 }],
       },
     },
   });
@@ -514,7 +514,7 @@ async function main() {
       quotedTweetId: laylaTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 6, startingIndex: 43 }],
+        create: [{ userId: 6, startPosition: 43 }],
       },
     },
   });
@@ -543,7 +543,7 @@ async function main() {
       quotedTweetId: fatmaTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: uiuxHashtag.id, startingIndex: 80 }],
+        create: [{ hashtagId: uiuxHashtag.id, startPosition: 80 }],
       },
     },
   });
@@ -563,7 +563,7 @@ async function main() {
       quotedTweetId: youssefTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: aiHashtag.id, startingIndex: 58 }],
+        create: [{ hashtagId: aiHashtag.id, startPosition: 58 }],
       },
     },
   });
@@ -575,7 +575,7 @@ async function main() {
       quotedTweetId: youssefTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 11, startingIndex: 57 }],
+        create: [{ userId: 11, startPosition: 57 }],
       },
     },
   });
@@ -587,7 +587,7 @@ async function main() {
       quotedTweetId: nourTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: graphqlHashtag.id, startingIndex: 66 }],
+        create: [{ hashtagId: graphqlHashtag.id, startPosition: 66 }],
       },
     },
   });
@@ -599,7 +599,7 @@ async function main() {
       quotedTweetId: nourTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 10, startingIndex: 55 }],
+        create: [{ userId: 10, startPosition: 55 }],
       },
     },
   });
@@ -762,6 +762,7 @@ async function main() {
 
   const groupConversation1 = await prisma.conversation.create({
     data: {
+      creatorId: 4,
       conversationParticipants: {
         create: [
           { userId: 4, notificationsMuted: false },
