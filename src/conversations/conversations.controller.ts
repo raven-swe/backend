@@ -36,7 +36,7 @@ export class ConversationsController {
     return await this.conversationsService.createOrFindConversation(userId, params.username);
   }
 
-  @Get('unseen-count')
+  @Get('unseen_count')
   @UseGuards(JwtAuthGuard)
   async getUnseenConversationsCount(@User() user: RequestUser) {
     const userId = BigInt(user.id);
