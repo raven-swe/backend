@@ -62,9 +62,10 @@ describe('MediaController', () => {
       };
 
       mockMediaService.uploadMedia.mockResolvedValue(expectedResponse);
+      const uploadMedia = { folder: MediaFolder.TWEETS, altText };
 
       // Act
-      const result = await controller.uploadImage(mockUser, mockFile, altText);
+      const result = await controller.uploadImage(mockUser, mockFile, uploadMedia);
 
       // Assert
       expect(result).toEqual(expectedResponse);
@@ -89,9 +90,10 @@ describe('MediaController', () => {
       };
 
       mockMediaService.uploadMedia.mockResolvedValue(expectedResponse);
+      const uploadMedia = { folder, altText: undefined };
 
       // Act
-      const result = await controller.uploadImage(mockUser, mockFile, undefined, folder);
+      const result = await controller.uploadImage(mockUser, mockFile, uploadMedia);
 
       // Assert
       expect(result).toEqual(expectedResponse);
@@ -112,9 +114,10 @@ describe('MediaController', () => {
       };
 
       mockMediaService.uploadMedia.mockResolvedValue(expectedResponse);
+      const uploadMedia = { folder: MediaFolder.TWEETS, altText: undefined };
 
       // Act
-      const result = await controller.uploadImage(mockUser, mockFile);
+      const result = await controller.uploadImage(mockUser, mockFile, uploadMedia);
 
       // Assert
       expect(result).toEqual(expectedResponse);
@@ -132,8 +135,9 @@ describe('MediaController', () => {
       const error = new Error('Service failure');
       mockMediaService.uploadMedia.mockRejectedValue(error);
 
+      const uploadMedia = { folder: MediaFolder.TWEETS, altText: undefined };
       // Act & Assert
-      await expect(controller.uploadImage(mockUser, mockFile)).rejects.toThrow(error);
+      await expect(controller.uploadImage(mockUser, mockFile, uploadMedia)).rejects.toThrow(error);
     });
   });
 
@@ -151,9 +155,10 @@ describe('MediaController', () => {
       };
 
       mockMediaService.uploadMedia.mockResolvedValue(expectedResponse);
+      const uploadMedia = { folder: MediaFolder.TWEETS, altText };
 
       // Act
-      const result = await controller.uploadVideo(mockUser, mockFile, altText);
+      const result = await controller.uploadVideo(mockUser, mockFile, uploadMedia);
 
       // Assert
       expect(result).toEqual(expectedResponse);
@@ -172,9 +177,10 @@ describe('MediaController', () => {
       const expectedResponse = { items: { url: 'url', id: '1' }, message: 'Success' };
 
       mockMediaService.uploadMedia.mockResolvedValue(expectedResponse);
+      const uploadMedia = { folder, altText: undefined };
 
       // Act
-      const result = await controller.uploadVideo(mockUser, mockFile, undefined, folder);
+      const result = await controller.uploadVideo(mockUser, mockFile, uploadMedia);
 
       // Assert
       expect(result).toEqual(expectedResponse);
@@ -191,9 +197,10 @@ describe('MediaController', () => {
       const mockFile = createMockFile('video.mp4', 'video/mp4');
       const error = new Error('Upload failed');
       mockMediaService.uploadMedia.mockRejectedValue(error);
+      const uploadMedia = { folder: MediaFolder.TWEETS, altText: undefined };
 
       // Act & Assert
-      await expect(controller.uploadVideo(mockUser, mockFile)).rejects.toThrow(error);
+      await expect(controller.uploadVideo(mockUser, mockFile, uploadMedia)).rejects.toThrow(error);
     });
   });
 });
