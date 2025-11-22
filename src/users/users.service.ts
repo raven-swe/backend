@@ -952,4 +952,8 @@ export class UsersService {
   async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
     return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
   }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
+  }
 }
