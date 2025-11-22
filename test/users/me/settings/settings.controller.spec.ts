@@ -987,9 +987,6 @@ describe('SettingsController', () => {
     });
   });
 
-
-
-
   describe('GET /users/me/settings/blocks', () => {
     const mockUser = { id: '1' };
 
@@ -1044,7 +1041,6 @@ describe('SettingsController', () => {
           hasNextPage: false,
         },
       };
-
 
       mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
 

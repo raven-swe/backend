@@ -16,7 +16,7 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
-import { BlocksCursor, FollowsCursor ,MutesCursor} from 'src/common/interfaces';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 
 @Injectable()

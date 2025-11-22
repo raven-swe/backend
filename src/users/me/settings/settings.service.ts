@@ -15,11 +15,8 @@ import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { RedisService } from 'src/redis/redis.service';
 import { generateAndStoreOtp } from 'src/auth/utils';
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
-import { BlocksCursor , MutesCursor } from 'src/common/interfaces';
-import {
-  PAGINATION_ERROR_CODES,
-  PAGINATION_ERROR_MESSAGES,
-} from 'src/common/constants';
+import { BlocksCursor, MutesCursor } from 'src/common/interfaces';
+import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 
 interface CachedEmailUpdateData {
   userId: string;
