@@ -277,6 +277,8 @@ enum Gender {
   Female,
 }
 
+alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
+alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
@@ -1065,6 +1067,20 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+    @summary("List a user's blocks")
+    @get
+    @route("/blocks")
+    op listUserBlocks(
+      ...CursorPaginationParameters,
+    ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+
     @get
     @route("/sessions")
     @summary("Retrieve all active and recent sessions for the authenticated user.")
@@ -1406,4 +1422,27 @@ namespace Tweets {
     | UnauthorizedResponse
     | ForbiddenResponse
     | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
+@useAuth(BearerAuth)
+namespace Onboarding {
+  @get
+  @route("/username-suggestions")
+  @summary("Get username suggestions for the authenticated user")
+  @doc("""
+    Generates username suggestions based on either:
+    - User's display name (default): If 'typed' parameter is not provided
+    - Custom input: If 'typed' parameter is provided, suggestions are generated from that input
+    
+    The endpoint will generate up to 3 username suggestions that are available (not taken by other users).
+    """)
+  op getUsernameSuggestions(
+    @query
+    @doc("Optional custom text to generate usernames from. If provided, suggestions will be based on this input instead of the user's display name.")
+    typed?: string,
+  ): DataResponse<{
+    suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

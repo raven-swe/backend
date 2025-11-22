@@ -7,8 +7,10 @@ import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from '.
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { createValidationError, FollowsCursor } from 'src/common/utils';
 import { PlainMention } from 'src/tweets/interfaces';
+import { createValidationError } from 'src/common/utils';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
+
 @Injectable()
 export class UsersRepository {
   private readonly logger = new Logger(UsersRepository.name);
@@ -47,6 +49,28 @@ export class UsersRepository {
     return await this.prisma.user.findUnique({
       where: { id },
       include: { profile: true },
+    });
+  }
+
+  async findTakenUsernames(candidates: string[]): Promise<Set<string>> {
+    const taken = await this.prisma.user.findMany({
+      where: { username: { in: candidates } },
+      select: { username: true },
+    });
+    return new Set(taken.map((r) => r.username));
+  }
+
+  async getUserEmailAndDisplayName(userId: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
     });
   }
 
@@ -1063,6 +1087,69 @@ export class UsersRepository {
       });
 
       return { bannerUrl: profile?.bannerUrl || null };
+    });
+  }
+  async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return await this.prisma.mute.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_mutedId: {
+              userId: BigInt(prevCursor.userId),
+              mutedId: BigInt(prevCursor.mutedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { mutedId: 'asc' }],
+      include: {
+        mutedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return await this.prisma.block.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_blockedId: {
+              userId: BigInt(prevCursor.userId),
+              blockedId: BigInt(prevCursor.blockedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { blockedId: 'asc' }],
+      include: {
+        blockedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

@@ -1,17 +1,13 @@
 meta {
-  name: logout
+  name: mutes
   type: http
-  seq: 13
+  seq: 16
 }
 
-post {
-  url: http://localhost:3000/auth/logout
+get {
+  url: {{base_url}}/me/settings/mutes
   body: none
   auth: bearer
-}
-
-headers {
-  X-Client-Type: web
 }
 
 auth:bearer {

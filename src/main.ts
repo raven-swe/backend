@@ -3,9 +3,13 @@ import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import cookieParser from 'cookie-parser';
+import { AppLogger } from './logger/logger.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true, // buffers initial logs until winston is attached
+  });
+
   app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -21,7 +25,8 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useLogger(app.get(AppLogger));
+  app.useGlobalFilters(app.get(HttpExceptionFilter));
 
   await app.listen(process.env.PORT ?? 3000);
 }
