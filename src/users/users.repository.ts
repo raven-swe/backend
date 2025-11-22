@@ -336,6 +336,15 @@ export class UsersRepository {
     return existingUser && existingUser.id !== userId ? existingUser : null;
   }
 
+  async getUserByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username: username },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   async updateUserEmail(
     userId: bigint,
     emailUpdateData: {
@@ -1090,6 +1099,7 @@ export class UsersRepository {
       return { bannerUrl: profile?.bannerUrl || null };
     });
   }
+
   async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
     return await this.prisma.mute.findMany({
       where: { userId },
@@ -1159,6 +1169,14 @@ export class UsersRepository {
       data: {
         userId,
         displayName,
+      },
+    });
+  }
+
+  async getUserBlockedBy(userId: bigint) {
+    return this.prisma.block.findMany({
+      where: {
+        blockedId: userId,
       },
     });
   }
