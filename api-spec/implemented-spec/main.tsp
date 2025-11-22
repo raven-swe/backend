@@ -250,6 +250,7 @@ enum Gender {
   Female,
 }
 
+alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
@@ -1060,6 +1061,14 @@ namespace Me {
       | ValidationErrorResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @summary("List a user's blocks")
+    @get
+    @route("/blocks")
+    op listUserBlocks(
+      ...CursorPaginationParameters,
+    ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
 
     @get
     @route("/sessions")

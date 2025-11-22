@@ -8,20 +8,17 @@ import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import {
-  decodeCompositeCursor,
-  paginateComposite,
-  createValidationError,
-  FollowsCursor,
-} from 'src/common/utils';
+import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
 
 import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { validateNewPasswordFormat } from './utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { MediaFolder } from 'src/media/enums';
+import { BlocksCursor, FollowsCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -951,6 +948,10 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+
+  async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
   }
 
   async createProfile(userId: bigint, displayName: string) {
