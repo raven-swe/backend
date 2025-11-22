@@ -238,7 +238,7 @@ export class MediaService {
    *
    * For each found record, it deletes the file from S3 and the record from the database.
    */
-  @Cron(CronExpression.EVERY_WEEK)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanUpPendingMedia() {
     this.logger.log('Starting cleanup of pending media...');
 
