@@ -202,6 +202,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
           displayName: user.displayName,
           avatarUrl: user.avatarUrl,
         },
+        clientMessageId: payload.clientMessageId,
         body: message.content,
         createdAt: message.createdAt,
       },
