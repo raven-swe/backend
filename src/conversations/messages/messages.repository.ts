@@ -73,12 +73,22 @@ export class MessagesRepository {
   }
 
   async createMessage(conversationId: bigint, senderId: bigint, body: string) {
-    return this.prisma.message.create({
+    const message = await this.prisma.message.create({
       data: {
         userId: senderId,
         conversationId,
         content: body,
       },
     });
+
+    await this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        lastMessageId: message.id,
+      },
+    });
+    return message;
   }
 }
