@@ -558,6 +558,24 @@ async function main() {
     },
   });
 
+  const privateConv2 = await prisma.conversation.create({
+    data: {
+      creatorId: 6,
+      conversationParticipants: {
+        create: [
+          {
+            userId: 6,
+            notificationsMuted: false,
+          },
+          {
+            userId: 1,
+            notificationsMuted: false,
+          },
+        ],
+      },
+    },
+  });
+
   await prisma.message.create({
     data: {
       content: 'Hey guys, thinking of making that NestJS project open source.',
@@ -581,6 +599,35 @@ async function main() {
       userId: 2,
       messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
     },
+  });
+
+  await prisma.message.create({
+    data: {
+      content: 'Has anyone reviewed the API documentation I pushed yesterday?',
+      conversationId: privateConv2.id,
+      userId: 6,
+    },
+  });
+
+  await prisma.message.create({
+    data: {
+      content: 'Not yet, but I’ll go through it after finishing the auth module.',
+      conversationId: privateConv2.id,
+      userId: 1,
+    },
+  });
+
+  const msg2_3 = await prisma.message.create({
+    data: {
+      content: 'I can take a look too. Maybe we should standardize error responses.',
+      conversationId: privateConv2.id,
+      userId: 1,
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: privateConv2.id },
+    data: { lastMessageId: msg2_3.id },
   });
 
   await prisma.conversation.update({
