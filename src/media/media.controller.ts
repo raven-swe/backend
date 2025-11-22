@@ -5,8 +5,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { MAX_FILE_SIZE_BYTES, MAX_VIDEO_FILE_SIZE_BYTES } from './constants/media.constant';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
-import { MediaFolder } from './enums';
 import { imageFileFilter, videoFileFilter } from './validators/media-file.validator';
+import { UploadMedia } from './dtos/upload-media.dto';
 
 @Controller('media')
 export class MediaController {
@@ -23,10 +23,9 @@ export class MediaController {
   async uploadImage(
     @User() user: RequestUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body('altText') altText?: string,
-    @Body('folder') folder: MediaFolder = MediaFolder.TWEETS,
+    @Body() body: UploadMedia,
   ) {
-    return this.mediaService.uploadMedia(BigInt(user.id), file, folder, altText);
+    return this.mediaService.uploadMedia(BigInt(user.id), file, body.folder, body.altText);
   }
 
   @Post('/upload/video')
@@ -40,9 +39,8 @@ export class MediaController {
   async uploadVideo(
     @User() user: RequestUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body('altText') altText?: string,
-    @Body('folder') folder: MediaFolder = MediaFolder.TWEETS,
+    @Body() body: UploadMedia,
   ) {
-    return this.mediaService.uploadMedia(BigInt(user.id), file, folder, altText);
+    return this.mediaService.uploadMedia(BigInt(user.id), file, body.folder, body.altText);
   }
 }
