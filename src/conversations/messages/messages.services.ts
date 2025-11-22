@@ -120,6 +120,7 @@ export class MessagesService {
       lastSeenMessageId: updatedParticipant.lastSeenMessageId?.toString() ?? null,
       seenAt: new Date(),
       unseenCount: updatedParticipant.unseenCount,
+      username: updatedParticipant.latestMessageUsername,
     };
   }
 

@@ -36,12 +36,20 @@ export class MessagesRepository {
     const latestMessage = await this.prisma.message.findFirst({
       where: { conversationId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true },
+      select: {
+        id: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
     });
 
     if (!latestMessage) {
       return {
         lastSeenMessageId: null,
+        latestMessageUsername: null,
         unseenCount: 0,
       };
     }
@@ -69,6 +77,7 @@ export class MessagesRepository {
     return {
       ...updated,
       unseenCount,
+      latestMessageUsername: latestMessage.user.username,
     };
   }
 
