@@ -14,13 +14,13 @@ import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants
 import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { RedisService } from 'src/redis/redis.service';
 import { generateAndStoreOtp } from 'src/auth/utils';
-
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
-import { MutesCursor } from 'src/common/interfaces';
+import { BlocksCursor , MutesCursor } from 'src/common/interfaces';
 import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
-} from 'src/common/constants/pagination-error-codes';
+} from 'src/common/constants';
+
 interface CachedEmailUpdateData {
   userId: string;
   otp: string;
@@ -272,6 +272,38 @@ export class SettingsService {
     const items = mutedUsers.map((b) => ({
       ...b.mutedUser.profile,
       username: b.mutedUser.username,
+    }));
+
+    return { items, pagination };
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number = 20, prevCursor?: string) {
+    let decoded: BlocksCursor | undefined;
+
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<BlocksCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersService.getUserBlocks(userId, limit + 1, decoded);
+
+    const pagination = paginateComposite(blockedUsers, limit, prevCursor, (item) => ({
+      userId: item.userId.toString(),
+      blockedId: item.blockedId.toString(),
+    }));
+
+    const items = blockedUsers.map((b) => ({
+      ...b.blockedUser.profile,
+      username: b.blockedUser.username,
     }));
 
     return { items, pagination };

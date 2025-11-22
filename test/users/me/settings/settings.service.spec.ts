@@ -45,6 +45,7 @@ describe('SettingsService', () => {
     getSessions: jest.fn(),
     deleteSession: jest.fn(),
     getUserMutes: jest.fn(),
+    getUserBlocks: jest.fn(),
   };
 
   const mockRedisService = {
@@ -859,6 +860,7 @@ describe('SettingsService', () => {
     const limit = 2;
 
     // Helper to encode a valid cursor
+
     const encodeValidCursor = (userId: string, mutedId: string): string => {
       const cursorObj = { userId, mutedId };
       return Buffer.from(JSON.stringify(cursorObj)).toString('base64');
@@ -986,7 +988,6 @@ describe('SettingsService', () => {
           },
         },
       ];
-
       mockUsersService.getUserMutes.mockResolvedValue(mockmutedUsers);
 
       // Act
@@ -1047,6 +1048,207 @@ describe('SettingsService', () => {
       // Act & Assert
       await expect(service.getUserMutedUsers(userId, limit)).rejects.toThrow('Database error');
       expect(mockUsersService.getUserMutes).toHaveBeenCalledWith(userId, limit + 1, undefined);
+    });
+  });
+
+
+
+	      ///////////////////////////////////////////////////////////////////////
+  describe('getUserBlockedUsers', () => {
+    const userId = BigInt(1);
+    const limit = 2;
+
+    // Helper to encode a valid cursor
+    const encodeValidCursor = (userId: string, blockedId: string): string => {
+      const cursorObj = { userId, blockedId };
+      return Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+    };
+
+    beforeEach(() => {
+      // Add getUserBlocks to mock if not already present
+      if (!mockUsersService.getUserBlocks) {
+        mockUsersService.getUserBlocks = jest.fn();
+      }
+    });
+
+    it('should return blocked users without cursor (first page)', async () => {
+      // Arrange: 3 blocked users returned (limit+1 to detect hasNextPage)
+      const mockBlockedUsers = [
+        {
+          userId: BigInt(1),
+          blockedId: BigInt(2),
+          createdAt: new Date(),
+          blockedUser: {
+            id: BigInt(2),
+            username: 'blocked1',
+            profile: {
+              displayName: 'Blocked One',
+              bio: 'Bio 1',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar1.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          blockedId: BigInt(3),
+          createdAt: new Date(),
+          blockedUser: {
+            id: BigInt(3),
+            username: 'blocked2',
+            profile: {
+              displayName: 'Blocked Two',
+              bio: 'Bio 2',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar2.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          blockedId: BigInt(4),
+          createdAt: new Date(),
+          blockedUser: {
+            id: BigInt(4),
+            username: 'blocked3',
+            profile: {
+              displayName: 'Blocked Three',
+              bio: 'Bio 3',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar3.jpg',
+            },
+          },
+        },
+      ];
+
+      mockUsersService.getUserBlocks.mockResolvedValue(mockBlockedUsers);
+
+      // Act
+      const result = await service.getUserBlockedUsers(userId, limit);
+
+      // Assert
+      expect(mockUsersService.getUserBlocks).toHaveBeenCalledWith(
+        userId,
+        limit + 1,
+        undefined, // no cursor decoded
+      );
+
+      // Only first 2 items returned (limit=2), third is used for pagination
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        displayName: 'Blocked One',
+        bio: 'Bio 1',
+        username: 'blocked1',
+      });
+      expect(result.items[1]).toMatchObject({
+        displayName: 'Blocked Two',
+        bio: 'Bio 2',
+        username: 'blocked2',
+      });
+
+      // Pagination should indicate next page
+      expect(result.pagination.hasNextPage).toBe(true);
+      expect(result.pagination.nextCursor).toBeTruthy();
+    });
+
+    it('should return blocked users with valid cursor (subsequent page)', async () => {
+      // Arrange
+      const validCursor = encodeValidCursor('1', '2'); // userId=1, blockedId=2
+      const mockBlockedUsers = [
+        {
+          userId: BigInt(1),
+          blockedId: BigInt(5),
+          createdAt: new Date(),
+          blockedUser: {
+            id: BigInt(5),
+            username: 'blocked5',
+            profile: {
+              displayName: 'Blocked Five',
+              bio: 'Bio 5',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar5.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          blockedId: BigInt(6),
+          createdAt: new Date(),
+          blockedUser: {
+            id: BigInt(6),
+            username: 'blocked6',
+            profile: {
+              displayName: 'Blocked Six',
+              bio: 'Bio 6',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar6.jpg',
+            },
+          },
+        },
+      ];
+
+      mockUsersService.getUserBlocks.mockResolvedValue(mockBlockedUsers);
+
+      // Act
+      const result = await service.getUserBlockedUsers(userId, limit, validCursor);
+
+      // Assert
+      expect(mockUsersService.getUserBlocks).toHaveBeenCalledWith(
+        userId,
+        limit + 1,
+        { userId: '1', blockedId: '2' }, // decoded cursor
+      );
+
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination.cursor).toBe(validCursor); // prevCursor echoed back
+      expect(result.pagination.hasNextPage).toBe(false); // only 2 items, no extra
+    });
+
+    it('should throw BadRequest for invalid cursor format', async () => {
+      // Arrange: a cursor that is not valid base64 JSON
+      const invalidCursor = 'not-valid-base64!!!';
+
+      // Act & Assert
+      await expect(service.getUserBlockedUsers(userId, limit, invalidCursor)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(service.getUserBlockedUsers(userId, limit, invalidCursor)).rejects.toMatchObject(
+        {
+          response: {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          status: HttpStatus.BAD_REQUEST,
+        },
+      );
+
+      expect(mockUsersService.getUserBlocks).not.toHaveBeenCalled();
+    });
+
+    it('should use default limit (20) when no limit provided', async () => {
+      // Arrange
+      mockUsersService.getUserBlocks.mockResolvedValue([]);
+
+      // Act
+      await service.getUserBlockedUsers(userId);
+
+      // Assert
+      expect(mockUsersService.getUserBlocks).toHaveBeenCalledWith(
+        userId,
+        21, // default limit + 1
+        undefined,
+      );
+    });
+
+    it('should pass through service errors', async () => {
+      // Arrange
+      const error = new Error('Database error');
+      mockUsersService.getUserBlocks.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.getUserBlockedUsers(userId, limit)).rejects.toThrow('Database error');
+      expect(mockUsersService.getUserBlocks).toHaveBeenCalledWith(userId, limit + 1, undefined);
     });
   });
 });

@@ -41,6 +41,7 @@ import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
+import { PAGINATION } from 'src/common/constants';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { PAGINATION } from 'src/common/constants';
 
@@ -292,6 +293,29 @@ export class SettingsController {
       parsedLimit,
       cursor,
     );
+    return { items, pagination };
+  }
+
+  @Get('blocks')
+  @UseGuards(JwtAuthGuard)
+  async getUserBlockedUsers(
+    @User() user: RequestUser,
+    //TODO: should be replaced with PaginationQueryDto
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+    const { items, pagination } = await this.settingsService.getUserBlockedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    // TODO:  const itemsDto = plainToInstance(CompactUserDto, items); after merging the follows
     return { items, pagination };
   }
 }

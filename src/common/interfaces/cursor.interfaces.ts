@@ -7,3 +7,8 @@ export type MutesCursor = {
   userId: string;
   mutedId: string;
 };
+
+export type BlocksCursor = {
+  userId: string;
+  blockedId: string;
+};

@@ -1,0 +1,25 @@
+meta {
+  name: blocks
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{base_url}}/me/settings/blocks?limit=100&cursor=eyJ1c2VySWQiOiI1IiwiYmxvY2tlZElkIjoiOCJ9
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 100
+  cursor: eyJ1c2VySWQiOiI1IiwiYmxvY2tlZElkIjoiOCJ9
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
