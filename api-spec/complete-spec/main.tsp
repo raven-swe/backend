@@ -363,6 +363,15 @@ model UserMetadataWithBio {
   bio: UserBio | null;
 }
 
+@doc("Block relationship state between two users")
+model BlockRelationship {
+  @doc("Indicates if the requesting user has blocked the other user")
+  isBlocking: boolean;
+
+  @doc("Indicates if requesting user is blocked by the other user")
+  isBlockedBy: boolean;
+}
+
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
 model UserRelationship {
   @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
@@ -706,6 +715,8 @@ model Conversation {
     @doc("Timestamp of the last message. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
     sentAt: utcDateTime;
   } | null;
+
+  ...BlockRelationship;
 
   @doc("True if notifications are muted for this conversation")
   isMuted: boolean;
