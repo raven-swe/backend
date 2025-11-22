@@ -37,6 +37,7 @@ import { createValidationError, generateUsernames } from 'src/common/utils';
 import type { RequestUser } from '../common/interfaces';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UsersRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +50,7 @@ export class AuthService {
     private readonly devicesService: DevicesService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
+    private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
@@ -164,15 +166,13 @@ export class AuthService {
     const hashedPassword = await hashPassword(completeRegistrationDto.password);
 
     const generated = await generateUsernames(
+      this.usersRepository,
       registrationData.name,
       registrationData.email,
       undefined,
       1,
     );
-    // Fallback to email if username generation fails
-    // VERY VERY UNLIKELY TO HAPPEN
-    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
-    const username = generated && generated.length > 0 ? generated[0] : registrationData.email;
+    const username = generated[0];
 
     const userData = {
       email: registrationData.email,

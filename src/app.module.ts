@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
@@ -21,6 +21,9 @@ import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
 import { ScheduleModule } from '@nestjs/schedule';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { LoggerModule } from './logger/logger.module';
+import { AppLogger } from './logger/logger.service';
 
 @Module({
   imports: [
@@ -54,6 +57,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     MediaModule,
     TweetsModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
+    LoggerModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -69,6 +73,12 @@ import { ScheduleModule } from '@nestjs/schedule';
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
     },
+    HttpExceptionFilter,
+    AppLogger,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}
