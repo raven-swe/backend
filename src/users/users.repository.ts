@@ -1,14 +1,13 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { NewUser } from './interfaces/NewUser.interface';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { UpdateProfileDto } from './dtos/update-profile.dto';
-import { UserProfileResponseDto, UserRelationshipDto } from './dtos/user-profile-response.dto';
-import { DEFAULT_PROFILE_PICTURE } from './constants/users';
+import { NewUser } from './interfaces';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
+import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { createValidationError, FollowsCursor } from 'src/common/utils';
 
 @Injectable()
 export class UsersRepository {
@@ -44,6 +43,35 @@ export class UsersRepository {
     });
   }
 
+  async findByIdWithProfile(id: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      include: { profile: true },
+    });
+  }
+
+  async findTakenUsernames(candidates: string[]): Promise<Set<string>> {
+    const taken = await this.prisma.user.findMany({
+      where: { username: { in: candidates } },
+      select: { username: true },
+    });
+    return new Set(taken.map((r) => r.username));
+  }
+
+  async getUserEmailAndDisplayName(userId: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+  }
+
   async createUser(newUser: NewUser, prismaClient: Prisma.TransactionClient = this.prisma) {
     const { email, passwordHash, username, languageCode, birthDate } = newUser;
     return await prismaClient.user.create({
@@ -64,7 +92,12 @@ export class UsersRepository {
     });
   }
 
-  async updateProfile(userId: bigint, data: UpdateProfileDto) {
+  async updateProfile(
+    userId: bigint,
+    data: UpdateProfileDto,
+    avatarUrl?: string | null,
+    bannerUrl?: string | null,
+  ) {
     return await this.prisma.$transaction(async (tx) => {
       let birthDate: string | undefined = undefined;
 
@@ -83,8 +116,8 @@ export class UsersRepository {
       if (data.bio !== undefined) prismaData.bio = data.bio;
       if (data.location !== undefined) prismaData.location = data.location;
       if (data.websiteUrl !== undefined) prismaData.websiteUrl = data.websiteUrl;
-      if (data.avatarUrl !== undefined) prismaData.avatarUrl = data.avatarUrl;
-      if (data.bannerUrl !== undefined) prismaData.bannerUrl = data.bannerUrl;
+      if (avatarUrl !== undefined) prismaData.avatarUrl = avatarUrl;
+      if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
 
       // Only update if there are fields to update
       let profile;
@@ -239,7 +272,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.username === newUsername) {
@@ -321,6 +354,42 @@ export class UsersRepository {
     });
   }
 
+  async getUserFollowings(
+    requestedUserId: bigint,
+    excludeFollowerIds: bigint[],
+    limit: number,
+    prevCursor: FollowsCursor | undefined,
+  ) {
+    return await this.prisma.follow.findMany({
+      where: { followerId: requestedUserId, followedId: { notIn: excludeFollowerIds } },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
+      include: {
+        followedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                bioEntities: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
   async followUser(followerId: bigint, followedId: bigint) {
     await this.prisma.follow.create({
       data: {
@@ -341,6 +410,91 @@ export class UsersRepository {
     });
   }
 
+  async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+    return follows.map((f) => f.followedId);
+  }
+
+  async getUserMutualFollowers(
+    requestedUserId: bigint,
+    authFollowedIds: bigint[],
+    excludeFollowedIds: bigint[],
+    limit: number,
+    prevCursor: FollowsCursor | undefined,
+  ) {
+    return await this.prisma.follow.findMany({
+      where: {
+        followedId: requestedUserId,
+        followerId: { in: authFollowedIds, notIn: excludeFollowedIds }, // Filter at DB level
+      },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
+      include: {
+        followerUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                bioEntities: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getUserFollowers(
+    requestedUserId: bigint,
+    excludeFollowerIds: bigint[],
+    limit: number,
+    prevCursor: FollowsCursor | undefined,
+  ) {
+    return await this.prisma.follow.findMany({
+      where: { followedId: requestedUserId, followerId: { notIn: excludeFollowerIds } },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            followerId_followedId: {
+              followerId: BigInt(prevCursor.followerId),
+              followedId: BigInt(prevCursor.followedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { followerId: 'asc' }, { followedId: 'asc' }],
+      include: {
+        followerUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                bio: true,
+                avatarUrl: true,
+                bioEntities: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
   async isFollowing(followerId: bigint, followedId: bigint) {
     const follow = await this.prisma.follow.findUnique({
       where: {
@@ -398,6 +552,18 @@ export class UsersRepository {
     });
   }
 
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.prisma.follow.findMany({
+      where: {
+        OR: [
+          { followerId: userId, followedId: { in: userIds } }, // user-> them
+          { followerId: { in: userIds }, followedId: userId }, // them -> user
+        ],
+      },
+      select: { followerId: true, followedId: true },
+    });
+  }
+
   async isBlocked(userId: bigint, blockedId: bigint) {
     const block = await this.prisma.block.findUnique({
       where: {
@@ -442,6 +608,15 @@ export class UsersRepository {
     return !!mute || (await this.isBlocked(userId, mutedId));
   }
 
+  async getUserBlocks(userId: bigint) {
+    return await this.prisma.block.findMany({
+      where: {
+        userId,
+      },
+      select: { userId: true, blockedId: true },
+    });
+  }
+
   async areUsersBlocked(firstUserId: bigint, secondUserId: bigint): Promise<boolean> {
     const block = await this.prisma.block.findFirst({
       where: {
@@ -478,7 +653,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.deletedAt)
@@ -529,7 +704,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -553,7 +728,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     const userExternalAccounts = await this.prisma.userExternalAccount.findMany({
@@ -587,7 +762,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.passwordHash) {
@@ -660,7 +835,7 @@ export class UsersRepository {
     if (!country)
       throw new BadRequestException(
         createValidationError('invalidCountry', {
-          invalidCountry: 'The country you entered is not supported',
+          invalidCountry: USERS_ERROR_MESSAGES.INVALID_COUNTRY,
         }),
       );
 
@@ -694,7 +869,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     if (user.country && user.country.name === country.name) return;
@@ -722,7 +897,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -744,7 +919,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     await this.prisma.user.update({
@@ -783,7 +958,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     let currentDeviceId: bigint | null = null;
@@ -837,7 +1012,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     let currentDeviceId: bigint | null = null;
@@ -858,7 +1033,7 @@ export class UsersRepository {
           message: USERS_ERROR_MESSAGES.CANNOT_DELETE_CURRENT_SESSION,
           code: USERS_ERROR_CODES.CANNOT_DELETE_CURRENT_SESSION,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.FORBIDDEN,
       );
     const sessionToBeDeleted = user.userDevices.find((device) => device.id === sessionId);
 
@@ -910,6 +1085,15 @@ export class UsersRepository {
       });
 
       return { bannerUrl: profile?.bannerUrl || null };
+    });
+  }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return await this.prisma.profile.create({
+      data: {
+        userId,
+        displayName,
+      },
     });
   }
 }

@@ -2,12 +2,12 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { S3Service } from './s3/s3.service';
 import { MediaRepository } from './media.repository';
-import { MediaFolder } from './enums/media-folder.enum';
+import { MediaFolder } from './enums';
 import sharp from 'sharp';
-import { MediaDto } from './dtos/media.dto';
-import { detectMediaType } from './utils/detect-media-type.util';
+import { MediaDto } from './dtos';
+import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
-import { MEDIA_CODES, MEDIA_MESSAGES } from './constants/media.constant';
+import { MEDIA_CODES, MEDIA_MESSAGES } from './constants';
 
 @Injectable()
 export class MediaService {
@@ -89,7 +89,7 @@ export class MediaService {
           message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
           code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
   }
@@ -172,13 +172,12 @@ export class MediaService {
     }
   }
 
-  async uploadAvatarAndBanner(
+  async uploadAvatarOrBanner(
     userId: bigint,
     files: {
-      avatar?: Express.Multer.File[];
-      banner?: Express.Multer.File[];
+      avatar?: Express.Multer.File;
+      banner?: Express.Multer.File;
     },
-    altText?: string,
   ) {
     const { avatar, banner } = files;
     let avatarUrl: string | null = null;
@@ -194,14 +193,14 @@ export class MediaService {
       );
     }
 
-    if (avatar && avatar.length > 0) {
-      avatarUrl = await this.uploadAndSaveMedia(avatar[0], userId, MediaFolder.AVATARS, altText);
+    if (avatar) {
+      avatarUrl = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS);
     }
 
-    if (banner && banner.length > 0) {
-      bannerUrl = await this.uploadAndSaveMedia(banner[0], userId, MediaFolder.BANNERS, altText);
+    if (banner) {
+      bannerUrl = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS);
     }
 
-    return { message: 'Avatar and/or banner uploaded successfully', avatarUrl, bannerUrl };
+    return { avatarUrl, bannerUrl };
   }
 }

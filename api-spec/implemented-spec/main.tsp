@@ -221,6 +221,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model FollowingUser {
+  ...CompactUser;
+  isFollowing: boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
+}
+
 model AccountInfo {
   username: string;
   email: string | null;
@@ -243,6 +250,8 @@ enum Gender {
   Female,
 }
 
+alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -446,8 +455,20 @@ model UserBio {
   bioEntities: BioEntities | null;
 }
 
-@doc("Request body for updating profile")
+@doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
+  @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
+  data: HttpPart<ProfileDataFields>;
+
+  @doc("Avatar image file (jpg, jpeg, png). Max size: 5MB")
+  avatar?: HttpPart<bytes>;
+
+  @doc("Banner image file (jpg, jpeg, png). Max size: 5MB")
+  banner?: HttpPart<bytes>;
+}
+
+@doc("Profile data fields (sent as JSON string in 'data' field)")
+model ProfileDataFields {
   @doc("The user's display name.")
   @minLength(1)
   @maxLength(100)
@@ -475,6 +496,12 @@ model UpdateProfileRequest {
   @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   bannerUrl?: string | null;
+
+  @doc("Set to true to delete the current banner (If bannerUrl is also provided, a conflict error will be returned).")
+  deleteBanner?: boolean;
+
+  @doc("Set to true to delete the current avatar (If avatarUrl is also provided, a conflict error will be returned).")
+  deleteAvatar?: boolean;
 }
 
 model UpdatedProfile {
@@ -816,7 +843,10 @@ namespace Me {
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
-  op updateMyProfile(@body body: UpdateProfileRequest):
+  op updateMyProfile(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UpdateProfileRequest,
+  ):
     | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
@@ -1117,32 +1147,63 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-  @route("/{username}/following")
-  namespace Following {
-    @summary("Follow a user")
-    @post
-    op followUser(
-      @path
-      username: string,
-    ):
-      | FollowUserResponse
+  namespace Follows {
+    @summary("List a user's followers")
+    @get
+    @route("/{username}/followers")
+    op listUserFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
-      | ConflictResponse
       | UnauthorizedResponse
-      | ForbiddenResponse
       | InternalServerErrorResponse;
 
-    @summary("Unfollow a user")
-    @delete
-    op unfollowUser(
-      @path
-      username: string,
-    ):
-      | UnfollowUserResponse
-      | NotFoundResponse
+    @get
+    @route("/{username}/mutual")
+    @summary("List mutual followers with a user given their username")
+    op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
       | BadRequestResponse
+      | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @route("/{username}/following")
+    namespace Following {
+      @summary("List users a user is following")
+      @get
+      op listUserFollowing(@path username: string, ...CursorPaginationParameters):
+        | FollowingListResponse
+        | BadRequestResponse
+        | NotFoundResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+
+      @summary("Follow a user")
+      @post
+      op followUser(
+        @path
+        username: string,
+      ):
+        | FollowUserResponse
+        | NotFoundResponse
+        | ConflictResponse
+        | UnauthorizedResponse
+        | ForbiddenResponse
+        | InternalServerErrorResponse;
+
+      @summary("Unfollow a user")
+      @delete
+      op unfollowUser(
+        @path
+        username: string,
+      ):
+        | UnfollowUserResponse
+        | NotFoundResponse
+        | BadRequestResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+    }
   }
 }
 
@@ -1296,4 +1357,27 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
+@useAuth(BearerAuth)
+namespace Onboarding {
+  @get
+  @route("/username-suggestions")
+  @summary("Get username suggestions for the authenticated user")
+  @doc("""
+    Generates username suggestions based on either:
+    - User's display name (default): If 'typed' parameter is not provided
+    - Custom input: If 'typed' parameter is provided, suggestions are generated from that input
+    
+    The endpoint will generate up to 3 username suggestions that are available (not taken by other users).
+    """)
+  op getUsernameSuggestions(
+    @query
+    @doc("Optional custom text to generate usernames from. If provided, suggestions will be based on this input instead of the user's display name.")
+    typed?: string,
+  ): DataResponse<{
+    suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

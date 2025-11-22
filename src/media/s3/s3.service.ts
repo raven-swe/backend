@@ -9,7 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { MEDIA_CODES, MEDIA_MESSAGES } from '../constants/media.constant';
+import { MEDIA_CODES, MEDIA_MESSAGES } from '../constants';
 
 @Injectable()
 export class S3Service {

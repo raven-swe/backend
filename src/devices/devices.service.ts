@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DevicesRepository } from './devices.repository';
-import { Device } from '../devices/interfaces/device.interface';
+import { Device } from '../devices/interfaces';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
