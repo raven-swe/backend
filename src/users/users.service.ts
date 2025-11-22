@@ -443,18 +443,6 @@ export class UsersService {
       );
     }
 
-    // Check if user blocked you
-    const userBlockedYou = await this.usersRepository.isBlocked(blockedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
-          code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     // Check if already blocked
     const isAlreadyBlocked = await this.usersRepository.isBlocked(userId, blockedId);
     if (isAlreadyBlocked) {
