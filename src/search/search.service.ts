@@ -9,7 +9,6 @@ export class SearchService {
 
   async getMatchingUsers(userId: bigint, username: string) {
     const users = await this.usersService.getMatchingUsers(userId, username);
-
     if (!users || users.length === 0) {
       throw new HttpException(
         {
@@ -43,6 +42,6 @@ export class SearchService {
       isFollower: followerSet.has(user.id),
     }));
 
-    return usersData;
+    return { users: usersData };
   }
 }

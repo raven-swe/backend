@@ -15,6 +15,6 @@ export class SearchController {
     @Query() searchUsernameQueryDto: SearchUsernameQueryDto,
   ) {
     const userId = BigInt(user.id);
-    return await this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
+    return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
   }
 }

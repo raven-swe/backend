@@ -987,7 +987,7 @@ export class UsersService {
   }
 
   async getMatchingUsers(userId: bigint, username: string) {
-    return await this.usersRepository.getMatchingUsers(userId, username);
+    return this.usersRepository.getMatchingUsers(userId, username);
   }
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
