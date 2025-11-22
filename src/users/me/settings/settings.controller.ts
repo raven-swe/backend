@@ -41,7 +41,6 @@ import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { PAGINATION } from 'src/common/constants';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { PAGINATION } from 'src/common/constants';
 
