@@ -76,8 +76,6 @@ export class TweetsService {
     );
     await this.validateMediaExists(mediaIds);
 
-    this.logger.log(`tweet content: ${createTweetDto.content}`);
-
     const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
       const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
         createTweetDto.content,
@@ -96,6 +94,8 @@ export class TweetsService {
 
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+
+      await this.mediaRepository.markMediaAsNotPending(mediaIds);
       return { tweet, mentions, hashtags };
     });
 
