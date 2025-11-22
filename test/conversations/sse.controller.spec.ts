@@ -171,7 +171,7 @@ describe('SseController', () => {
 
       expect(mockRes.write).toHaveBeenCalledWith('event: dm.new_message\n');
       expect(mockRes.write).toHaveBeenCalledWith(
-        `data: ${JSON.stringify({ event: 'test.event', data: { message: 'Hello' } })}\n\n`,
+        `data: ${JSON.stringify({ message: 'Hello' })}\n\n`,
       );
 
       cleanupConnection(mockRes);
