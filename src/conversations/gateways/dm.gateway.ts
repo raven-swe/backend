@@ -15,7 +15,7 @@ import { ConversationsService } from '../conversations.service';
 import { MessagesService } from '../messages/messages.services';
 import { EventPublisherService } from '../event-publisher.service';
 import { WsJwtGuard } from 'src/auth/guards';
-import { SendMessageDto } from './dto';
+import { SendMessageDto } from './dto/send-message.dto';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
