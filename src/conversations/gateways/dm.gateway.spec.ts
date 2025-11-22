@@ -103,6 +103,7 @@ describe('DmGateway', () => {
         lastSeenMessageId: '12',
         seenAt: new Date('2024-01-01T10:00:00Z'),
         unseenCount: 0,
+        username: 'layla',
       });
 
       await gateway.markSeen(mockSocket, payload);
@@ -113,7 +114,7 @@ describe('DmGateway', () => {
       expect(mockServer.to).toHaveBeenCalledWith('2');
       expect(mockServer.emit).toHaveBeenCalledWith('conversation_seen_update', {
         conversationId: '2',
-        userId: '6',
+        username: 'layla',
         lastSeenMessageId: '12',
         unseenCount: 0,
         seenAt: expect.any(Date) as Date,
@@ -128,6 +129,7 @@ describe('DmGateway', () => {
         lastSeenMessageId: '12',
         seenAt: new Date('2024-01-01T10:00:00Z'),
         unseenCount: 0,
+        username: 'layla',
       });
 
       await gateway.markSeen(mockSocket, payload);
@@ -144,6 +146,7 @@ describe('DmGateway', () => {
         lastSeenMessageId: '12',
         seenAt: new Date('2024-01-01T10:00:00Z'),
         unseenCount: 0,
+        username: 'layla',
       });
 
       await gateway.markSeen(mockSocket, payload);
@@ -248,16 +251,20 @@ describe('DmGateway', () => {
         message: {
           id: '42',
           sender: {
-            id: '6',
             username: 'layla',
             displayName: 'Layla',
             avatarUrl: 'https://example.com/avatar.jpg',
           },
+          clientMessageId: 'client-msg-123',
           body: 'Hello, how are you?',
           createdAt: expect.any(Date) as Date,
         },
       });
-      expect(eventPublisher.publishNewMessagePreview).toHaveBeenCalledWith('2', mockMessage);
+      expect(eventPublisher.publishNewMessagePreview).toHaveBeenCalledWith(
+        '2',
+        mockMessage,
+        mockUser,
+      );
     });
 
     it('should join new conversation room when switching conversations', async () => {
