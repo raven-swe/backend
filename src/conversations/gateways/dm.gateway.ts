@@ -113,7 +113,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    const { lastSeenMessageId, seenAt, unseenCount } = res;
+    const { lastSeenMessageId, seenAt, username, unseenCount } = res;
 
     const prev = (client.data as { currentConversationId: string }).currentConversationId;
 
@@ -126,7 +126,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(payload.conversationId).emit('conversation_seen_update', {
       conversationId: payload.conversationId,
-      userId: user.id,
+      username,
       lastSeenMessageId,
       unseenCount,
       seenAt,
@@ -208,6 +208,6 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     });
 
-    await this.publisher.publishNewMessagePreview(conversationId, message);
+    await this.publisher.publishNewMessagePreview(conversationId, message, user);
   }
 }
