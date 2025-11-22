@@ -28,6 +28,7 @@ describe('SettingsController', () => {
     validatePassword: jest.fn(),
     getSessions: jest.fn(),
     deleteSession: jest.fn(),
+    getUserBlockedUsers: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -739,6 +740,258 @@ describe('SettingsController', () => {
       await expect(
         controller.deleteSession(mockRequestUser, sessionId, invalidDto, mockRequest),
       ).rejects.toThrow(HttpException);
+    });
+  });
+  describe('GET /users/me/settings/blocks', () => {
+    const mockUser = { id: '1' };
+
+    it('should return blocks with default limit (20) when no limit provided', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'blocked1',
+            displayName: 'Blocked One',
+          },
+          {
+            username: 'blocked2',
+            displayName: 'Blocked Two',
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: 'abc123',
+          hasNextPage: true,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, undefined, undefined);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(1),
+        20, // default limit
+        undefined, // no cursor
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination).toEqual(mockServiceResult.pagination);
+    });
+
+    it('should return blocked users with custom limit when provided', async () => {
+      // Arrange
+      const customLimit = '10';
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'blocked1',
+            displayName: 'Blocked One',
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, customLimit, undefined);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(1),
+        10, // custom limit parsed
+        undefined,
+      );
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should return blocked users with cursor for pagination', async () => {
+      // Arrange
+      const cursor = 'eyJmb2xsb3dlcklkIjoiMiIsImZvbGxvd2VkSWQiOiIxIn0='; // base64 encoded cursor
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'blocked3',
+            displayName: 'Blocked Three',
+          },
+        ],
+        pagination: {
+          cursor,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, undefined, cursor);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(1),
+        20,
+        cursor, // cursor passed through
+      );
+      expect(result.pagination.cursor).toBe(cursor);
+    });
+
+    it('should use default limit (20) when invalid limit provided', async () => {
+      // Arrange
+      const invalidLimits = ['invalid', '-5', '0', 'NaN', ''];
+      const mockServiceResult = {
+        items: [],
+        pagination: { cursor: null, nextCursor: null, hasNextPage: false },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act & Assert
+      for (const invalidLimit of invalidLimits) {
+        await controller.getUserBlockedUsers(mockUser, invalidLimit, undefined);
+
+        expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+          BigInt(1),
+          20, // default limit used for invalid values
+          undefined,
+        );
+      }
+    });
+
+    it('should transform items to CompactUserDto instances', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [
+          {
+            username: 'blocked1',
+            displayName: 'Blocked One',
+          },
+          {
+            username: 'blocked2',
+            displayName: 'Blocked Two',
+          },
+        ],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, undefined, undefined);
+
+      // Assert
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toHaveProperty('username', 'blocked1');
+      expect(result.items[0]).toHaveProperty('displayName', 'Blocked One');
+    });
+
+    it('should return empty items array when user has no blocked users', async () => {
+      // Arrange
+      const mockServiceResult = {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, undefined, undefined);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(1),
+        20,
+        undefined,
+      );
+      expect(result.items).toEqual([]);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should handle large limit values correctly', async () => {
+      // Arrange
+      const largeLimit = '100';
+      const mockServiceResult = {
+        items: new Array(100).fill(null).map((_, i) => ({
+          username: `blocked${i}`,
+          displayName: `Blocked ${i}`,
+        })),
+        pagination: {
+          cursor: null,
+          nextCursor: 'nextpage',
+          hasNextPage: true,
+        },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      const result = await controller.getUserBlockedUsers(mockUser, largeLimit, undefined);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(1),
+        100,
+        undefined,
+      );
+      expect(result.items).toHaveLength(100);
+    });
+
+    it('should pass through service errors (user not found)', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      mockSettingsService.getUserBlockedUsers.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.getUserBlockedUsers(mockUser, undefined, undefined)).rejects.toThrow(
+        'User not found',
+      );
+    });
+
+    it('should pass through service errors (invalid cursor)', async () => {
+      // Arrange
+      const invalidCursor = 'invalid!!!';
+      const error = new Error('Invalid cursor format');
+      mockSettingsService.getUserBlockedUsers.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(
+        controller.getUserBlockedUsers(mockUser, undefined, invalidCursor),
+      ).rejects.toThrow('Invalid cursor format');
+    });
+
+    it('should correctly convert user id string to BigInt', async () => {
+      // Arrange
+      const largeUserId = '9007199254740991'; // max safe integer
+      const mockServiceResult = {
+        items: [],
+        pagination: { cursor: null, nextCursor: null, hasNextPage: false },
+      };
+
+      mockSettingsService.getUserBlockedUsers.mockResolvedValue(mockServiceResult);
+
+      // Act
+      await controller.getUserBlockedUsers({ id: largeUserId }, undefined, undefined);
+
+      // Assert
+      expect(mockSettingsService.getUserBlockedUsers).toHaveBeenCalledWith(
+        BigInt(largeUserId),
+        20,
+        undefined,
+      );
     });
   });
 });

@@ -1,9 +1,4 @@
-import { CursorPagination } from '../interfaces/response.interface';
-
-export type FollowsCursor = {
-  followerId: string;
-  followedId: string;
-};
+import { CursorPagination } from '../interfaces';
 
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 export const decodeCursor = (cursor: string | undefined) => {

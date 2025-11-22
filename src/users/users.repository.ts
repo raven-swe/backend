@@ -7,7 +7,8 @@ import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from '.
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { createValidationError, FollowsCursor } from 'src/common/utils';
+import { createValidationError } from 'src/common/utils';
+import { BlocksCursor, FollowsCursor } from 'src/common/interfaces';
 
 @Injectable()
 export class UsersRepository {
@@ -1085,6 +1086,38 @@ export class UsersRepository {
       });
 
       return { bannerUrl: profile?.bannerUrl || null };
+    });
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return await this.prisma.block.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_blockedId: {
+              userId: BigInt(prevCursor.userId),
+              blockedId: BigInt(prevCursor.blockedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { blockedId: 'asc' }],
+      include: {
+        blockedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 
