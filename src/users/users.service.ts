@@ -956,4 +956,8 @@ export class UsersService {
   async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
     return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
   }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
+  }
 }

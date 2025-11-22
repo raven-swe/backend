@@ -52,6 +52,28 @@ export class UsersRepository {
     });
   }
 
+  async findTakenUsernames(candidates: string[]): Promise<Set<string>> {
+    const taken = await this.prisma.user.findMany({
+      where: { username: { in: candidates } },
+      select: { username: true },
+    });
+    return new Set(taken.map((r) => r.username));
+  }
+
+  async getUserEmailAndDisplayName(userId: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+  }
+
   async createUser(newUser: NewUser, prismaClient: Prisma.TransactionClient = this.prisma) {
     const { email, passwordHash, username, languageCode, birthDate } = newUser;
     return await prismaClient.user.create({
@@ -1067,7 +1089,6 @@ export class UsersRepository {
       return { bannerUrl: profile?.bannerUrl || null };
     });
   }
-
   async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
     return await this.prisma.mute.findMany({
       where: { userId },
@@ -1096,6 +1117,14 @@ export class UsersRepository {
             },
           },
         },
+      },
+    });
+  }
+  async createProfile(userId: bigint, displayName: string) {
+    return await this.prisma.profile.create({
+      data: {
+        userId,
+        displayName,
       },
     });
   }
