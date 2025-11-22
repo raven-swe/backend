@@ -1117,10 +1117,10 @@ export class UsersRepository {
             },
           },
         },
-        },
+      },
     });
   }
-  
+
   async createProfile(userId: bigint, displayName: string) {
     return await this.prisma.profile.create({
       data: {
