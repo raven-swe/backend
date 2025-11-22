@@ -44,6 +44,7 @@ describe('SettingsService', () => {
     validateLoggedInUser: jest.fn(),
     getSessions: jest.fn(),
     deleteSession: jest.fn(),
+    getUserMutes: jest.fn(),
     getUserBlocks: jest.fn(),
   };
 
@@ -854,6 +855,203 @@ describe('SettingsService', () => {
     });
   });
 
+  describe('getUserMutedUsers', () => {
+    const userId = BigInt(1);
+    const limit = 2;
+
+    // Helper to encode a valid cursor
+
+    const encodeValidCursor = (userId: string, mutedId: string): string => {
+      const cursorObj = { userId, mutedId };
+      return Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+    };
+
+    beforeEach(() => {
+      // Add getUserMutes to mock if not already present
+      if (!mockUsersService.getUserMutes) {
+        mockUsersService.getUserMutes = jest.fn();
+      }
+    });
+
+    it('should return muted users without cursor (first page)', async () => {
+      // Arrange: 3 muted users returned (limit+1 to detect hasNextPage)
+      const mockMutedUsers = [
+        {
+          userId: BigInt(1),
+          mutedId: BigInt(2),
+          createdAt: new Date(),
+          mutedUser: {
+            id: BigInt(2),
+            username: 'muted1',
+            profile: {
+              displayName: 'muted One',
+              bio: 'Bio 1',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar1.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          mutedId: BigInt(3),
+          createdAt: new Date(),
+          mutedUser: {
+            id: BigInt(3),
+            username: 'muted2',
+            profile: {
+              displayName: 'muted Two',
+              bio: 'Bio 2',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar2.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          mutedId: BigInt(4),
+          createdAt: new Date(),
+          mutedUser: {
+            id: BigInt(4),
+            username: 'muted3',
+            profile: {
+              displayName: 'muted Three',
+              bio: 'Bio 3',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar3.jpg',
+            },
+          },
+        },
+      ];
+
+      mockUsersService.getUserMutes.mockResolvedValue(mockMutedUsers);
+
+      // Act
+      const result = await service.getUserMutedUsers(userId, limit);
+
+      // Assert
+      expect(mockUsersService.getUserMutes).toHaveBeenCalledWith(
+        userId,
+        limit + 1,
+        undefined, // no cursor decoded
+      );
+
+      // Only first 2 items returned (limit=2), third is used for pagination
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toMatchObject({
+        displayName: 'muted One',
+        bio: 'Bio 1',
+        username: 'muted1',
+      });
+      expect(result.items[1]).toMatchObject({
+        displayName: 'muted Two',
+        bio: 'Bio 2',
+        username: 'muted2',
+      });
+
+      // Pagination should indicate next page
+      expect(result.pagination.hasNextPage).toBe(true);
+      expect(result.pagination.nextCursor).toBeTruthy();
+    });
+
+    it('should return muted users with valid cursor (subsequent page)', async () => {
+      // Arrange
+      const validCursor = encodeValidCursor('1', '2'); // userId=1, mutedId=2
+      const mockmutedUsers = [
+        {
+          userId: BigInt(1),
+          mutedId: BigInt(5),
+          createdAt: new Date(),
+          mutedUser: {
+            id: BigInt(5),
+            username: 'muted5',
+            profile: {
+              displayName: 'muted Five',
+              bio: 'Bio 5',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar5.jpg',
+            },
+          },
+        },
+        {
+          userId: BigInt(1),
+          mutedId: BigInt(6),
+          createdAt: new Date(),
+          mutedUser: {
+            id: BigInt(6),
+            username: 'muted6',
+            profile: {
+              displayName: 'muted Six',
+              bio: 'Bio 6',
+              bioEntities: null,
+              avatarUrl: 'https://example.com/avatar6.jpg',
+            },
+          },
+        },
+      ];
+      mockUsersService.getUserMutes.mockResolvedValue(mockmutedUsers);
+
+      // Act
+      const result = await service.getUserMutedUsers(userId, limit, validCursor);
+
+      // Assert
+      expect(mockUsersService.getUserMutes).toHaveBeenCalledWith(
+        userId,
+        limit + 1,
+        { userId: '1', mutedId: '2' }, // decoded cursor
+      );
+
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination.cursor).toBe(validCursor); // prevCursor echoed back
+      expect(result.pagination.hasNextPage).toBe(false); // only 2 items, no extra
+    });
+
+    it('should throw BadRequest for invalid cursor format', async () => {
+      // Arrange: a cursor that is not valid base64 JSON
+      const invalidCursor = 'not-valid-base64!!!';
+
+      // Act & Assert
+      await expect(service.getUserMutedUsers(userId, limit, invalidCursor)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(service.getUserMutedUsers(userId, limit, invalidCursor)).rejects.toMatchObject({
+        response: {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        status: HttpStatus.BAD_REQUEST,
+      });
+
+      expect(mockUsersService.getUserMutes).not.toHaveBeenCalled();
+    });
+
+    it('should use default limit (20) when no limit provided', async () => {
+      // Arrange
+      mockUsersService.getUserMutes.mockResolvedValue([]);
+
+      // Act
+      await service.getUserMutedUsers(userId);
+
+      // Assert
+      expect(mockUsersService.getUserMutes).toHaveBeenCalledWith(
+        userId,
+        21, // default limit + 1
+        undefined,
+      );
+    });
+
+    it('should pass through service errors', async () => {
+      // Arrange
+      const error = new Error('Database error');
+      mockUsersService.getUserMutes.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(service.getUserMutedUsers(userId, limit)).rejects.toThrow('Database error');
+      expect(mockUsersService.getUserMutes).toHaveBeenCalledWith(userId, limit + 1, undefined);
+    });
+  });
+
+  ///////////////////////////////////////////////////////////////////////
   describe('getUserBlockedUsers', () => {
     const userId = BigInt(1);
     const limit = 2;

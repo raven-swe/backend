@@ -41,8 +41,8 @@ import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { PAGINATION } from 'src/common/constants';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { PAGINATION } from 'src/common/constants';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -274,6 +274,27 @@ export class SettingsController {
     return this.settingsService.deleteSession(userId, sessId, refreshToken);
   }
 
+  @Get('mutes')
+  @UseGuards(JwtAuthGuard)
+  async getUserMutedUsers(
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+    const { items, pagination } = await this.settingsService.getUserMutedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    return { items, pagination };
+  }
+
   @Get('blocks')
   @UseGuards(JwtAuthGuard)
   async getUserBlockedUsers(
@@ -283,7 +304,6 @@ export class SettingsController {
     @Query('cursor') cursor?: string,
   ) {
     const userId = BigInt(user.id);
-
     const parsed = Number(limit);
     const parsedLimit =
       Number.isFinite(parsed) && parsed > 0

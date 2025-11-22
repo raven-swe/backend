@@ -250,6 +250,7 @@ enum Gender {
   Female,
 }
 
+alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -1062,6 +1063,12 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
     @summary("List a user's blocks")
     @get
     @route("/blocks")
