@@ -39,7 +39,7 @@ export class EventPublisherService {
             id: message.userId.toString(),
             username: sender.username,
             displayName: sender.displayName,
-            avatarUrl: sender?.displayName ?? DEFAULT_PROFILE_PICTURE,
+            avatarUrl: sender?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
           },
           bodySnippet: message.content.slice(0, 80),
           createdAt: message.createdAt,
