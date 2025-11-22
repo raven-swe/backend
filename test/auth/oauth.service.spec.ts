@@ -5,9 +5,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
+import { UsersRepository } from 'src/users/users.repository';
 
-jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
-  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+jest.mock('src/common/utils/generate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockImplementation(() => {
+    return ['testuser1', 'testuser2', 'testuser3'];
+  }),
 }));
 
 describe('OAuthService', () => {
@@ -34,6 +37,11 @@ describe('OAuthService', () => {
     login: jest.fn(),
   };
 
+  const mockUsersRepository = {
+    findTakenUsernames: jest.fn(),
+    getUserEmailAndDisplayName: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -53,6 +61,10 @@ describe('OAuthService', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: UsersRepository,
+          useValue: mockUsersRepository,
         },
       ],
     }).compile();

@@ -17,11 +17,11 @@
     "format:check": "prettier --check \"{src,test,apps,libs,prisma}/**/*.ts\" \"*.yml\"",
     "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
+    "test:watch": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watch",
+    "test:cov": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --coverage",
+    "test:debug": "NODE_OPTIONS=\"--experimental-vm-modules\" node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --config ./test/jest-e2e.json",
     "db:migrate": "prisma migrate deploy",
     "db:create": "prisma migrate dev",
     "db:generate": "prisma generate",
@@ -59,6 +59,7 @@
     "google-auth-library": "^10.4.2",
     "ioredis": "^5.8.1",
     "multer": "^2.0.2",
+    "nest-winston": "^1.10.2",
     "nodemailer": "^7.0.9",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
@@ -69,7 +70,8 @@
     "rxjs": "^7.8.1",
     "sharp": "^0.34.4",
     "ua-parser-js": "^2.0.6",
-    "useragent": "^2.3.0"
+    "useragent": "^2.3.0",
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -125,7 +127,7 @@
       "**/*.{!(module),}.(t|j)s",
       "!main.ts"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "./coverage",
     "testEnvironment": "node",
     "roots": [
       "<rootDir>/src",
@@ -151,6 +153,8 @@
       "redis\\.service\\.ts",
       "redisservice\\.ts",
       "common/validation-error-codes\\.ts",
+      "common/middleware/request-logger\\.middleware\\.ts",
+      "common/pipes/parse-bigint\\.pipe\\.ts",
       "testing"
     ]
   }
