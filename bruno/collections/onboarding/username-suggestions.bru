@@ -5,14 +5,17 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/test/otp?identifier=ogamal1011@gmail.com&type=registration
+  url: http://localhost:3000/onboarding/username-suggestions?typed=cool
   body: none
-  auth: inherit
+  auth: bearer
 }
 
 params:query {
-  identifier: ogamal1011@gmail.com
-  type: registration
+  typed: cool
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIxIiwiaWF0IjoxNzYzNjQ1NjgwLCJleHAiOjE3NjM2NDY1ODB9.BFO6UjwVGCxDDnhD0sShYNLWkVdFQuXk1lstkwA3_0k
 }
 
 body:json {
