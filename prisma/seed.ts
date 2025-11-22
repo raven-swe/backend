@@ -545,49 +545,6 @@ async function main() {
   await prisma.tweet.update({ where: { id: youssefTweet1.id }, data: { likeCount: 2 } });
   await prisma.tweet.update({ where: { id: nourTweet1.id }, data: { likeCount: 2 } });
 
-  const groupConversation1 = await prisma.conversation.create({
-    data: {
-      creatorId: 4,
-      conversationParticipants: {
-        create: [
-          { userId: 4, notificationsMuted: false },
-          { userId: 1, notificationsMuted: true },
-          { userId: 2, lastSeenMessageId: null },
-        ],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Hey guys, thinking of making that NestJS project open source.',
-      conversationId: groupConversation1.id,
-      userId: 4,
-      messageEntities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
-    },
-  });
-  await prisma.message.create({
-    data: {
-      content: 'Great idea! I can help with the database schema design.',
-      conversationId: groupConversation1.id,
-      userId: 1,
-      messageEntities: { text: 'Great idea! I can help with the database schema design.' },
-    },
-  });
-  const msg1_3 = await prisma.message.create({
-    data: {
-      content: "I'm in! I can set up the frontend with React/Next.js.",
-      conversationId: groupConversation1.id,
-      userId: 2,
-      messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation1.id },
-    data: { lastMessageId: msg1_3.id },
-  });
-
   const privateConv1 = await prisma.conversation.create({
     data: {
       creatorId: 6,
@@ -633,45 +590,6 @@ async function main() {
   await prisma.conversation.update({
     where: { id: privateConv1.id },
     data: { lastMessageId: privMsg3.id },
-  });
-
-  const groupConversation2 = await prisma.conversation.create({
-    data: {
-      creatorId: 8,
-      conversationParticipants: {
-        create: [{ userId: 8 }, { userId: 12, notificationsMuted: false }, { userId: 9 }],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Team, ideas for the new app redesign?',
-      conversationId: groupConversation2.id,
-      userId: 8,
-      messageEntities: { text: 'Team, ideas for the new app redesign?' },
-    },
-  });
-  const msg2_2 = await prisma.message.create({
-    data: {
-      content: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
-      conversationId: groupConversation2.id,
-      userId: 12,
-      messageEntities: {
-        text: 'I vote for more intuitive nav. Thoughts @ZakiDev?',
-        mentions: [
-          {
-            name: '@ZakiDev',
-            startPosition: '41',
-          },
-        ],
-      },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation2.id },
-    data: { lastMessageId: msg2_2.id },
   });
 
   await prisma.notification.createMany({
