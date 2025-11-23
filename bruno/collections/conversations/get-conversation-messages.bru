@@ -1,0 +1,29 @@
+meta {
+  name: get-conversation-messages
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://localhost:3000/conversations/:conversationId/messages?limit=3
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 3
+  ~cursor: eyJtZXNzYWdlSWQiOiI0In0=
+}
+
+params:path {
+  conversationId: 2
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -2,10 +2,12 @@ export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 export const IMAGE_QUALITY = 85;
 export const MAX_WIDTH = 1024;
 export const MAX_HEIGHT = 1024;
-
+export const MAX_VIDEO_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png'];
 export const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'webm', 'mov'];
-export const ALLOWED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS];
+export const GIF_EXTENSIONS = ['gif'];
+export const ALLOWED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...GIF_EXTENSIONS];
+export const PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS = 24; // 0 hours for testing purposes
 
 export const MEDIA_CODES = {
   MEDIA_UPLOAD_SAVE_FAILED: 'MEDIA_UPLOAD_SAVE_FAILED',
@@ -21,4 +23,6 @@ export const MEDIA_MESSAGES = {
   MEDIA_NOT_FOUND: 'Media not found.',
   INVALID_URL: 'The provided URL is invalid.',
   UNAUTHORIZED_DELETE: 'Unauthorized attempt to delete media.',
+  ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
+  ALLOWED_VIDEO_TYPES: 'Only video files are allowed (mp4, mkv, webm, mov).',
 } as const;

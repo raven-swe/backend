@@ -1,14 +1,11 @@
+import { HashtagDto, MentionDto } from 'src/tweets/dtos';
+
 export class BioEntitiesDto {
   mentions: MentionDto[];
   hashtags: HashtagDto[];
 }
 
-class MentionDto {
-  username: string;
-  startPosition: number;
-}
-
-class HashtagDto {
-  hashtag: string;
-  startPosition: number;
+export class BioDto {
+  text: string;
+  bioEntities: BioEntitiesDto;
 }

@@ -15,6 +15,7 @@ export class MediaRepository {
         width: mediaDto.width,
         height: mediaDto.height,
         altText: mediaDto.altText,
+        pending: mediaDto.pending,
       },
     });
 
@@ -32,6 +33,35 @@ export class MediaRepository {
   async deleteMedia(id: bigint) {
     await this.prisma.media.delete({
       where: { id },
+    });
+  }
+
+  async checkMediaExists(mediaIds: bigint[]): Promise<boolean> {
+    const count = await this.prisma.media.count({
+      where: {
+        id: { in: mediaIds },
+      },
+    });
+    return count === mediaIds.length;
+  }
+
+  async findPendingMediaOlderThan(date: Date) {
+    const media = await this.prisma.media.findMany({
+      where: {
+        pending: true,
+        createdAt: {
+          lt: date,
+        },
+      },
+    });
+
+    return media;
+  }
+
+  async markMediaAsNotPending(mediaIds: bigint[]) {
+    await this.prisma.media.updateMany({
+      where: { id: { in: mediaIds } },
+      data: { pending: false },
     });
   }
 }
