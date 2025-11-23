@@ -64,4 +64,30 @@ export class MediaRepository {
       data: { pending: false },
     });
   }
+
+  /**
+   * Finds media URLs by their IDs, preserving the order of the input array.
+   * @param mediaIds An array of media IDs.
+   * @returns Array of URLs in the same order as the input IDs.
+   */
+  async findOrderedUrlsByIds(mediaIds: bigint[]): Promise<string[]> {
+    if (mediaIds.length === 0) {
+      return [];
+    }
+
+    const mediaItems = await this.prisma.media.findMany({
+      where: {
+        id: { in: mediaIds },
+      },
+      select: {
+        id: true,
+        url: true,
+      },
+    });
+
+    const urlMap = new Map<bigint, string>(mediaItems.map((item) => [item.id, item.url]));
+
+    // Map over the original mediaIds array to ensure the order is preserved.
+    return mediaIds.map((id) => urlMap.get(id)).filter((url): url is string => url !== undefined);
+  }
 }
