@@ -13,6 +13,7 @@ import { comparePassword, hashPassword } from 'src/auth/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -100,17 +101,20 @@ describe('UsersService', () => {
     uploadAndSaveMedia: jest.fn(),
   };
 
+  const mockTweetRepository = {
+    getUserLikedTweets: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: mockRepository },
+        { provide: TweetsRepository, useValue: mockTweetRepository },
         { provide: PrismaService, useValue: {} },
-        { provide: UsersService, useClass: UsersService },
         { provide: MediaService, useValue: mockMediaService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
-        { provide: MediaService, useValue: mockMediaService },
       ],
     }).compile();
 
