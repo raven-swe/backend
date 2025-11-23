@@ -292,7 +292,7 @@ model CreatedTweet{
 model RegisterStartBody {
   name: string;
   email: string;
-  @doc("Date of birth in strict ISO 8601 format (YYYY-MM-DD with zero-padded month and day). Example: '2004-04-01', NOT '2004-4-1'.")
+  @doc("Date of birth in strict ISO 8601 format (YYYY-MM-DD with zero-padded month and day).")
   birthDate: plainDate;
   recaptchaToken: string; // token from client side recaptcha v2
 }
@@ -473,7 +473,7 @@ model PublicUser {
   @maxLength(255)
   websiteUrl: string | null;
 
-  @doc("User's date of birth in strict ISO 8601 date format (YYYY-MM-DD with zero-padding). Example: '2004-04-01', NOT '2004-4-1'.")
+  @doc("User's date of birth in strict ISO 8601 date format (YYYY-MM-DD with zero-padding).")
   birthDate: plainDate | null;
 
   @doc("Date when the user joined")
@@ -618,7 +618,7 @@ model ProfileDataFields {
   @maxLength(255)
   websiteUrl?: string | null;
 
-  @doc("Birth date in strict ISO 8601 format (YYYY-MM-DD with zero-padding). Example: '2004-04-01', NOT '2004-4-1'.")
+  @doc("Birth date in strict ISO 8601 format (YYYY-MM-DD with zero-padding).")
   birthDate?: plainDate | null;
 
   @doc("URL to the user's avatar image. Must be a valid URL (https://www.example.com).")
@@ -1164,7 +1164,7 @@ namespace Me {
     @summary("Update the authenticated user's birth date")
     op updateBirthDate(
       @body body: {
-        @doc("The new birth date in strict ISO 8601 format (YYYY-MM-DD with zero-padding). Example: '2004-04-01', NOT '2004-4-1'.")
+        @doc("The new birth date in strict ISO 8601 format (YYYY-MM-DD with zero-padding).")
         date: plainDate | null;
       },
     ):
@@ -1425,7 +1425,7 @@ namespace Oauth {
     @header("X-Client-Type") clientType: "web" | "mobile",
     @body body: {
       creationToken: string;
-      @doc("Date of birth in strict ISO 8601 format (YYYY-MM-DD with zero-padding). Example: '2004-04-01', NOT '2004-4-1'.")
+      @doc("Date of birth in strict ISO 8601 format (YYYY-MM-DD with zero-padding).")
       birthDate: plainDate;
     },
   ):
