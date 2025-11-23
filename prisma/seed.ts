@@ -903,7 +903,7 @@ async function main() {
   });
 }
 
-if (process.env.SEED_ENV) {
+if (process.env.SEED_ENV === 'true') {
   main()
     .then(async () => {
       await prisma.$disconnect();
