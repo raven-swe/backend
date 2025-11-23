@@ -1218,7 +1218,6 @@ namespace Users {
     | DataResponseWithPagination<Tweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
-    | ForbiddenResponse
     | InternalServerErrorResponse;
 
   @summary("List user's tweets with media attachments")

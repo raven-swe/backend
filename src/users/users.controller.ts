@@ -104,7 +104,7 @@ export class UsersController {
   ) {
     const parsed = Number(limit);
     let parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
-    if (parsedLimit > 20) parsedLimit = 20;
+    if (parsedLimit > 20) parsedLimit = 20; // TODO replace with global constant if done
     return this.usersService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
   }
 }

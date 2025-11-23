@@ -1378,6 +1378,16 @@ namespace Users {
   op getUserProfile(
     @path username: string,
   ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
+
+  @summary("List user's liked tweets")
+  @get
+  @route("/{username}/likes")
+  op getUserLikes(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
 }
 
 @tag("OAuth")
