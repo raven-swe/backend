@@ -4,4 +4,5 @@ export class AuthorDto {
   avatarUrl: string;
   isBlocked: boolean;
   isFollowing: boolean;
+  isMuted: boolean;
 }
