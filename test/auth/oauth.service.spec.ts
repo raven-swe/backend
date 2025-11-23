@@ -293,7 +293,7 @@ describe('OAuthService', () => {
     const mockDeviceType = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
     const mockIpAddress = '127.0.0.1';
     const mockCreationToken = 'valid-creation-token';
-    const mockBirthDate = '1990-01-01';
+    const mockBirthDate = new Date('1990-01-01');
 
     const mockPayload = {
       provider: 'github',
@@ -384,7 +384,7 @@ describe('OAuthService', () => {
       expect(mockOAuthRepository.createUserWithProfileAndExternalAccount).toHaveBeenCalledWith(
         'newuser@example.com',
         'testuser1',
-        new Date(mockBirthDate),
+        mockBirthDate,
         'New User',
         'https://avatar.url',
         'github',
@@ -460,16 +460,17 @@ describe('OAuthService', () => {
         refreshToken: 'mock-refresh-token',
       });
 
+      const testBirthDate = new Date('1995-06-15');
       await service.completeOauthRegister(
         mockCreationToken,
-        '1995-06-15',
+        testBirthDate,
         mockDeviceType,
         mockIpAddress,
       );
 
       const createCall = mockOAuthRepository.createUserWithProfileAndExternalAccount.mock
         .calls[0] as unknown[];
-      expect(createCall[2]).toEqual(new Date('1995-06-15'));
+      expect(createCall[2]).toEqual(testBirthDate);
     });
   });
 });
