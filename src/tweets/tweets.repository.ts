@@ -574,7 +574,7 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: [{ userId: 'asc' }, { tweetId: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { tweetId: 'asc' }],
       include: {
         tweet: {
           include: {
