@@ -121,8 +121,9 @@ export class TweetsService {
     const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
     const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
     const referencedTweetPromise = referencedTweetId
-      ? this.getTweet(BigInt(referencedTweetId), userId)
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
       : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
 
     const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
       mediaObjectsPromise,

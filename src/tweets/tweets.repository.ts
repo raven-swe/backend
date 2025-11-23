@@ -372,6 +372,17 @@ export class TweetsRepository {
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
   }
 
+  async getReferencedTweet(tweetId: bigint, currentUserId: bigint): Promise<TweetDto | null> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    return tweet ? this.mapToTweetDto(tweet) : null;
+  }
+
   async getTweetQuotes(
     tweetId: bigint,
     currentUserId: bigint,

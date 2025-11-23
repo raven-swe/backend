@@ -31,6 +31,7 @@ describe('TweetsService', () => {
     create: jest.fn(),
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
+    getReferencedTweet: jest.fn(),
   };
 
   const mockUsersRepository = {
