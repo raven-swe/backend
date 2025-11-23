@@ -1,12 +1,13 @@
-/*
-  Warnings:
+-- 0. Enable extension
+CREATE EXTENSION IF NOT EXISTS citext;
 
-  - Changed the type of `username` on the `users` table. No cast exists, the column would be dropped and recreated, which cannot be done if there is data, since the column is required.
+-- 1. Drop existing index
+DROP INDEX IF EXISTS "users_username_key";
 
-*/
--- AlterTable
-ALTER TABLE "users" DROP COLUMN "username",
-ADD COLUMN     "username" CITEXT NOT NULL;
+-- 2. Alter column type safely
+ALTER TABLE "users"
+  ALTER COLUMN "username" TYPE citext USING "username"::citext;
 
--- CreateIndex
+-- 3. Create new index
 CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
+

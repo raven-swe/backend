@@ -3,11 +3,10 @@ import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
-import { CreateTweetData, Hashtag, Mention } from './interfaces';
+import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
-import { CreatedTweetDto } from './dtos/created-tweet.dto';
 import { UsersRepository } from 'src/users/users.repository';
 import {
   decodeCompositeCursor,
@@ -17,6 +16,8 @@ import {
 } from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
+import { AuthorDto, TweetDto } from './dtos';
 
 @Injectable()
 export class TweetsService {
@@ -43,7 +44,7 @@ export class TweetsService {
     };
   }
 
-  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<CreatedTweetDto> {
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
       throw new HttpException(
         {
@@ -88,6 +89,7 @@ export class TweetsService {
         createTweetDto.content,
         tx,
       );
+
       const tweetData: CreateTweetData = {
         userId,
         content: createTweetDto.content,
@@ -95,26 +97,49 @@ export class TweetsService {
           ? BigInt(createTweetDto.replyToTweetId)
           : null,
         quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
-        Mentions: mentions,
-        Hashtags: hashtags,
+        Mentions: mentions.map((mention) => ({
+          userId: mention.userId,
+          startPosition: mention.startPosition,
+        })),
+        Hashtags: hashtags.map((hashtag) => ({
+          hashtagId: hashtag.hashtagId,
+          startPosition: hashtag.startPosition,
+        })),
       };
 
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
-
       await this.mediaRepository.markMediaAsNotPending(mediaIds);
+
       return { tweet, mentions, hashtags };
     });
 
-    const returnedTweet = this.formatTweetCreationResponse(
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
+
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
+
+    return this.formatTweetDto(
       tweet,
       mentions,
       hashtags,
-      createTweetDto.media,
-      createTweetDto.replyToTweetId,
-      createTweetDto.quoteToTweetId,
+      mediaObjects,
+      authorDto,
+      createTweetDto,
+      referencedTweet,
     );
-    return { ...returnedTweet };
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
@@ -143,28 +168,46 @@ export class TweetsService {
     return { message: 'Tweet deleted successfully' };
   }
 
-  private formatTweetCreationResponse(
+  private formatTweetDto(
     tweet: Tweet,
-    mentions: Mention[],
-    hashtags: Hashtag[],
-    media: string[] | undefined,
-    replyToTweetId: string | undefined,
-    quoteToTweetId: string | undefined,
-  ) {
+    mentions: PlainMention[],
+    hashtags: PlainHashtag[],
+    media: MediaResponseDto[],
+    authorDto: AuthorDto,
+    createTweetDto: CreateTweetDto,
+    referencedTweet: GetTweetResponseDto | undefined | null,
+  ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
-      content: tweet.content || undefined,
-      media: media,
+      author: {
+        username: authorDto.username,
+        displayName: authorDto.displayName,
+        avatarUrl: authorDto.avatarUrl,
+        isBlocked: false,
+        isFollowing: false,
+      },
+      content: tweet.content,
+      createdAt: tweet.createdAt,
+      replyCount: 0,
+      retweetCount: 0,
+      likeCount: 0,
+      isLiked: false,
+      isRetweeted: false,
       entities: {
-        mentions: mentions.map((mention) => ({ ...mention, userId: mention.userId.toString() })),
+        mentions: mentions.map((mention) => ({
+          username: mention.username,
+          startPosition: mention.startPosition,
+        })),
         hashtags: hashtags.map((hashtag) => ({
-          ...hashtag,
-          hashtagId: hashtag.hashtagId.toString(),
+          hashtag: hashtag.keyword,
+          startPosition: hashtag.startPosition,
         })),
       },
-      replyToTweetId,
-      quoteToTweetId,
-      createdAt: tweet.createdAt,
+      media,
+      replyToTweetId: createTweetDto.replyToTweetId ?? null,
+      quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
+      replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
   }
 

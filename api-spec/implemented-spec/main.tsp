@@ -273,21 +273,12 @@ model TweetBody {
   media?: string[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId?: string | null;
+  replyToTweetId?: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId?: string | null;
+  quoteToTweetId?: string | null;
 }
 
-model CreatedTweet{
-  id: string;
-  content?: string;
-  media?: string[];
-  entities?: TweetEntities;
-  createdAt: utcDateTime;
-  replyToTweetId?: string;
-  quotedTweetId?: string;
-}
 
 model RegisterStartBody {
   name: string;
@@ -1559,7 +1550,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse

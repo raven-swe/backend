@@ -18,7 +18,7 @@ import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
-import { Mention, PlainMention } from 'src/tweets/interfaces';
+import { PlainMention } from 'src/tweets/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -955,22 +955,43 @@ export class UsersService {
   async checkUsernamesExistenceAndReplaceIds(
     usernames: PlainMention[],
     prismaClient: Prisma.TransactionClient = this.prisma,
-  ): Promise<Mention[]> {
+  ): Promise<
+    (PlainMention & {
+      userId: bigint;
+    })[]
+  > {
     const existingUsernames = await this.usersRepository.checkBatchUsernamesExistence(
       usernames,
       prismaClient,
     );
 
-    return usernames.reduce((acc, mention) => {
-      const user = existingUsernames.find((u) => u.username === mention.username);
-      if (user) {
-        acc.push({ userId: user.id, startPosition: mention.startPosition });
-      }
-      return acc;
-    }, [] as Mention[]);
+    return usernames.reduce(
+      (acc, mention) => {
+        const user = existingUsernames.find((u) => u.username === mention.username);
+        if (user) {
+          acc.push({
+            userId: user.id,
+            username: user.username,
+            startPosition: mention.startPosition,
+          });
+        }
+        return acc;
+      },
+      [] as (PlainMention & {
+        userId: bigint;
+      })[],
+    );
   }
 
   async createProfile(userId: bigint, displayName: string) {
     return this.usersRepository.createProfile(userId, displayName);
+  }
+
+  async getMatchingUsers(userId: bigint, username: string) {
+    return this.usersRepository.getMatchingUsers(userId, username);
+  }
+
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 }
