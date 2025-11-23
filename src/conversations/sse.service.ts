@@ -1,44 +1,55 @@
 import { Injectable } from '@nestjs/common';
 import { Subject } from 'rxjs';
 
+const MAX_CONNECTIONS_PER_USER = 5;
+
 @Injectable()
 export class SseService {
-  private subjects = new Map<string, Map<string, Subject<unknown>>>();
+  private subjects = new Map<string, Subject<unknown>[]>();
 
-  subscribe(userId: string, deviceId: string) {
+  subscribe(userId: string): Subject<unknown> | null {
     if (!this.subjects.has(userId)) {
-      this.subjects.set(userId, new Map());
+      this.subjects.set(userId, []);
     }
 
-    const userDevices = this.subjects.get(userId)!;
-    if (!userDevices.has(deviceId)) {
-      userDevices.set(deviceId, new Subject());
+    const userSubjects = this.subjects.get(userId)!;
+
+    if (userSubjects.length >= MAX_CONNECTIONS_PER_USER) {
+      const oldestSubject = userSubjects.shift()!;
+      oldestSubject.complete();
     }
 
-    return userDevices.get(deviceId)!.asObservable();
+    const newSubject = new Subject<unknown>();
+    userSubjects.push(newSubject);
+
+    return newSubject;
   }
 
   publish(userId: string, event: unknown) {
-    const userDevices = this.subjects.get(userId);
-    if (userDevices) {
-      userDevices.forEach((subject) => {
+    const userSubjects = this.subjects.get(userId);
+    if (userSubjects) {
+      userSubjects.forEach((subject) => {
         subject.next(event);
       });
     }
   }
 
-  unsubscribe(userId: string, deviceId: string) {
-    const userDevices = this.subjects.get(userId);
-    if (userDevices) {
-      const sub = userDevices.get(deviceId);
-      if (sub) {
-        sub.complete();
-        userDevices.delete(deviceId);
+  unsubscribe(userId: string, subject: Subject<unknown>) {
+    const userSubjects = this.subjects.get(userId);
+    if (userSubjects) {
+      const index = userSubjects.indexOf(subject);
+      if (index > -1) {
+        subject.complete();
+        userSubjects.splice(index, 1);
       }
 
-      if (userDevices.size === 0) {
+      if (userSubjects.length === 0) {
         this.subjects.delete(userId);
       }
     }
+  }
+
+  getConnectionCount(userId: string): number {
+    return this.subjects.get(userId)?.length ?? 0;
   }
 }

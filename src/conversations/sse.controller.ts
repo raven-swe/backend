@@ -1,10 +1,9 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Logger, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { SseService } from './sse.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
-import { randomUUID } from 'crypto';
 
 interface SseEvent {
   event?: string;
@@ -16,6 +15,8 @@ const SSE_CONNECTION_TIMEOUT = 2 * 60 * 60 * 1000;
 
 @Controller('stream')
 export class SseController {
+  private readonly logger = new Logger(SseController.name);
+
   constructor(private readonly sse: SseService) {}
 
   @Get()
@@ -33,7 +34,17 @@ export class SseController {
       return;
     }
     const userId = user.id;
-    const connectionId = randomUUID();
+
+    const subject = this.sse.subscribe(userId);
+
+    if (!subject) {
+      this.logger.warn(`SSE connection limit reached - User: ${userId}`);
+      res.status(429).json({
+        message: 'Too many active connections. Close some tabs or devices.',
+        code: 'TOO_MANY_CONNECTIONS',
+      });
+      return;
+    }
 
     res.set({
       'Content-Type': 'text/event-stream',
@@ -42,11 +53,13 @@ export class SseController {
     });
     res.flushHeaders?.();
 
-    res.write(
-      `event: connected\ndata: ${JSON.stringify({ ok: true, deviceId: connectionId })}\n\n`,
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+
+    this.logger.log(
+      `SSE client connected - User: ${userId}, Active connections: ${this.sse.getConnectionCount(userId)}`,
     );
 
-    const subscription = this.sse.subscribe(userId, connectionId).subscribe((ev: SseEvent) => {
+    const subscription = subject.asObservable().subscribe((ev: SseEvent) => {
       if (ev.event) res.write(`event: ${ev.event}\n`);
       if (ev.id) res.write(`id: ${ev.id}\n`);
       res.write(`data: ${JSON.stringify(ev.data)}\n\n`);
@@ -69,7 +82,10 @@ export class SseController {
       clearInterval(ping);
       clearTimeout(connectionTimeout);
       subscription.unsubscribe();
-      this.sse.unsubscribe(userId, connectionId);
+      this.sse.unsubscribe(userId, subject);
+      this.logger.log(
+        `SSE client disconnected - User: ${userId}, Remaining connections: ${this.sse.getConnectionCount(userId)}`,
+      );
     });
   }
 }
