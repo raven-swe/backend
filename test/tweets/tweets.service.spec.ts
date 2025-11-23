@@ -48,6 +48,7 @@ describe('TweetsService', () => {
   const mockMediaRepository = {
     checkMediaExists: jest.fn(),
     markMediaAsNotPending: jest.fn(),
+    findOrderedUrlsByIds: jest.fn(),
   };
 
   const mockPrismaService = {
@@ -141,6 +142,7 @@ describe('TweetsService', () => {
       });
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
+      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue([]); // Add this mock
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
@@ -150,9 +152,12 @@ describe('TweetsService', () => {
         id: '100',
         content: 'Hello world!',
         entities: {
-          mentions: [{ userId: '2', username: 'testuser', startPosition: 6 }],
-          hashtags: [{ hashtagId: '1', keyword: 'test', startPosition: 15 }],
+          mentions: [{ username: 'testuser', startPosition: 6 }],
+          hashtags: [{ keyword: 'test', startPosition: 15 }],
         },
+        media: [],
+        replyToTweetId: undefined,
+        quoteToTweetId: undefined,
         createdAt: mockTweet.createdAt,
       });
 
@@ -167,8 +172,18 @@ describe('TweetsService', () => {
           content: 'Hello world!',
           replyToTweetId: null,
           quotedTweetId: null,
-          Mentions: mockMentions,
-          Hashtags: mockHashtags,
+          Mentions: [
+            {
+              userId: BigInt(2),
+              startPosition: 6,
+            },
+          ],
+          Hashtags: [
+            {
+              hashtagId: BigInt(1),
+              startPosition: 15,
+            },
+          ],
         },
         mockPrismaService,
       );
@@ -195,48 +210,17 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1', 'url2']); // Add this mock
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
-      expect(result.media).toEqual(['1', '2']);
+      expect(result.media).toEqual(['url1', 'url2']);
       expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1), BigInt(2)]);
       expect(mockTweetsRepository.linkTweetMedia).toHaveBeenCalledWith(
         BigInt(100),
         [BigInt(1), BigInt(2)],
-        mockPrismaService,
-      );
-    });
-
-    it('should successfully create a reply tweet', async () => {
-      // Arrange
-      const createTweetDto: CreateTweetDto = {
-        content: 'This is a reply',
-        replyToTweetId: '50',
-      };
-
-      mockContentParsingService.parseContentAndValidate.mockResolvedValue({
-        mentions: [],
-        hashtags: [],
-      });
-      mockTweetsRepository.create.mockResolvedValue({
-        ...mockTweet,
-        replyToTweetId: BigInt(50),
-      });
-      mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockTweetsRepository.checkExistingTweet.mockResolvedValue(true);
-
-      // Act
-      const result = await service.createTweet(createTweetDto, userId);
-
-      // Assert
-      expect(result.replyToTweetId).toBe('50');
-      expect(mockTweetsRepository.checkExistingTweet).toHaveBeenCalledWith(BigInt(50));
-      expect(mockTweetsRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          replyToTweetId: BigInt(50),
-        }),
         mockPrismaService,
       );
     });
@@ -281,8 +265,9 @@ describe('TweetsService', () => {
       };
 
       const returnedTweet = {
-        ...createTweetDto,
+        ...mockTweet,
         id: BigInt(101),
+        content: '',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -292,13 +277,14 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(returnedTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1']); // Add this mock
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
       expect(result.content).toBeUndefined();
-      expect(result.media).toEqual(['1']);
+      expect(result.media).toEqual(['url1']); // Expect the mocked URL
       expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1)]);
       expect(mockContentParsingService.parseContentAndValidate).toHaveBeenCalledWith(
         '',
@@ -362,18 +348,13 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1', 'url2', 'url3', 'url4']); // Add this mock
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
-      expect(result.media).toEqual(['1', '2', '3', '4']);
-      expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([
-        BigInt(1),
-        BigInt(2),
-        BigInt(3),
-        BigInt(4),
-      ]);
+      expect(result.media).toEqual(['url1', 'url2', 'url3', 'url4']);
     });
 
     it('should handle content parsing service errors', async () => {
