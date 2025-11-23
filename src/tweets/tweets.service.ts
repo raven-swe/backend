@@ -1,6 +1,13 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
+import { CreateTweetDto } from './dtos/create-tweet.dto';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { CreateTweetData, Hashtag, Mention } from './interfaces';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { Tweet } from '@prisma/client';
+import { MediaRepository } from 'src/media/media.repository';
+import { CreatedTweetDto } from './dtos/created-tweet.dto';
 import { UsersRepository } from 'src/users/users.repository';
 import {
   decodeCompositeCursor,
@@ -18,6 +25,9 @@ export class TweetsService {
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
+    private readonly contentParsingService: ContentParsingService,
+    private readonly mediaRepository: MediaRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getTimeline(userId: bigint, cursor: string, limit: number) {
@@ -32,8 +42,180 @@ export class TweetsService {
       pagination,
     };
   }
-  // --------------------------------------
 
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<CreatedTweetDto> {
+    if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_CREATION,
+          code: TWEETS_ERROR_CODES.INVALID_TWEET_CREATION,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_PAYLOAD,
+          code: TWEETS_ERROR_CODES.INVALID_TWEET_PAYLOAD,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (createTweetDto.media && createTweetDto.media.length > 4) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TOO_MANY_MEDIA,
+          code: TWEETS_ERROR_CODES.TOO_MANY_MEDIA,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    let mediaIds: bigint[] = [];
+    if (createTweetDto.media && createTweetDto.media.length > 0) {
+      mediaIds = createTweetDto.media.map((id) => BigInt(id));
+    }
+
+    await this.checkReplyAndQuoteTweetsExist(
+      createTweetDto.replyToTweetId,
+      createTweetDto.quoteToTweetId,
+    );
+    await this.validateMediaExists(mediaIds);
+
+    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
+      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+        createTweetDto.content,
+        tx,
+      );
+      const tweetData: CreateTweetData = {
+        userId,
+        content: createTweetDto.content,
+        replyToTweetId: createTweetDto.replyToTweetId
+          ? BigInt(createTweetDto.replyToTweetId)
+          : null,
+        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
+        Mentions: mentions,
+        Hashtags: hashtags,
+      };
+
+      const tweet = await this.tweetsRepository.create(tweetData, tx);
+      await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+
+      await this.mediaRepository.markMediaAsNotPending(mediaIds);
+      return { tweet, mentions, hashtags };
+    });
+
+    const returnedTweet = this.formatTweetCreationResponse(
+      tweet,
+      mentions,
+      hashtags,
+      createTweetDto.media,
+      createTweetDto.replyToTweetId,
+      createTweetDto.quoteToTweetId,
+    );
+    return { ...returnedTweet };
+  }
+
+  async deleteTweet(tweetId: bigint, userId: bigint) {
+    if (!(await this.tweetsRepository.checkExistingTweet(tweetId))) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!(await this.tweetsRepository.checkTweetOwnership(tweetId, userId))) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_FORBIDDEN_DELETION,
+          code: TWEETS_ERROR_CODES.TWEET_FORBIDDEN_DELETION,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    await this.tweetsRepository.deleteTweet(tweetId);
+    this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
+    return { message: 'Tweet deleted successfully' };
+  }
+
+  private formatTweetCreationResponse(
+    tweet: Tweet,
+    mentions: Mention[],
+    hashtags: Hashtag[],
+    media: string[] | undefined,
+    replyToTweetId: string | undefined,
+    quoteToTweetId: string | undefined,
+  ) {
+    return {
+      id: tweet.id.toString(),
+      content: tweet.content || undefined,
+      media: media,
+      entities: {
+        mentions: mentions.map((mention) => ({ ...mention, userId: mention.userId.toString() })),
+        hashtags: hashtags.map((hashtag) => ({
+          ...hashtag,
+          hashtagId: hashtag.hashtagId.toString(),
+        })),
+      },
+      replyToTweetId,
+      quoteToTweetId,
+      createdAt: tweet.createdAt,
+    };
+  }
+
+  private async checkReplyAndQuoteTweetsExist(
+    replyToTweetId: string | undefined,
+    quoteToTweetId: string | undefined,
+  ) {
+    if (
+      replyToTweetId &&
+      !(await this.tweetsRepository.checkExistingTweet(BigInt(replyToTweetId)))
+    ) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      quoteToTweetId &&
+      !(await this.tweetsRepository.checkExistingTweet(BigInt(quoteToTweetId)))
+    ) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  private async validateMediaExists(mediaIds: bigint[]) {
+    if (mediaIds.length === 0) {
+      return;
+    }
+    const allExist = await this.mediaRepository.checkMediaExists(mediaIds);
+    if (!allExist) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA,
+          code: TWEETS_ERROR_CODES.INVALID_MEDIA,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // --------------------------------------
   async likeTweet(userId: bigint, tweetId: bigint) {
     const tweet = await this.checkIfTweetExists(tweetId);
 

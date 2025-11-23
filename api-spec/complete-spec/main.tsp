@@ -547,7 +547,7 @@ model TweetBody {
 
   @doc("Optional array of media items attached to the tweet (max 4 items)")
   @maxItems(4)
-  media?: MediaItem[] | null;
+  media?: string[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
   isReplyToTweetId?: string | null;
@@ -610,6 +610,15 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+model CreatedTweet{
+  id: string;
+  content?: string;
+  media?: string[];
+  entities?: TweetEntities;
+  createdAt: utcDateTime;
+  replyToTweetId?: string;
+  quotedTweetId?: string;
+}
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
 
@@ -1710,7 +1719,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | MessageResponse<"Tweet posted successfully.">
+    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse

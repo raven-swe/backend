@@ -1,17 +1,17 @@
 meta {
-  name: like-tweet
+  name: delete-tweet
   type: http
-  seq: 1
+  seq: 6
 }
 
-post {
-  url: http://localhost:3000/tweets/3/like
+delete {
+  url: http://localhost:3000/tweets/57
   body: none
   auth: bearer
 }
 
 auth:bearer {
-  token: {{accessToken}}
+  token: {{access_token}}
 }
 
 settings {

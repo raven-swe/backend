@@ -205,8 +205,8 @@ model TrendingKeyword {
   keyword       String         @db.VarChar(100)
   category      Categories?
   lastUpdatedAt DateTime?      @map("last_updated_at")
-  isHashtag     Boolean        @default(false)
-  count         Int            @default(0)
+  isHashtag     Boolean        @default(false) @map("is_hashtag")
+  count         Int            @default(1)
   createdAt     DateTime       @default(now()) @map("created_at")
   tweetHashtags TweetHashtag[]
 

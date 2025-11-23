@@ -1,16 +1,28 @@
-import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { ParseBigIntPipe } from 'src/common/pipes';
+import { CreateTweetDto } from './dtos';
 
 @Controller('tweets')
 @UseGuards(JwtAuthGuard)
 export class TweetsController {
-  // --------------------------------------
   constructor(private readonly tweetsService: TweetsService) {}
 
+  @Post()
+  createTweet(@User() user: RequestUser, @Body() createTweetDto: CreateTweetDto) {
+    const userId = BigInt(user.id);
+    return this.tweetsService.createTweet(createTweetDto, userId);
+  }
+
+  @Delete(':id')
+  async deleteTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
+    const userId = BigInt(user.id);
+    return await this.tweetsService.deleteTweet(tweetId, userId);
+  }
+  // --------------------------------------
   @Post(':id/like')
   async likeTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
     const userId = BigInt(user.id);

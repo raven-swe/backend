@@ -20,6 +20,8 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
+import { TrendingModule } from './trending/trending.module';
+import { ContentParsingModule } from './content-parsing/content-parsing.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { LoggerModule } from './logger/logger.module';
@@ -59,6 +61,8 @@ import { ConversationsModule } from './conversations/conversations.module';
     TweetsModule,
     ConversationsModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
+    TrendingModule,
+    ContentParsingModule,
     LoggerModule,
   ],
   controllers: [HealthController],

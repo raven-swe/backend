@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 import { UserInteractionDto, TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
@@ -125,7 +126,7 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  public mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -165,6 +166,67 @@ export class TweetsRepository {
     };
   }
 
+  async create(tweetData: CreateTweetData, prismaClient: Prisma.TransactionClient = this.prisma) {
+    return prismaClient.tweet.create({
+      data: {
+        userId: tweetData.userId,
+        content: tweetData.content,
+        replyToTweetId: tweetData.replyToTweetId,
+        quotedTweetId: tweetData.quotedTweetId,
+        hasMentions: tweetData.Mentions.length > 0,
+        hasHashtags: tweetData.Hashtags.length > 0,
+        tweetMentions: {
+          createMany: {
+            data: tweetData.Mentions,
+          },
+        },
+        tweetHashtags: {
+          createMany: {
+            data: tweetData.Hashtags,
+          },
+        },
+      },
+    });
+  }
+
+  async linkTweetMedia(
+    tweetId: bigint,
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    const tweetMediaData = mediaIds.map((mediaId, index) => ({
+      tweetId,
+      mediaId,
+      order: index,
+    }));
+
+    await prismaClient.tweetMedia.createMany({
+      data: tweetMediaData,
+    });
+  }
+
+  async checkExistingTweet(tweetId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      select: { id: true },
+    });
+    return !!tweet;
+  }
+
+  async checkTweetOwnership(tweetId: bigint, userId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, userId, isDeleted: false },
+      select: { id: true },
+    });
+    return !!tweet;
+  }
+
+  async deleteTweet(tweetId: bigint) {
+    await this.prisma.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true }, //:))
+    });
+  }
   private mapToDetailedTweetDto(
     tweet: DetailedTweetWithIncludes,
   ): TweetDto & { replyToTweet?: TweetDto } {
