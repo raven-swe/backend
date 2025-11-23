@@ -31,4 +31,73 @@ export class MessagesRepository {
       },
     });
   }
+
+  async updateLastSeenMessage(conversationId: bigint, userId: bigint, lastSeenMessageId: bigint) {
+    const latestMessage = await this.prisma.message.findFirst({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!latestMessage) {
+      return {
+        lastSeenMessageId: null,
+        latestMessageUsername: null,
+        unseenCount: 0,
+      };
+    }
+
+    const unseenCount = await this.prisma.message.count({
+      where: {
+        conversationId,
+        userId: { not: userId },
+        id: { gt: lastSeenMessageId, lte: latestMessage.id },
+      },
+    });
+
+    const updated = await this.prisma.conversationParticipant.update({
+      where: {
+        conversationId_userId: { conversationId, userId },
+      },
+      data: {
+        lastSeenMessageId: latestMessage.id,
+      },
+      select: {
+        lastSeenMessageId: true,
+      },
+    });
+
+    return {
+      ...updated,
+      unseenCount,
+      latestMessageUsername: latestMessage.user.username,
+    };
+  }
+
+  async createMessage(conversationId: bigint, senderId: bigint, body: string) {
+    const message = await this.prisma.message.create({
+      data: {
+        userId: senderId,
+        conversationId,
+        content: body,
+      },
+    });
+
+    await this.prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        lastMessageId: message.id,
+      },
+    });
+    return message;
+  }
 }
