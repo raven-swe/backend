@@ -1,7 +1,6 @@
 import {
   IsEmail,
   IsString,
-  IsDate,
   IsNotEmpty,
   MaxLength,
   ValidationOptions,
@@ -9,6 +8,7 @@ import {
 } from 'class-validator';
 
 import { IsMinYearsOld } from '../validators';
+import { IsoDate } from 'src/common/utils';
 
 export class StartRegistrationDto {
   @IsNotEmpty()
@@ -21,8 +21,8 @@ export class StartRegistrationDto {
   @IsNotEmpty()
   email: string;
 
+  @IsoDate()
   @IsNotEmpty()
-  @IsDate()
   @IsMinYearsOld(13, {
     message: 'You must be at least 13 years old to register',
   })

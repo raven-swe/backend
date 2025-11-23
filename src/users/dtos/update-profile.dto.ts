@@ -1,14 +1,7 @@
-import {
-  IsBoolean,
-  IsDate,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-} from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsMinYearsOld } from 'src/auth/validators/is-min-years-old';
+import { IsoDate } from 'src/common/utils';
 
 export class UpdateProfileDto {
   @Transform(({ value }: { value: string | null }) => (value === null ? '' : value?.trim()))
@@ -29,30 +22,9 @@ export class UpdateProfileDto {
   location?: string | null;
 
   @IsOptional()
-  @Transform(({ value }: { value: string | null | Date }) => {
-    if (!value || value === null) return undefined;
-    if (value instanceof Date) return value;
-
-    // Parse date string and treat it as UTC to avoid timezone shifts
-    const dateStr = String(value).trim();
-
-    // Create date in UTC to avoid timezone conversion
-    const dateMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (dateMatch) {
-      const [, year, month, day] = dateMatch;
-      const date = new Date(
-        Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), 0, 0, 0, 0),
-      );
-
-      return isNaN(date.getTime()) ? value : date;
-    }
-
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? value : date;
-  })
+  @IsoDate()
   @IsNotEmpty({ message: 'birthDate must not be empty if provided' })
   @IsMinYearsOld(13, { message: 'You must be at least 13 years old' })
-  @IsDate()
   birthDate?: Date;
 
   @IsOptional()

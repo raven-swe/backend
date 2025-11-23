@@ -98,7 +98,7 @@ export class OAuthService {
 
   async completeOauthRegister(
     creationToken: string,
-    birthDate: string,
+    birthDate: Date,
     deviceType: string,
     ipAddress: string,
   ) {
@@ -179,7 +179,7 @@ export class OAuthService {
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,
       username,
-      new Date(birthDate),
+      birthDate,
       payload.name,
       payload.avatar_url,
       payload.provider,

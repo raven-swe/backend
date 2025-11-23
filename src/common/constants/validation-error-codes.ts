@@ -8,7 +8,7 @@ export const VALIDATION_ERROR_CODES = {
   NOT_MINIMUM_AGE: 'NOT_MINIMUM_AGE',
   TOO_SHORT: 'TOO_SHORT',
   TOO_LONG: 'TOO_LONG',
-  INVALID_FORMAT: 'INVALID_FORMAT', // used for password, returns the whole regex mismatch error in one message
+  INVALID_FORMAT: 'INVALID_FORMAT', // used for password (also for date), returns the whole regex mismatch error in one message
   INVALID_TOKEN: 'INVALID_TOKEN',
   MISSING_HEADER: 'MISSING_HEADER',
   INVALID_VALUE: 'INVALID_VALUE',
