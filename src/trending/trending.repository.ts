@@ -13,15 +13,15 @@ export class TrendingRepository {
    * @param prismaClient
    * @returns Array of hashtag ids in the same order as input
    */
-  async getOrCreateHashtagIds(
+  async createOrIncrementHashtags(
     hashtags: PlainHashtag[],
     prismaClient: Prisma.TransactionClient = this.prisma,
-  ): Promise<bigint[]> {
+  ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
     if (!hashtags || hashtags.length === 0) {
       return [];
     }
 
-    // for less db work, they are case-insensitive anyways
+    // counts once per tweet, lowercase
     const keywords = Array.from(new Set(hashtags.map((hashtag) => hashtag.keyword.toLowerCase())));
 
     const results = await prismaClient.$queryRaw<{ id: bigint; keyword: string }[]>`
@@ -32,29 +32,15 @@ export class TrendingRepository {
       RETURNING id, keyword
     `;
 
-    const map = new Map<string, bigint>(
+    const keywordToIdMap = new Map<string, bigint>(
       results.map((item) => [item.keyword.toLowerCase(), item.id]),
     );
 
-    // map ids to original input
     // the ! at the end is safe, we are sure all exist
-    return hashtags.map((hashtag) => map.get(hashtag.keyword.toLowerCase())!);
-  }
-
-  async incrementHashtagCount(
-    hashtagIds: bigint[],
-    prismaClient: Prisma.TransactionClient = this.prisma,
-  ) {
-    await prismaClient.trendingKeyword.updateMany({
-      where: {
-        id: { in: hashtagIds },
-      },
-      data: {
-        count: {
-          increment: 1,
-        },
-      },
-    });
+    return hashtags.map((hashtag) => ({
+      ...hashtag,
+      hashtagId: keywordToIdMap.get(hashtag.keyword.toLowerCase())!,
+    }));
   }
 
   // ---------------
