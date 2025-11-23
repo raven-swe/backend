@@ -20,6 +20,7 @@ model User {
   blockedBy                Block[]                   @relation("blocks_blocked_idTousers")
   blockedUsers             Block[]                   @relation("blocks_user_idTousers")
   conversationParticipants ConversationParticipant[]
+  createdConversations     Conversation[]            @relation("conversations_creator_idTousers")
   followers                Follow[]                  @relation("follows_followed_idTousers")
   following                Follow[]                  @relation("follows_follower_idTousers")
   likes                    Like[]
@@ -258,9 +259,11 @@ model Message {
 
 model Conversation {
   id                       BigInt                    @id @default(autoincrement())
+  creatorId                BigInt                    @map("creator_id")
   lastMessageId            BigInt?                   @unique @map("last_message_id")
   createdAt                DateTime                  @default(now()) @map("created_at")
   conversationParticipants ConversationParticipant[]
+  creator                  User                      @relation("conversations_creator_idTousers", fields: [creatorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lastMessage              Message?                  @relation("conversations_last_message_idTomessages", fields: [lastMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages                 Message[]                 @relation("messages_conversation_idToconversations")
 
@@ -305,6 +308,7 @@ model Media {
   altText    String?      @map("alt_text")
   width      Int?
   height     Int?
+  pending    Boolean      @default(false)
   createdAt  DateTime     @default(now()) @map("created_at")
   user       User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweetMedia TweetMedia[]
