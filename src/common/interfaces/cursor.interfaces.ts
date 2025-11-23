@@ -3,6 +3,11 @@ export type FollowsCursor = {
   followedId: string;
 };
 
+export type MutesCursor = {
+  userId: string;
+  mutedId: string;
+};
+
 export type BlocksCursor = {
   userId: string;
   blockedId: string;

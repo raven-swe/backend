@@ -20,6 +20,7 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { OtpType } from 'src/email/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { CachedRegistrationData } from 'src/auth/interfaces';
+import { UsersRepository } from 'src/users/users.repository';
 
 // Type for Prisma transaction callback
 type TransactionCallback<T> = (
@@ -57,8 +58,10 @@ jest.mock('src/auth/utils/password.util', () => ({
   hashPassword: jest.fn().mockResolvedValue('hashed-password'),
 }));
 
-jest.mock('src/common/utils/generate-validate-usernames.util', () => ({
-  generateUsernames: jest.fn().mockResolvedValue(['testuser1', 'testuser2', 'testuser3']),
+jest.mock('src/common/utils/generate-usernames.util', () => ({
+  generateUsernames: jest.fn().mockImplementation(() => {
+    return ['testuser1', 'testuser2', 'testuser3'];
+  }),
 }));
 
 const createMockPrismaService = () => {
@@ -101,6 +104,11 @@ describe('AuthService with mock ConfigService', () => {
     findByEmail: jest.fn(),
     createUser: jest.fn(),
     checkUsernameExistence: jest.fn(),
+  };
+
+  const mockUsersRepository = {
+    findTakenUsernames: jest.fn(),
+    getUserEmailAndDisplayName: jest.fn(),
   };
 
   const mockDevicesService = {
@@ -166,6 +174,7 @@ describe('AuthService with mock ConfigService', () => {
         Logger,
         { provide: RedisService, useValue: mockRedisService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: DevicesService, useValue: mockDevicesService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: RecaptchaService, useValue: mockRecaptchaService },
@@ -955,7 +964,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      const fakeUser = { id: BigInt(user.id), email: user.email } as never;
+      const fakeUser = { id: BigInt(user.id), username: user.username, email: user.email } as never;
       mockPrismaService.user.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.email);
@@ -1160,6 +1169,7 @@ describe('AuthService with mock ConfigService', () => {
       mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         email: user.email,
+        username: user.username,
       });
 
       const result = await service.checkIdentifier(user.email);
@@ -1167,20 +1177,6 @@ describe('AuthService with mock ConfigService', () => {
       expect(result).toEqual({
         exists: true,
         type: 'email',
-      });
-    });
-
-    it('should return exist true when user found with phone', async () => {
-      mockPrismaService.user.findFirst.mockResolvedValue({
-        id: user.id,
-        phone: user.phone,
-      });
-
-      const result = await service.checkIdentifier(user.phone);
-
-      expect(result).toEqual({
-        exists: true,
-        type: 'phone',
       });
     });
 

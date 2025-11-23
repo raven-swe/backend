@@ -7,8 +7,9 @@ import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from '.
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
-import { FollowsCursor } from 'src/common/interfaces';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 
 @Injectable()
 export class UsersRepository {
@@ -48,6 +49,28 @@ export class UsersRepository {
     return await this.prisma.user.findUnique({
       where: { id },
       include: { profile: true },
+    });
+  }
+
+  async findTakenUsernames(candidates: string[]): Promise<Set<string>> {
+    const taken = await this.prisma.user.findMany({
+      where: { username: { in: candidates } },
+      select: { username: true },
+    });
+    return new Set(taken.map((r) => r.username));
+  }
+
+  async getUserEmailAndDisplayName(userId: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
     });
   }
 
@@ -310,6 +333,15 @@ export class UsersRepository {
     });
 
     return existingUser && existingUser.id !== userId ? existingUser : null;
+  }
+
+  async getUserByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username: username },
+      select: {
+        id: true,
+      },
+    });
   }
 
   async updateUserEmail(
@@ -1065,5 +1097,116 @@ export class UsersRepository {
 
       return { bannerUrl: profile?.bannerUrl || null };
     });
+  }
+
+  async getUserMutedUsers(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return await this.prisma.mute.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_mutedId: {
+              userId: BigInt(prevCursor.userId),
+              mutedId: BigInt(prevCursor.mutedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { mutedId: 'asc' }],
+      include: {
+        mutedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return await this.prisma.block.findMany({
+      where: { userId },
+      take: limit,
+      cursor: prevCursor
+        ? {
+            userId_blockedId: {
+              userId: BigInt(prevCursor.userId),
+              blockedId: BigInt(prevCursor.blockedId),
+            },
+          }
+        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { blockedId: 'asc' }],
+      include: {
+        blockedUser: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                bio: true,
+                bioEntities: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async checkBatchUsernamesExistence(
+    usernames: PlainMention[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<Array<{ id: bigint; username: string }>> {
+    const existingUsers = await prismaClient.user.findMany({
+      where: {
+        username: {
+          in: usernames.map((mention) => mention.username),
+        },
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+
+    return existingUsers;
+  }
+  async createProfile(userId: bigint, displayName: string) {
+    return await this.prisma.profile.create({
+      data: {
+        userId,
+        displayName,
+      },
+    });
+  }
+
+  async getUserBlockedBy(userId: bigint) {
+    return this.prisma.block.findMany({
+      where: {
+        blockedId: userId,
+      },
+    });
+  }
+
+  async getBlockingBlockedState(user1: bigint, user2: bigint) {
+    const block1 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user1, blockedId: user2 } },
+    });
+
+    const block2 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user2, blockedId: user1 } },
+    });
+
+    return !!(block1 || block2);
   }
 }
