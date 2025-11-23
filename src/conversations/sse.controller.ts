@@ -4,6 +4,7 @@ import { SseService } from './sse.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { randomUUID } from 'crypto';
 
 interface SseEvent {
   event?: string;
@@ -32,6 +33,7 @@ export class SseController {
       return;
     }
     const userId = user.id;
+    const connectionId = randomUUID();
 
     res.set({
       'Content-Type': 'text/event-stream',
@@ -40,9 +42,11 @@ export class SseController {
     });
     res.flushHeaders?.();
 
-    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+    res.write(
+      `event: connected\ndata: ${JSON.stringify({ ok: true, deviceId: connectionId })}\n\n`,
+    );
 
-    const subscription = this.sse.subscribe(userId).subscribe((ev: SseEvent) => {
+    const subscription = this.sse.subscribe(userId, connectionId).subscribe((ev: SseEvent) => {
       if (ev.event) res.write(`event: ${ev.event}\n`);
       if (ev.id) res.write(`id: ${ev.id}\n`);
       res.write(`data: ${JSON.stringify(ev.data)}\n\n`);
@@ -65,7 +69,7 @@ export class SseController {
       clearInterval(ping);
       clearTimeout(connectionTimeout);
       subscription.unsubscribe();
-      this.sse.unsubscribe(userId);
+      this.sse.unsubscribe(userId, connectionId);
     });
   }
 }
