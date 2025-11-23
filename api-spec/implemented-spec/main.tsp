@@ -1550,7 +1550,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithoutQuotedTweet>>
+    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
