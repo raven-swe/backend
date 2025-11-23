@@ -27,6 +27,9 @@ const tweetInclude = (currentUserId: bigint) =>
         followers: {
           where: { followerId: currentUserId },
         },
+        mutedBy: {
+          where: { userId: currentUserId },
+        },
       },
     },
     _count: {
@@ -140,6 +143,7 @@ export class TweetsRepository {
         avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
         isBlocked: tweet.user.blockedBy.length > 0,
         isFollowing: tweet.user.followers.length > 0,
+        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,

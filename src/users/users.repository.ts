@@ -1270,6 +1270,7 @@ export class UsersRepository {
       avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
       isBlocked: false,
       isFollowing: false,
+      isMuted: false,
     };
   }
 }
