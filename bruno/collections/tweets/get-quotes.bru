@@ -1,11 +1,11 @@
 meta {
-  name: unblock-user
+  name: get-quotes
   type: http
-  seq: 3
+  seq: 6
 }
 
-delete {
-  url: http://localhost:3000/me/blocks/notnowomar
+get {
+  url: http://localhost:3000/tweets/1/quotes
   body: none
   auth: bearer
 }

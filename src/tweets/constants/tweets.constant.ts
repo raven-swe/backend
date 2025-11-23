@@ -3,11 +3,13 @@ export const TWEETS_ERROR_CODES = {
   CONFLICTING_LIKE: 'CONFLICTING_LIKE',
   CONFLICTING_RETWEET: 'CONFLICTING_RETWEET',
   USER_BLOCKED: 'USER_BLOCKED',
-} as const;
+  INVALID_CURSOR: 'INVALID_CURSOR',
+};
 
 export const TWEETS_ERROR_MESSAGES = {
-  TWEET_NOT_FOUND: 'Tweet not found.',
-  CONFLICTING_LIKE: 'You have already liked or unliked this tweet.',
-  CONFLICTING_RETWEET: 'You have already retweeted or unretweeted this tweet.',
-  USER_BLOCKED: 'You are blocked from interacting with this tweet.',
+  TWEET_NOT_FOUND: 'The specified tweet does not exist.',
+  CONFLICTING_LIKE: 'User has already liked/unliked this tweet.',
+  CONFLICTING_RETWEET: 'User has already retweeted/unretweeted this tweet.',
+  USER_BLOCKED: 'User is blocked from interacting with this tweet.',
+  INVALID_CURSOR: 'The provided cursor is invalid.',
 } as const;

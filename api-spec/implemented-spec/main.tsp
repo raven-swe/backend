@@ -506,10 +506,10 @@ model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
+  isFollowing: boolean;
 
   @doc("Is the user following the current logged-in user")
-  isFollower: boolean | null;
+  isFollower: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -518,6 +518,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("User's biography with structured entities")
@@ -697,17 +703,34 @@ model CompactTweet {
   media: MediaItem[] | null;
 }
 
+model ReplyTweet extends CompactTweet {
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string;
+}
+
 model Tweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quoteToTweetId: string | null;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
+model TweetWithoutQuotedTweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string | null;
+}
+
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
 }
 
 @tag("Auth")
@@ -1503,6 +1526,51 @@ namespace Tweets {
     | MessageResponse<"Retweet undone successfully.">
     | NotFoundResponse
     | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}")
+  @summary("Get a specific tweet by ID")
+  op getTweet(@path id: string):
+    | DataResponse<TweetWithReplyTo>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithoutQuotedTweet[]>
+    | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
