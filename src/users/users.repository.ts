@@ -1209,4 +1209,39 @@ export class UsersRepository {
 
     return !!(block1 || block2);
   }
+  async getMatchingUsers(userId: bigint, username: string) {
+    return await this.prisma.user.findMany({
+      where: {
+        OR: [
+          {
+            username: {
+              contains: username,
+              mode: 'insensitive',
+            },
+          },
+          {
+            profile: {
+              displayName: {
+                contains: username,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
+        deletedAt: null,
+        id: { not: userId },
+      },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: [{ username: 'asc' }],
+    });
+  }
 }

@@ -1,12 +1,15 @@
-/*
-  Warnings:
 
-  - Changed the type of `email` on the `users` table. No cast exists, the column would be dropped and recreated, which cannot be done if there is data, since the column is required.
+-- 0. Enable extension
+CREATE EXTENSION IF NOT EXISTS citext;
 
-*/
--- AlterTable
-ALTER TABLE "users" DROP COLUMN "email",
-ADD COLUMN     "email" CITEXT NOT NULL;
+-- 1. Drop existing index
+DROP INDEX IF EXISTS "users_email_key";
 
--- CreateIndex
+-- 2. Alter column type safely
+ALTER TABLE "users"
+  ALTER COLUMN "email" TYPE citext USING "email"::citext;
+
+-- 3. Create new index
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+
