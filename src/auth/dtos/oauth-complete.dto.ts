@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsNotEmpty,
-  ValidationArguments,
-  registerDecorator,
-  ValidationOptions,
-} from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { IsoDate } from 'src/common/utils';
 import { IsMinYearsOld } from '../validators';
 
