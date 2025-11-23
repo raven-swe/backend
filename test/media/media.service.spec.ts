@@ -521,7 +521,10 @@ describe('MediaService', () => {
 
       // Assert
       expect(uploadAndSaveMediaSpy).toHaveBeenCalledWith(file, userId, folder, altText, true);
-      expect(result).toEqual({ items: expectedResult, message: 'Media uploaded successfully.' });
+      expect(result).toEqual({
+        ...expectedResult,
+        message: 'Media uploaded successfully.',
+      });
     });
   });
 

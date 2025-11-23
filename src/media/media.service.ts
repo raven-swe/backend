@@ -233,7 +233,7 @@ export class MediaService {
     }
 
     const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { items, message: 'Media uploaded successfully.' };
+    return { ...items, message: 'Media uploaded successfully.' };
   }
 
   /**

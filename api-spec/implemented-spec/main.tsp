@@ -279,15 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-model CreatedTweet{
-  id: string;
-  content?: string;
-  media?: string[];
-  entities?: TweetEntities;
-  createdAt: utcDateTime;
-  replyToTweetId?: string;
-  quotedTweetId?: string;
-}
 
 model RegisterStartBody {
   name: string;
@@ -1198,7 +1189,6 @@ namespace Me {
       ...CursorPaginationParameters,
     ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
-
     @get
     @route("/sessions")
     @summary("Retrieve all active and recent sessions for the authenticated user.")
@@ -1559,7 +1549,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1567,7 +1557,6 @@ namespace Tweets {
     | ConflictResponse
     | RateLimitResponse;
 
-  
   @delete
   @route("/{id}")
   @summary("Delete a tweet")
