@@ -31,10 +31,12 @@ describe('TweetsService', () => {
     create: jest.fn(),
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
+    getReferencedTweet: jest.fn(),
   };
 
   const mockUsersRepository = {
     areUsersBlocked: jest.fn(),
+    findOwnTweetAuthorMetaData: jest.fn(),
   };
 
   const mockContentParsingService = {
@@ -44,7 +46,7 @@ describe('TweetsService', () => {
   const mockMediaRepository = {
     checkMediaExists: jest.fn(),
     markMediaAsNotPending: jest.fn(),
-    findOrderedUrlsByIds: jest.fn(),
+    findOrderedMediaObjectsByIds: jest.fn(),
   };
 
   const mockPrismaService = {
@@ -132,13 +134,22 @@ describe('TweetsService', () => {
         content: 'Hello world!',
       };
 
+      const mockAuthorDto = {
+        username: 'testuser',
+        displayName: 'Test User',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        isBlocked: false,
+        isFollowing: false,
+      };
+
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
         mentions: mockMentions,
         hashtags: mockHashtags,
       });
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue([]); // Add this mock
+      mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([]);
+      mockUsersRepository.findOwnTweetAuthorMetaData.mockResolvedValue(mockAuthorDto);
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
@@ -146,15 +157,22 @@ describe('TweetsService', () => {
       // Assert
       expect(result).toEqual({
         id: '100',
+        author: mockAuthorDto,
         content: 'Hello world!',
+        createdAt: mockTweet.createdAt,
+        replyCount: 0,
+        retweetCount: 0,
+        likeCount: 0,
+        isLiked: false,
+        isRetweeted: false,
         entities: {
           mentions: [{ username: 'testuser', startPosition: 6 }],
-          hashtags: [{ keyword: 'test', startPosition: 15 }],
+          hashtags: [{ hashtag: 'test', startPosition: 15 }], // Note: 'hashtag' not 'keyword'
         },
         media: [],
-        replyToTweetId: undefined,
-        quoteToTweetId: undefined,
-        createdAt: mockTweet.createdAt,
+        replyToTweetId: null,
+        quoteToTweetId: null,
+        quotedTweet: undefined,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -199,6 +217,14 @@ describe('TweetsService', () => {
         media: ['1', '2'],
       };
 
+      const mockAuthorDto = {
+        username: 'testuser',
+        displayName: 'Test User',
+        avatarUrl: 'https://example.com/avatar.jpg',
+        isBlocked: false,
+        isFollowing: false,
+      };
+
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
         mentions: mockMentions,
         hashtags: mockHashtags,
@@ -206,13 +232,21 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
-      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1', 'url2']); // Add this mock
+      mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url2', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
+      mockUsersRepository.findOwnTweetAuthorMetaData.mockResolvedValue(mockAuthorDto);
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
-      expect(result.media).toEqual(['url1', 'url2']);
+      expect(result.author).toEqual(mockAuthorDto);
+      expect(result.media).toEqual([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url2', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
       expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1), BigInt(2)]);
       expect(mockTweetsRepository.linkTweetMedia).toHaveBeenCalledWith(
         BigInt(100),
@@ -273,14 +307,18 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(returnedTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
-      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1']); // Add this mock
+      mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
-      expect(result.content).toBeUndefined();
-      expect(result.media).toEqual(['url1']); // Expect the mocked URL
+      expect(result.content).toBe('');
+      expect(result.media).toEqual([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
       expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1)]);
       expect(mockContentParsingService.parseContentAndValidate).toHaveBeenCalledWith(
         '',
@@ -344,13 +382,23 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
       mockMediaRepository.checkMediaExists.mockResolvedValue(true);
-      mockMediaRepository.findOrderedUrlsByIds.mockResolvedValue(['url1', 'url2', 'url3', 'url4']); // Add this mock
+      mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url2', type: 'VIDEO', altText: null, width: 100, height: 100 },
+        { url: 'url3', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url4', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
-      expect(result.media).toEqual(['url1', 'url2', 'url3', 'url4']);
+      expect(result.media).toEqual([
+        { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url2', type: 'VIDEO', altText: null, width: 100, height: 100 },
+        { url: 'url3', type: 'IMAGE', altText: null, width: 100, height: 100 },
+        { url: 'url4', type: 'IMAGE', altText: null, width: 100, height: 100 },
+      ]);
     });
 
     it('should handle content parsing service errors', async () => {
