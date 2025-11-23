@@ -17,8 +17,10 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
+import { UserInteractionsCursor } from 'src/common/types/cursors';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { Mention, PlainMention } from 'src/tweets/interfaces';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
 
 @Injectable()
 export class UsersService {
@@ -26,6 +28,7 @@ export class UsersService {
 
   constructor(
     private readonly usersRepository: UsersRepository,
+    private readonly tweetsRepository: TweetsRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
@@ -984,5 +987,54 @@ export class UsersService {
 
   async createProfile(userId: bigint, displayName: string) {
     return this.usersRepository.createProfile(userId, displayName);
+  }
+
+  async getUserLikedTweets(
+    requestingUserId: bigint,
+    targetUsername: string,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!targetUser || targetUser.deletedAt) {
+      // TODO remove if done on global level
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: UserInteractionsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getUserLikedTweets(
+      targetUser.id,
+      requestingUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
+      userId: targetUser.id.toString(),
+      tweetId: tweet.id,
+    }));
+
+    return {
+      items: tweets.slice(0, limit),
+      pagination,
+    };
   }
 }
