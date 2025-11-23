@@ -1,0 +1,27 @@
+meta {
+  name: create-staging
+  type: http
+  seq: 12
+}
+
+post {
+  url: https://staging.api.raven.cmp27.space/tweets
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJpYXQiOjE3NjM4OTM0MTEsImV4cCI6MTc2Mzg5NDMxMX0.rOq3fqeVUfHlKPI4u0Q4wPSakkze0-xCGcqCAE1h5XU
+}
+
+body:json {
+  {
+    "content": "I hate this guy",
+    "quoteToTweetId": 36
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

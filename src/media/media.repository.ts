@@ -39,12 +39,13 @@ export class MediaRepository {
   }
 
   async checkMediaExists(mediaIds: bigint[]): Promise<boolean> {
+    const uniqueMediaIds = Array.from(new Set(mediaIds));
     const count = await this.prisma.media.count({
       where: {
-        id: { in: mediaIds },
+        id: { in: uniqueMediaIds },
       },
     });
-    return count === mediaIds.length;
+    return count === uniqueMediaIds.length;
   }
 
   async findPendingMediaOlderThan(date: Date) {
