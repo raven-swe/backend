@@ -610,15 +610,6 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
-model CreatedTweet{
-  id: string;
-  content?: string;
-  media?: string[];
-  entities?: TweetEntities;
-  createdAt: utcDateTime;
-  replyToTweetId?: string;
-  quotedTweetId?: string;
-}
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
 
@@ -1719,7 +1710,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | Response<201> & Body<ApiSuccessResponse<TweetWithoutQuotedTweet>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
