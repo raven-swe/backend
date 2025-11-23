@@ -553,4 +553,53 @@ export class TweetsRepository {
       where: { id: tweetId, isDeleted: false },
     });
   }
+
+  async getUserLikedTweets(
+    userId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<TweetDto[]> {
+    const likes = await this.prisma.like.findMany({
+      where: {
+        userId,
+        tweet: {
+          isDeleted: false,
+          user: {
+            blockedUsers: {
+              none: {
+                blockedId: currentUserId,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ userId: 'asc' }, { tweetId: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        tweet: {
+          include: {
+            ...tweetInclude(currentUserId),
+            quotedTweet: {
+              include: tweetInclude(currentUserId),
+            },
+          },
+        },
+      },
+      cursor: prevCursor
+        ? {
+            userId_tweetId: {
+              userId: BigInt(prevCursor.userId),
+              tweetId: BigInt(prevCursor.tweetId),
+            },
+          }
+        : undefined,
+      take: limit || 20,
+    });
+
+    const tweets = likes
+      .filter((like) => like.tweet)
+      .map((like) => this.mapToTweetDto(like.tweet as TweetWithIncludes));
+
+    return tweets;
+  }
 }
