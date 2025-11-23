@@ -93,7 +93,7 @@ describe('DmGateway', () => {
 
     it('should log raw connection attempts', () => {
       const mockServerWithOn = {
-        on: jest.fn((event, callback) => {
+        on: jest.fn((event: string, callback: (socket: { id: string }) => void) => {
           if (event === 'connection') {
             callback({ id: 'test-socket-id' });
           }
@@ -130,7 +130,9 @@ describe('DmGateway', () => {
 
       gateway.handleConnection(socketWithoutUser);
 
-      expect(logSpy).toHaveBeenCalledWith('Client connected: socket-789, User: not authenticated yet');
+      expect(logSpy).toHaveBeenCalledWith(
+        'Client connected: socket-789, User: not authenticated yet',
+      );
     });
   });
 
@@ -390,7 +392,9 @@ describe('DmGateway', () => {
     });
 
     it('should emit error when assertParticipant returns INVALID_CONVERSATION_ID error', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'INVALID_CONVERSATION_ID' });
+      conversationsService.assertParticipant.mockResolvedValue({
+        error: 'INVALID_CONVERSATION_ID',
+      });
 
       await gateway.sendMessage(mockSocket, payload);
 
