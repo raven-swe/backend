@@ -176,8 +176,8 @@ export class TweetsService {
           startPosition: hashtag.startPosition,
         })),
       },
-      replyToTweetId,
-      quoteToTweetId,
+      replyToTweetId: replyToTweetId ?? undefined,
+      quoteToTweetId: quoteToTweetId ?? undefined,
       createdAt: tweet.createdAt,
     };
   }
