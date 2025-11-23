@@ -5,6 +5,7 @@ import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { PAGINATION } from 'src/common/constants';
 
 @Controller('users')
 export class UsersController {
@@ -103,8 +104,11 @@ export class UsersController {
     @Query('cursor') cursor?: string,
   ) {
     const parsed = Number(limit);
-    let parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
-    if (parsedLimit > 20) parsedLimit = 20; // TODO replace with global constant if done
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+
     return this.usersService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
   }
 }
