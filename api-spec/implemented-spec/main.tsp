@@ -1189,7 +1189,6 @@ namespace Me {
       ...CursorPaginationParameters,
     ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
-
     @get
     @route("/sessions")
     @summary("Retrieve all active and recent sessions for the authenticated user.")
@@ -1558,7 +1557,6 @@ namespace Tweets {
     | ConflictResponse
     | RateLimitResponse;
 
-  
   @delete
   @route("/{id}")
   @summary("Delete a tweet")
