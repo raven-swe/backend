@@ -9,6 +9,7 @@ import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/c
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
+import { PlainHashtag } from './interfaces';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({

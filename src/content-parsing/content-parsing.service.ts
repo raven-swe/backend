@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
-import { Hashtag, Mention, PlainHashtag, PlainMention } from 'src/tweets/interfaces';
+import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';
 import { UsersService } from 'src/users/users.service';
 
 @Injectable()
@@ -23,7 +23,14 @@ export class ContentParsingService {
   async parseContentAndValidate(
     content: string,
     tx: Prisma.TransactionClient,
-  ): Promise<{ mentions: Mention[]; hashtags: Hashtag[] }> {
+  ): Promise<{
+    mentions: (PlainMention & {
+      userId: bigint;
+    })[];
+    hashtags: (PlainHashtag & {
+      hashtagId: bigint;
+    })[];
+  }> {
     if (!content || content.length === 0) {
       return { mentions: [], hashtags: [] };
     }
@@ -32,7 +39,7 @@ export class ContentParsingService {
       plainMentions,
       tx,
     );
-    const hashtags = await this.trendingService.getOrCreateHashtagIds(plainHashtags, tx);
+    const hashtags = await this.trendingService.createOrIncrementHashtags(plainHashtags, tx);
     return { mentions, hashtags };
   }
 
