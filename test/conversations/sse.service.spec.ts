@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SseService } from 'src/conversations/sse.service';
+import { Subject } from 'rxjs';
 import { take } from 'rxjs/operators';
 
 describe('SseService', () => {
@@ -24,11 +25,12 @@ describe('SseService', () => {
   describe('subscribe', () => {
     it('should create a new subject and return an observable for a new user', (done) => {
       const userId = 'user-123';
-      const observable = service.subscribe(userId);
+      const subject = service.subscribe(userId);
 
-      expect(observable).toBeDefined();
+      expect(subject).toBeDefined();
+      expect(subject).not.toBeNull();
 
-      const subscription = observable.pipe(take(1)).subscribe({
+      const subscription = subject!.pipe(take(1)).subscribe({
         next: (event) => {
           expect(event).toEqual({ test: 'event' });
           subscription.unsubscribe();
@@ -39,20 +41,23 @@ describe('SseService', () => {
       service.publish(userId, { test: 'event' });
     });
 
-    it('should return the same observable for an existing user subscription', () => {
+    it('should create separate subjects for multiple subscriptions of the same user', () => {
       const userId = 'user-456';
 
-      const observable1 = service.subscribe(userId);
-      const observable2 = service.subscribe(userId);
+      const subject1 = service.subscribe(userId);
+      const subject2 = service.subscribe(userId);
+
+      expect(subject1).not.toBeNull();
+      expect(subject2).not.toBeNull();
 
       let receivedEvents1 = 0;
       let receivedEvents2 = 0;
 
-      observable1.pipe(take(1)).subscribe(() => {
+      subject1!.pipe(take(1)).subscribe(() => {
         receivedEvents1++;
       });
 
-      observable2.pipe(take(1)).subscribe(() => {
+      subject2!.pipe(take(1)).subscribe(() => {
         receivedEvents2++;
       });
 
@@ -71,11 +76,17 @@ describe('SseService', () => {
       const events1: unknown[] = [];
       const events2: unknown[] = [];
 
-      const sub1 = service.subscribe(userId1).subscribe((event) => {
+      const subject1 = service.subscribe(userId1);
+      const subject2 = service.subscribe(userId2);
+
+      expect(subject1).not.toBeNull();
+      expect(subject2).not.toBeNull();
+
+      const sub1 = subject1!.subscribe((event) => {
         events1.push(event);
       });
 
-      const sub2 = service.subscribe(userId2).subscribe((event) => {
+      const sub2 = subject2!.subscribe((event) => {
         events2.push(event);
       });
 
@@ -91,6 +102,45 @@ describe('SseService', () => {
         done();
       }, 100);
     });
+
+    it('should limit connections per user to 5 and complete oldest when exceeded', (done) => {
+      const userId = 'user-max-connections';
+      const subjects: (Subject<unknown> | null)[] = [];
+
+      for (let i = 0; i < 5; i++) {
+        const subject = service.subscribe(userId);
+        expect(subject).not.toBeNull();
+        subjects.push(subject);
+      }
+
+      let oldestCompleted = false;
+      subjects[0]!.subscribe({
+        complete: () => {
+          oldestCompleted = true;
+        },
+      });
+
+      const sixthSubject = service.subscribe(userId);
+      expect(sixthSubject).not.toBeNull();
+
+      setTimeout(() => {
+        expect(oldestCompleted).toBe(true);
+        expect(service.getConnectionCount(userId)).toBe(5);
+        done();
+      }, 100);
+    });
+
+    it('should return connection count for a user', () => {
+      const userId = 'user-count';
+
+      expect(service.getConnectionCount(userId)).toBe(0);
+
+      service.subscribe(userId);
+      expect(service.getConnectionCount(userId)).toBe(1);
+
+      service.subscribe(userId);
+      expect(service.getConnectionCount(userId)).toBe(2);
+    });
   });
 
   describe('publish', () => {
@@ -98,7 +148,10 @@ describe('SseService', () => {
       const userId = 'user-789';
       const testEvent = { type: 'test', data: 'hello' };
 
-      const subscription = service.subscribe(userId).subscribe((event) => {
+      const subject = service.subscribe(userId);
+      expect(subject).not.toBeNull();
+
+      const subscription = subject!.subscribe((event) => {
         expect(event).toEqual(testEvent);
         subscription.unsubscribe();
         done();
@@ -117,7 +170,10 @@ describe('SseService', () => {
       const userId = 'user-multi';
       const events: unknown[] = [];
 
-      const subscription = service.subscribe(userId).subscribe((event) => {
+      const subject = service.subscribe(userId);
+      expect(subject).not.toBeNull();
+
+      const subscription = subject!.subscribe((event) => {
         events.push(event);
       });
 
@@ -139,14 +195,17 @@ describe('SseService', () => {
 
       let completed = false;
 
-      const subscription = service.subscribe(userId).subscribe({
+      const subject = service.subscribe(userId);
+      expect(subject).not.toBeNull();
+
+      const subscription = subject!.subscribe({
         next: () => {},
         complete: () => {
           completed = true;
         },
       });
 
-      service.unsubscribe(userId);
+      service.unsubscribe(userId, subject!);
 
       setTimeout(() => {
         expect(completed).toBe(true);
@@ -156,19 +215,26 @@ describe('SseService', () => {
     });
 
     it('should not throw error when unsubscribing a non-existent user', () => {
+      const subject = service.subscribe('temp-user');
       expect(() => {
-        service.unsubscribe('non-existent-user');
+        service.unsubscribe('non-existent-user', subject!);
       }).not.toThrow();
     });
 
     it('should allow re-subscribing after unsubscribe', (done) => {
       const userId = 'user-resubscribe';
 
-      const sub1 = service.subscribe(userId).subscribe();
-      service.unsubscribe(userId);
+      const subject1 = service.subscribe(userId);
+      expect(subject1).not.toBeNull();
+
+      const sub1 = subject1!.subscribe();
+      service.unsubscribe(userId, subject1!);
       sub1.unsubscribe();
 
-      const subscription = service.subscribe(userId).subscribe((event) => {
+      const subject2 = service.subscribe(userId);
+      expect(subject2).not.toBeNull();
+
+      const subscription = subject2!.subscribe((event) => {
         expect(event).toEqual({ resubscribed: true });
         subscription.unsubscribe();
         done();
@@ -183,12 +249,18 @@ describe('SseService', () => {
 
       const events2: unknown[] = [];
 
-      const sub1 = service.subscribe(userId1).subscribe();
-      const sub2 = service.subscribe(userId2).subscribe((event) => {
+      const subject1 = service.subscribe(userId1);
+      const subject2 = service.subscribe(userId2);
+
+      expect(subject1).not.toBeNull();
+      expect(subject2).not.toBeNull();
+
+      const sub1 = subject1!.subscribe();
+      const sub2 = subject2!.subscribe((event) => {
         events2.push(event);
       });
 
-      service.unsubscribe(userId1);
+      service.unsubscribe(userId1, subject1!);
       sub1.unsubscribe();
 
       service.publish(userId2, { message: 'still active' });

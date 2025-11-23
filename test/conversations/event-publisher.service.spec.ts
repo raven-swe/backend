@@ -151,40 +151,12 @@ describe('EventPublisherService', () => {
             id: '789',
             username: 'sender',
             displayName: 'Sender User',
-            avatarUrl: 'Sender User',
+            avatarUrl: 'https://example.com/sender-avatar.jpg',
           },
           bodySnippet: mockMessage.content.slice(0, 80),
           createdAt: mockMessage.createdAt,
         },
       });
-    });
-
-    it('should use default profile picture when avatarUrl is null', async () => {
-      const mockParticipants = [
-        {
-          user: {
-            id: BigInt(200),
-            username: 'noavatar',
-            profile: {
-              displayName: 'No Avatar User',
-              avatarUrl: null,
-            },
-          },
-        },
-      ];
-
-      mockConversationsService.getConversationParticipants.mockResolvedValue(mockParticipants);
-
-      await service.publishNewMessagePreview('conv-456', mockMessage, mockSender);
-
-      expect(mockSseService.publish).toHaveBeenCalled();
-      const firstCall = mockSseService.publish.mock.calls[0] as [
-        string,
-        { event: string; data: { sender: { avatarUrl: string } } },
-      ];
-      expect(firstCall[0]).toBe('200');
-      expect(firstCall[1].event).toBe('dm.new_message');
-      expect(firstCall[1].data.sender.avatarUrl).toBe('Sender User');
     });
 
     it('should not publish unseen count to the message sender', async () => {

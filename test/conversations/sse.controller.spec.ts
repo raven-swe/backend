@@ -13,6 +13,7 @@ describe('SseController', () => {
     subscribe: jest.fn(),
     publish: jest.fn(),
     unsubscribe: jest.fn(),
+    getConnectionCount: jest.fn().mockReturnValue(1),
   };
 
   beforeEach(async () => {
@@ -109,10 +110,23 @@ describe('SseController', () => {
       });
     });
 
+    it('should return 429 when connection limit is reached', () => {
+      const mockRes = createMockResponse();
+      mockSseService.subscribe.mockReturnValue(null);
+
+      controller.stream(mockUser, mockRes as Response, 'dm');
+
+      expect(mockRes.status).toHaveBeenCalledWith(429);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Too many active connections. Close some tabs or devices.',
+        code: 'TOO_MANY_CONNECTIONS',
+      });
+    });
+
     it('should set correct SSE headers for valid request', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -130,7 +144,7 @@ describe('SseController', () => {
     it('should send connected event on successful connection', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -145,7 +159,7 @@ describe('SseController', () => {
     it('should subscribe to SSE service with user ID', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -158,7 +172,7 @@ describe('SseController', () => {
     it('should write event data when SSE service publishes', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -181,7 +195,7 @@ describe('SseController', () => {
     it('should write event with ID when provided', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -206,7 +220,7 @@ describe('SseController', () => {
     it('should write event without event name when not provided', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -228,30 +242,21 @@ describe('SseController', () => {
     it('should clean up on connection close', () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      const mockUnsubscribe = jest.fn();
-      const mockObservable = mockSubject.asObservable();
-
-      mockSseService.subscribe.mockReturnValue({
-        ...mockObservable,
-        subscribe: jest.fn(() => ({
-          unsubscribe: mockUnsubscribe,
-        })),
-      });
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
       const mockResTyped = mockRes as Partial<Response> & { emit: (event: string) => boolean };
       mockResTyped.emit('close');
 
-      expect(mockUnsubscribe).toHaveBeenCalled();
-      expect(mockSseService.unsubscribe).toHaveBeenCalledWith('123');
+      expect(mockSseService.unsubscribe).toHaveBeenCalledWith('123', mockSubject);
     });
 
     it('should send session expired event after 2 hours', (done) => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -274,7 +279,7 @@ describe('SseController', () => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
@@ -296,7 +301,7 @@ describe('SseController', () => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject.asObservable());
+      mockSseService.subscribe.mockReturnValue(mockSubject);
 
       controller.stream(mockUser, mockRes as Response, 'dm');
 
