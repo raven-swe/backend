@@ -985,4 +985,12 @@ export class UsersService {
   async createProfile(userId: bigint, displayName: string) {
     return this.usersRepository.createProfile(userId, displayName);
   }
+
+  async getMatchingUsers(userId: bigint, username: string) {
+    return this.usersRepository.getMatchingUsers(userId, username);
+  }
+
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
 }
