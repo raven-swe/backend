@@ -7,7 +7,6 @@ import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
-import { CreatedTweetDto } from './dtos/created-tweet.dto';
 import { UsersRepository } from 'src/users/users.repository';
 import {
   decodeCompositeCursor,
@@ -17,6 +16,8 @@ import {
 } from 'src/common/utils';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
+import { AuthorDto, TweetDto } from './dtos';
 
 @Injectable()
 export class TweetsService {
@@ -43,7 +44,7 @@ export class TweetsService {
     };
   }
 
-  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<CreatedTweetDto> {
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
       throw new HttpException(
         {
@@ -83,49 +84,45 @@ export class TweetsService {
     );
     await this.validateMediaExists(mediaIds);
 
-    const { tweet, mentions, hashtags, orderedMediaUrls } = await this.prisma.$transaction(
-      async (tx) => {
-        const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
-          createTweetDto.content,
-          tx,
-        );
-        const tweetData: CreateTweetData = {
-          userId,
-          content: createTweetDto.content,
-          replyToTweetId: createTweetDto.replyToTweetId
-            ? BigInt(createTweetDto.replyToTweetId)
-            : null,
-          quotedTweetId: createTweetDto.quoteToTweetId
-            ? BigInt(createTweetDto.quoteToTweetId)
-            : null,
-          Mentions: mentions.map((mention) => ({
-            userId: mention.userId,
-            startPosition: mention.startPosition,
-          })),
-          Hashtags: hashtags.map((hashtag) => ({
-            hashtagId: hashtag.hashtagId,
-            startPosition: hashtag.startPosition,
-          })),
-        };
+    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
+      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+        createTweetDto.content,
+        tx,
+      );
 
-        const tweet = await this.tweetsRepository.create(tweetData, tx);
-        await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+      const tweetData: CreateTweetData = {
+        userId,
+        content: createTweetDto.content,
+        replyToTweetId: createTweetDto.replyToTweetId
+          ? BigInt(createTweetDto.replyToTweetId)
+          : null,
+        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
+        Mentions: mentions.map((mention) => ({
+          userId: mention.userId,
+          startPosition: mention.startPosition,
+        })),
+        Hashtags: hashtags.map((hashtag) => ({
+          hashtagId: hashtag.hashtagId,
+          startPosition: hashtag.startPosition,
+        })),
+      };
 
-        await this.mediaRepository.markMediaAsNotPending(mediaIds);
-        const orderedMediaUrls = await this.mediaRepository.findOrderedUrlsByIds(mediaIds);
-        return { tweet, mentions, hashtags, orderedMediaUrls };
-      },
-    );
+      const tweet = await this.tweetsRepository.create(tweetData, tx);
+      await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+      await this.mediaRepository.markMediaAsNotPending(mediaIds);
 
-    const returnedTweet = this.formatTweetCreationResponse(
-      tweet,
-      mentions,
-      hashtags,
-      orderedMediaUrls,
-      createTweetDto.replyToTweetId,
-      createTweetDto.quoteToTweetId,
-    );
-    return { ...returnedTweet };
+      return { tweet, mentions, hashtags };
+    });
+
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+
+    const [mediaObjects, authorDto] = await Promise.all([mediaObjectsPromise, authorDtoPromise]);
+
+    return this.formatTweetDto(tweet, mentions, hashtags, mediaObjects, authorDto, createTweetDto);
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
@@ -154,31 +151,44 @@ export class TweetsService {
     return { message: 'Tweet deleted successfully' };
   }
 
-  private formatTweetCreationResponse(
+  private formatTweetDto(
     tweet: Tweet,
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
-    media: string[],
-    replyToTweetId: string | undefined,
-    quoteToTweetId: string | undefined,
-  ) {
+    media: MediaResponseDto[],
+    authorDto: AuthorDto,
+    createTweetDto: CreateTweetDto,
+  ): TweetDto {
     return {
       id: tweet.id.toString(),
-      content: tweet.content || undefined,
-      media: media,
+      author: {
+        username: authorDto.username,
+        displayName: authorDto.displayName,
+        avatarUrl: authorDto.avatarUrl,
+        isBlocked: false,
+        isFollowing: false,
+      },
+      content: tweet.content,
+      createdAt: tweet.createdAt,
+      replyCount: 0,
+      retweetCount: 0,
+      likeCount: 0,
+      isLiked: false,
+      isRetweeted: false,
       entities: {
         mentions: mentions.map((mention) => ({
           username: mention.username,
           startPosition: mention.startPosition,
         })),
         hashtags: hashtags.map((hashtag) => ({
-          keyword: hashtag.keyword,
+          hashtag: hashtag.keyword,
           startPosition: hashtag.startPosition,
         })),
       },
-      replyToTweetId: replyToTweetId ?? undefined,
-      quoteToTweetId: quoteToTweetId ?? undefined,
-      createdAt: tweet.createdAt,
+      media,
+      replyToTweetId: createTweetDto.replyToTweetId ?? null,
+      quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      quotedTweet: undefined,
     };
   }
 

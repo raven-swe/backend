@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MediaDto } from './dtos';
+import { MediaResponseDto } from './dtos/media-response.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class MediaRepository {
@@ -70,24 +72,44 @@ export class MediaRepository {
    * @param mediaIds An array of media IDs.
    * @returns Array of URLs in the same order as the input IDs.
    */
-  async findOrderedUrlsByIds(mediaIds: bigint[]): Promise<string[]> {
+  async findOrderedMediaObjectsByIds(
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<MediaResponseDto[]> {
     if (mediaIds.length === 0) {
       return [];
     }
 
-    const mediaItems = await this.prisma.media.findMany({
+    const mediaItems = await prismaClient.media.findMany({
       where: {
         id: { in: mediaIds },
       },
       select: {
         id: true,
+        type: true,
         url: true,
+        altText: true,
+        width: true,
+        height: true,
       },
     });
 
-    const urlMap = new Map<bigint, string>(mediaItems.map((item) => [item.id, item.url]));
+    const urlMap = new Map(
+      mediaItems.map((item) => [
+        item.id,
+        {
+          type: item.type,
+          url: item.url,
+          altText: item.altText,
+          width: item.width,
+          height: item.height,
+        },
+      ]),
+    );
 
     // Map over the original mediaIds array to ensure the order is preserved.
-    return mediaIds.map((id) => urlMap.get(id)).filter((url): url is string => url !== undefined);
+    return mediaIds
+      .map((id) => urlMap.get(id))
+      .filter((item): item is MediaResponseDto => item !== undefined);
   }
 }
