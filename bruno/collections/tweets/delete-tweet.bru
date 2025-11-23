@@ -1,0 +1,20 @@
+meta {
+  name: delete-tweet
+  type: http
+  seq: 6
+}
+
+delete {
+  url: http://localhost:3000/tweets/57
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
