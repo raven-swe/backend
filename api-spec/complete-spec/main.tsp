@@ -550,10 +550,10 @@ model TweetBody {
   media?: string[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId?: string | null;
+  replyToTweetId?: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId?: string | null;
+  quoteToTweetId?: string | null;
 }
 
 @doc("A compact representation of a tweet, used when nesting or in lists.")
