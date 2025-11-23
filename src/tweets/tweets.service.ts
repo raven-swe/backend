@@ -159,7 +159,7 @@ export class TweetsService {
     tweet: Tweet,
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
-    media: string[] | undefined,
+    media: string[],
     replyToTweetId: string | undefined,
     quoteToTweetId: string | undefined,
   ) {
