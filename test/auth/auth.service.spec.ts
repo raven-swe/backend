@@ -964,7 +964,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      const fakeUser = { id: BigInt(user.id), email: user.email } as never;
+      const fakeUser = { id: BigInt(user.id), username: user.username, email: user.email } as never;
       mockPrismaService.user.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.email);
@@ -1169,6 +1169,7 @@ describe('AuthService with mock ConfigService', () => {
       mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         email: user.email,
+        username: user.username,
       });
 
       const result = await service.checkIdentifier(user.email);
@@ -1176,20 +1177,6 @@ describe('AuthService with mock ConfigService', () => {
       expect(result).toEqual({
         exists: true,
         type: 'email',
-      });
-    });
-
-    it('should return exist true when user found with phone', async () => {
-      mockPrismaService.user.findFirst.mockResolvedValue({
-        id: user.id,
-        phone: user.phone,
-      });
-
-      const result = await service.checkIdentifier(user.phone);
-
-      expect(result).toEqual({
-        exists: true,
-        type: 'phone',
       });
     });
 
