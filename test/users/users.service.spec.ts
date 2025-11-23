@@ -2068,7 +2068,7 @@ describe('UsersService', () => {
       const userId = BigInt(1);
       const avatarUrl = 'https://example.com/new-avatar.jpg';
       mockRepository.updateAvatar.mockResolvedValue(undefined);
-      mockMediaService.uploadAndSaveMedia.mockResolvedValue(avatarUrl);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue({ url: avatarUrl });
 
       // Act
       const result = await service.uploadAvatar(userId, avatar);
@@ -2109,7 +2109,7 @@ describe('UsersService', () => {
       const userId = BigInt(1);
       const bannerUrl = 'https://example.com/new-banner.jpg';
       mockRepository.updateBanner.mockResolvedValue(undefined);
-      mockMediaService.uploadAndSaveMedia.mockResolvedValue(bannerUrl);
+      mockMediaService.uploadAndSaveMedia.mockResolvedValue({ url: bannerUrl });
 
       // Act
       const result = await service.uploadBanner(userId, banner);

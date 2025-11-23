@@ -1,0 +1,28 @@
+meta {
+  name: create-tweet
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://localhost:3000/tweets
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "content": "I love football #life",
+    "media": ["1"],
+    "quoteToTweetId": "56"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
