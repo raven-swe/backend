@@ -162,8 +162,8 @@ export class TweetsService {
           hashtagId: hashtag.hashtagId.toString(),
         })),
       },
-      replyToTweetId,
-      quoteToTweetId,
+      replyToTweetId: replyToTweetId ?? undefined,
+      quoteToTweetId: quoteToTweetId ?? undefined,
       createdAt: tweet.createdAt,
     };
   }
