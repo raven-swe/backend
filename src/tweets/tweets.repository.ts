@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 import { UserInteractionDto, TweetDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
@@ -19,6 +20,12 @@ const tweetInclude = (currentUserId: bigint) =>
             displayName: true,
             avatarUrl: true,
           },
+        },
+        blockedBy: {
+          where: { userId: currentUserId },
+        },
+        followers: {
+          where: { followerId: currentUserId },
         },
       },
     },
@@ -119,13 +126,15 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  public mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        isBlocked: tweet.user.blockedBy.length > 0,
+        isFollowing: tweet.user.followers.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -155,6 +164,68 @@ export class TweetsRepository {
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
     };
+  }
+
+  async create(tweetData: CreateTweetData, prismaClient: Prisma.TransactionClient = this.prisma) {
+    return prismaClient.tweet.create({
+      data: {
+        userId: tweetData.userId,
+        content: tweetData.content,
+        replyToTweetId: tweetData.replyToTweetId,
+        quotedTweetId: tweetData.quotedTweetId,
+        hasMentions: tweetData.Mentions.length > 0,
+        hasHashtags: tweetData.Hashtags.length > 0,
+        tweetMentions: {
+          createMany: {
+            data: tweetData.Mentions,
+          },
+        },
+        tweetHashtags: {
+          createMany: {
+            data: tweetData.Hashtags,
+          },
+        },
+      },
+    });
+  }
+
+  async linkTweetMedia(
+    tweetId: bigint,
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    const tweetMediaData = mediaIds.map((mediaId, index) => ({
+      tweetId,
+      mediaId,
+      order: index,
+    }));
+
+    await prismaClient.tweetMedia.createMany({
+      data: tweetMediaData,
+    });
+  }
+
+  async checkExistingTweet(tweetId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      select: { id: true },
+    });
+    return !!tweet;
+  }
+
+  async checkTweetOwnership(tweetId: bigint, userId: bigint): Promise<boolean> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, userId, isDeleted: false },
+      select: { id: true },
+    });
+    return !!tweet;
+  }
+
+  async deleteTweet(tweetId: bigint) {
+    await this.prisma.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true }, //:))
+    });
   }
 
   private mapToDetailedTweetDto(
@@ -320,10 +391,12 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        likeCount: 'desc',
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          createdAt: 'desc',
+        },
+        { id: 'desc' },
+      ],
       include: {
         ...tweetInclude(currentUserId),
         quotedTweet: {
@@ -334,7 +407,6 @@ export class TweetsRepository {
         ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
         : undefined,
       take: limit,
-      skip: prevCursor ? 1 : 0,
     });
 
     const quoteDtos = quotes.map((quote) => this.mapToTweetDto(quote));
@@ -364,9 +436,7 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
         ...tweetInclude(currentUserId),
       },
@@ -374,7 +444,6 @@ export class TweetsRepository {
         ? { id: BigInt(prevCursor.id), createdAt: prevCursor.createdAt }
         : undefined,
       take: limit,
-      skip: prevCursor ? 1 : 0,
     });
 
     const replyDtos = replies.map((reply) => {
@@ -392,7 +461,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     const select = {
       user: {
         select: {
@@ -412,11 +481,15 @@ export class TweetsRepository {
           mutedBy: { where: { userId: currentUserId } },
         },
       },
-    };
+    } as const;
 
     const commonQueryArgs = {
-      where: { tweetId, userId: { not: currentUserId } },
-      orderBy: { createdAt: 'desc' } as const,
+      where: { tweetId },
+      orderBy: [
+        { userId: 'asc' as const },
+        { tweetId: 'asc' as const },
+        { createdAt: 'desc' as const },
+      ],
       select,
       take: limit,
       cursor: prevCursor
@@ -427,7 +500,6 @@ export class TweetsRepository {
             },
           }
         : undefined,
-      skip: prevCursor ? 1 : 0,
     };
 
     const interactions =
@@ -437,25 +509,29 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      return {
-        userId: user.id.toString(),
+      const dto = plainToInstance(UserInteractionDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
-        bio:
-          user.profile?.bio && user.profile?.bioEntities
-            ? {
-                text: user.profile.bio,
-                bioEntities: user.profile.bioEntities as unknown as BioEntitiesDto,
-              }
-            : null,
+        bio: user.profile?.bio
+          ? {
+              text: user.profile.bio,
+              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
+            }
+          : null,
         isFollowing: user.followers.length > 0,
         isFollower: user.following.length > 0,
         isBlocked: user.blockedBy.length > 0,
         isMuted: user.mutedBy.length > 0,
+      });
+
+      return {
+        ...dto,
+        userId: user.id.toString(),
       };
     });
-    return plainToInstance(UserInteractionDto, rawDtos);
+
+    return rawDtos;
   }
 
   async getTweetRetweeters(
@@ -463,7 +539,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     return this.getUserInteractionsForTweet('retweet', tweetId, currentUserId, limit, prevCursor);
   }
 
@@ -472,7 +548,7 @@ export class TweetsRepository {
     currentUserId: bigint,
     limit: number,
     prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<UserInteractionDto[]> {
+  ) {
     return this.getUserInteractionsForTweet('like', tweetId, currentUserId, limit, prevCursor);
   }
 

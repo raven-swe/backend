@@ -35,4 +35,12 @@ export class ConversationsController {
     const userId = BigInt(user.id);
     return await this.conversationsService.createOrFindConversation(userId, params.username);
   }
+
+  @Get('unseen-count')
+  @UseGuards(JwtAuthGuard)
+  async getUnseenConversationsCount(@User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    const count = await this.conversationsService.countUnseenConversations(userId);
+    return { count };
+  }
 }

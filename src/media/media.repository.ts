@@ -36,6 +36,15 @@ export class MediaRepository {
     });
   }
 
+  async checkMediaExists(mediaIds: bigint[]): Promise<boolean> {
+    const count = await this.prisma.media.count({
+      where: {
+        id: { in: mediaIds },
+      },
+    });
+    return count === mediaIds.length;
+  }
+
   async findPendingMediaOlderThan(date: Date) {
     const media = await this.prisma.media.findMany({
       where: {
@@ -49,9 +58,9 @@ export class MediaRepository {
     return media;
   }
 
-  async markMediaAsNotPending(id: bigint) {
-    await this.prisma.media.update({
-      where: { id },
+  async markMediaAsNotPending(mediaIds: bigint[]) {
+    await this.prisma.media.updateMany({
+      where: { id: { in: mediaIds } },
       data: { pending: false },
     });
   }
