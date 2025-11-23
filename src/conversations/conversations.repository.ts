@@ -32,6 +32,7 @@ export class ConversationsRepository {
           select: {
             userId: true,
             notificationsMuted: true,
+            lastSeenMessageId: true,
             user: {
               select: {
                 profile: {
@@ -163,5 +164,64 @@ export class ConversationsRepository {
         },
       },
     });
+  }
+
+  async assertParticipant(userId: bigint, conversationId: bigint) {
+    const participant = await this.prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: { conversationId, userId },
+      },
+    });
+
+    return !!participant;
+  }
+
+  async getConversationParticipants(conversationId: bigint) {
+    return this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: {
+        user: {
+          select: {
+            username: true,
+            id: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async countUnseenConversations(userId: bigint) {
+    const conversations = await this.prisma.conversationParticipant.findMany({
+      where: {
+        userId,
+        conversation: {
+          lastMessageId: { not: null },
+        },
+      },
+      select: {
+        lastSeenMessageId: true,
+        conversation: {
+          select: {
+            lastMessageId: true,
+          },
+        },
+      },
+    });
+
+    return conversations.filter((conv) => {
+      const { lastSeenMessageId, conversation } = conv;
+      const lastMessageId = conversation.lastMessageId;
+
+      if (!lastMessageId) return false;
+      if (!lastSeenMessageId) return true;
+
+      return lastSeenMessageId < lastMessageId;
+    }).length;
   }
 }
