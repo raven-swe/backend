@@ -93,4 +93,18 @@ export class UsersController {
     const itemsDto = plainToInstance(FollowingUserDto, items);
     return { items: itemsDto, pagination };
   }
+
+  @Get(':username/likes')
+  @UseGuards(JwtAuthGuard)
+  async getUserLikedTweets(
+    @Param('username') username: string,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const parsed = Number(limit);
+    let parsedLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    if (parsedLimit > 20) parsedLimit = 20;
+    return this.usersService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
+  }
 }
