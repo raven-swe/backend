@@ -1,0 +1,24 @@
+meta {
+  name: get-top-users
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:3000/search/users?query=a
+  body: none
+  auth: bearer
+}
+
+params:query {
+  query: a
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJpYXQiOjE3NjM4Mzc2NzIsImV4cCI6MTc2MzgzODU3Mn0.Gyk4HijwHn4DtV99CLGzqVSQkiqNN20AJFpdnd2ABYQ
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
