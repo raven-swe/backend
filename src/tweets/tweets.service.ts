@@ -119,10 +119,26 @@ export class TweetsService {
         ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
         : Promise.resolve([]);
     const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.getTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
 
-    const [mediaObjects, authorDto] = await Promise.all([mediaObjectsPromise, authorDtoPromise]);
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
 
-    return this.formatTweetDto(tweet, mentions, hashtags, mediaObjects, authorDto, createTweetDto);
+    return this.formatTweetDto(
+      tweet,
+      mentions,
+      hashtags,
+      mediaObjects,
+      authorDto,
+      createTweetDto,
+      referencedTweet,
+    );
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
@@ -158,7 +174,8 @@ export class TweetsService {
     media: MediaResponseDto[],
     authorDto: AuthorDto,
     createTweetDto: CreateTweetDto,
-  ): TweetDto {
+    referencedTweet: GetTweetResponseDto | undefined | null,
+  ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -188,7 +205,8 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
-      quotedTweet: undefined,
+      quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
+      replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
   }
 
