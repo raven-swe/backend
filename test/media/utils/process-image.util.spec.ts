@@ -1,6 +1,7 @@
 import { processImage } from 'src/media/utils';
 import { Readable } from 'stream';
 import * as sharp from 'sharp';
+import { MAX_HEIGHT, MAX_WIDTH } from 'src/media/constants';
 
 jest.mock('sharp');
 
@@ -70,7 +71,7 @@ describe('processImage', () => {
 
     await processImage(mockFile);
 
-    expect(mockSharpInstance.resize).toHaveBeenCalledWith(1024, 1024, {
+    expect(mockSharpInstance.resize).toHaveBeenCalledWith(MAX_WIDTH, MAX_HEIGHT, {
       fit: 'inside',
       withoutEnlargement: true,
     });
@@ -87,7 +88,7 @@ describe('processImage', () => {
 
     await processImage(mockFile);
 
-    expect(mockSharpInstance.resize).toHaveBeenCalledWith(1024, 1024, {
+    expect(mockSharpInstance.resize).toHaveBeenCalledWith(MAX_WIDTH, MAX_HEIGHT, {
       fit: 'inside',
       withoutEnlargement: true,
     });
