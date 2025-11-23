@@ -9,6 +9,27 @@ import { ContentParsingService } from 'src/content-parsing/content-parsing.servi
 import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
 
+import { MediaType } from '@prisma/client';
+import {
+  decodeCompositeCursor,
+  decodeCursor,
+  paginateComposite,
+  paginateSingle,
+} from 'src/common/utils';
+
+jest.mock('src/common/utils', () => ({
+  decodeCursor: jest.fn().mockReturnValue(BigInt(0)), // Default return
+  decodeCompositeCursor: jest.fn().mockReturnValue({}),
+  paginateSingle: jest.fn().mockReturnValue({
+    nextCursor: null,
+    hasNextPage: false,
+  }),
+  paginateComposite: jest.fn().mockReturnValue({
+    nextCursor: null,
+    hasNextPage: false,
+  }),
+}));
+
 type TransactionCallback<T> = (
   tx: Omit<
     PrismaService,
@@ -28,6 +49,11 @@ describe('TweetsService', () => {
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
     getTimelineForUser: jest.fn(),
+    getDetailedTweetById: jest.fn(),
+    getTweetLikers: jest.fn(),
+    getTweetRetweeters: jest.fn(),
+    getTweetReplies: jest.fn(),
+    getTweetQuotes: jest.fn(),
     create: jest.fn(),
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
@@ -913,6 +939,454 @@ describe('TweetsService', () => {
 
       // Assert
       expect(result).toEqual({ message: 'Tweet unretweeted successfully' });
+    });
+  });
+
+  describe('getTimeline', () => {
+    const userId = BigInt(1);
+    const cursor = 'encoded_cursor';
+    const limit = 10;
+
+    it('should successfully fetch and paginate timeline', async () => {
+      const decodedCursorId = BigInt(50);
+      const rawTweets = [{ id: BigInt(100) }, { id: BigInt(99) }];
+      const mockPagination = { nextCursor: 'next_cursor', hasNextPage: true };
+
+      (decodeCursor as jest.Mock).mockReturnValue(decodedCursorId);
+      mockTweetsRepository.getTimelineForUser.mockResolvedValue(rawTweets);
+      (paginateSingle as jest.Mock).mockReturnValue(mockPagination);
+
+      const result = await service.getTimeline(userId, cursor, limit);
+
+      expect(decodeCursor).toHaveBeenCalledWith(cursor);
+      expect(mockTweetsRepository.getTimelineForUser).toHaveBeenCalledWith(
+        userId,
+        decodedCursorId,
+        limit + 1,
+      );
+      expect(paginateSingle).toHaveBeenCalledWith(rawTweets, limit, cursor, expect.any(Function));
+      expect(result).toEqual({ items: rawTweets, pagination: mockPagination });
+    });
+  });
+
+  describe('getTweet', () => {
+    const tweetId = BigInt(1);
+    const currentUserId = BigInt(1);
+
+    const mockDetailedTweet = {
+      id: tweetId,
+      author: {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      },
+      content: 'Test tweet',
+      hasMedia: false,
+      hasHashtags: false,
+      hasMentions: false,
+      likeCount: 10,
+      retweetCount: 5,
+      replyCount: 2,
+      isDeleted: false,
+      isLiked: true,
+      isRetweeted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      entities: {
+        mentions: [
+          { username: 'omar', startPosition: '1' },
+          { username: 'mostafa', startPosition: '5' },
+        ],
+        hashtags: [],
+      },
+      media: [
+        {
+          url: 'http://media-url.com',
+          type: MediaType.IMAGE,
+          width: 1024,
+          height: 1024,
+        },
+      ],
+      replyToTweetId: '2',
+      quoteToTweetId: null,
+    };
+
+    it('should return detailed tweet when found', async () => {
+      // Arrange
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result).toEqual(mockDetailedTweet);
+      expect(mockTweetsRepository.getDetailedTweetById).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+      );
+    });
+
+    it('should throw NOT_FOUND if tweet does not exist', async () => {
+      // Arrange
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.getTweet(tweetId, currentUserId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+  });
+
+  describe('getTweetReplies', () => {
+    const tweetId = BigInt(100);
+    const currentUserId = BigInt(1);
+    const limit = 10;
+    const cursor = 'valid_cursor';
+
+    const mockReplies = [
+      {
+        id: BigInt(20),
+        author: {
+          username: 'tasneem',
+          displayName: 'Tasneem',
+          avatarUrl: 'http://cdn-url.com',
+        },
+        content: 'Test tweet',
+        hasMedia: false,
+        hasHashtags: false,
+        hasMentions: false,
+        likeCount: 10,
+        retweetCount: 5,
+        replyCount: 2,
+        isDeleted: false,
+        isLiked: true,
+        isRetweeted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        entities: {
+          mentions: [
+            { username: 'omar', startPosition: '1' },
+            { username: 'mostafa', startPosition: '5' },
+          ],
+          hashtags: [],
+        },
+        media: [
+          {
+            url: 'http://media-url.com',
+            type: MediaType.IMAGE,
+            width: 1024,
+            height: 1024,
+          },
+        ],
+        replyToTweetId: '2',
+        quoteToTweetId: null,
+      },
+      {
+        id: BigInt(21),
+        author: {
+          username: 'mostafa',
+          displayName: 'mostafa',
+          avatarUrl: 'http://cdn-url.com',
+        },
+        content: 'Another test tweet',
+        hasMedia: false,
+        hasHashtags: false,
+        hasMentions: false,
+        likeCount: 4,
+        retweetCount: 1,
+        replyCount: 0,
+        isDeleted: false,
+        isLiked: false,
+        isRetweeted: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        entities: {
+          mentions: [],
+          hashtags: [{ tag: 'testing', startPosition: '10' }],
+        },
+        media: [],
+        replyToTweetId: '2',
+        quoteToTweetId: null,
+      },
+    ];
+
+    it('should return paginated replies', async () => {
+      // Arrange
+      mockTweetsRepository.getTweetReplies.mockResolvedValue(mockReplies);
+      mockTweetsRepository.findTweetById.mockResolvedValue({
+        id: tweetId,
+        isDeleted: false,
+      });
+
+      // Act
+      const result = await service.getTweetReplies(tweetId, currentUserId, limit, cursor);
+
+      // Assert
+      expect(mockTweetsRepository.findTweetById).toHaveBeenCalledWith(tweetId);
+      expect(mockTweetsRepository.getTweetReplies).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+        limit + 1,
+        expect.anything(),
+      );
+      expect(result.items).toEqual(mockReplies);
+      expect(result).toHaveProperty('pagination');
+    });
+
+    it('should throw NOT_FOUND if parent tweet does not exist', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.getTweetReplies(tweetId, currentUserId, limit, cursor)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw BAD_REQUEST if cursor is invalid', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId });
+      (decodeCompositeCursor as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Invalid cursor');
+      });
+
+      // Act & Assert
+      await expect(
+        service.getTweetReplies(tweetId, currentUserId, limit, 'invalid_cursor'),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
+            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('getTweetQuotes', () => {
+    const tweetId = BigInt(100);
+    const currentUserId = BigInt(1);
+    const limit = 10;
+
+    const mockQuotes = [
+      {
+        id: BigInt(20),
+        author: {
+          username: 'tasneem',
+          displayName: 'Tasneem',
+          avatarUrl: 'http://cdn-url.com',
+        },
+        content: 'Test tweet',
+        hasMedia: false,
+        hasHashtags: false,
+        hasMentions: false,
+        likeCount: 10,
+        retweetCount: 5,
+        replyCount: 2,
+        isDeleted: false,
+        isLiked: true,
+        isRetweeted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        entities: {
+          mentions: [
+            { username: 'omar', startPosition: '1' },
+            { username: 'mostafa', startPosition: '5' },
+          ],
+          hashtags: [],
+        },
+        media: [
+          {
+            url: 'http://media-url.com',
+            type: MediaType.IMAGE,
+            width: 1024,
+            height: 1024,
+          },
+        ],
+        replyToTweetId: '2',
+        quoteToTweetId: 100,
+      },
+      {
+        id: BigInt(21),
+        author: {
+          username: 'mostafa',
+          displayName: 'mostafa',
+          avatarUrl: 'http://cdn-url.com',
+        },
+        content: 'Another test tweet',
+        hasMedia: false,
+        hasHashtags: false,
+        hasMentions: false,
+        likeCount: 4,
+        retweetCount: 1,
+        replyCount: 0,
+        isDeleted: false,
+        isLiked: false,
+        isRetweeted: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        entities: {
+          mentions: [],
+          hashtags: [{ tag: 'testing', startPosition: '10' }],
+        },
+        media: [],
+        replyToTweetId: '2',
+        quoteToTweetId: 100,
+      },
+    ];
+
+    it('should return paginated quotes', async () => {
+      // Arrange
+      mockTweetsRepository.getTweetQuotes.mockResolvedValue(mockQuotes);
+      mockTweetsRepository.findTweetById.mockResolvedValue({
+        id: tweetId,
+        isDeleted: false,
+      });
+
+      // Act
+      const result = await service.getTweetQuotes(tweetId, currentUserId, limit);
+
+      // Assert
+      expect(mockTweetsRepository.findTweetById).toHaveBeenCalledWith(tweetId);
+      expect(mockTweetsRepository.getTweetQuotes).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+        limit + 1,
+        undefined,
+      );
+      expect(result.items).toEqual(mockQuotes);
+      expect(result).toHaveProperty('pagination');
+    });
+  });
+
+  describe('getTweetLikers', () => {
+    const tweetId = BigInt(100);
+    const currentUserId = BigInt(1);
+    const limit = 10;
+    const cursor = 'encoded_cursor';
+
+    it('should successfully fetch likers', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
+      (decodeCompositeCursor as jest.Mock).mockReturnValue({});
+      const mockLikers = [{ userId: BigInt(50) }];
+      mockTweetsRepository.getTweetLikers.mockResolvedValue(mockLikers);
+      (paginateComposite as jest.Mock).mockReturnValue({});
+
+      // Act
+      const result = await service.getTweetLikers(tweetId, currentUserId, limit, cursor);
+
+      // Assert
+      expect(mockTweetsRepository.getTweetLikers).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+        limit + 1,
+        {},
+      );
+      expect(result.items).toEqual(mockLikers);
+    });
+
+    it('should throw BAD_REQUEST on invalid cursor for likers', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
+      (decodeCompositeCursor as jest.Mock).mockImplementation(() => {
+        throw new Error();
+      });
+
+      // Act & Assert
+      await expect(service.getTweetLikers(tweetId, currentUserId, limit, 'bad')).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
+            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
+  describe('getTweetRetweeters', () => {
+    const tweetId = BigInt(100);
+    const currentUserId = BigInt(1);
+    const limit = 10;
+
+    it('should successfully fetch retweeters', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
+      const mockRetweeters = [{ userId: BigInt(60) }];
+      mockTweetsRepository.getTweetRetweeters.mockResolvedValue(mockRetweeters);
+      (paginateComposite as jest.Mock).mockReturnValue({});
+
+      // Act
+      const result = await service.getTweetRetweeters(tweetId, currentUserId, limit);
+
+      // Assert
+      expect(mockTweetsRepository.getTweetRetweeters).toHaveBeenCalledWith(
+        tweetId,
+        currentUserId,
+        limit + 1,
+        undefined,
+      );
+      expect(result.items).toEqual(mockRetweeters);
+    });
+  });
+
+  describe('checkIfTweetExists', () => {
+    const tweetId = BigInt(100);
+
+    it('should not throw if tweet exists and is not deleted', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).resolves.not.toThrow();
+    });
+
+    it('should throw NOT_FOUND if tweet does not exist', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw NOT_FOUND if tweet is deleted', async () => {
+      // Arrange
+      mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: true });
+
+      // Act & Assert
+      await expect(service.checkIfTweetExists(tweetId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
     });
   });
 });
