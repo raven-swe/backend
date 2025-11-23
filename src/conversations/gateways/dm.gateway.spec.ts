@@ -77,6 +77,63 @@ describe('DmGateway', () => {
     jest.clearAllMocks();
   });
 
+  describe('afterInit', () => {
+    it('should log initialization and set up connection listener', () => {
+      const mockServerWithOn = {
+        on: jest.fn(),
+      } as unknown as Server;
+
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+
+      gateway.afterInit(mockServerWithOn);
+
+      expect(logSpy).toHaveBeenCalledWith('WebSocket server initialized on namespace: /ws/dm');
+      expect(mockServerWithOn.on).toHaveBeenCalledWith('connection', expect.any(Function));
+    });
+
+    it('should log raw connection attempts', () => {
+      const mockServerWithOn = {
+        on: jest.fn((event, callback) => {
+          if (event === 'connection') {
+            callback({ id: 'test-socket-id' });
+          }
+        }),
+      } as unknown as Server;
+
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+
+      gateway.afterInit(mockServerWithOn);
+
+      expect(logSpy).toHaveBeenCalledWith('RAW Socket.IO connection attempt: test-socket-id');
+    });
+  });
+
+  describe('handleConnection', () => {
+    it('should log connection with authenticated user', () => {
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+      const socketWithUser = {
+        id: 'socket-456',
+        data: { user: mockUser },
+      } as unknown as Socket;
+
+      gateway.handleConnection(socketWithUser);
+
+      expect(logSpy).toHaveBeenCalledWith('Client connected: socket-456, User: 6');
+    });
+
+    it('should log connection without authenticated user', () => {
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+      const socketWithoutUser = {
+        id: 'socket-789',
+        data: {},
+      } as unknown as Socket;
+
+      gateway.handleConnection(socketWithoutUser);
+
+      expect(logSpy).toHaveBeenCalledWith('Client connected: socket-789, User: not authenticated yet');
+    });
+  });
+
   describe('handleDisconnect', () => {
     it('should clear socket data on disconnect', () => {
       mockSocket.data = { user: mockUser, currentConversationId: '1' };
@@ -178,6 +235,32 @@ describe('DmGateway', () => {
         type: 'error',
         code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
         message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
+      });
+      expect(messagesService.updateLastSeen).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when user is blocked', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
+
+      await gateway.markSeen(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
+        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
+      });
+      expect(messagesService.updateLastSeen).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when assertParticipant returns unknown error', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'UNKNOWN_ERROR' });
+
+      await gateway.markSeen(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
+        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
       });
       expect(messagesService.updateLastSeen).not.toHaveBeenCalled();
     });
@@ -299,8 +382,64 @@ describe('DmGateway', () => {
 
       expect(mockSocket.emit).toHaveBeenCalledWith('error', {
         type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.NOT_PARTICIPANT,
-        message: CONVERSATIONS_ERROR_MESSAGES.NOT_PARTICIPANT,
+        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
+        clientMessageId: 'client-msg-123',
+      });
+      expect(messagesService.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when assertParticipant returns INVALID_CONVERSATION_ID error', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'INVALID_CONVERSATION_ID' });
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
+        clientMessageId: 'client-msg-123',
+      });
+      expect(messagesService.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when user is blocked', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
+        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
+        clientMessageId: 'client-msg-123',
+      });
+      expect(messagesService.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when assertParticipant fails with unknown error', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'SOME_OTHER_ERROR' });
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
+        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
+        clientMessageId: 'client-msg-123',
+      });
+      expect(messagesService.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when assertParticipant returns null', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(null);
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
         clientMessageId: 'client-msg-123',
       });
       expect(messagesService.createMessage).not.toHaveBeenCalled();

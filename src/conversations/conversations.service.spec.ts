@@ -27,6 +27,7 @@ describe('ConversationsService', () => {
       getUserByUsername: jest.fn(),
       getUserBlocks: jest.fn(),
       getUserBlockedBy: jest.fn(),
+      getBlockingBlockedState: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -65,6 +66,7 @@ describe('ConversationsService', () => {
           conversationParticipants: [
             {
               userId,
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user1',
@@ -73,6 +75,7 @@ describe('ConversationsService', () => {
             },
             {
               userId: BigInt(2),
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user2',
@@ -135,6 +138,7 @@ describe('ConversationsService', () => {
           conversationParticipants: [
             {
               userId,
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user1',
@@ -143,6 +147,7 @@ describe('ConversationsService', () => {
             },
             {
               userId: BigInt(2),
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'blocked_user',
@@ -177,6 +182,7 @@ describe('ConversationsService', () => {
           conversationParticipants: [
             {
               userId,
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user1',
@@ -185,6 +191,7 @@ describe('ConversationsService', () => {
             },
             {
               userId: BigInt(2),
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user2',
@@ -214,6 +221,7 @@ describe('ConversationsService', () => {
           conversationParticipants: [
             {
               userId,
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user1',
@@ -222,6 +230,7 @@ describe('ConversationsService', () => {
             },
             {
               userId: BigInt(2),
+              lastSeenMessageId: null,
               notificationsMuted: false,
               user: {
                 username: 'user2',
@@ -261,6 +270,7 @@ describe('ConversationsService', () => {
         conversationParticipants: [
           {
             userId,
+            lastSeenMessageId: null,
             notificationsMuted: false,
             user: {
               username: 'user1',
@@ -269,6 +279,7 @@ describe('ConversationsService', () => {
           },
           {
             userId: otherUser.id,
+            lastSeenMessageId: null,
             notificationsMuted: false,
             user: otherUser,
           },
@@ -316,6 +327,7 @@ describe('ConversationsService', () => {
         conversationParticipants: [
           {
             userId,
+            lastSeenMessageId: null,
             notificationsMuted: false,
             user: {
               username: 'user1',
@@ -324,6 +336,7 @@ describe('ConversationsService', () => {
           },
           {
             userId: otherUser.id,
+            lastSeenMessageId: null,
             notificationsMuted: false,
             user: otherUser,
           },
@@ -426,7 +439,25 @@ describe('ConversationsService', () => {
     it('should return true for valid participant', async () => {
       const userId = '1';
       const conversationId = '2';
+      const mockParticipants = [
+        {
+          user: {
+            id: BigInt(1),
+            username: 'user1',
+            profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
+          },
+        },
+        {
+          user: {
+            id: BigInt(2),
+            username: 'user2',
+            profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
+          },
+        },
+      ];
 
+      conversationsRepository.getConversationParticipants.mockResolvedValue(mockParticipants);
+      usersRepository.getBlockingBlockedState.mockResolvedValue(false);
       conversationsRepository.assertParticipant.mockResolvedValue(true);
 
       const result = await service.assertParticipant(userId, conversationId);
