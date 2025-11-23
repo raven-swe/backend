@@ -1,13 +1,17 @@
 meta {
-  name: unblock-user
+  name: get-retweeters
   type: http
-  seq: 3
+  seq: 7
 }
 
-delete {
-  url: http://localhost:3000/me/blocks/notnowomar
+get {
+  url: http://localhost:3000/tweets/6/retweets?limit=5
   body: none
   auth: bearer
+}
+
+params:query {
+  limit: 5
 }
 
 auth:bearer {

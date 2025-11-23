@@ -836,6 +836,7 @@ export class UsersService {
 
     return { items, pagination };
   }
+
   async getUserDetails(userId: bigint) {
     return this.usersRepository.getUserDetails(userId);
   }
