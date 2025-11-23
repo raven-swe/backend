@@ -302,7 +302,7 @@ async function main() {
       replyToTweetId: omarHReply1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 1, startPosition: 67 }],
+        create: [{ userId: 1, startPosition: 66 }],
       },
     },
   });
@@ -474,7 +474,7 @@ async function main() {
       quotedTweetId: anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 4, startPosition: 67 }],
+        create: [{ userId: 4, startPosition: 66 }],
       },
     },
   });
@@ -514,7 +514,7 @@ async function main() {
       quotedTweetId: laylaTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 6, startPosition: 43 }],
+        create: [{ userId: 6, startPosition: 42 }],
       },
     },
   });
@@ -543,7 +543,7 @@ async function main() {
       quotedTweetId: fatmaTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
-        create: [{ hashtagId: uiuxHashtag.id, startPosition: 80 }],
+        create: [{ hashtagId: uiuxHashtag.id, startPosition: 79 }],
       },
     },
   });
@@ -575,7 +575,7 @@ async function main() {
       quotedTweetId: youssefTweet1.id,
       hasMentions: true,
       tweetMentions: {
-        create: [{ userId: 11, startPosition: 57 }],
+        create: [{ userId: 11, startPosition: 56 }],
       },
     },
   });
