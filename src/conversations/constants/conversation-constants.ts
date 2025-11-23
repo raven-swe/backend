@@ -3,10 +3,21 @@ export const CONVERSATIONS_ERROR_CODES = {
   CONVERSATION_CREATION_FAILED: 'CONVERSATION_CREATION_FAILED',
   INVALID_CONVERSATION_ID: 'INVALID_CONVERSATION_ID',
   FORBIDDEN_CONVERSATION_ID: 'FORBIDDEN_CONVERSATION_ID',
-} as const;
+  INVALID_MESSAGE_ID: 'INVALID_MESSAGE_ID',
+  NOT_PARTICIPANT: 'NOT_PARTICIPANT',
+  MESSAGE_CREATION_FAILED: 'MESSAGE_CREATION_FAILED',
+  UPDATE_LAST_SEEN_FAILED: 'UPDATE_LAST_SEEN_FAILED',
+  ASSERT_PARTICPANT_FAILED: 'ASSERT_PARTICPANT_FAILED',
+};
 
 export const CONVERSATIONS_ERROR_MESSAGES = {
+  BLOCKED_USER: 'You can no longer send messages to this person',
   CONVERSATION_CREATION_FAILED: 'Failed to create conversation',
-  INVALID_CONVERSATION_ID: 'Failed to get this conversation',
+  INVALID_CONVERSATION_ID: 'The conversation ID provided is invalid',
   FORBIDDEN_CONVERSATION_ID: "You can't access this conversation",
-} as const;
+  INVALID_MESSAGE_ID: 'The message ID provided is invalid',
+  NOT_PARTICIPANT: 'You are not a participant in this conversation',
+  MESSAGE_CREATION_FAILED: 'Failed to create message',
+  UPDATE_LAST_SEEN_FAILED: 'Failed to update last seen message',
+  ASSERT_PARTICPANT_FAILED: 'Failed to assert conversation participants',
+};

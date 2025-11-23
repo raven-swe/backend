@@ -1,0 +1,24 @@
+meta {
+  name: get-likes
+  type: http
+  seq: 8
+}
+
+get {
+  url: http://localhost:3000/tweets/3/likes?limit=5
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 5
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

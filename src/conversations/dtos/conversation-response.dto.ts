@@ -8,6 +8,7 @@ export class LastMessageDto {
   content: string;
   senderUsername: string;
   sentAt: Date;
+  seen: boolean;
 }
 
 export class ConversationDto {

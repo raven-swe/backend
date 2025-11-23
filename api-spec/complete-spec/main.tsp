@@ -361,6 +361,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("Block relationship state between two users")
@@ -541,7 +547,7 @@ model TweetBody {
 
   @doc("Optional array of media items attached to the tweet (max 4 items)")
   @maxItems(4)
-  media?: MediaItem[] | null;
+  media?: string[] | null;
 
   @doc("The ID of the tweet this one is a reply to.")
   isReplyToTweetId?: string | null;
@@ -586,17 +592,42 @@ model CompactTweet {
   media: MediaItem[] | null;
 }
 
+model ReplyTweet extends CompactTweet {
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string;
+}
+
 model Tweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quoteToTweetId: string | null;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
+model CreatedTweet{
+  id: string;
+  content?: string;
+  media?: string[];
+  entities?: TweetEntities;
+  createdAt: utcDateTime;
+  replyToTweetId?: string;
+  quotedTweetId?: string;
+}
+model TweetWithoutQuotedTweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string | null;
+}
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
 }
 
 @doc("Defines the filter categories for the notifications list.")
@@ -1688,7 +1719,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | MessageResponse<"Tweet posted successfully.">
+    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1700,7 +1731,7 @@ namespace Tweets {
   @route("/{id}")
   @summary("Get a specific tweet by ID")
   op getTweet(@path id: string):
-    | DataResponse<Tweet>
+    | DataResponse<TweetWithReplyTo>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1709,7 +1740,7 @@ namespace Tweets {
   @route("/{id}/replies")
   @summary("Get replies to a specific tweet")
   op getTweetReplies(@path id: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<Tweet[]>
+    | DataResponseWithPagination<TweetWithoutQuotedTweet[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -1873,6 +1904,13 @@ namespace Conversations {
     | ForbiddenResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/unseen-count")
+  @summary("Get the count of conversations with unseen messages")
+  op getUnseenCounts(): DataResponse<{
+    count: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @delete
   @route("/{conversationId}/messages/{messageId}")

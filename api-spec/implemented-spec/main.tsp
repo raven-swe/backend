@@ -262,6 +262,33 @@ model SessionResponse {
   isCurrent: boolean;
 }
 
+@doc("The content and optional media for creating a new tweet")
+model TweetBody {
+  @doc("Text content of the tweet (max 280 characters).")
+  @maxLength(280)
+  content: string | null;
+
+  @doc("Optional array of media items attached to the tweet (max 4 items)")
+  @maxItems(4)
+  media?: string[] | null;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  isReplyToTweetId?: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quotedTweetId?: string | null;
+}
+
+model CreatedTweet{
+  id: string;
+  content?: string;
+  media?: string[];
+  entities?: TweetEntities;
+  createdAt: utcDateTime;
+  replyToTweetId?: string;
+  quotedTweetId?: string;
+}
+
 model RegisterStartBody {
   name: string;
   email: string;
@@ -506,10 +533,10 @@ model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
+  isFollowing: boolean;
 
   @doc("Is the user following the current logged-in user")
-  isFollower: boolean | null;
+  isFollower: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -518,6 +545,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("User's biography with structured entities")
@@ -697,17 +730,34 @@ model CompactTweet {
   media: MediaItem[] | null;
 }
 
+model ReplyTweet extends CompactTweet {
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string;
+}
+
 model Tweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quoteToTweetId: string | null;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
+model TweetWithoutQuotedTweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string | null;
+}
+
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
 }
 
 @tag("Auth")
@@ -1505,6 +1555,72 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @post
+  @summary("Create a new tweet")
+  op postTweet(@body body: TweetBody):
+    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | ConflictResponse
+    | RateLimitResponse;
+
+  
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse;
+
+  @get
+  @route("/{id}")
+  @summary("Get a specific tweet by ID")
+  op getTweet(@path id: string):
+    | DataResponse<TweetWithReplyTo>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithoutQuotedTweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Onboarding")
@@ -1581,4 +1697,11 @@ namespace Conversations {
     | ForbiddenResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
+
+  @get
+  @route("/unseen-count")
+  @summary("Get the count of conversations with unseen messages")
+  op getUnseenCounts(): DataResponse<{
+    count: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

@@ -7,10 +7,9 @@ import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from '.
 import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
-import { BlocksCursor, FollowsCursor } from 'src/common/interfaces';
-
-import { MutesCursor } from 'src/common/interfaces';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 
 @Injectable()
 export class UsersRepository {
@@ -1164,6 +1163,24 @@ export class UsersRepository {
     });
   }
 
+  async checkBatchUsernamesExistence(
+    usernames: PlainMention[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<Array<{ id: bigint; username: string }>> {
+    const existingUsers = await prismaClient.user.findMany({
+      where: {
+        username: {
+          in: usernames.map((mention) => mention.username),
+        },
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+
+    return existingUsers;
+  }
   async createProfile(userId: bigint, displayName: string) {
     return await this.prisma.profile.create({
       data: {
@@ -1179,5 +1196,17 @@ export class UsersRepository {
         blockedId: userId,
       },
     });
+  }
+
+  async getBlockingBlockedState(user1: bigint, user2: bigint) {
+    const block1 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user1, blockedId: user2 } },
+    });
+
+    const block2 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user2, blockedId: user1 } },
+    });
+
+    return !!(block1 || block2);
   }
 }
