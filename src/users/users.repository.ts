@@ -1197,4 +1197,16 @@ export class UsersRepository {
       },
     });
   }
+
+  async getBlockingBlockedState(user1: bigint, user2: bigint) {
+    const block1 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user1, blockedId: user2 } },
+    });
+
+    const block2 = await this.prisma.block.findUnique({
+      where: { userId_blockedId: { userId: user2, blockedId: user1 } },
+    });
+
+    return !!(block1 || block2);
+  }
 }

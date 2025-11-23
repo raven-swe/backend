@@ -59,6 +59,57 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.data = {};
   }
 
+  private handleParticipantError(
+    client: Socket,
+    isAllowed: boolean | null | { error: string },
+    userId: bigint,
+    conversationId: string,
+    clientMessageId?: string,
+  ): boolean {
+    if (isAllowed !== null && typeof isAllowed === 'object' && 'error' in isAllowed) {
+      const errorCode: string =
+        isAllowed.error === 'INVALID_CONVERSATION_ID'
+          ? CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID
+          : isAllowed.error === 'BLOCKED_USER'
+            ? CONVERSATIONS_ERROR_CODES.BLOCKED_USER
+            : CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED;
+      const errorMessage: string =
+        isAllowed.error === 'INVALID_CONVERSATION_ID'
+          ? CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID
+          : isAllowed.error === 'BLOCKED_USER'
+            ? CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER
+            : CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED;
+
+      client.emit('error', {
+        type: 'error',
+        code: errorCode,
+        message: errorMessage,
+        ...(clientMessageId && { clientMessageId }),
+      });
+      return true;
+    } else if (isAllowed === null) {
+      this.logger.warn(`Invalid conversation ID: ${conversationId} for user: ${userId}`);
+      client.emit('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
+        ...(clientMessageId && { clientMessageId }),
+      });
+      return true;
+    } else if (isAllowed === false) {
+      this.logger.warn(`Forbidden conversation access: ${conversationId} for user: ${userId}`);
+      client.emit('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
+        ...(clientMessageId && { clientMessageId }),
+      });
+      return true;
+    }
+
+    return false;
+  }
+
   @SubscribeMessage('mark_seen')
   @UsePipes(new ValidationPipe({ transform: true }))
   async markSeen(@ConnectedSocket() client: Socket, @MessageBody() payload: MarkSeenDto) {
@@ -72,22 +123,8 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       payload.conversationId,
     );
 
-    if (isAllowed === null) {
-      this.logger.warn(`Invalid conversation ID: ${payload.conversationId} for user: ${user.id}`);
-      return client.emit('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
-      });
-    } else if (isAllowed === false) {
-      this.logger.warn(
-        `Forbidden conversation access: ${payload.conversationId} for user: ${user.id}`,
-      );
-      return client.emit('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
-      });
+    if (this.handleParticipantError(client, isAllowed, BigInt(user.id), payload.conversationId)) {
+      return;
     }
 
     const res = await this.messagesService.updateLastSeen(
@@ -145,14 +182,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const isAllowed = await this.conversationsService.assertParticipant(user.id, conversationId);
 
-    if (!isAllowed) {
-      this.logger.warn(`User ${user.id} not participant in conversation: ${conversationId}`);
-      return client.emit('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.NOT_PARTICIPANT,
-        message: CONVERSATIONS_ERROR_MESSAGES.NOT_PARTICIPANT,
-        clientMessageId: payload.clientMessageId,
-      });
+    if (
+      this.handleParticipantError(
+        client,
+        isAllowed,
+        BigInt(user.id),
+        conversationId,
+        payload.clientMessageId,
+      )
+    ) {
+      return;
     }
 
     const result = await this.messagesService.createMessage(conversationId, user.id, payload.body);

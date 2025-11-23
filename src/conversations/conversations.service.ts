@@ -188,6 +188,18 @@ export class ConversationsService {
       return null;
     }
 
+    const currentConversationParticipants = await this.getConversationParticipants(conversationId);
+
+    if (!currentConversationParticipants || currentConversationParticipants.length !== 2)
+      return { error: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID };
+
+    const isBlocked = await this.usersRepository.getBlockingBlockedState(
+      currentConversationParticipants[0].user.id,
+      currentConversationParticipants[1].user.id,
+    );
+
+    if (isBlocked) return { error: CONVERSATIONS_ERROR_CODES.BLOCKED_USER };
+
     return await this.conversationsRepository.assertParticipant(userIdBigInt, conversationIdBigInt);
   }
 
