@@ -109,7 +109,6 @@ export class TweetsService {
         };
 
         const tweet = await this.tweetsRepository.create(tweetData, tx);
-        console.log('Created tweet:', tweet);
         await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
 
         await this.mediaRepository.markMediaAsNotPending(mediaIds);
