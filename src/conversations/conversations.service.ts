@@ -84,6 +84,7 @@ export class ConversationsService {
                 content: conversation.lastMessage.content,
                 senderUsername: conversation.lastMessage.user.username,
                 sentAt: conversation.lastMessage.createdAt,
+                seen: conversation.lastMessageId === currentUserParticipant.lastSeenMessageId,
               }
             : null,
           isBlocking: isBlockedByMe,
@@ -174,5 +175,47 @@ export class ConversationsService {
       isBlocking,
       isBlockedBy,
     };
+  }
+
+  async assertParticipant(userId: string, conversationId: string) {
+    let userIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(userId);
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return null;
+    }
+
+    const currentConversationParticipants = await this.getConversationParticipants(conversationId);
+
+    if (!currentConversationParticipants || currentConversationParticipants.length !== 2)
+      return { error: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID };
+
+    const isBlocked = await this.usersRepository.getBlockingBlockedState(
+      currentConversationParticipants[0].user.id,
+      currentConversationParticipants[1].user.id,
+    );
+
+    if (isBlocked) return { error: CONVERSATIONS_ERROR_CODES.BLOCKED_USER };
+
+    return await this.conversationsRepository.assertParticipant(userIdBigInt, conversationIdBigInt);
+  }
+
+  async getConversationParticipants(conversationId: string) {
+    let conversationIdBigInt: bigint;
+
+    try {
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return null;
+    }
+
+    return this.conversationsRepository.getConversationParticipants(conversationIdBigInt);
+  }
+
+  async countUnseenConversations(userId: bigint) {
+    return this.conversationsRepository.countUnseenConversations(userId);
   }
 }

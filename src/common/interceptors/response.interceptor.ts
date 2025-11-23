@@ -33,6 +33,10 @@ export class ResponseInterceptor<T>
   ): Observable<ApiSuccessResponse<T> | ApiSuccessResponseWithPagination<T>> {
     return next.handle().pipe(
       map((response: Record<string, unknown> | unknown[]) => {
+        if (response === undefined) {
+          return response as unknown as ApiSuccessResponse<T>;
+        }
+
         // If controller returned a Redirect response shape, pass through unchanged
         if (isRedirectResponse(response)) {
           return response as unknown as ApiSuccessResponse<T>;
