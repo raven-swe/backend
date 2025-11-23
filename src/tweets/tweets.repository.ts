@@ -232,6 +232,7 @@ export class TweetsRepository {
       data: { isDeleted: true }, //:))
     });
   }
+
   private mapToDetailedTweetDto(
     tweet: DetailedTweetWithIncludes,
   ): TweetDto & { replyToTweet?: TweetDto } {
@@ -406,9 +407,12 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          createdAt: 'desc',
+        },
+        { id: 'desc' },
+      ],
       include: {
         ...tweetInclude(currentUserId),
         quotedTweet: {

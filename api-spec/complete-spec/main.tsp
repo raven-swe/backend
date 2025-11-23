@@ -609,6 +609,10 @@ model Tweet {
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
+}
 
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
