@@ -43,6 +43,7 @@ describe('TweetsService', () => {
 
   const mockMediaRepository = {
     checkMediaExists: jest.fn(),
+    markMediaAsNotPending: jest.fn(),
   };
 
   const mockPrismaService = {
