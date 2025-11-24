@@ -261,6 +261,17 @@ export class TweetsRepository {
     });
   }
 
+  async updateTweetRetweetCount(tweetId: bigint, increment = true) {
+    await this.prisma.tweet.update({
+      where: { id: tweetId },
+      data: {
+        retweetCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({

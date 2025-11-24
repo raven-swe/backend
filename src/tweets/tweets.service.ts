@@ -119,6 +119,13 @@ export class TweetsService {
           true,
         );
       }
+
+      if (createTweetDto.quoteToTweetId) {
+        await this.tweetsRepository.updateTweetRetweetCount(
+          BigInt(createTweetDto.quoteToTweetId),
+          true,
+        );
+      }
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
       await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
