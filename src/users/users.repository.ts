@@ -1168,6 +1168,7 @@ export class UsersRepository {
       where: {
         username: {
           in: usernames.map((mention) => mention.username),
+          mode: 'insensitive',
         },
       },
       select: {
