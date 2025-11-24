@@ -117,7 +117,7 @@ export default function () {
         paramsVerify
     );
     if (!check(resVerify, {
-        'Verify New Email status is 201': (r) => r.status === 201, // TODO: Should be 200
+        'Verify New Email status is 200': (r) => r.status === 200,
     })) {
         console.error(`Verify New Email Failed: ${resVerify.body}`);
         return;
