@@ -60,6 +60,7 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
     if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
@@ -81,7 +82,19 @@ export class TweetsService {
 
     let mediaIds: bigint[] = [];
     if (createTweetDto.media && createTweetDto.media.length > 0) {
-      mediaIds = createTweetDto.media.map((id) => BigInt(id));
+      mediaIds = createTweetDto.media.map((id) => {
+        try {
+          return BigInt(id);
+        } catch {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA_ID,
+              code: TWEETS_ERROR_CODES.INVALID_MEDIA_ID,
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      });
     }
 
     await this.checkReplyAndQuoteTweetsExist(
@@ -113,8 +126,6 @@ export class TweetsService {
         })),
         hasMedia: mediaIds.length > 0,
       };
-
-      console.log('Creating tweet with data:', tweetData);
 
       if (createTweetDto.replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(
