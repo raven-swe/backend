@@ -520,6 +520,20 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
@@ -691,7 +705,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;

@@ -345,6 +345,20 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
@@ -562,7 +576,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;
@@ -615,7 +629,7 @@ model ProfileTweet extends Tweet {
   isRepost: boolean;
 }
 
-model CreatedTweet{
+model CreatedTweet {
   id: string;
   content?: string;
   media?: string[];
@@ -635,11 +649,6 @@ model TweetWithoutQuotedTweet {
 
   @doc("The ID of the tweet this one is a reply to.")
   replyToTweetId: string | null;
-}
-
-model TweetWithReplyTo extends Tweet {
-  @doc("The tweet that this tweet is replying to.")
-  replyToTweet: CompactTweet | null;
 }
 
 @doc("Defines the filter categories for the notifications list.")
@@ -1731,7 +1740,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse

@@ -191,6 +191,7 @@ export class TweetsService {
         avatarUrl: authorDto.avatarUrl,
         isBlocked: false,
         isFollowing: false,
+        isMuted: false,
       },
       content: tweet.content,
       createdAt: tweet.createdAt,
