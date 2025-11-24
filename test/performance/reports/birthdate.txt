@@ -1,0 +1,57 @@
+█ THRESHOLDS
+
+    http_req_duration{name:01_Login_Action}
+    ✗ 'p(95)<1800' p(95)=24.81s
+
+    http_req_duration{name:02_Update_Birthdate}
+    ✗ 'p(95)<100' p(95)=238.07ms
+
+    http_req_duration{name:03_Get_Me_Settings}
+    ✗ 'p(95)<100' p(95)=240.35ms
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=40.62%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 4022   22.34441/s
+    checks_succeeded...: 63.35% 2548 out of 4022
+    checks_failed......: 36.64% 1474 out of 4022
+
+    ✗ User Created 201
+      ↳  42% — ✓ 858 / ✗ 1168
+    ✗ Login status is 200
+      ↳  70% — ✓ 494 / ✗ 210
+    ✗ Update Birthdate status is 200
+      ↳  81% — ✓ 402 / ✗ 92
+    ✗ Get Me Settings status is 200
+      ↳  99% — ✓ 397 / ✗ 2
+    ✗ Me Settings has birthdate
+      ↳  99% — ✓ 397 / ✗ 2
+
+    HTTP
+    http_req_duration................: avg=9.49s    min=0s      med=144.29ms max=56.19s   p(90)=44.36s   p(95)=48s
+      { expected_response:true }.....: avg=15.97s   min=91.84ms med=5.76s    max=56.19s   p(90)=47.4s    p(95)=52.37s
+      { name:01_Login_Action }.......: avg=8.48s    min=0s      med=3.39s    max=30.3s    p(90)=22.32s   p(95)=24.81s
+      { name:02_Update_Birthdate }...: avg=140.06ms min=0s      med=146.27ms max=486.35ms p(90)=210.18ms p(95)=238.07ms
+      { name:03_Get_Me_Settings }....: avg=157.28ms min=0s      med=145.1ms  max=446.35ms p(90)=208.76ms p(95)=240.35ms
+    http_req_failed..................: 40.62% 1472 out of 3623       
+    http_reqs........................: 3623   20.127747/s
+
+    EXECUTION
+    iteration_duration...............: avg=14.65s   min=6.11ms  med=237.02ms max=1m14s    p(90)=54.1s    p(95)=59.75s
+    iterations.......................: 1869   10.383317/s
+    vus..............................: 1      min=1            max=399
+    vus_max..........................: 400    min=400          max=400
+
+    NETWORK
+    data_received....................: 4.3 MB 24 kB/s
+    data_sent........................: 1.5 MB 8.6 kB/s
+
+
+
+                                                                     
+running (3m00.0s), 000/400 VUs, 1869 complete and 315 interrupted iterations                                                              
+default ✓ [=====================================] 000/400 VUs  2m30s 
+ERRO[0180] thresholds on metrics 'http_req_duration{name:01_Login_Action}, http_req_duration{name:02_Update_Birthdate}, http_req_duration{name:03_Get_Me_Settings}, http_req_failed' have been crossed

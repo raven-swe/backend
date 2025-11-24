@@ -1,0 +1,51 @@
+ THRESHOLDS
+
+    http_req_duration{name:01_Login_Action}
+    ✗ 'p(95)<1800' p(95)=17.61s
+
+    http_req_duration{name:02_Update_Profile_With_Files}
+    ✗ 'p(95)<2000' p(95)=1m0s
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=56.44%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 3088   17.162655/s
+    checks_succeeded...: 43.55% 1345 out of 3088
+    checks_failed......: 56.44% 1743 out of 3088
+
+    ✗ User Created 201
+      ↳  37% — ✓ 763 / ✗ 1296
+    ✗ Login status is 200
+      ↳  67% — ✓ 450 / ✗ 213
+    ✗ Update Me status is 200
+      ↳  36% — ✓ 132 / ✗ 234
+
+    HTTP
+    http_req_duration.........................: avg=11.58s min=0s       med=96.55ms  max=1m0s   p(90)=37.93s p(95)=1m0s
+      { expected_response:true }..............: avg=18.33s min=186.51ms med=15.65s   max=59.79s p(90)=37.46s p(95)=40.7s
+      { name:01_Login_Action }................: avg=6.21s  min=0s       med=3.14s    max=22.28s p(90)=16.01s p(95)=17.61s
+      { name:02_Update_Profile_With_Files }...: avg=35.7s  min=503.49µs med=59.99s   max=1m0s   p(90)=1m0s   p(95)=1m0s
+    http_req_failed...........................: 56.44% 1743 out of 3088
+    http_reqs.................................: 3088   17.162655/s   
+
+    EXECUTION
+    iteration_duration........................: avg=15.18s min=10.28ms  med=186.14ms max=1m49s  p(90)=1m7s   p(95)=1m27s
+    iterations................................: 1875   10.420978/s   
+    vus.......................................: 12     min=2         
+   max=399
+    vus_max...................................: 400    min=400       
+   max=400
+
+    NETWORK
+    data_received.............................: 4.1 MB 23 kB/s       
+    data_sent.................................: 11 MB  62 kB/s       
+
+
+
+                                                                     
+running (2m59.9s), 000/400 VUs, 1875 complete and 298 interrupted iterations                                                              
+default ✓ [=====================================] 000/400 VUs  2m30s 
+ERRO[0180] thresholds on metrics 'http_req_duration{name:01_Login_Action}, http_req_duration{name:02_Update_Profile_With_Files}, http_req_failed' have been crossed

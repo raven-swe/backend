@@ -1,0 +1,65 @@
+█ THRESHOLDS
+
+    http_req_duration{name:01_Login_Action}
+    ✗ 'p(95)<1800' p(95)=23.78s
+
+    http_req_duration{name:02_Get_Username_Suggestions}
+    ✗ 'p(95)<100' p(95)=798.02ms
+
+    http_req_duration{name:03_Update_Username}
+    ✗ 'p(95)<100' p(95)=755.72ms
+
+    http_req_duration{name:04_Get_Me_Settings}
+    ✗ 'p(95)<100' p(95)=388.42ms
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=42.65%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 4865   27.027739/s
+    checks_succeeded...: 63.06% 3068 out of 4865
+    checks_failed......: 36.93% 1797 out of 4865
+
+    ✗ User Created 201
+      ↳  37% — ✓ 849 / ✗ 1396
+    ✗ Login status is 200
+      ↳  63% — ✓ 438 / ✗ 253
+    ✗ Get Username Suggestions status is 200
+      ↳  88% — ✓ 385 / ✗ 51
+    ✗ Get Username Suggestions has data
+      ↳  88% — ✓ 385 / ✗ 51
+    ✗ Update Username status is 200
+      ↳  88% — ✓ 339 / ✗ 46
+    ✓ Get Me Settings status is 200
+    ✓ Get Me Settings has correct username
+
+    HTTP
+    http_req_duration........................: avg=8.42s    min=0s      med=221.77ms max=57.24s   p(90)=42.06s   p(95)=46.48s
+      { expected_response:true }.............: avg=14.67s   min=94.04ms med=2.06s    max=57.24s   p(90)=45.21s   p(95)=50.22s
+      { name:01_Login_Action }...............: avg=7.87s    min=0s      med=2.59s    max=28.31s   p(90)=23.05s   p(95)=23.78s
+      { name:02_Get_Username_Suggestions }...: avg=401.51ms min=0s      med=367.16ms max=1.56s    p(90)=660.47ms p(95)=798.02ms
+      { name:03_Update_Username }............: avg=348.58ms min=503.2µs med=317.44ms max=932.25ms p(90)=613.48ms p(95)=755.72ms
+      { name:04_Get_Me_Settings }............: avg=208.85ms min=94.04ms med=186.58ms max=675.12ms p(90)=337.53ms p(95)=388.42ms
+    http_req_failed..........................: 42.65% 1746 out of 4093
+    http_reqs................................: 4093   22.738857/s    
+
+    EXECUTION
+    iteration_duration.......................: avg=13.26s   min=2.39ms  med=164.33ms max=1m11s    p(90)=53.23s   p(95)=59.43s
+    iterations...............................: 2082   11.56665/s     
+    vus......................................: 1      min=1          
+  max=399
+    vus_max..................................: 400    min=400        
+  max=400
+
+    NETWORK
+    data_received............................: 4.5 MB 25 kB/s        
+    data_sent................................: 1.8 MB 10 kB/s        
+
+
+
+                                                                     
+running (3m00.0s), 000/400 VUs, 2082 complete and 322 interrupted iterations                                                              
+default ✓ [=====================================] 000/400 VUs  2m30s 
+ERRO[0180] thresholds on metrics 'http_req_duration{name:01_Login_Action}, http_req_duration{name:02_Get_Username_Suggestions}, http_req_duration{name:03_Update_Username}, http_req_duration{name:04_Get_Me_Settings}, http_req_failed' have been crossed
