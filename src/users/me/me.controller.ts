@@ -22,10 +22,9 @@ import { User } from 'src/auth/decorators';
 import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
 import { USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { ParseJsonBodyPipe } from '../pipes/parse-json-body.pipe';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('me')
 export class MeController {

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MediaDto } from './dtos';
+import { MediaResponseDto } from './dtos/media-response.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class MediaRepository {
@@ -15,6 +17,7 @@ export class MediaRepository {
         width: mediaDto.width,
         height: mediaDto.height,
         altText: mediaDto.altText,
+        pending: mediaDto.pending,
       },
     });
 
@@ -33,5 +36,87 @@ export class MediaRepository {
     await this.prisma.media.delete({
       where: { id },
     });
+  }
+
+  async checkMediaExists(mediaIds: bigint[]): Promise<boolean> {
+    const uniqueMediaIds = Array.from(new Set(mediaIds));
+    const count = await this.prisma.media.count({
+      where: {
+        id: { in: uniqueMediaIds },
+      },
+    });
+    return count === uniqueMediaIds.length;
+  }
+
+  async findPendingMediaOlderThan(date: Date) {
+    const media = await this.prisma.media.findMany({
+      where: {
+        pending: true,
+        createdAt: {
+          lt: date,
+        },
+      },
+    });
+
+    return media;
+  }
+
+  async markMediaAsNotPending(
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    if (mediaIds.length === 0) {
+      return;
+    }
+    await prismaClient.media.updateMany({
+      where: { id: { in: mediaIds } },
+      data: { pending: false },
+    });
+  }
+
+  /**
+   * Finds media URLs by their IDs, preserving the order of the input array.
+   * @param mediaIds An array of media IDs.
+   * @returns Array of URLs in the same order as the input IDs.
+   */
+  async findOrderedMediaObjectsByIds(
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<MediaResponseDto[]> {
+    if (mediaIds.length === 0) {
+      return [];
+    }
+
+    const mediaItems = await prismaClient.media.findMany({
+      where: {
+        id: { in: mediaIds },
+      },
+      select: {
+        id: true,
+        type: true,
+        url: true,
+        altText: true,
+        width: true,
+        height: true,
+      },
+    });
+
+    const urlMap = new Map(
+      mediaItems.map((item) => [
+        item.id,
+        {
+          type: item.type,
+          url: item.url,
+          altText: item.altText,
+          width: item.width,
+          height: item.height,
+        },
+      ]),
+    );
+
+    // Map over the original mediaIds array to ensure the order is preserved.
+    return mediaIds
+      .map((id) => urlMap.get(id))
+      .filter((item): item is MediaResponseDto => item !== undefined);
   }
 }

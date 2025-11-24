@@ -7,9 +7,18 @@ meta {
 post {
   url: http://localhost:3000/auth/logout
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+headers {
+  X-Client-Type: web
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

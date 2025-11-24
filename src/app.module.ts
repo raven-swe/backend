@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
@@ -20,6 +20,14 @@ import { TestingModule } from './testing/testing.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { HealthController } from './health/health.controller';
 import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
+import { TrendingModule } from './trending/trending.module';
+import { ContentParsingModule } from './content-parsing/content-parsing.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { LoggerModule } from './logger/logger.module';
+import { AppLogger } from './logger/logger.service';
+import { ConversationsModule } from './conversations/conversations.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -39,6 +47,7 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
         port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
       },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     OauthModule,
     UsersModule,
@@ -51,7 +60,12 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
     DevicesModule,
     MediaModule,
     TweetsModule,
+    ConversationsModule,
+    SearchModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
+    TrendingModule,
+    ContentParsingModule,
+    LoggerModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -67,6 +81,12 @@ import { shouldSkipRateLimit } from './common/utils/should-skip-rate-limit';
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
     },
+    HttpExceptionFilter,
+    AppLogger,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}

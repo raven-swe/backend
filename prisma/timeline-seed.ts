@@ -25,7 +25,6 @@ async function getOrCreateHashtag(tag: string) {
 
 async function main() {
   // Step 1: Clean slate for this specific seed's data.
-  console.log('[1/5] Cleaning up old seed data...');
   await prisma.tweetHashtag.deleteMany({});
   await prisma.tweetMention.deleteMany({});
   await prisma.like.deleteMany({});
@@ -35,7 +34,6 @@ async function main() {
   await prisma.trendingKeyword.deleteMany({});
 
   // Step 2: Create the 5 specified user accounts.
-  console.log('[2/5] Creating user accounts...');
   const password = await hashPassword('Password1$');
 
   const omarHassan = await prisma.user.create({
@@ -99,7 +97,6 @@ async function main() {
   });
 
   // Step 3: Create a network where everyone follows each other.
-  console.log('[3/5] Creating mutual follow relationships...');
   const allUsers = [omarHassan, omarGamal, mostafa, anas, tasneem, loay];
   const followData = [];
   for (const follower of allUsers) {
@@ -112,7 +109,6 @@ async function main() {
   await prisma.follow.createMany({ data: followData });
 
   // Step 4: Prepare hashtags that will be used in the tweets.
-  console.log('[4/5] Preparing hashtags...');
   const nestjsHashtag = await getOrCreateHashtag('nestjs');
   const devlifeHashtag = await getOrCreateHashtag('devlife');
   const uidesignHashtag = await getOrCreateHashtag('uidesign');
@@ -121,7 +117,6 @@ async function main() {
   const speedHashtag = await getOrCreateHashtag('ishowspeed');
 
   // Step 5: Create a rich set of over 20 tweets with staggered timestamps.
-  console.log('[5/5] Seeding a rich conversation thread...');
   const baseTime = Date.now();
 
   // A series of tweets telling a story about a project launch.
@@ -132,7 +127,7 @@ async function main() {
         'Final UI mockups for the new feature are ready! So excited to see this go live. #uidesign',
       createdAt: new Date(baseTime - 1000 * 60 * 120), // 2 hours ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startingIndex: 80 } },
+      tweetHashtags: { create: { hashtagId: uidesignHashtag.id, startPosition: 80 } },
     },
   });
 
@@ -144,8 +139,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 90), // 90 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startingIndex: 76 } },
-      tweetMentions: { create: { userId: omarHassan.id, startingIndex: 87 } },
+      tweetHashtags: { create: { hashtagId: launchdayHashtag.id, startPosition: 76 } },
+      tweetMentions: { create: { userId: omarHassan.id, startPosition: 87 } },
     },
   });
 
@@ -157,7 +152,7 @@ async function main() {
       replyToTweetId: anasLaunchTweet.id,
       createdAt: new Date(baseTime - 1000 * 60 * 88), // 88 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: anas.id, startingIndex: 85 } },
+      tweetMentions: { create: { userId: anas.id, startPosition: 85 } },
     },
   });
 
@@ -168,7 +163,7 @@ async function main() {
         'That feeling when the production build works on the first try. A rare moment. #devlife',
       createdAt: new Date(baseTime - 1000 * 60 * 85), // 85 mins ago
       hasHashtags: true,
-      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startingIndex: 78 } },
+      tweetHashtags: { create: { hashtagId: devlifeHashtag.id, startPosition: 78 } },
     },
   });
 
@@ -180,7 +175,7 @@ async function main() {
         'Uh oh... I think I found a small CSS bug on the new login page. The main button is misaligned on mobile. @omargamal',
       createdAt: new Date(baseTime - 1000 * 60 * 60), // 60 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 105 } },
+      tweetMentions: { create: { userId: omarGamal.id, startPosition: 105 } },
     },
   });
 
@@ -201,8 +196,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 58), // 58 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startingIndex: 62 } },
-      tweetMentions: { create: { userId: tasneem.id, startingIndex: 28 } },
+      tweetHashtags: { create: { hashtagId: bugfixHashtag.id, startPosition: 62 } },
+      tweetMentions: { create: { userId: tasneem.id, startPosition: 28 } },
     },
   });
 
@@ -216,8 +211,8 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 85), // 85 mins ago
       hasHashtags: true,
       hasMentions: true,
-      tweetHashtags: { create: { hashtagId: speedHashtag.id, startingIndex: 40 } },
-      tweetMentions: { create: { userId: loay.id, startingIndex: 81 } },
+      tweetHashtags: { create: { hashtagId: speedHashtag.id, startPosition: 40 } },
+      tweetMentions: { create: { userId: loay.id, startPosition: 81 } },
     },
   });
 
@@ -270,7 +265,7 @@ async function main() {
       replyToTweetId: omarStreamTweet.id,
       createdAt: new Date(baseTime - 1000 * 60 * 80), // 80 mins ago
       hasMentions: true,
-      tweetMentions: { create: { userId: omarGamal.id, startingIndex: 23 } },
+      tweetMentions: { create: { userId: omarGamal.id, startPosition: 23 } },
     },
   });
 
@@ -296,7 +291,7 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 35),
       hasHashtags: true,
       tweetHashtags: {
-        create: { hashtagId: nestjsHashtag.id, startingIndex: 4 },
+        create: { hashtagId: nestjsHashtag.id, startPosition: 4 },
       },
     },
   });
@@ -377,17 +372,10 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 2),
     },
   });
-
-  console.log('--- Seed Finished Successfully! ---');
-  console.log('You can now log in with any of these accounts:');
-  allUsers.forEach((user) => console.log(`  - ${user.email}`));
-  console.log(`  Password for all: Password1$`);
-  console.log('------------------------------------');
 }
 
 main()
-  .catch((e) => {
-    console.error('An error occurred during the timeline seed:', e);
+  .catch(() => {
     process.exit(1);
   })
   .finally(() => {

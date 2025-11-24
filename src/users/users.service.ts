@@ -8,20 +8,18 @@ import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import {
-  decodeCompositeCursor,
-  paginateComposite,
-  createValidationError,
-  FollowsCursor,
-} from 'src/common/utils';
+import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
 
 import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { validateNewPasswordFormat } from './utils';
 import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 
 import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { MediaFolder } from 'src/media/enums';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
+import { PlainMention } from 'src/tweets/interfaces';
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -446,18 +444,6 @@ export class UsersService {
       );
     }
 
-    // Check if user blocked you
-    const userBlockedYou = await this.usersRepository.isBlocked(blockedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
-          code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     // Check if already blocked
     const isAlreadyBlocked = await this.usersRepository.isBlocked(userId, blockedId);
     if (isAlreadyBlocked) {
@@ -838,6 +824,7 @@ export class UsersService {
 
     return { items, pagination };
   }
+
   async getUserDetails(userId: bigint) {
     return this.usersRepository.getUserDetails(userId);
   }
@@ -907,7 +894,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
-    const bannerUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
       userId,
       MediaFolder.BANNERS,
@@ -920,7 +907,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
-    const avatarUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
       userId,
       MediaFolder.AVATARS,
@@ -951,8 +938,60 @@ export class UsersService {
 
     return { message: 'Banner deleted successfully' };
   }
+  async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+  }
+
+  async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+  }
+
+  /**
+   *
+   * @param usernames array of mentions (usernames and starting positions)
+   * @param tx transaction client passed from the create tweet function in tweet service
+   * @returns a new array of mention IDs of real existing users
+   */
+  async checkUsernamesExistenceAndReplaceIds(
+    usernames: PlainMention[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<
+    (PlainMention & {
+      userId: bigint;
+    })[]
+  > {
+    const existingUsernames = await this.usersRepository.checkBatchUsernamesExistence(
+      usernames,
+      prismaClient,
+    );
+
+    return usernames.reduce(
+      (acc, mention) => {
+        const user = existingUsernames.find((u) => u.username === mention.username);
+        if (user) {
+          acc.push({
+            userId: user.id,
+            username: user.username,
+            startPosition: mention.startPosition,
+          });
+        }
+        return acc;
+      },
+      [] as (PlainMention & {
+        userId: bigint;
+      })[],
+    );
+  }
 
   async createProfile(userId: bigint, displayName: string) {
     return this.usersRepository.createProfile(userId, displayName);
+  }
+
+  async getMatchingUsers(userId: bigint, username: string) {
+    return this.usersRepository.getMatchingUsers(userId, username);
+  }
+
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 }
