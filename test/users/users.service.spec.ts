@@ -2213,7 +2213,6 @@ describe('UsersService', () => {
       expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserFollowers).toHaveBeenCalledWith(
         requestedUserId,
-        [authUserId],
         limit + 1,
         undefined, // no cursor decoded
       );
@@ -2279,7 +2278,6 @@ describe('UsersService', () => {
       // Assert
       expect(mockRepository.getUserFollowers).toHaveBeenCalledWith(
         requestedUserId,
-        [authUserId],
         limit + 1,
         { followerId: '2', followedId: '1' }, // decoded cursor
       );
@@ -2490,7 +2488,6 @@ describe('UsersService', () => {
       expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserFollowings).toHaveBeenCalledWith(
         requestedUserId,
-        [authUserId],
         limit + 1,
         undefined, // no cursor decoded
       );
@@ -2556,7 +2553,6 @@ describe('UsersService', () => {
       // Assert
       expect(mockRepository.getUserFollowings).toHaveBeenCalledWith(
         requestedUserId,
-        [authUserId],
         limit + 1,
         { followerId: '2', followedId: '1' }, // decoded cursor
       );
@@ -2806,7 +2802,6 @@ describe('UsersService', () => {
       expect(mockRepository.getUserMutualFollowers).toHaveBeenCalledWith(
         requestedUserId,
         mockAuthFollowings,
-        [authUserId],
         limit + 1,
         undefined, // no cursor decoded
       );
@@ -2909,7 +2904,6 @@ describe('UsersService', () => {
       expect(mockRepository.getUserMutualFollowers).toHaveBeenCalledWith(
         requestedUserId,
         mockAuthFollowings,
-        [authUserId],
         limit + 1,
         { followerId: '2', followedId: '1' }, // decoded cursor
       );

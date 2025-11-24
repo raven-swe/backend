@@ -1,7 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 @Injectable()
 export class SearchService {
@@ -37,7 +36,7 @@ export class SearchService {
     const usersData = users.map((user) => ({
       username: user.username,
       displayName: user.profile?.displayName || '',
-      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      avatarUrl: user.profile?.avatarUrl,
       isFollowing: followingSet.has(user.id),
       isFollower: followerSet.has(user.id),
     }));

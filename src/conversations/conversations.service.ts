@@ -4,7 +4,7 @@ import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ConversationsRepository } from './conversations.repository';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
-import { DEFAULT_PROFILE_PICTURE, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { USERS_ERROR_MESSAGES } from 'src/users/constants';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
@@ -77,7 +77,7 @@ export class ConversationsService {
           participant: {
             username: otherParticipant.user.username,
             displayName: otherParticipant.user.profile?.displayName ?? '',
-            avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            avatarUrl: otherParticipant.user.profile?.avatarUrl,
           },
           lastMessage: conversation.lastMessage
             ? {
@@ -162,7 +162,7 @@ export class ConversationsService {
       participant: {
         username: otherParticipant.user.username,
         displayName: otherParticipant.user.profile?.displayName ?? '',
-        avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        avatarUrl: otherParticipant.user.profile?.avatarUrl,
       },
       lastMessage: conversationData.lastMessage
         ? {
