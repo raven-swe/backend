@@ -12,13 +12,14 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'],
     'http_req_duration{name:01_Login_Action}': ['p(95)<1800'],
-    'http_req_duration{name:02_Update_Password}': ['p(95)<100'],
-    'http_req_duration{name:03_Validate_Password}': ['p(95)<100'],
+    'http_req_duration{name:02_Block_User_Action}': ['p(95)<300'],
+    'http_req_duration{name:03_Unblock_User_Action}': ['p(95)<300'],
+    'http_req_duration{name:04_Mute_User_Action}': ['p(95)<300'],
+    'http_req_duration{name:05_Unmute_User_Action}': ['p(95)<300'],
   },
 };
 
 const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3001'; 
-
 
 export default function () {
     
@@ -65,48 +66,65 @@ export default function () {
         'Authorization': `Bearer ${accessToken}`,
     };
 
-    // PUT /me/password
-    const newPassword = 'NewP@ssw0rd123!';
-    const payloadPassword = JSON.stringify({
-        currentPassword: userPassword,
-        newPassword: newPassword,
-    });
-    const paramsPassword = {
+
+        // POST /mutes/:username
+    const paramsMute = {
         headers: headers,
-        tags: { name: '02_Update_Password' }
+        tags: { name: '04_Mute_User_Action' }
     };
-    const resPassword = http.put(
-        `${STRESS_TEST_URL}/me/password`,
-        payloadPassword,
-        paramsPassword
+    const resMute = http.post(
+        `${STRESS_TEST_URL}/mutes/gelgel`,
+        null,
+        paramsMute
     );
-
-    if (!check(resPassword, {
-        'Update Password status is 200': (r) => r.status === 200,
-    })) {
-        console.error(`Update Password Failed: ${resPassword.body}`);
-        return;
-    }
-
-    // POST /me/settings/password/validate
-    const validatePayload = JSON.stringify({
-        password: newPassword,
+    check(resMute, {
+        'Mute User status is 201': (r) => r.status === 201
     });
-    const validateParams = {
-        headers: headers,
-        tags: { name: '03_Validate_Password' }
-    };
-    const resValidate = http.post(
-        `${STRESS_TEST_URL}/me/settings/password/validate`,
-        validatePayload,
-        validateParams
-    );
 
-    if (!check(resValidate, {
-        'Validate Password status is 200': (r) => r.status === 200,
-        'Validate Password is valid': (r) => r.json('data.isValid') === true,
-    })) {
-        console.error(`Validate Password Failed: ${resValidate.body}`);
-        return;
-    }
+    sleep(0.2);
+
+    // DELETE /mutes/:username
+    const paramsUnmute = {
+        headers: headers,
+        tags: { name: '05_Unmute_User_Action' }
+    };
+    const resUnmute = http.del(
+        `${STRESS_TEST_URL}/mutes/gelgel`,
+        null,
+        paramsUnmute
+    );
+    check(resUnmute, {
+        'Unmute User status is 204': (r) => r.status === 204
+    });
+    sleep(0.2);
+
+    // POST /blocks/:username
+    const paramsBlock = {
+        headers: headers,
+        tags: { name: '02_Block_User_Action' } 
+    };
+    const resBlock = http.post(
+        `${STRESS_TEST_URL}/blocks/gelgel`,
+        null,
+        paramsBlock
+    );
+    check(resBlock, {
+        'Block User status is 201': (r) => r.status === 201
+    });
+
+    sleep(0.2);
+
+    // DELETE /blocks/:username
+    const paramsUnblock = {
+        headers: headers,
+        tags: { name: '03_Unblock_User_Action' } 
+    };
+    const resUnblock = http.del(
+        `${STRESS_TEST_URL}/blocks/gelgel`,
+        null,
+        paramsUnblock
+    );
+    check(resUnblock, {
+        'Unblock User status is 204': (r) => r.status === 204
+    });
 }
