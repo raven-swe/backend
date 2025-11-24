@@ -251,8 +251,12 @@ export class TweetsRepository {
     };
   }
 
-  async updateTweetReplyCount(tweetId: bigint, increment = true) {
-    await this.prisma.tweet.update({
+  async updateTweetReplyCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
       where: { id: tweetId },
       data: {
         replyCount: {
@@ -262,8 +266,12 @@ export class TweetsRepository {
     });
   }
 
-  async updateTweetRetweetCount(tweetId: bigint, increment = true) {
-    await this.prisma.tweet.update({
+  async updateTweetRetweetCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
       where: { id: tweetId },
       data: {
         retweetCount: {

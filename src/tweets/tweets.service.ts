@@ -88,8 +88,8 @@ export class TweetsService {
         } catch {
           throw new HttpException(
             {
-              message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA_ID,
-              code: TWEETS_ERROR_CODES.INVALID_MEDIA_ID,
+              message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA,
+              code: TWEETS_ERROR_CODES.INVALID_MEDIA,
             },
             HttpStatus.BAD_REQUEST,
           );
@@ -131,6 +131,7 @@ export class TweetsService {
         await this.tweetsRepository.updateTweetReplyCount(
           BigInt(createTweetDto.replyToTweetId),
           true,
+          tx,
         );
       }
 
@@ -138,6 +139,7 @@ export class TweetsService {
         await this.tweetsRepository.updateTweetRetweetCount(
           BigInt(createTweetDto.quoteToTweetId),
           true,
+          tx,
         );
       }
       const tweet = await this.tweetsRepository.create(tweetData, tx);

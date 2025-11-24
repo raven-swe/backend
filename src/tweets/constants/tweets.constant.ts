@@ -9,7 +9,6 @@ export const TWEETS_ERROR_CODES = {
   INVALID_MEDIA: 'INVALID_MEDIA',
   TOO_MANY_MEDIA: 'TOO_MANY_MEDIA',
   TWEET_FORBIDDEN_DELETION: 'TWEET_FORBIDDEN_DELETION',
-  INVALID_MEDIA_ID: 'INVALID_MEDIA_ID',
 };
 
 export const TWEETS_ERROR_MESSAGES = {
@@ -23,5 +22,4 @@ export const TWEETS_ERROR_MESSAGES = {
   TOO_MANY_MEDIA: 'A tweet cannot have more than 4 media items.',
   TWEET_FORBIDDEN_DELETION: 'You do not have permission to delete this tweet.',
   INVALID_CURSOR: 'The provided cursor is invalid.',
-  INVALID_MEDIA_ID: 'One or more media IDs are invalid.',
 };
