@@ -13,6 +13,7 @@ import {
   HttpException,
   HttpStatus,
   Query,
+  HttpCode,
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
@@ -74,6 +75,7 @@ export class SettingsController {
   }
 
   @Post('email/verify')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async verifyUpdateEmailOtp(
     @Body() verifyEmailUpdateDto: VerifyEmailUpdateDto,
@@ -182,6 +184,7 @@ export class SettingsController {
   }
 
   @Post('password/validate')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async validatePassword(
     @Body() validatePasswordDto: ValidatePasswordDto,
