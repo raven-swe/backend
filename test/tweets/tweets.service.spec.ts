@@ -166,6 +166,7 @@ describe('TweetsService', () => {
         avatarUrl: 'https://example.com/avatar.jpg',
         isBlocked: false,
         isFollowing: false,
+        isMuted: false,
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -249,6 +250,7 @@ describe('TweetsService', () => {
         avatarUrl: 'https://example.com/avatar.jpg',
         isBlocked: false,
         isFollowing: false,
+        isMuted: false,
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
