@@ -251,6 +251,27 @@ export class TweetsRepository {
     };
   }
 
+  async validateReferences(
+    tweetIds: bigint[],
+    mediaIds: bigint[],
+  ): Promise<{
+    tweetCount: number;
+    mediaCount: number;
+  }> {
+    const results = await this.prisma.$queryRaw<
+      Array<{ tweet_count: bigint; media_count: bigint }>
+    >`
+      SELECT 
+        (SELECT COUNT(*) FROM tweets WHERE id = ANY(${tweetIds}::bigint[]) AND is_deleted = false) as tweet_count,
+        (SELECT COUNT(*) FROM media WHERE id = ANY(${mediaIds}::bigint[])) as media_count
+    `;
+
+    return {
+      tweetCount: results[0]?.tweet_count ? Number(results[0].tweet_count) : 0,
+      mediaCount: results[0]?.media_count ? Number(results[0].media_count) : 0,
+    };
+  }
+
   async updateTweetReplyCount(
     tweetId: bigint,
     increment = true,
