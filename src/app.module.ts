@@ -87,6 +87,7 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
       provide: APP_INTERCEPTOR,
       useClass: AvatarUrlInterceptor,
     },
+    {
       provide: APP_GUARD,
       useClass: IpThrottlerGuard,
     },
