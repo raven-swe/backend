@@ -114,6 +114,8 @@ export class TweetsService {
         hasMedia: mediaIds.length > 0,
       };
 
+      console.log('Creating tweet with data:', tweetData);
+
       if (createTweetDto.replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(
           BigInt(createTweetDto.replyToTweetId),

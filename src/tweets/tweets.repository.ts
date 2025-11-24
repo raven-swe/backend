@@ -196,6 +196,7 @@ export class TweetsRepository {
             data: tweetData.Hashtags,
           },
         },
+        hasMedia: tweetData.hasMedia,
       },
     });
   }
