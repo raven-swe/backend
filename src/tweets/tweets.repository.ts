@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { TweetDto, UserInteractionDto } from './dtos';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedSkeleton } from './interfaces';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
-import { UserInteractionDto, TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
@@ -26,6 +28,9 @@ const tweetInclude = (currentUserId: bigint) =>
         },
         followers: {
           where: { followerId: currentUserId },
+        },
+        mutedBy: {
+          where: { userId: currentUserId },
         },
       },
     },
@@ -95,11 +100,16 @@ export class TweetsRepository {
 
   async getTimelineForUser(userId: bigint, cursor: string | undefined, limit: number) {
     // get followed users
-    const followedUsers = await this.prisma.follow.findMany({
-      where: { followerId: userId },
+    const followedUnMutedUserIds = await this.prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        followedUser: {
+          mutedBy: { none: { userId } },
+        },
+      },
       select: { followedId: true },
     });
-    const followedUserIds = followedUsers.map((follow) => follow.followedId);
+    const followedUserIds = followedUnMutedUserIds.map((follow) => follow.followedId);
 
     // The timeline consists of tweets from followed users plus the user's own tweets.
     const timelineUserIds = [...followedUserIds, userId];
@@ -135,6 +145,7 @@ export class TweetsRepository {
         avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
         isBlocked: tweet.user.blockedBy.length > 0,
         isFollowing: tweet.user.followers.length > 0,
+        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -227,6 +238,7 @@ export class TweetsRepository {
       data: { isDeleted: true }, //:))
     });
   }
+
   private mapToDetailedTweetDto(
     tweet: DetailedTweetWithIncludes,
   ): TweetDto & { replyToTweet?: TweetDto } {
@@ -367,6 +379,17 @@ export class TweetsRepository {
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
   }
 
+  async getReferencedTweet(tweetId: bigint, currentUserId: bigint): Promise<TweetDto | null> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    return tweet ? this.mapToTweetDto(tweet) : null;
+  }
+
   async getTweetQuotes(
     tweetId: bigint,
     currentUserId: bigint,
@@ -390,9 +413,12 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          createdAt: 'desc',
+        },
+        { id: 'desc' },
+      ],
       include: {
         ...tweetInclude(currentUserId),
         quotedTweet: {
@@ -554,52 +580,62 @@ export class TweetsRepository {
     });
   }
 
-  async getUserLikedTweets(
-    userId: bigint,
-    currentUserId: bigint,
+  async getFeedSkeletonSQL(
+    targetUserId: bigint,
     limit: number,
-    prevCursor: UserInteractionsCursor | undefined,
-  ): Promise<TweetDto[]> {
-    const likes = await this.prisma.like.findMany({
+    cursor: FeedCursor | undefined,
+    includeReplies: boolean,
+  ): Promise<FeedSkeleton[]> {
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    // 1. Dynamic Filter Logic
+    // If includeReplies is TRUE, we want EVERYTHING (empty string).
+    // If includeReplies is FALSE, we filter out items that have a parent.
+    const replyFilter = includeReplies ? Prisma.sql`` : Prisma.sql`AND "reply_to_tweet_id" IS NULL`;
+
+    // 2. Cursor Logic (The Epoch Math )
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM "created_at") * 1000, 
+          "id"
+        ) <= (${cursorTime}, ${cursorId})`
+        : Prisma.sql``;
+
+    return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
+    SELECT * FROM (
+      -- 1. Tweets (Applied dynamic filter here)
+      SELECT id, "created_at", 'tweet' as type 
+      FROM "tweets"
+      WHERE "user_id" = ${targetUserId} 
+      ${replyFilter}
+      
+      UNION ALL
+      
+      -- 2. Reposts (Always included in both tabs usually)
+      SELECT "tweet_id" as id, "created_at", 'repost' as type 
+      FROM "retweets"
+      WHERE "user_id" = ${targetUserId}
+    ) AS feed
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "created_at" DESC, "id" DESC, "type" DESC
+    LIMIT ${limit}
+  `;
+  }
+
+  async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
+    return await this.prisma.tweet.findMany({
       where: {
-        userId,
-        tweet: {
-          isDeleted: false,
-          user: {
-            blockedUsers: {
-              none: {
-                blockedId: currentUserId,
-              },
-            },
-          },
-        },
+        id: { in: tweetIds },
       },
-      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { tweetId: 'asc' }],
       include: {
-        tweet: {
-          include: {
-            ...tweetInclude(currentUserId),
-            quotedTweet: {
-              include: tweetInclude(currentUserId),
-            },
-          },
+        ...tweetInclude(authUserId),
+        quotedTweet: {
+          include: tweetInclude(authUserId),
         },
       },
-      cursor: prevCursor
-        ? {
-            userId_tweetId: {
-              userId: BigInt(prevCursor.userId),
-              tweetId: BigInt(prevCursor.tweetId),
-            },
-          }
-        : undefined,
-      take: limit || 20,
     });
-
-    const tweets = likes
-      .filter((like) => like.tweet)
-      .map((like) => this.mapToTweetDto(like.tweet as TweetWithIncludes));
-
-    return tweets;
   }
 }

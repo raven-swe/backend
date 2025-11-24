@@ -1411,7 +1411,6 @@ describe('UsersService', () => {
       const usernameToBlock = 'testuser';
 
       mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(false); // already blocked
       mockRepository.isBlocked.mockResolvedValueOnce(true);
 
       // Act & Assert
@@ -1439,26 +1438,6 @@ describe('UsersService', () => {
           {
             message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
             code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
-          },
-          HttpStatus.FORBIDDEN,
-        ),
-      );
-    });
-
-    it('should throw error if user blocked you', async () => {
-      // Arrange
-      const blockerId = BigInt(2);
-      const usernameToBlock = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(true); // not already blocked
-
-      // Act & Assert
-      await expect(service.blockUser(blockerId, usernameToBlock)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
-            code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
           },
           HttpStatus.FORBIDDEN,
         ),

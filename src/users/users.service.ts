@@ -19,8 +19,7 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { UserInteractionsCursor } from 'src/common/types/cursors';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
-import { Mention, PlainMention } from 'src/tweets/interfaces';
-import { TweetsRepository } from 'src/tweets/tweets.repository';
+import { PlainMention } from 'src/tweets/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -442,18 +441,6 @@ export class UsersService {
         {
           message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_SELF,
           code: USERS_ERROR_CODES.CANNOT_BLOCK_SELF,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
-    // Check if user blocked you
-    const userBlockedYou = await this.usersRepository.isBlocked(blockedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
-          code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
         },
         HttpStatus.FORBIDDEN,
       );
@@ -970,71 +957,43 @@ export class UsersService {
   async checkUsernamesExistenceAndReplaceIds(
     usernames: PlainMention[],
     prismaClient: Prisma.TransactionClient = this.prisma,
-  ): Promise<Mention[]> {
+  ): Promise<
+    (PlainMention & {
+      userId: bigint;
+    })[]
+  > {
     const existingUsernames = await this.usersRepository.checkBatchUsernamesExistence(
       usernames,
       prismaClient,
     );
 
-    return usernames.reduce((acc, mention) => {
-      const user = existingUsernames.find((u) => u.username === mention.username);
-      if (user) {
-        acc.push({ userId: user.id, startPosition: mention.startPosition });
-      }
-      return acc;
-    }, [] as Mention[]);
+    return usernames.reduce(
+      (acc, mention) => {
+        const user = existingUsernames.find((u) => u.username === mention.username);
+        if (user) {
+          acc.push({
+            userId: user.id,
+            username: user.username,
+            startPosition: mention.startPosition,
+          });
+        }
+        return acc;
+      },
+      [] as (PlainMention & {
+        userId: bigint;
+      })[],
+    );
   }
 
   async createProfile(userId: bigint, displayName: string) {
     return this.usersRepository.createProfile(userId, displayName);
   }
 
-  async getUserLikedTweets(
-    requestingUserId: bigint,
-    targetUsername: string,
-    limit: number,
-    prevCursor?: string,
-  ) {
-    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+  async getMatchingUsers(userId: bigint, username: string) {
+    return this.usersRepository.getMatchingUsers(userId, username);
+  }
 
-    if (!targetUser || targetUser.deletedAt) {
-      // TODO remove if done on global level
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
-          code: USERS_ERROR_CODES.USER_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    let decodedCursor: UserInteractionsCursor | undefined;
-    if (prevCursor) {
-      try {
-        decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
-      } catch {
-        throw new HttpException(
-          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    const tweets = await this.tweetsRepository.getUserLikedTweets(
-      targetUser.id,
-      requestingUserId,
-      limit + 1,
-      decodedCursor,
-    );
-
-    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
-      userId: targetUser.id.toString(),
-      tweetId: tweet.id,
-    }));
-
-    return {
-      items: tweets.slice(0, limit),
-      pagination,
-    };
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 }
