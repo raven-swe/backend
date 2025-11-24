@@ -97,7 +97,7 @@ export class TweetsService {
       });
     }
 
-    await this.validateAllReferences(
+    await this.validateReferences(
       createTweetDto.replyToTweetId,
       createTweetDto.quoteToTweetId,
       mediaIds,
@@ -247,7 +247,7 @@ export class TweetsService {
     };
   }
 
-  private async validateAllReferences(
+  private async validateReferences(
     replyToTweetId: string | undefined,
     quoteToTweetId: string | undefined,
     mediaIds: bigint[],
