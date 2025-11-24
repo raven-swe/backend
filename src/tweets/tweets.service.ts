@@ -14,6 +14,12 @@ import {
   paginateComposite,
   paginateSingle,
 } from 'src/common/utils';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
+import {
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+} from 'src/common/constants/pagination-error-codes';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
@@ -380,7 +386,94 @@ export class TweetsService {
 
     return { message: 'Tweet unretweeted successfully' };
   }
-  // --------------------------------------
+  async getUserPosts(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    // False = Filter OUT replies
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, false);
+  }
+
+  async getUserPostsAndReplies(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, true);
+  }
+
+  private async getGenericProfileFeed(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+    includeReplies: boolean,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FeedCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FeedCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    const feedItems = await this.tweetsRepository.getFeedSkeletonSQL(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+      includeReplies,
+    );
+
+    const pagination = paginateComposite(feedItems, limit, prevCursor, (item) => ({
+      id: item?.id.toString(),
+      createdAt: item?.created_at,
+    }));
+
+    const tweetIds = [...new Set(feedItems.map((item) => item.id))];
+
+    const fullTweets = await this.tweetsRepository.hydrateTweetsInList(authUserId, tweetIds);
+
+    const fullTweetsDto = fullTweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+
+    const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
+
+    const items = feedItems
+      .map((item) => {
+        const tweetData = tweetsMap.get(item.id.toString());
+
+        if (!tweetData) return null; // Should technically never happen
+
+        return {
+          ...tweetData,
+          isRepost: item.type === 'repost',
+          createdAt: item.created_at,
+        };
+      })
+      .filter(Boolean); // Remove any nulls
+
+    return { items, pagination };
+  }
+
   async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
@@ -393,7 +486,6 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-
     return tweet;
   }
 

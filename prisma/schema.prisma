@@ -185,6 +185,7 @@ model Retweet {
 
   @@id([userId, tweetId])
   @@index([tweetId])
+  @@index([userId, createdAt], map: "retweets_user_id_created_at_idx")
   @@map("retweets")
 }
 
