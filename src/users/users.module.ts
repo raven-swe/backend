@@ -10,11 +10,10 @@ import { RedisModule } from 'src/redis/redis.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { MediaModule } from 'src/media/media.module';
 import { MentionsController } from './mentions/mentions.controller';
-import { TweetsRepository } from 'src/tweets/tweets.repository';
 
 @Module({
   controllers: [UsersController, MeController, SettingsController, MentionsController],
-  providers: [UsersService, UsersRepository, SettingsService, TweetsRepository],
+  providers: [UsersService, UsersRepository, SettingsService],
   exports: [UsersService, UsersRepository],
   imports: [
     BullModule.registerQueue({

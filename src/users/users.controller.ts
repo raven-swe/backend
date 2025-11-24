@@ -5,7 +5,6 @@ import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
-import { PAGINATION } from 'src/common/constants';
 
 @Controller('users')
 export class UsersController {
@@ -93,22 +92,5 @@ export class UsersController {
     );
     const itemsDto = plainToInstance(FollowingUserDto, items);
     return { items: itemsDto, pagination };
-  }
-
-  @Get(':username/likes')
-  @UseGuards(JwtAuthGuard)
-  async getUserLikedTweets(
-    @Param('username') username: string,
-    @User() user: RequestUser,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-  ) {
-    const parsed = Number(limit);
-    const parsedLimit =
-      Number.isFinite(parsed) && parsed > 0
-        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
-        : PAGINATION.DEFAULT_LIMIT;
-
-    return this.usersService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
   }
 }
