@@ -1243,6 +1243,7 @@ export class UsersRepository {
         },
       },
       orderBy: [{ username: 'asc' }],
+      take: 10,
     });
   }
 
