@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SseService } from './sse.service';
 import { ConversationsService } from './conversations.service';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { WsUser } from 'src/auth/interfaces';
 
 @Injectable()
@@ -39,7 +38,7 @@ export class EventPublisherService {
             id: message.userId.toString(),
             username: sender.username,
             displayName: sender.displayName,
-            avatarUrl: sender?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            avatarUrl: sender?.avatarUrl,
           },
           bodySnippet: message.content.slice(0, 80),
           createdAt: message.createdAt,

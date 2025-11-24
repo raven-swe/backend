@@ -28,6 +28,7 @@ import { LoggerModule } from './logger/logger.module';
 import { AppLogger } from './logger/logger.service';
 import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
+import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 
 @Module({
@@ -81,6 +82,10 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AvatarUrlInterceptor,
     },
     {
       provide: APP_GUARD,

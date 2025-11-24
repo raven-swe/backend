@@ -133,7 +133,7 @@ describe('MessagesService', () => {
       });
     });
 
-    it('should handle participant with no display name or avatar', async () => {
+    it('should handle participant with no display name', async () => {
       const conversationWithoutProfile = {
         ...mockConversation,
         conversationParticipants: [
@@ -156,7 +156,6 @@ describe('MessagesService', () => {
       expect(result.items.participant).toEqual({
         username: 'tasneem',
         displayName: '',
-        avatarUrl: 'https://cdn.raven.cmp27.space/default_avatar.png',
       });
     });
 
