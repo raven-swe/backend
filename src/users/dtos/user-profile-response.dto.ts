@@ -14,7 +14,7 @@ export class UserProfileResponseDto {
   // Should be adjusted after implementing rich text bios
   bioEntities: null;
 
-  avatarUrl: string | null;
+  avatarUrl: string | null | undefined;
   bannerUrl: string | null;
   location: string | null;
   websiteUrl: string | null;
