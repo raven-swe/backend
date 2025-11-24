@@ -11,9 +11,9 @@ import {
   InternalServerErrorException,
   Redirect,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { OAuthService } from './oauth.service';
-import { BadRequestException } from '@nestjs/common';
 import {
   AUTH_ERROR_MESSAGES,
   SUPPORTED_OAUTH_PROVIDERS,

@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto } from './dtos';
+import { TweetDto, UserInteractionDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
-import { UserInteractionDto } from './dtos';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';

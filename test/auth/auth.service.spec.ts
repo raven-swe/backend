@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from 'src/auth/auth.service';
-import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  UnauthorizedException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
@@ -9,7 +15,6 @@ import { DevicesService } from 'src/devices/devices.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';

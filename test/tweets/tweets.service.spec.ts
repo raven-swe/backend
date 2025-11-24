@@ -10,30 +10,11 @@ import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
-import {
-  decodeCompositeCursor,
-  decodeCursor,
-  paginateComposite,
-  paginateSingle,
-} from 'src/common/utils';
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
 };
-
-// jest.mock('src/common/utils', () => ({
-//   decodeCursor: jest.fn().mockReturnValue(BigInt(0)), // Default return
-//   decodeCompositeCursor: jest.fn(),
-//   paginateSingle: jest.fn().mockReturnValue({
-//     nextCursor: null,
-//     hasNextPage: false,
-//   }),
-//   paginateComposite: jest.fn().mockReturnValue({
-//     nextCursor: null,
-//     hasNextPage: false,
-//   }),
-// }));
 
 type TransactionCallback<T> = (
   tx: Omit<
