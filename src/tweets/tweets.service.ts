@@ -111,6 +111,7 @@ export class TweetsService {
           hashtagId: hashtag.hashtagId,
           startPosition: hashtag.startPosition,
         })),
+        hasMedia: mediaIds.length > 0,
       };
 
       if (createTweetDto.replyToTweetId) {

@@ -47,6 +47,7 @@ describe('TweetsService', () => {
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
     getReferencedTweet: jest.fn(),
+    updateTweetRetweetCount: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -215,6 +216,7 @@ describe('TweetsService', () => {
               startPosition: 15,
             },
           ],
+          hasMedia: false,
         },
         mockPrismaService,
       );
