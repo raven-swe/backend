@@ -345,6 +345,20 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
@@ -562,7 +576,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;
@@ -610,7 +624,12 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
-model CreatedTweet{
+model ProfileTweet extends Tweet {
+  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
+  isRepost: boolean;
+}
+
+model CreatedTweet {
   id: string;
   content?: string;
   media?: string[];
@@ -619,15 +638,17 @@ model CreatedTweet{
   replyToTweetId?: string;
   quotedTweetId?: string;
 }
+
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
+}
+
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
   replyToTweetId: string | null;
-}
-model TweetWithReplyTo extends Tweet {
-  @doc("The tweet that this tweet is replying to.")
-  replyToTweet: CompactTweet | null;
 }
 
 @doc("Defines the filter categories for the notifications list.")
@@ -1197,7 +1218,7 @@ namespace Users {
   @get
   @route("/{username}/tweets")
   op getUserTweets(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<Tweet[]>
+    | DataResponseWithPagination<ProfileTweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1206,7 +1227,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<Tweet[]>
+    | DataResponseWithPagination<ProfileTweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1719,7 +1740,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse

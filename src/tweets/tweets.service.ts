@@ -7,7 +7,6 @@ import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
-import { CreatedTweetDto } from './dtos/created-tweet.dto';
 import { UsersRepository } from 'src/users/users.repository';
 import {
   decodeCompositeCursor,
@@ -15,8 +14,16 @@ import {
   paginateComposite,
   paginateSingle,
 } from 'src/common/utils';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
+import {
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+} from 'src/common/constants/pagination-error-codes';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
+import { AuthorDto, TweetDto } from './dtos';
 
 @Injectable()
 export class TweetsService {
@@ -43,7 +50,7 @@ export class TweetsService {
     };
   }
 
-  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<CreatedTweetDto> {
+  async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
       throw new HttpException(
         {
@@ -83,49 +90,62 @@ export class TweetsService {
     );
     await this.validateMediaExists(mediaIds);
 
-    const { tweet, mentions, hashtags, orderedMediaUrls } = await this.prisma.$transaction(
-      async (tx) => {
-        const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
-          createTweetDto.content,
-          tx,
-        );
-        const tweetData: CreateTweetData = {
-          userId,
-          content: createTweetDto.content,
-          replyToTweetId: createTweetDto.replyToTweetId
-            ? BigInt(createTweetDto.replyToTweetId)
-            : null,
-          quotedTweetId: createTweetDto.quoteToTweetId
-            ? BigInt(createTweetDto.quoteToTweetId)
-            : null,
-          Mentions: mentions.map((mention) => ({
-            userId: mention.userId,
-            startPosition: mention.startPosition,
-          })),
-          Hashtags: hashtags.map((hashtag) => ({
-            hashtagId: hashtag.hashtagId,
-            startPosition: hashtag.startPosition,
-          })),
-        };
+    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
+      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+        createTweetDto.content,
+        tx,
+      );
 
-        const tweet = await this.tweetsRepository.create(tweetData, tx);
-        await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+      const tweetData: CreateTweetData = {
+        userId,
+        content: createTweetDto.content,
+        replyToTweetId: createTweetDto.replyToTweetId
+          ? BigInt(createTweetDto.replyToTweetId)
+          : null,
+        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
+        Mentions: mentions.map((mention) => ({
+          userId: mention.userId,
+          startPosition: mention.startPosition,
+        })),
+        Hashtags: hashtags.map((hashtag) => ({
+          hashtagId: hashtag.hashtagId,
+          startPosition: hashtag.startPosition,
+        })),
+      };
 
-        await this.mediaRepository.markMediaAsNotPending(mediaIds);
-        const orderedMediaUrls = await this.mediaRepository.findOrderedUrlsByIds(mediaIds);
-        return { tweet, mentions, hashtags, orderedMediaUrls };
-      },
-    );
+      const tweet = await this.tweetsRepository.create(tweetData, tx);
+      await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+      await this.mediaRepository.markMediaAsNotPending(mediaIds);
 
-    const returnedTweet = this.formatTweetCreationResponse(
+      return { tweet, mentions, hashtags };
+    });
+
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
+
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
+
+    return this.formatTweetDto(
       tweet,
       mentions,
       hashtags,
-      orderedMediaUrls,
-      createTweetDto.replyToTweetId,
-      createTweetDto.quoteToTweetId,
+      mediaObjects,
+      authorDto,
+      createTweetDto,
+      referencedTweet,
     );
-    return { ...returnedTweet };
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
@@ -154,31 +174,47 @@ export class TweetsService {
     return { message: 'Tweet deleted successfully' };
   }
 
-  private formatTweetCreationResponse(
+  private formatTweetDto(
     tweet: Tweet,
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
-    media: string[],
-    replyToTweetId: string | undefined,
-    quoteToTweetId: string | undefined,
-  ) {
+    media: MediaResponseDto[],
+    authorDto: AuthorDto,
+    createTweetDto: CreateTweetDto,
+    referencedTweet: GetTweetResponseDto | undefined | null,
+  ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
-      content: tweet.content || undefined,
-      media: media,
+      author: {
+        username: authorDto.username,
+        displayName: authorDto.displayName,
+        avatarUrl: authorDto.avatarUrl,
+        isBlocked: false,
+        isFollowing: false,
+        isMuted: false,
+      },
+      content: tweet.content,
+      createdAt: tweet.createdAt,
+      replyCount: 0,
+      retweetCount: 0,
+      likeCount: 0,
+      isLiked: false,
+      isRetweeted: false,
       entities: {
         mentions: mentions.map((mention) => ({
           username: mention.username,
           startPosition: mention.startPosition,
         })),
         hashtags: hashtags.map((hashtag) => ({
-          keyword: hashtag.keyword,
+          hashtag: hashtag.keyword,
           startPosition: hashtag.startPosition,
         })),
       },
-      replyToTweetId: replyToTweetId ?? undefined,
-      quoteToTweetId: quoteToTweetId ?? undefined,
-      createdAt: tweet.createdAt,
+      media,
+      replyToTweetId: createTweetDto.replyToTweetId ?? null,
+      quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
+      replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
   }
 
@@ -350,7 +386,94 @@ export class TweetsService {
 
     return { message: 'Tweet unretweeted successfully' };
   }
-  // --------------------------------------
+  async getUserPosts(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    // False = Filter OUT replies
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, false);
+  }
+
+  async getUserPostsAndReplies(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    return this.getGenericProfileFeed(username, authUserId, limit, prevCursor, true);
+  }
+
+  private async getGenericProfileFeed(
+    username: string,
+    authUserId: bigint,
+    limit: number,
+    prevCursor: string | undefined,
+    includeReplies: boolean,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FeedCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FeedCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    const feedItems = await this.tweetsRepository.getFeedSkeletonSQL(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+      includeReplies,
+    );
+
+    const pagination = paginateComposite(feedItems, limit, prevCursor, (item) => ({
+      id: item?.id.toString(),
+      createdAt: item?.created_at,
+    }));
+
+    const tweetIds = [...new Set(feedItems.map((item) => item.id))];
+
+    const fullTweets = await this.tweetsRepository.hydrateTweetsInList(authUserId, tweetIds);
+
+    const fullTweetsDto = fullTweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+
+    const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
+
+    const items = feedItems
+      .map((item) => {
+        const tweetData = tweetsMap.get(item.id.toString());
+
+        if (!tweetData) return null; // Should technically never happen
+
+        return {
+          ...tweetData,
+          isRepost: item.type === 'repost',
+          createdAt: item.created_at,
+        };
+      })
+      .filter(Boolean); // Remove any nulls
+
+    return { items, pagination };
+  }
+
   async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
@@ -363,7 +486,6 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-
     return tweet;
   }
 

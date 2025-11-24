@@ -1,6 +1,9 @@
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+export const IMAGE_QUALITY = 85;
+export const MAX_WIDTH = 2048;
+export const MAX_HEIGHT = 2048;
 export const MAX_VIDEO_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
 export const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'webm', 'mov'];
 export const GIF_EXTENSIONS = ['gif'];
 export const ALLOWED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, ...GIF_EXTENSIONS];

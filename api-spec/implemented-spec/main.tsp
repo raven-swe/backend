@@ -279,15 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-model CreatedTweet{
-  id: string;
-  content?: string;
-  media?: string[];
-  entities?: TweetEntities;
-  createdAt: utcDateTime;
-  replyToTweetId?: string;
-  quotedTweetId?: string;
-}
 
 model RegisterStartBody {
   name: string;
@@ -529,6 +520,20 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
@@ -700,7 +705,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;
@@ -746,6 +751,11 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
+model ProfileTweet extends Tweet {
+  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
+  isRepost: boolean;
 }
 
 model TweetWithoutQuotedTweet {
@@ -1198,7 +1208,6 @@ namespace Me {
       ...CursorPaginationParameters,
     ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
-
     @get
     @route("/sessions")
     @summary("Retrieve all active and recent sessions for the authenticated user.")
@@ -1378,6 +1387,24 @@ namespace Users {
   op getUserProfile(
     @path username: string,
   ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
+
+  @summary("List user's tweets")
+  @get
+  @route("/{username}/tweets")
+  op getUserTweets(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's replies and tweets")
+  @get
+  @route("/{username}/replies")
+  op getUserReplies(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
@@ -1559,7 +1586,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<CreatedTweet>>
+    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1567,7 +1594,6 @@ namespace Tweets {
     | ConflictResponse
     | RateLimitResponse;
 
-  
   @delete
   @route("/{id}")
   @summary("Delete a tweet")
