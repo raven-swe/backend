@@ -375,7 +375,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch(() => {
     process.exit(1);
   })
   .finally(() => {
