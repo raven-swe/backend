@@ -345,6 +345,20 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
@@ -562,7 +576,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;
@@ -609,6 +623,8 @@ model Tweet {
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
+
+
 model TweetWithReplyTo extends Tweet {
   @doc("The tweet that this tweet is replying to.")
   replyToTweet: CompactTweet | null;
@@ -620,10 +636,7 @@ model TweetWithoutQuotedTweet {
   @doc("The ID of the tweet this one is a reply to.")
   replyToTweetId: string | null;
 }
-model TweetWithReplyTo extends Tweet {
-  @doc("The tweet that this tweet is replying to.")
-  replyToTweet: CompactTweet | null;
-}
+
 
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
