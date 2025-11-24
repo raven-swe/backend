@@ -8,6 +8,7 @@ describe('ProfileTweetsController', () => {
   const mockTweetsService = {
     getUserPosts: jest.fn(),
     getUserPostsAndReplies: jest.fn(),
+    getUserLikedTweets: jest.fn(),
   };
 
   const mockUser = { id: '1' };
@@ -163,6 +164,53 @@ describe('ProfileTweetsController', () => {
       await expect(
         controller.getUserReplies(username, mockUser, undefined, undefined),
       ).rejects.toThrow('Invalid cursor format');
+    });
+  });
+
+  describe('getUserLikedTweets', () => {
+    const username = 'testuser';
+
+    it('should use default limit (20) when limit is invalid', async () => {
+      const invalidLimits = ['invalid', '-5', '0', 'NaN', ''];
+      mockTweetsService.getUserLikedTweets.mockResolvedValue({ items: [], pagination: {} });
+
+      for (const invalidLimit of invalidLimits) {
+        await controller.getUserLikedTweets(username, mockUser, invalidLimit, undefined);
+
+        expect(mockTweetsService.getUserLikedTweets).toHaveBeenCalledWith(
+          BigInt(1),
+          username,
+          20,
+          undefined,
+        );
+      }
+    });
+
+    it('should cap limit at 100 (THE GLOBAL LIMIT CONSTANT) when requested limit exceeds maximum', async () => {
+      mockTweetsService.getUserLikedTweets.mockResolvedValue({ items: [], pagination: {} });
+
+      await controller.getUserLikedTweets(username, mockUser, '200', undefined);
+
+      expect(mockTweetsService.getUserLikedTweets).toHaveBeenCalledWith(
+        BigInt(1),
+        username,
+        100,
+        undefined,
+      );
+    });
+
+    it('should pass cursor through to service', async () => {
+      const cursor = 'validCursor123';
+      mockTweetsService.getUserLikedTweets.mockResolvedValue({ items: [], pagination: {} });
+
+      await controller.getUserLikedTweets(username, mockUser, undefined, cursor);
+
+      expect(mockTweetsService.getUserLikedTweets).toHaveBeenCalledWith(
+        BigInt(1),
+        username,
+        20,
+        cursor,
+      );
     });
   });
 });
