@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SseService } from './sse.service';
 import { ConversationsService } from './conversations.service';
 import { WsUser } from 'src/auth/interfaces';
 
 @Injectable()
 export class EventPublisherService {
+  private readonly logger = new Logger(EventPublisherService.name);
   constructor(
     private readonly sse: SseService,
     private readonly conversationsService: ConversationsService,
@@ -21,14 +22,19 @@ export class EventPublisherService {
     },
     sender: WsUser,
   ) {
+    this.logger.log(
+      `Publishing new message preview for conversation ${conversationId}, messageId: ${message.id}`,
+    );
     const participants =
       await this.conversationsService.getConversationParticipants(conversationId);
 
     if (!participants) {
+      this.logger.warn(`No participants found for conversation ${conversationId}`);
       return;
     }
 
     for (const user of participants) {
+      this.logger.debug(`Publishing dm.new_message to user ${user.user.id}`);
       this.sse.publish(user.user.id.toString(), {
         event: 'dm.new_message',
         data: {
@@ -46,6 +52,7 @@ export class EventPublisherService {
       });
 
       if (user.user.id !== message.userId) {
+        this.logger.debug(`Publishing unseen_conversations_count to user ${user.user.id}`);
         const unseenCount = await this.conversationsService.countUnseenConversations(user.user.id);
 
         this.sse.publish(user.user.id.toString(), {
@@ -56,5 +63,6 @@ export class EventPublisherService {
         });
       }
     }
+    this.logger.log(`Finished publishing message preview for conversation ${conversationId}`);
   }
 }
