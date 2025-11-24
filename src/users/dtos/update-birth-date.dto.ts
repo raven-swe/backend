@@ -6,7 +6,7 @@ export class UpdateBirthDateDto {
   @IsNotEmpty()
   @IsDate()
   @IsMinYearsOld(13, {
-    message: 'You must be at least 13 years old to register',
+    message: 'You must be at least 13 years old',
   })
   date: Date;
 }
