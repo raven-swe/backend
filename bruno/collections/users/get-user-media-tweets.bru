@@ -1,0 +1,29 @@
+meta {
+  name: get-user-media-tweets
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:3000/users/:username/likes
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~limit: 1
+  ~cursor: eyJ1c2VySWQiOiIzIiwidHdlZXRJZCI6IjI0In0=
+}
+
+params:path {
+  username: Tasneem
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMiLCJpYXQiOjE3NjQwMDExMTUsImV4cCI6MTc2NDAwMjAxNX0.Nm5DLmol8BrrxOnjl8eOxfTV-rG9PA2LqzllNPT4LSg
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
