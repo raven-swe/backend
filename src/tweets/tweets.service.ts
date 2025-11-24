@@ -655,7 +655,10 @@ export class TweetsService {
         decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
       } catch {
         throw new HttpException(
-          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
           HttpStatus.BAD_REQUEST,
         );
       }

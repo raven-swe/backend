@@ -40,7 +40,7 @@ export class ProfileTweetsController {
     );
   }
 
-  @Get(':username/likes')
+  @Get('likes')
   @UseGuards(JwtAuthGuard)
   async getUserLikedTweets(
     @Param('username') username: string,
