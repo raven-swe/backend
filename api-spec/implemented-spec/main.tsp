@@ -753,6 +753,11 @@ model Tweet {
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 }
 
+model ProfileTweet extends Tweet {
+  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
+  isRepost: boolean;
+}
+
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
 
@@ -1382,6 +1387,24 @@ namespace Users {
   op getUserProfile(
     @path username: string,
   ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
+
+  @summary("List user's tweets")
+  @get
+  @route("/{username}/tweets")
+  op getUserTweets(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's replies and tweets")
+  @get
+  @route("/{username}/replies")
+  op getUserReplies(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("OAuth")

@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { TweetDto, UserInteractionDto } from './dtos';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedSkeleton } from './interfaces';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
-import { UserInteractionDto, TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
@@ -575,6 +577,65 @@ export class TweetsRepository {
   async findTweetById(tweetId: bigint) {
     return this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
+    });
+  }
+
+  async getFeedSkeletonSQL(
+    targetUserId: bigint,
+    limit: number,
+    cursor: FeedCursor | undefined,
+    includeReplies: boolean,
+  ): Promise<FeedSkeleton[]> {
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    // 1. Dynamic Filter Logic
+    // If includeReplies is TRUE, we want EVERYTHING (empty string).
+    // If includeReplies is FALSE, we filter out items that have a parent.
+    const replyFilter = includeReplies ? Prisma.sql`` : Prisma.sql`AND "reply_to_tweet_id" IS NULL`;
+
+    // 2. Cursor Logic (The Epoch Math )
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM "created_at") * 1000, 
+          "id"
+        ) <= (${cursorTime}, ${cursorId})`
+        : Prisma.sql``;
+
+    return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
+    SELECT * FROM (
+      -- 1. Tweets (Applied dynamic filter here)
+      SELECT id, "created_at", 'tweet' as type 
+      FROM "tweets"
+      WHERE "user_id" = ${targetUserId} 
+      ${replyFilter}
+      
+      UNION ALL
+      
+      -- 2. Reposts (Always included in both tabs usually)
+      SELECT "tweet_id" as id, "created_at", 'repost' as type 
+      FROM "retweets"
+      WHERE "user_id" = ${targetUserId}
+    ) AS feed
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "created_at" DESC, "id" DESC, "type" DESC
+    LIMIT ${limit}
+  `;
+  }
+
+  async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
+    return await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+      },
+      include: {
+        ...tweetInclude(authUserId),
+        quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+      },
     });
   }
 }

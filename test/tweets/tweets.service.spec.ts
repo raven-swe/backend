@@ -10,25 +10,11 @@ import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
-import {
-  decodeCompositeCursor,
-  decodeCursor,
-  paginateComposite,
-  paginateSingle,
-} from 'src/common/utils';
-
-jest.mock('src/common/utils', () => ({
-  decodeCursor: jest.fn().mockReturnValue(BigInt(0)), // Default return
-  decodeCompositeCursor: jest.fn().mockReturnValue({}),
-  paginateSingle: jest.fn().mockReturnValue({
-    nextCursor: null,
-    hasNextPage: false,
-  }),
-  paginateComposite: jest.fn().mockReturnValue({
-    nextCursor: null,
-    hasNextPage: false,
-  }),
-}));
+const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
+const encodeCompositeCursor = (cursorObject: object): string => {
+  const jsonString = JSON.stringify(cursorObject);
+  return Buffer.from(jsonString).toString('base64');
+};
 
 type TransactionCallback<T> = (
   tx: Omit<
@@ -49,6 +35,9 @@ describe('TweetsService', () => {
     retweetTweet: jest.fn(),
     unretweetTweet: jest.fn(),
     getTimelineForUser: jest.fn(),
+    getFeedSkeletonSQL: jest.fn(),
+    hydrateTweetsInList: jest.fn(),
+    mapToTweetDto: jest.fn(),
     getDetailedTweetById: jest.fn(),
     getTweetLikers: jest.fn(),
     getTweetRetweeters: jest.fn(),
@@ -62,6 +51,7 @@ describe('TweetsService', () => {
 
   const mockUsersRepository = {
     areUsersBlocked: jest.fn(),
+    findByUsername: jest.fn(),
     findOwnTweetAuthorMetaData: jest.fn(),
   };
 
@@ -944,30 +934,204 @@ describe('TweetsService', () => {
     });
   });
 
+  describe('getUserPosts and getUserPostsAndReplies', () => {
+    const username = 'testuser';
+    const authUserId = BigInt(1);
+    const requestedUserId = BigInt(2);
+    const limit = 2;
+
+    describe('getUserPosts', () => {
+      it('should call getGenericProfileFeed with includeReplies=false', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          undefined,
+          false, // includeReplies = false
+        );
+      });
+    });
+
+    describe('getUserPostsAndReplies', () => {
+      it('should call getGenericProfileFeed with includeReplies=true', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPostsAndReplies(username, authUserId, limit, undefined);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          undefined,
+          true, // includeReplies = true
+        );
+      });
+    });
+
+    describe('getGenericProfileFeed (via getUserPosts)', () => {
+      it('should throw NOT_FOUND when user does not exist', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue(null);
+
+        await expect(service.getUserPosts(username, authUserId, limit, undefined)).rejects.toThrow(
+          HttpException,
+        );
+        await expect(
+          service.getUserPosts(username, authUserId, limit, undefined),
+        ).rejects.toMatchObject({
+          status: HttpStatus.NOT_FOUND,
+        });
+      });
+
+      it('should throw BAD_REQUEST for invalid cursor', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        const invalidCursor = 'invalid!!!cursor';
+
+        await expect(
+          service.getUserPosts(username, authUserId, limit, invalidCursor),
+        ).rejects.toThrow(HttpException);
+        await expect(
+          service.getUserPosts(username, authUserId, limit, invalidCursor),
+        ).rejects.toMatchObject({
+          status: HttpStatus.BAD_REQUEST,
+        });
+      });
+
+      it('should decode valid cursor and pass to repository', async () => {
+        const validCursor = encodeCompositeCursor({ id: '123', createdAt: '2024-01-01T00:00:00Z' });
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, validCursor);
+
+        expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
+          requestedUserId,
+          limit + 1,
+          { id: '123', createdAt: '2024-01-01T00:00:00Z' },
+          false,
+        );
+      });
+
+      it('should handle empty feed', async () => {
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items).toEqual([]);
+        expect(result.pagination.hasNextPage).toBe(false);
+      });
+
+      it('should set isRepost=true for repost type items', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'repost', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(2), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
+        ];
+        const fullTweets = [
+          { id: BigInt(1), content: 'Tweet 1' },
+          { id: BigInt(2), content: 'Tweet 2' },
+        ];
+        const tweetDtos = [
+          { id: '1', content: 'Tweet 1' },
+          { id: '2', content: 'Tweet 2' },
+        ];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto
+          .mockReturnValueOnce(tweetDtos[0])
+          .mockReturnValueOnce(tweetDtos[1]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items[0]!.isRepost).toBe(true);
+        expect(result.items[1]!.isRepost).toBe(false);
+      });
+
+      it('should filter out null items when tweet data is missing', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'tweet', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(999), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
+        ];
+        const fullTweets = [{ id: BigInt(1), content: 'Tweet 1' }];
+        const tweetDtos = [{ id: '1', content: 'Tweet 1' }];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]!.id).toBe('1');
+      });
+
+      it('should deduplicate tweet IDs before hydration', async () => {
+        const feedItems = [
+          { id: BigInt(1), type: 'tweet', created_at: '2024-01-01T00:00:00Z' },
+          { id: BigInt(1), type: 'repost', created_at: '2024-01-02T00:00:00Z' },
+        ];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
+
+        await service.getUserPosts(username, authUserId, limit, undefined);
+
+        // Should only hydrate unique IDs (BigInt(1) appears twice but only hydrated once)
+        expect(mockTweetsRepository.hydrateTweetsInList).toHaveBeenCalledWith(authUserId, [
+          BigInt(1),
+        ]);
+      });
+
+      it('should preserve createdAt from feed skeleton, not from tweet', async () => {
+        const feedCreatedAt = '2024-01-01T12:00:00Z';
+        const tweetCreatedAt = '2024-01-01T10:00:00Z';
+        const feedItems = [{ id: BigInt(1), type: 'repost', created_at: feedCreatedAt }];
+        const fullTweets = [{ id: BigInt(1), content: 'Tweet 1', createdAt: tweetCreatedAt }];
+        const tweetDtos = [{ id: '1', content: 'Tweet 1', createdAt: tweetCreatedAt }];
+
+        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
+        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
+        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
+
+        expect(result.items[0]!.createdAt).toBe(feedCreatedAt);
+      });
+    });
+  });
   describe('getTimeline', () => {
     const userId = BigInt(1);
-    const cursor = 'encoded_cursor';
+    const validCursor = encodeCursor(BigInt(50).toString());
     const limit = 10;
 
     it('should successfully fetch and paginate timeline', async () => {
-      const decodedCursorId = BigInt(50);
+      const decodedCursorId = BigInt(50).toString();
       const rawTweets = [{ id: BigInt(100) }, { id: BigInt(99) }];
-      const mockPagination = { nextCursor: 'next_cursor', hasNextPage: true };
 
-      (decodeCursor as jest.Mock).mockReturnValue(decodedCursorId);
       mockTweetsRepository.getTimelineForUser.mockResolvedValue(rawTweets);
-      (paginateSingle as jest.Mock).mockReturnValue(mockPagination);
 
-      const result = await service.getTimeline(userId, cursor, limit);
+      const result = await service.getTimeline(userId, validCursor, limit);
 
-      expect(decodeCursor).toHaveBeenCalledWith(cursor);
       expect(mockTweetsRepository.getTimelineForUser).toHaveBeenCalledWith(
         userId,
         decodedCursorId,
         limit + 1,
       );
-      expect(paginateSingle).toHaveBeenCalledWith(rawTweets, limit, cursor, expect.any(Function));
-      expect(result).toEqual({ items: rawTweets, pagination: mockPagination });
+      expect(result.items).toEqual(rawTweets);
+      expect(result.pagination.cursor).toBe(validCursor);
+      expect(result.pagination.hasNextPage).toBe(false);
     });
   });
 
@@ -1049,7 +1213,8 @@ describe('TweetsService', () => {
     const tweetId = BigInt(100);
     const currentUserId = BigInt(1);
     const limit = 10;
-    const cursor = 'valid_cursor';
+    // const cursor = 'valid_cursor';
+    const validCursor = encodeCompositeCursor({ id: '50', createdAt: '2024-01-01T00:00:00Z' });
 
     const mockReplies = [
       {
@@ -1127,7 +1292,7 @@ describe('TweetsService', () => {
       });
 
       // Act
-      const result = await service.getTweetReplies(tweetId, currentUserId, limit, cursor);
+      const result = await service.getTweetReplies(tweetId, currentUserId, limit, validCursor);
 
       // Assert
       expect(mockTweetsRepository.findTweetById).toHaveBeenCalledWith(tweetId);
@@ -1135,7 +1300,7 @@ describe('TweetsService', () => {
         tweetId,
         currentUserId,
         limit + 1,
-        expect.anything(),
+        { id: '50', createdAt: '2024-01-01T00:00:00Z' },
       );
       expect(result.items).toEqual(mockReplies);
       expect(result).toHaveProperty('pagination');
@@ -1146,7 +1311,9 @@ describe('TweetsService', () => {
       mockTweetsRepository.findTweetById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.getTweetReplies(tweetId, currentUserId, limit, cursor)).rejects.toThrow(
+      await expect(
+        service.getTweetReplies(tweetId, currentUserId, limit, validCursor),
+      ).rejects.toThrow(
         new HttpException(
           {
             message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
@@ -1160,13 +1327,11 @@ describe('TweetsService', () => {
     it('should throw BAD_REQUEST if cursor is invalid', async () => {
       // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId });
-      (decodeCompositeCursor as jest.Mock).mockImplementationOnce(() => {
-        throw new Error('Invalid cursor');
-      });
+      const invalidCursor = 'not-valid-base64!!!';
 
       // Act & Assert
       await expect(
-        service.getTweetReplies(tweetId, currentUserId, limit, 'invalid_cursor'),
+        service.getTweetReplies(tweetId, currentUserId, limit, invalidCursor),
       ).rejects.toThrow(
         new HttpException(
           {
@@ -1279,25 +1444,23 @@ describe('TweetsService', () => {
     const tweetId = BigInt(100);
     const currentUserId = BigInt(1);
     const limit = 10;
-    const cursor = 'encoded_cursor';
+    const validCursor = encodeCompositeCursor({ id: '50', createdAt: '2024-01-01T00:00:00Z' });
 
     it('should successfully fetch likers', async () => {
       // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
-      (decodeCompositeCursor as jest.Mock).mockReturnValue({});
       const mockLikers = [{ userId: BigInt(50) }];
       mockTweetsRepository.getTweetLikers.mockResolvedValue(mockLikers);
-      (paginateComposite as jest.Mock).mockReturnValue({});
 
       // Act
-      const result = await service.getTweetLikers(tweetId, currentUserId, limit, cursor);
+      const result = await service.getTweetLikers(tweetId, currentUserId, limit, validCursor);
 
       // Assert
       expect(mockTweetsRepository.getTweetLikers).toHaveBeenCalledWith(
         tweetId,
         currentUserId,
         limit + 1,
-        {},
+        { id: '50', createdAt: '2024-01-01T00:00:00Z' },
       );
       expect(result.items).toEqual(mockLikers);
     });
@@ -1305,12 +1468,12 @@ describe('TweetsService', () => {
     it('should throw BAD_REQUEST on invalid cursor for likers', async () => {
       // Arrange
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
-      (decodeCompositeCursor as jest.Mock).mockImplementation(() => {
-        throw new Error();
-      });
+      const invalidCursor = 'invalid!!!cursor';
 
       // Act & Assert
-      await expect(service.getTweetLikers(tweetId, currentUserId, limit, 'bad')).rejects.toThrow(
+      await expect(
+        service.getTweetLikers(tweetId, currentUserId, limit, invalidCursor),
+      ).rejects.toThrow(
         new HttpException(
           {
             message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
@@ -1332,7 +1495,6 @@ describe('TweetsService', () => {
       mockTweetsRepository.findTweetById.mockResolvedValue({ id: tweetId, isDeleted: false });
       const mockRetweeters = [{ userId: BigInt(60) }];
       mockTweetsRepository.getTweetRetweeters.mockResolvedValue(mockRetweeters);
-      (paginateComposite as jest.Mock).mockReturnValue({});
 
       // Act
       const result = await service.getTweetRetweeters(tweetId, currentUserId, limit);
