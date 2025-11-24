@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 import { UserInteractionDto, TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
@@ -140,7 +139,7 @@ export class TweetsRepository {
       author: {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        avatarUrl: tweet.user.profile?.avatarUrl,
         isBlocked: tweet.user.blockedBy.length > 0,
         isFollowing: tweet.user.followers.length > 0,
         isMuted: tweet.user.mutedBy.length > 0,
@@ -532,7 +531,7 @@ export class TweetsRepository {
       const dto = plainToInstance(UserInteractionDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
-        avatarUrl: user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        avatarUrl: user.profile?.avatarUrl,
         bio: user.profile?.bio
           ? {
               text: user.profile.bio,

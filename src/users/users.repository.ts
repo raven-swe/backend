@@ -4,7 +4,6 @@ import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from './constants';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
@@ -148,7 +147,7 @@ export class UsersRepository {
         location: profile.location,
         birthDate,
         websiteUrl: profile.websiteUrl,
-        avatarUrl: profile.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        avatarUrl: profile.avatarUrl,
         bannerUrl: profile.bannerUrl,
         updatedAt: profile.updatedAt,
       };
@@ -215,7 +214,7 @@ export class UsersRepository {
         bioEntities: null,
         location: null,
         birthDate: null,
-        avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        avatarUrl: user.profile?.avatarUrl,
         bannerUrl: user.profile?.bannerUrl || null,
         websiteUrl: null,
         // TODO: This should be null here but I'm not changing spec now
@@ -254,7 +253,7 @@ export class UsersRepository {
       bioEntities: null,
       location: user.profile?.location || null,
       birthDate: user.birthdate?.toISOString().split('T')[0] || null,
-      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      avatarUrl: user.profile?.avatarUrl,
       bannerUrl: user.profile?.bannerUrl || null,
       websiteUrl: user.profile?.websiteUrl || null,
       joinedAt: user.createdAt,
@@ -1264,7 +1263,7 @@ export class UsersRepository {
     return {
       username: user.username,
       displayName: user.profile?.displayName || '',
-      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      avatarUrl: user.profile?.avatarUrl,
       isBlocked: false,
       isFollowing: false,
       isMuted: false,
