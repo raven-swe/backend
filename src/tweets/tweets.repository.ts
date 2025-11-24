@@ -650,13 +650,6 @@ export class TweetsRepository {
         userId,
         tweet: {
           isDeleted: false,
-          user: {
-            blockedUsers: {
-              none: {
-                blockedId: currentUserId,
-              },
-            },
-          },
         },
       },
       orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { tweetId: 'asc' }],
