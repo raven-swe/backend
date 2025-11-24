@@ -3,6 +3,7 @@ import { TweetsService } from './tweets.service';
 import { User } from 'src/auth/decorators';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
+import { PAGINATION } from 'src/common/constants';
 
 @Controller('users/:username')
 export class ProfileTweetsController {
@@ -37,5 +38,22 @@ export class ProfileTweetsController {
       parsedLimit,
       cursor,
     );
+  }
+
+  @Get('likes')
+  @UseGuards(JwtAuthGuard)
+  async getUserLikedTweets(
+    @Param('username') username: string,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+
+    return this.tweetsService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
   }
 }

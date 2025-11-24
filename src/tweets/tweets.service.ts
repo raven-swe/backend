@@ -60,6 +60,7 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
     if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
@@ -81,14 +82,26 @@ export class TweetsService {
 
     let mediaIds: bigint[] = [];
     if (createTweetDto.media && createTweetDto.media.length > 0) {
-      mediaIds = createTweetDto.media.map((id) => BigInt(id));
+      mediaIds = createTweetDto.media.map((id) => {
+        try {
+          return BigInt(id);
+        } catch {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA,
+              code: TWEETS_ERROR_CODES.INVALID_MEDIA,
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      });
     }
 
-    await this.checkReplyAndQuoteTweetsExist(
+    await this.validateReferences(
       createTweetDto.replyToTweetId,
       createTweetDto.quoteToTweetId,
+      mediaIds,
     );
-    await this.validateMediaExists(mediaIds);
 
     const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
       const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
@@ -111,8 +124,24 @@ export class TweetsService {
           hashtagId: hashtag.hashtagId,
           startPosition: hashtag.startPosition,
         })),
+        hasMedia: mediaIds.length > 0,
       };
 
+      if (createTweetDto.replyToTweetId) {
+        await this.tweetsRepository.updateTweetReplyCount(
+          BigInt(createTweetDto.replyToTweetId),
+          true,
+          tx,
+        );
+      }
+
+      if (createTweetDto.quoteToTweetId) {
+        await this.tweetsRepository.updateTweetRetweetCount(
+          BigInt(createTweetDto.quoteToTweetId),
+          true,
+          tx,
+        );
+      }
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
       await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
@@ -218,43 +247,64 @@ export class TweetsService {
     };
   }
 
-  private async checkReplyAndQuoteTweetsExist(
+  private async validateReferences(
     replyToTweetId: string | undefined,
     quoteToTweetId: string | undefined,
+    mediaIds: bigint[],
   ) {
-    if (
-      replyToTweetId &&
-      !(await this.tweetsRepository.checkExistingTweet(BigInt(replyToTweetId)))
-    ) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
+    const tweetIdsToCheck: bigint[] = [];
+
+    if (replyToTweetId) {
+      try {
+        tweetIdsToCheck.push(BigInt(replyToTweetId));
+      } catch {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
     }
 
-    if (
-      quoteToTweetId &&
-      !(await this.tweetsRepository.checkExistingTweet(BigInt(quoteToTweetId)))
-    ) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
-      );
+    if (quoteToTweetId) {
+      try {
+        tweetIdsToCheck.push(BigInt(quoteToTweetId));
+      } catch {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
     }
-  }
 
-  private async validateMediaExists(mediaIds: bigint[]) {
-    if (mediaIds.length === 0) {
+    const uniqueMediaIds = mediaIds.length > 0 ? [...new Set(mediaIds)] : [];
+
+    if (tweetIdsToCheck.length === 0 && uniqueMediaIds.length === 0) {
       return;
     }
-    const allExist = await this.mediaRepository.checkMediaExists(mediaIds);
-    if (!allExist) {
+
+    // opens one connection for both checks
+    const { tweetCount, mediaCount } = await this.tweetsRepository.validateReferences(
+      tweetIdsToCheck,
+      uniqueMediaIds,
+    );
+
+    if (tweetIdsToCheck.length > 0 && tweetCount !== tweetIdsToCheck.length) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (uniqueMediaIds.length > 0 && mediaCount !== uniqueMediaIds.length) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.INVALID_MEDIA,
@@ -627,5 +677,57 @@ export class TweetsService {
       );
     }
     return tweet;
+  }
+
+  async getUserLikedTweets(
+    requestingUserId: bigint,
+    targetUsername: string,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!targetUser || targetUser.deletedAt) {
+      // TODO remove if done on global level
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: UserInteractionsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getUserLikedTweets(
+      targetUser.id,
+      requestingUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
+      userId: targetUser.id.toString(),
+      tweetId: tweet.id,
+    }));
+
+    return {
+      items: tweets.slice(0, limit),
+      pagination,
+    };
   }
 }

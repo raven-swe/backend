@@ -196,6 +196,7 @@ export class TweetsRepository {
             data: tweetData.Hashtags,
           },
         },
+        hasMedia: tweetData.hasMedia,
       },
     });
   }
@@ -250,7 +251,57 @@ export class TweetsRepository {
     };
   }
 
-  //--------------------------------------
+  async validateReferences(
+    tweetIds: bigint[],
+    mediaIds: bigint[],
+  ): Promise<{
+    tweetCount: number;
+    mediaCount: number;
+  }> {
+    const results = await this.prisma.$queryRaw<
+      Array<{ tweet_count: bigint; media_count: bigint }>
+    >`
+      SELECT 
+        (SELECT COUNT(*) FROM tweets WHERE id = ANY(${tweetIds}::bigint[]) AND is_deleted = false) as tweet_count,
+        (SELECT COUNT(*) FROM media WHERE id = ANY(${mediaIds}::bigint[])) as media_count
+    `;
+
+    return {
+      tweetCount: results[0]?.tweet_count ? Number(results[0].tweet_count) : 0,
+      mediaCount: results[0]?.media_count ? Number(results[0].media_count) : 0,
+    };
+  }
+
+  async updateTweetReplyCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        replyCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
+  async updateTweetRetweetCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        retweetCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({
@@ -637,5 +688,47 @@ export class TweetsRepository {
         },
       },
     });
+  }
+
+  async getUserLikedTweets(
+    userId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<TweetDto[]> {
+    const likes = await this.prisma.like.findMany({
+      where: {
+        userId,
+        tweet: {
+          isDeleted: false,
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { tweetId: 'asc' }],
+      include: {
+        tweet: {
+          include: {
+            ...tweetInclude(currentUserId),
+            quotedTweet: {
+              include: tweetInclude(currentUserId),
+            },
+          },
+        },
+      },
+      cursor: prevCursor
+        ? {
+            userId_tweetId: {
+              userId: BigInt(prevCursor.userId),
+              tweetId: BigInt(prevCursor.tweetId),
+            },
+          }
+        : undefined,
+      take: limit || 20,
+    });
+
+    const tweets = likes
+      .filter((like) => like.tweet)
+      .map((like) => this.mapToTweetDto(like.tweet as TweetWithIncludes));
+
+    return tweets;
   }
 }
