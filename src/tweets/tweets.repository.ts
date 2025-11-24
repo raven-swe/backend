@@ -699,7 +699,6 @@ export class TweetsRepository {
         userId,
         isDeleted: false,
         hasMedia: true,
-        replyToTweetId: null,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
