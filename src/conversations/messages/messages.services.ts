@@ -86,6 +86,7 @@ export class MessagesService {
       username: otherParticipant.user.username,
       displayName: otherParticipant.user.profile?.displayName ?? '',
       avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString(),
     });
 
     const messagesDto = plainToInstance(MessageDto, formattedMessages);
