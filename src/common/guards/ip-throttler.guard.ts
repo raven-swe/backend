@@ -15,7 +15,7 @@ export class IpThrottlerGuard extends ThrottlerGuard {
 
     const ip = headerIp || request.ip || request.socket?.remoteAddress || 'unknown';
 
-    this.logger.log(`IP Throttler: ${ip}`);
+    this.logger.log(`Receiving request from a client with IP: ${ip}`);
 
     return Promise.resolve(ip);
   }
