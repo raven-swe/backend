@@ -250,7 +250,17 @@ export class TweetsRepository {
     };
   }
 
-  //--------------------------------------
+  async updateTweetReplyCount(tweetId: bigint, increment = true) {
+    await this.prisma.tweet.update({
+      where: { id: tweetId },
+      data: {
+        replyCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({

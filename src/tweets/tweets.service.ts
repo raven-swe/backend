@@ -113,6 +113,12 @@ export class TweetsService {
         })),
       };
 
+      if (createTweetDto.replyToTweetId) {
+        await this.tweetsRepository.updateTweetReplyCount(
+          BigInt(createTweetDto.replyToTweetId),
+          true,
+        );
+      }
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
       await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
