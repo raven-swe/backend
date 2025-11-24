@@ -49,7 +49,9 @@ describe('TweetsService', () => {
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
     getReferencedTweet: jest.fn(),
+    updateTweetRetweetCount: jest.fn(),
     getUserLikedTweets: jest.fn(),
+    validateReferences: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -63,7 +65,6 @@ describe('TweetsService', () => {
   };
 
   const mockMediaRepository = {
-    checkMediaExists: jest.fn(),
     markMediaAsNotPending: jest.fn(),
     findOrderedMediaObjectsByIds: jest.fn(),
   };
@@ -143,8 +144,8 @@ describe('TweetsService', () => {
       mockTweetsRepository.create.mockReset();
       mockTweetsRepository.linkTweetMedia.mockReset();
       mockTweetsRepository.checkExistingTweet.mockReset();
-      mockMediaRepository.checkMediaExists.mockReset();
       mockPrismaService.$transaction.mockClear();
+      mockTweetsRepository.validateReferences.mockReset();
     });
 
     it('should successfully create a basic tweet', async () => {
@@ -168,6 +169,7 @@ describe('TweetsService', () => {
       });
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 0 });
       mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([]);
       mockUsersRepository.findOwnTweetAuthorMetaData.mockResolvedValue(mockAuthorDto);
 
@@ -218,6 +220,7 @@ describe('TweetsService', () => {
               startPosition: 15,
             },
           ],
+          hasMedia: false,
         },
         mockPrismaService,
       );
@@ -252,7 +255,7 @@ describe('TweetsService', () => {
       });
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 2 });
       mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
         { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
         { url: 'url2', type: 'IMAGE', altText: null, width: 100, height: 100 },
@@ -268,7 +271,6 @@ describe('TweetsService', () => {
         { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
         { url: 'url2', type: 'IMAGE', altText: null, width: 100, height: 100 },
       ]);
-      expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1), BigInt(2)]);
       expect(mockTweetsRepository.linkTweetMedia).toHaveBeenCalledWith(
         BigInt(100),
         [BigInt(1), BigInt(2)],
@@ -292,14 +294,13 @@ describe('TweetsService', () => {
         quotedTweetId: BigInt(75),
       });
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockTweetsRepository.checkExistingTweet.mockResolvedValue(true);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 1, mediaCount: 0 });
 
       // Act
       const result = await service.createTweet(createTweetDto, userId);
 
       // Assert
       expect(result.quoteToTweetId).toBe('75');
-      expect(mockTweetsRepository.checkExistingTweet).toHaveBeenCalledWith(BigInt(75));
       expect(mockTweetsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           quotedTweetId: BigInt(75),
@@ -327,7 +328,7 @@ describe('TweetsService', () => {
       });
       mockTweetsRepository.create.mockResolvedValue(returnedTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 1 });
       mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
         { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
       ]);
@@ -340,7 +341,6 @@ describe('TweetsService', () => {
       expect(result.media).toEqual([
         { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
       ]);
-      expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(1)]);
       expect(mockContentParsingService.parseContentAndValidate).toHaveBeenCalledWith(
         '',
         mockPrismaService,
@@ -354,7 +354,7 @@ describe('TweetsService', () => {
         quoteToTweetId: '888',
       };
 
-      mockTweetsRepository.checkExistingTweet.mockResolvedValue(false);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 0 });
 
       // Act & Assert
       await expect(service.createTweet(createTweetDto, userId)).rejects.toThrow(
@@ -366,8 +366,6 @@ describe('TweetsService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
-
-      expect(mockTweetsRepository.checkExistingTweet).toHaveBeenCalledWith(BigInt(888));
     });
 
     it('should throw BAD_REQUEST when no content and empty media array provided', async () => {
@@ -402,7 +400,7 @@ describe('TweetsService', () => {
       });
       mockTweetsRepository.create.mockResolvedValue(mockTweet);
       mockTweetsRepository.linkTweetMedia.mockResolvedValue(undefined);
-      mockMediaRepository.checkMediaExists.mockResolvedValue(true);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 4 });
       mockMediaRepository.findOrderedMediaObjectsByIds.mockResolvedValue([
         { url: 'url1', type: 'IMAGE', altText: null, width: 100, height: 100 },
         { url: 'url2', type: 'VIDEO', altText: null, width: 100, height: 100 },
@@ -516,7 +514,7 @@ describe('TweetsService', () => {
         replyToTweetId: '999',
       };
 
-      mockTweetsRepository.checkExistingTweet.mockResolvedValue(false);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 0 });
 
       // Act & Assert
       await expect(service.createTweet(createTweetDto, userId)).rejects.toThrow(
@@ -528,8 +526,6 @@ describe('TweetsService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
-
-      expect(mockTweetsRepository.checkExistingTweet).toHaveBeenCalledWith(BigInt(999));
     });
 
     it('should throw BAD_REQUEST when media does not exist', async () => {
@@ -539,7 +535,7 @@ describe('TweetsService', () => {
         media: ['999'],
       };
 
-      mockMediaRepository.checkMediaExists.mockResolvedValue(false);
+      mockTweetsRepository.validateReferences.mockResolvedValue({ tweetCount: 0, mediaCount: 0 });
 
       // Act & Assert
       await expect(service.createTweet(createTweetDto, userId)).rejects.toThrow(
@@ -551,8 +547,6 @@ describe('TweetsService', () => {
           HttpStatus.BAD_REQUEST,
         ),
       );
-
-      expect(mockMediaRepository.checkMediaExists).toHaveBeenCalledWith([BigInt(999)]);
     });
   });
 

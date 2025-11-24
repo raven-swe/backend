@@ -195,6 +195,7 @@ export class TweetsRepository {
             data: tweetData.Hashtags,
           },
         },
+        hasMedia: tweetData.hasMedia,
       },
     });
   }
@@ -249,7 +250,57 @@ export class TweetsRepository {
     };
   }
 
-  //--------------------------------------
+  async validateReferences(
+    tweetIds: bigint[],
+    mediaIds: bigint[],
+  ): Promise<{
+    tweetCount: number;
+    mediaCount: number;
+  }> {
+    const results = await this.prisma.$queryRaw<
+      Array<{ tweet_count: bigint; media_count: bigint }>
+    >`
+      SELECT 
+        (SELECT COUNT(*) FROM tweets WHERE id = ANY(${tweetIds}::bigint[]) AND is_deleted = false) as tweet_count,
+        (SELECT COUNT(*) FROM media WHERE id = ANY(${mediaIds}::bigint[])) as media_count
+    `;
+
+    return {
+      tweetCount: results[0]?.tweet_count ? Number(results[0].tweet_count) : 0,
+      mediaCount: results[0]?.media_count ? Number(results[0].media_count) : 0,
+    };
+  }
+
+  async updateTweetReplyCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        replyCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
+  async updateTweetRetweetCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        retweetCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({
