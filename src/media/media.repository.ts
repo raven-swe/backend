@@ -61,8 +61,14 @@ export class MediaRepository {
     return media;
   }
 
-  async markMediaAsNotPending(mediaIds: bigint[]) {
-    await this.prisma.media.updateMany({
+  async markMediaAsNotPending(
+    mediaIds: bigint[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    if (mediaIds.length === 0) {
+      return;
+    }
+    await prismaClient.media.updateMany({
       where: { id: { in: mediaIds } },
       data: { pending: false },
     });
