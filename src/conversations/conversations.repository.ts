@@ -149,6 +149,7 @@ export class ConversationsRepository {
         conversationParticipants: {
           select: {
             userId: true,
+            lastSeenMessageId: true,
             user: {
               select: {
                 username: true,
