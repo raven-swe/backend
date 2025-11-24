@@ -98,11 +98,16 @@ export class TweetsRepository {
 
   async getTimelineForUser(userId: bigint, cursor: string | undefined, limit: number) {
     // get followed users
-    const followedUsers = await this.prisma.follow.findMany({
-      where: { followerId: userId },
+    const followedUnMutedUserIds = await this.prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        followedUser: {
+          mutedBy: { none: { userId } },
+        },
+      },
       select: { followedId: true },
     });
-    const followedUserIds = followedUsers.map((follow) => follow.followedId);
+    const followedUserIds = followedUnMutedUserIds.map((follow) => follow.followedId);
 
     // The timeline consists of tweets from followed users plus the user's own tweets.
     const timelineUserIds = [...followedUserIds, userId];
@@ -230,6 +235,7 @@ export class TweetsRepository {
       data: { isDeleted: true }, //:))
     });
   }
+
   private mapToDetailedTweetDto(
     tweet: DetailedTweetWithIncludes,
   ): TweetDto & { replyToTweet?: TweetDto } {
@@ -370,6 +376,17 @@ export class TweetsRepository {
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
   }
 
+  async getReferencedTweet(tweetId: bigint, currentUserId: bigint): Promise<TweetDto | null> {
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    return tweet ? this.mapToTweetDto(tweet) : null;
+  }
+
   async getTweetQuotes(
     tweetId: bigint,
     currentUserId: bigint,
@@ -393,9 +410,12 @@ export class TweetsRepository {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          createdAt: 'desc',
+        },
+        { id: 'desc' },
+      ],
       include: {
         ...tweetInclude(currentUserId),
         quotedTweet: {

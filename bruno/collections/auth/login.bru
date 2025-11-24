@@ -16,7 +16,7 @@ headers {
 
 body:json {
   {
-    "identifier":"notnowomar",
+    "identifier":"Tasneem",
     "password":"test1234"
   }
 }
@@ -27,7 +27,7 @@ script:post-response {
     const token = responseBody.data?.accessToken;
     console.log(token)
     if (token) {
-      bru.setEnvVar('access_token', token);
+      bru.setVar('access_token', token);
     }
   }
 }

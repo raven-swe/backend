@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { MediaDto } from './dtos';
 import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
+import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
@@ -45,16 +46,23 @@ export class MediaService {
     try {
       const mediaType = detectMediaType(file);
 
+      let processedBuffer = file.buffer;
+      let width = 0;
+      let height = 0;
+
+      if (mediaType === MediaType.IMAGE) {
+        const processedImage = await processImage(file);
+        processedBuffer = processedImage.buffer;
+        width = processedImage.width;
+        height = processedImage.height;
+        file.buffer = processedBuffer;
+      }
+
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
 
       this.logger.log(`File uploaded to S3 with URL: ${url}`);
-
-      const { width, height } =
-        mediaType == MediaType.IMAGE
-          ? await this.getImageDimensions(file)
-          : { width: 0, height: 0 };
 
       const mediaDto: MediaDto = {
         userId,
@@ -225,7 +233,7 @@ export class MediaService {
     }
 
     const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
-    return { items, message: 'Media uploaded successfully.' };
+    return { ...items, message: 'Media uploaded successfully.' };
   }
 
   /**

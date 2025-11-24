@@ -51,7 +51,15 @@ const createMockFile = (overrides?: Partial<Express.Multer.File>): Express.Multe
 });
 
 const mockSharpInstance = {
-  metadata: jest.fn(),
+  metadata: jest.fn().mockResolvedValue({
+    width: 100,
+    height: 100,
+    format: 'jpeg',
+  }),
+  resize: jest.fn().mockReturnThis(),
+  jpeg: jest.fn().mockReturnThis(),
+  png: jest.fn().mockReturnThis(),
+  toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed image')),
 };
 
 describe('MediaService', () => {
@@ -513,7 +521,10 @@ describe('MediaService', () => {
 
       // Assert
       expect(uploadAndSaveMediaSpy).toHaveBeenCalledWith(file, userId, folder, altText, true);
-      expect(result).toEqual({ items: expectedResult, message: 'Media uploaded successfully.' });
+      expect(result).toEqual({
+        ...expectedResult,
+        message: 'Media uploaded successfully.',
+      });
     });
   });
 
