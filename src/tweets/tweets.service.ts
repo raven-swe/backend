@@ -24,7 +24,6 @@ import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
-import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 
 @Injectable()
 export class TweetsService {
