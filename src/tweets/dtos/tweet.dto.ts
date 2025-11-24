@@ -1,10 +1,11 @@
 import { TweetEntitiesDto } from './tweet-entitites.dto';
 import { AuthorDto } from './author.dto';
-
+import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 export class TweetDto {
   id: string;
   author: AuthorDto;
-  content: string; //TODO null content will be handled later for media tweets
+  //TODO null content will be handled later for media tweets
+  content: string | null;
   createdAt: Date;
 
   replyCount: number;
@@ -15,8 +16,7 @@ export class TweetDto {
   isRetweeted: boolean;
 
   entities: TweetEntitiesDto;
-  media: [];
-  // TODO media field will be added later
+  media: MediaResponseDto[];
 
   replyToTweetId: string | null;
   quoteToTweetId: string | null;

@@ -45,11 +45,77 @@ model CursorPagination {
 model CursorPaginationParameters {
   @query
   @doc("The cursor position to start fetching from")
-  cursor: string;
+  cursor?: string;
 
   @query
   @doc("The number of items to return per page (default: 20)")
-  limit: int32 = 20;
+  limit?: int32 = 20;
+}
+
+@doc("Block relationship state between two users")
+model BlockRelationship {
+  @doc("Indicates if the requesting user has blocked the other user")
+  isBlocking: boolean;
+
+  @doc("Indicates if requesting user is blocked by the other user")
+  isBlockedBy: boolean;
+}
+
+@doc("Entities containing mentions and hashtags for message content")
+model MessageEntities {
+  @doc("Array of mention entities in the message")
+  mentions: MentionEntity[] | null;
+
+  @doc("Array of hashtag entities in the message")
+  hashtags: HashtagEntity[] | null;
+}
+
+@doc("A single message in a conversation")
+model Message {
+  @doc("Unique identifier for the message")
+  id: string;
+
+  @doc("Text content of the message (max 10,000 characters *For now)")
+  @maxLength(10000)
+  content: string;
+
+  @doc("Structured data entities (mentions, hashtags) parsed from message content")
+  entities: MessageEntities | null;
+
+  @doc("Optional media URL attached to the message (single media is supported per message)")
+  mediaUrl: string | null;
+
+  @doc("Timestamp when the message was created/sent. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  createdAt: utcDateTime;
+
+  @doc("True if this message was sent by the authenticated user (Easy for client side)")
+  isMine: boolean;
+}
+
+@doc("Unified conversation model")
+model Conversation {
+  @doc("Unique identifier for the conversation")
+  id: string;
+
+  @doc("The other participant in the 1:1 conversation")
+  participant: UserMetadata;
+
+  @doc("The most recent message in the conversation (needed in list view, null if no messages yet)")
+  lastMessage: {
+    @doc("Preview of the message content (may be truncated by frontend)")
+    content: string;
+
+    @doc("Username of the sender")
+    senderUsername: string;
+
+    @doc("Timestamp of the last message. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+    sentAt: utcDateTime;
+  } | null;
+
+  ...BlockRelationship;
+
+  @doc("True if notifications are muted for this conversation")
+  isMuted: boolean;
 }
 
 @doc("Success response wrapper with data")
@@ -196,6 +262,24 @@ model SessionResponse {
   isCurrent: boolean;
 }
 
+@doc("The content and optional media for creating a new tweet")
+model TweetBody {
+  @doc("Text content of the tweet (max 280 characters).")
+  @maxLength(280)
+  content: string | null;
+
+  @doc("Optional array of media items attached to the tweet (max 4 items)")
+  @maxItems(4)
+  media?: string[] | null;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId?: string | null;
+
+  @doc("The ID of the tweet being quoted.")
+  quoteToTweetId?: string | null;
+}
+
+
 model RegisterStartBody {
   name: string;
   email: string;
@@ -221,6 +305,13 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model FollowingUser {
+  ...CompactUser;
+  isFollowing: boolean;
+  followsYou: boolean;
+  isBlocked: boolean;
+}
+
 model AccountInfo {
   username: string;
   email: string | null;
@@ -243,6 +334,10 @@ enum Gender {
   Female,
 }
 
+alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
+alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
+alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -250,6 +345,13 @@ alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+
+alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
+alias MessageListResponse = DataResponseWithPagination<{
+  participant: UserMetadata;
+  messages: Message[];
+}>;
+alias ConversationResponse = DataResponse<Conversation>;
 
 @doc("A single external social account connected to the user's primary account.")
 model ConnectedAccountResponse {
@@ -418,14 +520,28 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Author metadata for tweets with relationship status")
+model TweetAuthor {
+  ...UserMetadata;
+
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+}
+
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
+  isFollowing: boolean;
 
   @doc("Is the user following the current logged-in user")
-  isFollower: boolean | null;
+  isFollower: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -434,6 +550,12 @@ model UserMetadataWithBio {
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
+
+  @doc("True if the current user has blocked this user")
+  isBlocked: boolean;
+
+  @doc("True if the current user has muted this user")
+  isMuted: boolean;
 }
 
 @doc("User's biography with structured entities")
@@ -446,8 +568,42 @@ model UserBio {
   bioEntities: BioEntities | null;
 }
 
-@doc("Request body for updating profile")
+model UploadImageRequest {
+  @doc("Image file to upload (jpg, jpeg, png, webp). Max size: 5MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+model UploadVideoRequest {
+  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  file: HttpPart<bytes>;
+
+  @doc("Alt text for accessibility (optional)")
+  altText?: HttpPart<string>;
+
+  @doc("Folder to store the media in (avatars, banners, tweets, messages)")
+  folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+@doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
+  @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
+  data: HttpPart<ProfileDataFields>;
+
+  @doc("Avatar image file (jpg, jpeg, png). Max size: 5MB")
+  avatar?: HttpPart<bytes>;
+
+  @doc("Banner image file (jpg, jpeg, png). Max size: 5MB")
+  banner?: HttpPart<bytes>;
+}
+
+@doc("Profile data fields (sent as JSON string in 'data' field)")
+model ProfileDataFields {
   @doc("The user's display name.")
   @minLength(1)
   @maxLength(100)
@@ -475,6 +631,12 @@ model UpdateProfileRequest {
   @doc("URL to the user's banner image. Must be a valid URL (https://www.example.com).")
   @maxLength(255)
   bannerUrl?: string | null;
+
+  @doc("Set to true to delete the current banner (If bannerUrl is also provided, a conflict error will be returned).")
+  deleteBanner?: boolean;
+
+  @doc("Set to true to delete the current avatar (If avatarUrl is also provided, a conflict error will be returned).")
+  deleteAvatar?: boolean;
 }
 
 model UpdatedProfile {
@@ -543,7 +705,7 @@ model CompactTweet {
   id: string;
 
   @doc("The user who created the tweet.")
-  author: UserMetadata;
+  author: TweetAuthor;
 
   @doc("The text content of the tweet.")
   content: string | null;
@@ -573,17 +735,39 @@ model CompactTweet {
   media: MediaItem[] | null;
 }
 
+model ReplyTweet extends CompactTweet {
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string;
+}
+
 model Tweet {
   ...CompactTweet;
 
   @doc("The ID of the tweet this one is a reply to.")
-  isReplyToTweetId: string | null;
+  replyToTweetId: string | null;
 
   @doc("The ID of the tweet being quoted.")
-  quotedTweetId: string | null;
+  quoteToTweetId: string | null;
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+}
+
+model ProfileTweet extends Tweet {
+  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
+  isRepost: boolean;
+}
+
+model TweetWithoutQuotedTweet {
+  ...CompactTweet;
+
+  @doc("The ID of the tweet this one is a reply to.")
+  replyToTweetId: string | null;
+}
+
+model TweetWithReplyTo extends Tweet {
+  @doc("The tweet that this tweet is replying to.")
+  replyToTweet: CompactTweet | null;
 }
 
 @tag("Auth")
@@ -816,7 +1000,10 @@ namespace Me {
 
   @patch(#{ implicitOptionality: true })
   @summary("Update the authenticated user's profile")
-  op updateMyProfile(@body body: UpdateProfileRequest):
+  op updateMyProfile(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UpdateProfileRequest,
+  ):
     | DataResponse<UpdatedProfile>
     | ValidationErrorResponse
     | UnauthorizedResponse
@@ -1008,6 +1195,19 @@ namespace Me {
       | UnauthorizedResponse
       | InternalServerErrorResponse;
 
+    @summary("List a user's mutes")
+    @get
+    @route("/mutes")
+    op listUserMutes(
+      ...CursorPaginationParameters,
+    ): MutedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+    @summary("List a user's blocks")
+    @get
+    @route("/blocks")
+    op listUserBlocks(
+      ...CursorPaginationParameters,
+    ): BlockedListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
     @get
     @route("/sessions")
     @summary("Retrieve all active and recent sessions for the authenticated user.")
@@ -1117,32 +1317,63 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
-  @route("/{username}/following")
-  namespace Following {
-    @summary("Follow a user")
-    @post
-    op followUser(
-      @path
-      username: string,
-    ):
-      | FollowUserResponse
+  namespace Follows {
+    @summary("List a user's followers")
+    @get
+    @route("/{username}/followers")
+    op listUserFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
+      | BadRequestResponse
       | NotFoundResponse
-      | ConflictResponse
       | UnauthorizedResponse
-      | ForbiddenResponse
       | InternalServerErrorResponse;
 
-    @summary("Unfollow a user")
-    @delete
-    op unfollowUser(
-      @path
-      username: string,
-    ):
-      | UnfollowUserResponse
-      | NotFoundResponse
+    @get
+    @route("/{username}/mutual")
+    @summary("List mutual followers with a user given their username")
+    op listMutualFollowers(@path username: string, ...CursorPaginationParameters):
+      | FollowersListResponse
       | BadRequestResponse
+      | NotFoundResponse
       | UnauthorizedResponse
       | InternalServerErrorResponse;
+
+    @route("/{username}/following")
+    namespace Following {
+      @summary("List users a user is following")
+      @get
+      op listUserFollowing(@path username: string, ...CursorPaginationParameters):
+        | FollowingListResponse
+        | BadRequestResponse
+        | NotFoundResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+
+      @summary("Follow a user")
+      @post
+      op followUser(
+        @path
+        username: string,
+      ):
+        | FollowUserResponse
+        | NotFoundResponse
+        | ConflictResponse
+        | UnauthorizedResponse
+        | ForbiddenResponse
+        | InternalServerErrorResponse;
+
+      @summary("Unfollow a user")
+      @delete
+      op unfollowUser(
+        @path
+        username: string,
+      ):
+        | UnfollowUserResponse
+        | NotFoundResponse
+        | BadRequestResponse
+        | UnauthorizedResponse
+        | InternalServerErrorResponse;
+    }
   }
 }
 
@@ -1156,6 +1387,33 @@ namespace Users {
   op getUserProfile(
     @path username: string,
   ): DataResponse<UserProfile> | NotFoundResponse | InternalServerErrorResponse;
+
+  @summary("List user's tweets")
+  @get
+  @route("/{username}/tweets")
+  op getUserTweets(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's replies and tweets")
+  @get
+  @route("/{username}/replies")
+  op getUserReplies(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's liked tweets")
+  @get
+  @route("/{username}/likes")
+  op getUserLikes(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
@@ -1253,6 +1511,43 @@ namespace Timeline {
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
+@tag("Media")
+@route("/media")
+@useAuth(BearerAuth)
+namespace Media {
+  @post
+  @route("/upload/image")
+  @summary("Upload an image media file")
+  op uploadImage(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadImageRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/video")
+  @summary("Upload a video media file")
+  op uploadVideo(
+    @header contentType: "multipart/form-data",
+    @multipartBody body: UploadVideoRequest,
+  ):
+    | DataResponse<{
+        url: string;
+        id: string;
+        message: string;
+      }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
 @tag("Tweets")
 @route("/tweets")
 @useAuth(BearerAuth)
@@ -1296,4 +1591,152 @@ namespace Tweets {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @post
+  @summary("Create a new tweet")
+  op postTweet(@body body: TweetBody):
+    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse
+    | ConflictResponse
+    | RateLimitResponse;
+
+  @delete
+  @route("/{id}")
+  @summary("Delete a tweet")
+  op deleteTweet(@path id: string):
+    | MessageResponse<"Tweet deleted successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse;
+
+  @get
+  @route("/{id}")
+  @summary("Get a specific tweet by ID")
+  op getTweet(@path id: string):
+    | DataResponse<TweetWithReplyTo>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/quotes")
+  @summary("Get quotes to a specific tweet")
+  op getTweetQuotes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/retweets")
+  @summary("Get users who retweeted a tweet")
+  op getTweetRetweeters(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/likes")
+  @summary("Get users who liked my tweet")
+  op getTweetLikes(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<UserMetadataWithBio[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{id}/replies")
+  @summary("Get replies to a specific tweet")
+  op getTweetReplies(@path id: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithoutQuotedTweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Onboarding")
+@route("/onboarding")
+@useAuth(BearerAuth)
+namespace Onboarding {
+  @get
+  @route("/username-suggestions")
+  @summary("Get username suggestions for the authenticated user")
+  @doc("""
+    Generates username suggestions based on either:
+    - User's display name (default): If 'typed' parameter is not provided
+    - Custom input: If 'typed' parameter is provided, suggestions are generated from that input
+    
+    The endpoint will generate up to 3 username suggestions that are available (not taken by other users).
+    """)
+  op getUsernameSuggestions(
+    @query
+    @doc("Optional custom text to generate usernames from. If provided, suggestions will be based on this input instead of the user's display name.")
+    typed?: string,
+  ): DataResponse<{
+    suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+@tag("Conversations")
+@route("/conversations")
+@useAuth(BearerAuth)
+namespace Conversations {
+  @get
+  @summary("List all conversations for the authenticated user")
+  @doc("""
+    Retrieves a paginated list of all 1:1 conversations for the authenticated user,
+    ordered by most recent activity (last message timestamp).
+    Each conversation includes its ID, so clients can use the ID for subsequent operations.
+    """)
+  op listConversations(
+    ...CursorPaginationParameters,
+  ): ConversationListResponse | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @post
+  @route("/with/{username}")
+  @summary("Create or retrieve a 1:1 conversation with a user by username")
+  @doc("""
+    Creates a new 1:1 conversation with the specified user, or returns the existing one.
+    Returns the conversation with its ID, which should be used for all subsequent operations.
+    
+    **Use this endpoint when:**
+    - User clicks "Message" button on someone's profile
+    - Initializing a conversation for the first time
+    
+    **After receiving the conversation ID, use ID-based endpoints for:**
+    - Fetching messages: GET /conversations/{id}/messages
+    - Sending messages: POST /conversations/{id}/messages
+    - Muting/unmuting: POST/DELETE /conversations/{id}/mute
+    """)
+  op createOrGetConversationByUsername(@path username: string):
+    | ConversationResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/{conversationId}/messages")
+  @summary("List messages in a conversation by ID")
+  @doc("""
+    Retrieves paginated messages using conversation ID.
+    Messages are ordered by creation time (newest first).
+    Soft-deleted messages (for the current user) are filtered out.
+    """)
+  op getMessages(@path conversationId: string, ...CursorPaginationParameters):
+    | MessageListResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/unseen-count")
+  @summary("Get the count of conversations with unseen messages")
+  op getUnseenCounts(): DataResponse<{
+    count: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
 }

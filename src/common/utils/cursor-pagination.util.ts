@@ -1,9 +1,4 @@
-import { CursorPagination } from '../interfaces/response.interface';
-
-export type FollowsCursor = {
-  followerId: string;
-  followedId: string;
-};
+import { CursorPagination } from '../interfaces';
 
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 export const decodeCursor = (cursor: string | undefined) => {
@@ -28,7 +23,6 @@ export const paginateSingle = <T>(
   getId: (item: T) => bigint | string,
 ): CursorPagination => {
   const hasNextPage = items.length > limit;
-  console.log('items length in paginateSingle:', items.length);
   let nextCursor: string | null = null;
 
   if (hasNextPage) {

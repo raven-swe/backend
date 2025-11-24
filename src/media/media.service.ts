@@ -1,13 +1,14 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { S3Service } from './s3/s3.service';
 import { MediaRepository } from './media.repository';
-import { MediaFolder } from './enums/media-folder.enum';
+import { MediaFolder } from './enums';
 import sharp from 'sharp';
-import { MediaDto } from './dtos/media.dto';
-import { detectMediaType } from './utils/detect-media-type.util';
+import { MediaDto } from './dtos';
+import { detectMediaType } from './utils';
 import { MediaType } from '@prisma/client';
-import { MEDIA_CODES, MEDIA_MESSAGES } from './constants/media.constant';
+import { processImage } from './utils/process-image.util';
+import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MediaService {
@@ -37,22 +38,30 @@ export class MediaService {
     userId: bigint,
     folder: MediaFolder,
     altText?: string,
-  ): Promise<string> {
+    pending: boolean = false,
+  ): Promise<{ url: string; id: string }> {
     let uploadedKey: string | null = null;
 
     try {
       const mediaType = detectMediaType(file);
+
+      let processedBuffer = file.buffer;
+      let width = 0;
+      let height = 0;
+
+      if (mediaType === MediaType.IMAGE) {
+        const processedImage = await processImage(file);
+        processedBuffer = processedImage.buffer;
+        width = processedImage.width;
+        height = processedImage.height;
+        file.buffer = processedBuffer;
+      }
 
       // Upload to S3
       const { key, url } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
 
       this.logger.log(`File uploaded to S3 with URL: ${url}`);
-
-      const { width, height } =
-        mediaType == MediaType.IMAGE
-          ? await this.getImageDimensions(file)
-          : { width: 0, height: 0 };
 
       const mediaDto: MediaDto = {
         userId,
@@ -61,13 +70,14 @@ export class MediaService {
         width,
         height,
         altText,
+        pending,
       };
 
       const savedMedia = await this.mediaRepository.saveMedia(mediaDto);
 
       this.logger.log(`Media metadata saved with ID: ${savedMedia.id}`);
 
-      return url;
+      return { url, id: savedMedia.id.toString() };
     } catch (error) {
       this.logger.error('Failed to upload media', error);
 
@@ -89,7 +99,7 @@ export class MediaService {
           message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
           code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
   }
@@ -143,6 +153,7 @@ export class MediaService {
             width: mediaRecord.width!,
             height: mediaRecord.height!,
             altText: mediaRecord.altText ?? undefined,
+            pending: mediaRecord.pending,
           });
           this.logger.log(`Successfully restored media metadata: ${mediaRecord.id}`);
         } catch (rollbackError) {
@@ -172,13 +183,12 @@ export class MediaService {
     }
   }
 
-  async uploadAvatarAndBanner(
+  async uploadAvatarOrBanner(
     userId: bigint,
     files: {
-      avatar?: Express.Multer.File[];
-      banner?: Express.Multer.File[];
+      avatar?: Express.Multer.File;
+      banner?: Express.Multer.File;
     },
-    altText?: string,
   ) {
     const { avatar, banner } = files;
     let avatarUrl: string | null = null;
@@ -194,14 +204,81 @@ export class MediaService {
       );
     }
 
-    if (avatar && avatar.length > 0) {
-      avatarUrl = await this.uploadAndSaveMedia(avatar[0], userId, MediaFolder.AVATARS, altText);
+    if (avatar) {
+      ({ url: avatarUrl } = await this.uploadAndSaveMedia(avatar, userId, MediaFolder.AVATARS));
     }
 
-    if (banner && banner.length > 0) {
-      bannerUrl = await this.uploadAndSaveMedia(banner[0], userId, MediaFolder.BANNERS, altText);
+    if (banner) {
+      ({ url: bannerUrl } = await this.uploadAndSaveMedia(banner, userId, MediaFolder.BANNERS));
     }
 
-    return { message: 'Avatar and/or banner uploaded successfully', avatarUrl, bannerUrl };
+    return { avatarUrl, bannerUrl };
+  }
+
+  async uploadMedia(
+    userId: bigint,
+    file: Express.Multer.File,
+    folder: MediaFolder,
+    altText?: string,
+  ) {
+    if (!file) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.NO_FILES_PROVIDED,
+          code: MEDIA_CODES.NO_FILES_PROVIDED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
+    return { ...items, message: 'Media uploaded successfully.' };
+  }
+
+  /**
+   * Cleanup pending media that has exceeded the threshold time.
+   * Runs weekly to delete orphaned media from failed tweet creations.
+   *
+   * This job finds all media records where:
+   * - pending = true
+   * - createdAt is older than the threshold
+   *
+   * For each found record, it deletes the file from S3 and the record from the database.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cleanUpPendingMedia() {
+    this.logger.log('Starting cleanup of pending media...');
+
+    const thresholdDate = new Date();
+    thresholdDate.setHours(thresholdDate.getHours() - PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS);
+
+    this.logger.log(`Threshold date for cleanup: ${thresholdDate.toISOString()}`);
+
+    // Find pending media older than the threshold
+    const pendingMediaRecords = await this.mediaRepository.findPendingMediaOlderThan(thresholdDate);
+
+    if (pendingMediaRecords.length === 0) {
+      this.logger.log('No pending media found for cleanup');
+      return;
+    }
+
+    this.logger.log(`Found ${pendingMediaRecords.length} pending media records to clean up`);
+
+    for (const media of pendingMediaRecords) {
+      try {
+        // Delete from database
+        await this.mediaRepository.deleteMedia(media.id);
+        this.logger.debug(`Deleted pending media record from database: ID ${media.id}`);
+
+        // Delete from S3
+        const key = this.s3Service.extractKeyFromUrl(media.url);
+        await this.s3Service.deleteFile(key);
+        this.logger.debug(`Deleted pending media from S3: ${media.url}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to clean up pending media ID ${media.id} URL ${media.url}: ${error}`,
+        );
+      }
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { VALIDATION_PIPE_ERROR_MESSAGES } from '../constants/common.constant';
 
 @Injectable()
 export class ParseBigIntPipe implements PipeTransform<string, bigint> {
@@ -9,7 +10,7 @@ export class ParseBigIntPipe implements PipeTransform<string, bigint> {
       if (bigIntValue < 0) {
         throw new BadRequestException(
           createValidationError('id', {
-            invalidParam: 'ID must be a non-negative integer',
+            invalidParam: VALIDATION_PIPE_ERROR_MESSAGES.NEGATIVE_BIGINT,
           }),
         );
       }
@@ -18,7 +19,7 @@ export class ParseBigIntPipe implements PipeTransform<string, bigint> {
       console.error('ParseBigIntPipe Error:', error);
       throw new BadRequestException(
         createValidationError('id', {
-          invalidParam: 'ID must be a valid integer',
+          invalidParam: VALIDATION_PIPE_ERROR_MESSAGES.INVALID_BIGINT,
         }),
       );
     }

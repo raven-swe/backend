@@ -1,18 +1,22 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+  UpdateUsernameDto,
+} from 'src/users/dtos';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
-import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants/auth.constants';
-import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
+import { AUTH_CONFIG, AUTH_ERROR_MESSAGES, REDIS_KEYS } from 'src/auth/constants';
+import { EmailJobData, OtpType } from 'src/email/interfaces';
 import { RedisService } from 'src/redis/redis.service';
-import { generateAndStoreOtp } from 'src/auth/utils/otp.util';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
+import { generateAndStoreOtp } from 'src/auth/utils';
+import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
+import { BlocksCursor, MutesCursor } from 'src/common/interfaces';
+import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -236,5 +240,69 @@ export class SettingsService {
 
   async deleteSession(userId: bigint, sessionId: bigint, refreshToken: string) {
     return this.usersService.deleteSession(userId, sessionId, refreshToken);
+  }
+
+  async getUserMutedUsers(userId: bigint, limit: number = 20, prevCursor?: string) {
+    let decoded: MutesCursor | undefined;
+
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<MutesCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const mutedUsers = await this.usersService.getUserMutes(userId, limit + 1, decoded);
+
+    const pagination = paginateComposite(mutedUsers, limit, prevCursor, (item) => ({
+      userId: item.userId.toString(),
+      mutedId: item.mutedId.toString(),
+    }));
+
+    const items = mutedUsers.map((b) => ({
+      ...b.mutedUser.profile,
+      username: b.mutedUser.username,
+    }));
+
+    return { items, pagination };
+  }
+
+  async getUserBlockedUsers(userId: bigint, limit: number = 20, prevCursor?: string) {
+    let decoded: BlocksCursor | undefined;
+
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<BlocksCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersService.getUserBlocks(userId, limit + 1, decoded);
+
+    const pagination = paginateComposite(blockedUsers, limit, prevCursor, (item) => ({
+      userId: item.userId.toString(),
+      blockedId: item.blockedId.toString(),
+    }));
+
+    const items = blockedUsers.map((b) => ({
+      ...b.blockedUser.profile,
+      username: b.blockedUser.username,
+    }));
+
+    return { items, pagination };
   }
 }

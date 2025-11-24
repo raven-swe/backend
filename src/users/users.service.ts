@@ -2,19 +2,23 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { NewUser } from './interfaces/NewUser.interface';
-import { comparePassword, hashPassword } from 'src/auth/utils/password.util';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
-import { ChangePasswordBasicDto } from './dtos/change-password-basic.dto';
+import { NewUser } from './interfaces';
+import { comparePassword, hashPassword } from 'src/auth/utils';
+import { VALIDATION_ERROR_CODES } from 'src/common/constants';
+import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { EmailJobData, OtpType } from 'src/email/interfaces/email.interfaces';
-import { validateNewPasswordFormat } from './utils/validate-password-format.util';
-import { UpdateProfileDto } from './dtos/update-profile.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
+import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
+
+import { EmailJobData, OtpType } from 'src/email/interfaces';
+import { validateNewPasswordFormat } from './utils';
+import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
+
 import { MediaService } from 'src/media/media.service';
-import { MediaFolder } from 'src/media/enums/media-folder.enum';
+import { MediaFolder } from 'src/media/enums';
+import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
+import { PlainMention } from 'src/tweets/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -82,7 +86,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
     }
 
@@ -98,7 +102,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_OLD_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_OLD_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -136,8 +140,29 @@ export class UsersService {
     return { message: 'Password changed successfully.' };
   }
 
-  async updateProfile(userId: bigint, data: UpdateProfileDto) {
-    const user = await this.usersRepository.findById(userId);
+  /**
+   * Updates the profile of a user, including optional avatar and banner image uploads.
+   *
+   * This method supports:
+   * - Uploading a new avatar and/or banner image
+   * - Deleting the existing avatar and/or banner
+   * - Updating basic profile fields from the DTO
+   *
+   * @param userId - The ID of the user whose profile is to be updated.
+   * @param data  - DTO containing profile fields and optional delete flags.
+   * @param files - Optional files containing avatar and banner images.
+   *
+   * @returns An object containing a success message and the updated profile data.
+   */
+  async updateProfile(
+    userId: bigint,
+    data: UpdateProfileDto,
+    files?: {
+      avatar?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
+    },
+  ) {
+    const user = await this.usersRepository.findByIdWithProfile(userId);
     if (!user) {
       throw new HttpException(
         {
@@ -148,12 +173,97 @@ export class UsersService {
       );
     }
 
-    const profile = await this.usersRepository.updateProfile(userId, data);
+    const hasNewAvatar = Boolean(files?.avatar?.[0]);
+    const hasNewBanner = Boolean(files?.banner?.[0]);
 
-    return {
-      message: 'Profile updated successfully',
-      ...profile,
-    };
+    // Validate delete + upload banner conflict
+    if ((data.deleteBanner && hasNewBanner) || (data.deleteAvatar && hasNewAvatar)) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.INVALID_REQUEST_COMBINATION,
+          code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    let uploadedAvatarUrl: string | undefined;
+    let uploadedBannerUrl: string | undefined;
+    const oldAvatarUrl: string | undefined = user.profile?.avatarUrl ?? undefined;
+    const oldBannerUrl: string | undefined = user.profile?.bannerUrl ?? undefined;
+
+    try {
+      // Upload new files if provided
+      if (hasNewAvatar || hasNewBanner) {
+        const uploaded = await this.mediaService.uploadAvatarOrBanner(user.id, {
+          avatar: files?.avatar?.[0],
+          banner: files?.banner?.[0],
+        });
+
+        uploadedAvatarUrl = uploaded.avatarUrl ?? undefined;
+        uploadedBannerUrl = uploaded.bannerUrl ?? undefined;
+      }
+
+      // Handle final URLs considering deletions and uploads
+      const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
+      const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
+
+      // Update database
+      const profile = await this.usersRepository.updateProfile(
+        userId,
+        data,
+        finalAvatarUrl,
+        finalBannerUrl,
+      );
+      this.logger.log(`Profile updated for user ID: ${user.id}`);
+
+      // Delete old files from S3 AFTER successful DB update
+      if (uploadedAvatarUrl && oldAvatarUrl) {
+        await this.mediaService
+          .deleteMedia(oldAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old avatar', err));
+      }
+
+      if (uploadedBannerUrl && oldBannerUrl) {
+        await this.mediaService
+          .deleteMedia(oldBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old banner', err));
+      }
+
+      // Handle deletions if explicitly requested
+      if (finalBannerUrl === null && oldBannerUrl && data.deleteBanner) {
+        await this.mediaService
+          .deleteMedia(oldBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old banner', err));
+      }
+
+      if (finalAvatarUrl === null && oldAvatarUrl && data.deleteAvatar) {
+        await this.mediaService
+          .deleteMedia(oldAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Failed to delete old avatar', err));
+      }
+
+      return {
+        message: 'Profile updated successfully',
+        ...profile,
+      };
+    } catch (error) {
+      // Rollback: Delete newly uploaded files only
+      if (uploadedAvatarUrl) {
+        await this.mediaService
+          .deleteMedia(uploadedAvatarUrl, user.id)
+          .catch((err) => this.logger.warn('Rollback failed for avatar', err));
+      }
+
+      if (uploadedBannerUrl) {
+        await this.mediaService
+          .deleteMedia(uploadedBannerUrl, user.id)
+          .catch((err) => this.logger.warn('Rollback failed for banner', err));
+      }
+
+      this.logger.error('Failed to update user profile', error);
+      throw error;
+    }
   }
 
   /**
@@ -334,18 +444,6 @@ export class UsersService {
       );
     }
 
-    // Check if user blocked you
-    const userBlockedYou = await this.usersRepository.isBlocked(blockedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_BLOCK_USER,
-          code: USERS_ERROR_CODES.CANNOT_BLOCK_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     // Check if already blocked
     const isAlreadyBlocked = await this.usersRepository.isBlocked(userId, blockedId);
     if (isAlreadyBlocked) {
@@ -494,6 +592,236 @@ export class UsersService {
     return { message: 'User unmuted successfully.' };
   }
 
+  async getUserFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const followers = await this.usersRepository.getUserFollowers(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+    const followerIds = followers.map((f) => f.followerUser.id);
+
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      followerIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = followers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: followingSet.has(f.followerUser.id),
+      followsYou: followsYouSet.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
+    }));
+
+    return { items, pagination };
+  }
+
+  async getUserMutualFollowers(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
+
+    const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
+      requestedUser.id,
+      authFollowedIds,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(mutualFollowers, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      mutualIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = mutualFollowers.map((f) => ({
+      ...f.followerUser.profile,
+      username: f.followerUser.username,
+      isFollowing: followingSet.has(f.followerUser.id),
+      followsYou: followsYouSet.has(f.followerUser.id),
+      isBlocked: blockedIdsSet.has(f.followerUser.id),
+    }));
+    return { items, pagination };
+  }
+
+  async getUserFollowings(
+    username: string,
+    authUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    let decoded: FollowsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decoded = decodeCompositeCursor<FollowsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
+
+    const blockedIdsSet = new Set<bigint>();
+
+    for (const blocked of blockedUsers) {
+      blockedIdsSet.add(blocked.blockedId);
+    }
+
+    const followings = await this.usersRepository.getUserFollowings(
+      requestedUser.id,
+      limit + 1,
+      decoded,
+    );
+
+    const pagination = paginateComposite(followings, limit, prevCursor, (item) => ({
+      followerId: item.followerId.toString(),
+      followedId: item.followedId.toString(),
+    }));
+
+    const followingIds = followings.map((f) => f.followedUser.id);
+    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+      authUserId,
+      followingIds,
+    );
+    const followsYouSet = new Set<bigint>();
+    const followingSet = new Set<bigint>();
+
+    for (const relation of authUserFollowRelations) {
+      if (relation.followedId === authUserId) {
+        followsYouSet.add(relation.followerId);
+      }
+      if (relation.followerId === authUserId) {
+        followingSet.add(relation.followedId);
+      }
+    }
+
+    const items = followings.map((f) => ({
+      ...f.followedUser.profile,
+      username: f.followedUser.username,
+      isFollowing: followingSet.has(f.followedUser.id),
+      followsYou: followsYouSet.has(f.followedUser.id),
+      isBlocked: blockedIdsSet.has(f.followedUser.id),
+    }));
+
+    return { items, pagination };
+  }
+
   async getUserDetails(userId: bigint) {
     return this.usersRepository.getUserDetails(userId);
   }
@@ -519,7 +847,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.INVALID_PASSWORD,
           code: USERS_ERROR_CODES.INVALID_PASSWORD,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
 
     await this.usersRepository.removeUserSSO(userId, provider);
@@ -563,7 +891,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
-    const bannerUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
       userId,
       MediaFolder.BANNERS,
@@ -576,7 +904,7 @@ export class UsersService {
 
   // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
-    const avatarUrl = await this.mediaService.uploadAndSaveMedia(
+    const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
       userId,
       MediaFolder.AVATARS,
@@ -594,8 +922,8 @@ export class UsersService {
     if (!bannerUrl) {
       throw new HttpException(
         {
-          message: USERS_ERROR_CODES.BANNER_NOT_FOUND,
-          code: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          message: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+          code: USERS_ERROR_CODES.BANNER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
       );
@@ -606,5 +934,63 @@ export class UsersService {
     }
 
     return { message: 'Banner deleted successfully' };
+  }
+  async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
+    return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+  }
+
+  async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
+    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+  }
+
+  /**
+   *
+   * @param usernames array of mentions (usernames and starting positions)
+   * @param tx transaction client passed from the create tweet function in tweet service
+   * @returns a new array of mention IDs of real existing users
+   */
+  async checkUsernamesExistenceAndReplaceIds(
+    usernames: PlainMention[],
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<
+    (PlainMention & {
+      userId: bigint;
+    })[]
+  > {
+    const existingUsernames = await this.usersRepository.checkBatchUsernamesExistence(
+      usernames,
+      prismaClient,
+    );
+
+    return usernames.reduce(
+      (acc, mention) => {
+        const index = existingUsernames.findIndex(
+          (u) => u.username.toLowerCase() === mention.username.toLowerCase(),
+        );
+        if (index !== -1) {
+          acc.push({
+            userId: existingUsernames[index].id,
+            username: existingUsernames[index].username,
+            startPosition: mention.startPosition,
+          });
+        }
+        return acc;
+      },
+      [] as (PlainMention & {
+        userId: bigint;
+      })[],
+    );
+  }
+
+  async createProfile(userId: bigint, displayName: string) {
+    return this.usersRepository.createProfile(userId, displayName);
+  }
+
+  async getMatchingUsers(userId: bigint, username: string) {
+    return this.usersRepository.getMatchingUsers(userId, username);
+  }
+
+  async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
+    return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 }

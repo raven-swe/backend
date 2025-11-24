@@ -1,15 +1,13 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ProviderProfile } from './types/oauth.type';
-import { OAuthProviderStrategy } from './strategies/oauth.provider.strategy';
-import { GithubOAuthStrategy } from './strategies/oauth.github.strategy';
-import { GoogleOAuthStrategy } from './strategies/oauth.google.strategy';
-import { SupportedOAuthProvider } from './constants/supported-oauth-providers';
+import { ProviderProfile } from './interfaces/';
+import { OAuthProviderStrategy, GithubOAuthStrategy, GoogleOAuthStrategy } from './strategies';
+import { AUTH_ERROR_MESSAGES, SupportedOAuthProvider } from './constants';
 import { ConfigService } from '@nestjs/config';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { createValidationError, generateUsernames } from 'src/common/utils';
 import { AuthService } from './auth.service';
 import { OAuthRepository } from './oauth.repository';
-import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
+import { UsersRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class OAuthService {
@@ -20,6 +18,7 @@ export class OAuthService {
     private readonly config: ConfigService,
     private readonly authService: AuthService,
     private readonly oauthRepository: OAuthRepository,
+    private readonly usersRepository: UsersRepository,
   ) {
     this.strategies = {
       github: new GithubOAuthStrategy(this.config),
@@ -38,7 +37,7 @@ export class OAuthService {
     if (!strategy) {
       throw new BadRequestException(
         createValidationError('provider', {
-          invalidParam: `Unsupported OAuth provider: ${provider}`,
+          invalidParam: AUTH_ERROR_MESSAGES.INVALID_PROVIDER,
         }),
       );
     }
@@ -118,7 +117,7 @@ export class OAuthService {
       if (payload.type !== 'creation') {
         throw new BadRequestException(
           createValidationError('creationToken', {
-            invalidToken: 'The provided token is not a valid account creation token.',
+            invalidToken: AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN,
           }),
         );
       }
@@ -126,7 +125,7 @@ export class OAuthService {
       let reason = 'Invalid or malformed token. Please try again.';
 
       if (err instanceof Error && err.name === 'TokenExpiredError') {
-        reason = 'This creation token has expired. Please restart the registration process.';
+        reason = AUTH_ERROR_MESSAGES.INVALID_CREATION_TOKEN;
       }
 
       throw new BadRequestException(
@@ -163,18 +162,19 @@ export class OAuthService {
       // User exists but doesn't have this external account (Should not reach here normally)
       throw new BadRequestException(
         createValidationError('creationToken', {
-          invalidToken:
-            'An account with this email already exists. Please log in using your existing credentials.',
+          invalidToken: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
         }),
       );
     }
 
-    const generated = await generateUsernames(payload.name, payload.email, undefined, 1);
-    // Fallback to email if username generation fails
-    // VERY VERY UNLIKELY TO HAPPEN
-    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
-
-    const username = generated && generated.length > 0 ? generated[0] : payload.email;
+    const generated = await generateUsernames(
+      this.usersRepository,
+      payload.name,
+      payload.email,
+      undefined,
+      1,
+    );
+    const username = generated[0];
 
     const user = await this.oauthRepository.createUserWithProfileAndExternalAccount(
       payload.email,

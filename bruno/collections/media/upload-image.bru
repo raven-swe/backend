@@ -1,0 +1,29 @@
+meta {
+  name: upload-image
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/media/upload/image?file
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  file: 
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:multipart-form {
+  file: @file(/home/omar/Downloads/the_starry_night-wallpaper-1920x1080.jpg)
+  folder: tweets
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

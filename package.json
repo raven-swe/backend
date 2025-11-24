@@ -17,11 +17,11 @@
     "format:check": "prettier --check \"{src,test,apps,libs,prisma}/**/*.ts\" \"*.yml\"",
     "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
+    "test:watch": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watch",
+    "test:cov": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --coverage",
+    "test:debug": "NODE_OPTIONS=\"--experimental-vm-modules\" node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --config ./test/jest-e2e.json",
     "db:migrate": "prisma migrate deploy",
     "db:create": "prisma migrate dev",
     "db:generate": "prisma generate",
@@ -48,7 +48,10 @@
     "@nestjs/jwt": "^11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.0.1",
+    "@nestjs/platform-socket.io": "^11.1.9",
     "@nestjs/throttler": "^6.4.0",
+    "@nestjs/websockets": "^11.1.9",
     "@prisma/client": "^6.16.3",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.61.0",
@@ -59,6 +62,7 @@
     "google-auth-library": "^10.4.2",
     "ioredis": "^5.8.1",
     "multer": "^2.0.2",
+    "nest-winston": "^1.10.2",
     "nodemailer": "^7.0.9",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
@@ -68,8 +72,10 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.4",
+    "socket.io": "^4.8.1",
     "ua-parser-js": "^2.0.6",
-    "useragent": "^2.3.0"
+    "useragent": "^2.3.0",
+    "winston": "^3.18.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -101,6 +107,7 @@
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "prettier": "^3.4.2",
+    "socket.io-client": "^4.8.1",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
@@ -116,7 +123,7 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -125,10 +132,14 @@
       "**/*.{!(module),}.(t|j)s",
       "!main.ts"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "./coverage",
     "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/test"
+    ],
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/$1"
+      "^src/(.*)$": "<rootDir>/src/$1"
     },
     "coveragePathIgnorePatterns": [
       "main\\.ts",
@@ -147,7 +158,10 @@
       "redis\\.service\\.ts",
       "redisservice\\.ts",
       "common/validation-error-codes\\.ts",
-      "testing"
+      "common/middleware/request-logger\\.middleware\\.ts",
+      "common/pipes/parse-bigint\\.pipe\\.ts",
+      "testing",
+      ".*\\.stress\\.js"
     ]
   }
 }

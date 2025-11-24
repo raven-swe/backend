@@ -9,8 +9,8 @@ import {
   OtpType,
   UpdateEmailOtpJob,
   UpdateEmailJob,
-} from './interfaces/email.interfaces';
-import { maskEmail } from 'src/users/utils/mask-email.util';
+} from './interfaces';
+import { maskEmail } from 'src/users/utils';
 
 @Injectable()
 export class EmailService {
@@ -89,6 +89,12 @@ export class EmailService {
   }
 
   async sendEmail(email: string, subject: string, html: string): Promise<void> {
+    if (process.env.NODE_ENV === 'testing') {
+      this.logger.log(
+        `Skipping email send in testing environment to ${email} - Subject: ${subject}`,
+      );
+      return;
+    }
     const mailOptions = {
       from: `${this.name} <${this.from}>`,
       to: email,

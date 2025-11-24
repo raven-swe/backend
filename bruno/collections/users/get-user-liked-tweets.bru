@@ -1,0 +1,29 @@
+meta {
+  name: get-user-liked-tweets
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/users/:username/likes
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~limit: 0
+  ~cursor: eyJ1c2VySWQiOiI5IiwidHdlZXRJZCI6IjI0In0=
+}
+
+params:path {
+  username: FatmaDesign
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkiLCJpYXQiOjE3NjM5MTM4NzYsImV4cCI6MTc2MzkxNDc3Nn0.pPdNZ6OY5sHWh8VBX8rZ3sx31deVN-ZJ1O5Oc3lMGOE
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -12,32 +12,38 @@ import {
   Delete,
   HttpException,
   HttpStatus,
+  Query,
+  HttpCode,
 } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { Throttle } from '@nestjs/throttler';
-import { InititateEmailUpdateDto } from 'src/users/dtos/initiate-email-update.dto';
-import { VerifyEmailUpdateDto } from 'src/users/dtos/verify-email-update.dto';
-import { ResendEmailUpdateOtp } from 'src/users/dtos/resend-email-update-otp.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import {
+  InititateEmailUpdateDto,
+  VerifyEmailUpdateDto,
+  ResendEmailUpdateOtp,
+  UpdateBirthDateDto,
+  UpdateUsernameDto,
+  RemoveUserSSODto,
+  ChangeCountryDto,
+  ChangeGenderDto,
+  ChangeLanguageDto,
+  ValidatePasswordDto,
+} from 'src/users/dtos';
+import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
-import type { RequestUser, RequestWithCookies } from 'src/auth/types';
-import { UpdateUsernameDto } from 'src/users/dtos/update-username.dto';
-import { UpdateBirthDateDto } from 'src/users/dtos/update-birth-date.dto';
+import type { RequestUser, RequestWithCookies } from 'src/common/interfaces';
 import {
   SUPPORTED_OAUTH_PROVIDERS,
   SupportedOAuthProvider,
-} from 'src/auth/constants/supported-oauth-providers';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { RemoveUserSSODto } from 'src/users/dtos/remove-user-sso.dto';
-import { ChangeCountryDto } from 'src/users/dtos/change-country.dto';
-import { ChangeGenderDto } from 'src/users/dtos/change-gender.dto';
-import { ChangeLanguageDto } from 'src/users/dtos/change-language.dto';
-import { ValidatePasswordDto } from 'src/users/dtos/validate-password.dto';
+  AUTH_ERROR_CODES,
+  AUTH_ERROR_MESSAGES,
+} from 'src/auth/constants';
+import { createValidationError } from 'src/common/utils';
 import { validate } from 'class-validator';
 import { RefreshTokenDto } from 'src/auth/dtos';
 import { plainToClass } from 'class-transformer';
-import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from 'src/auth/constants/auth.constants';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/common/constants/users.constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { PAGINATION } from 'src/common/constants';
 
 @Controller('me/settings')
 export class SettingsController {
@@ -69,6 +75,7 @@ export class SettingsController {
   }
 
   @Post('email/verify')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async verifyUpdateEmailOtp(
     @Body() verifyEmailUpdateDto: VerifyEmailUpdateDto,
@@ -152,7 +159,7 @@ export class SettingsController {
     if (changeGenderDto.gender !== 'Male' && changeGenderDto.gender !== 'Female') {
       throw new BadRequestException(
         createValidationError('gender', {
-          invalidGender: `Invalid gender: ${changeGenderDto.gender}. Valid Options are 'Male' and 'Female' only`,
+          invalidGender: USERS_ERROR_MESSAGES.INVALID_GENDER,
         }),
       );
     }
@@ -168,7 +175,7 @@ export class SettingsController {
     if (changeLanguageDto.language !== 'AR' && changeLanguageDto.language !== 'EN') {
       throw new BadRequestException(
         createValidationError('language', {
-          invalidLanguage: `Invalid language: ${changeLanguageDto.language}. Valid Options are 'AR' and 'EN' only`,
+          invalidLanguage: USERS_ERROR_MESSAGES.INVALID_LANGUAGE,
         }),
       );
     }
@@ -177,6 +184,7 @@ export class SettingsController {
   }
 
   @Post('password/validate')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async validatePassword(
     @Body() validatePasswordDto: ValidatePasswordDto,
@@ -210,7 +218,7 @@ export class SettingsController {
             message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
             code: USERS_ERROR_CODES.USER_NOT_FOUND,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.NOT_FOUND,
         );
       }
       refreshToken = dto.refreshToken;
@@ -222,7 +230,7 @@ export class SettingsController {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     return this.settingsService.getSessions(userId, refreshToken);
@@ -249,7 +257,7 @@ export class SettingsController {
             message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
             code: USERS_ERROR_CODES.USER_NOT_FOUND,
           },
-          HttpStatus.UNAUTHORIZED,
+          HttpStatus.NOT_FOUND,
         );
       }
       refreshToken = dto.refreshToken;
@@ -261,11 +269,55 @@ export class SettingsController {
           message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
           code: USERS_ERROR_CODES.USER_NOT_FOUND,
         },
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.NOT_FOUND,
       );
 
     const userId = BigInt(user.id);
     const sessId = BigInt(sessionId);
     return this.settingsService.deleteSession(userId, sessId, refreshToken);
+  }
+
+  @Get('mutes')
+  @UseGuards(JwtAuthGuard)
+  async getUserMutedUsers(
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+    const { items, pagination } = await this.settingsService.getUserMutedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    return { items, pagination };
+  }
+
+  @Get('blocks')
+  @UseGuards(JwtAuthGuard)
+  async getUserBlockedUsers(
+    @User() user: RequestUser,
+    //TODO: should be replaced with PaginationQueryDto
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const userId = BigInt(user.id);
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+    const { items, pagination } = await this.settingsService.getUserBlockedUsers(
+      userId,
+      parsedLimit,
+      cursor,
+    );
+    // TODO:  const itemsDto = plainToInstance(CompactUserDto, items); after merging the follows
+    return { items, pagination };
   }
 }

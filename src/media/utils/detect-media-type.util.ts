@@ -1,7 +1,7 @@
 import { MediaType } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants/media.constant';
+import { createValidationError } from 'src/common/utils';
+import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants';
 
 /**
  * Detects media type from file extension and magic bytes
@@ -11,7 +11,7 @@ import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../constants/media.constant'
  * @throws BadRequestException if media type cannot be determined
  */
 export function detectMediaType(file: Express.Multer.File): MediaType {
-  const filename = file.originalname.toLowerCase();
+  const filename = file.originalname?.toLowerCase();
   const ext = filename.split('.').pop() || '';
 
   if (ext === 'gif') {

@@ -11,18 +11,17 @@ import {
   InternalServerErrorException,
   Redirect,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { OAuthService } from './oauth.service';
-import { BadRequestException } from '@nestjs/common';
 import {
+  AUTH_ERROR_MESSAGES,
   SUPPORTED_OAUTH_PROVIDERS,
   SupportedOAuthProvider,
-} from './constants/supported-oauth-providers';
-import { OauthCallbackDto } from './dto/oauth-callback.dto';
+} from './constants';
 import type { Response } from 'express';
-import { OauthCompleteDto } from './dto/oauth-complete.dto';
-import { OAuthBridgeQueryDto } from './dto/oauth-bridge-query.dto';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
+import { OAuthBridgeQueryDto, OauthCallbackDto, OauthCompleteDto } from './dtos';
+import { createValidationError } from 'src/common/utils';
 import { DeviceType, IPAddress } from './decorators';
 import { ConfigService } from '@nestjs/config';
 
@@ -45,7 +44,7 @@ export class OauthController {
     if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
       throw new BadRequestException(
         createValidationError('provider', {
-          invalidParam: `Unsupported OAuth provider: ${provider}`,
+          invalidParam: AUTH_ERROR_MESSAGES.INVALID_PROVIDER,
         }),
       );
     }
@@ -130,7 +129,7 @@ export class OauthController {
       if (!SUPPORTED_OAUTH_PROVIDERS.includes(provider as SupportedOAuthProvider)) {
         throw new BadRequestException(
           createValidationError('provider', {
-            invalidParam: `Unsupported OAuth provider: ${provider}`,
+            invalidParam: AUTH_ERROR_MESSAGES.INVALID_PROVIDER,
           }),
         );
       }
@@ -139,7 +138,7 @@ export class OauthController {
 
       if (!state) {
         throw new BadRequestException(
-          createValidationError('state', { invalidParam: 'State parameter is required' }),
+          createValidationError('state', { invalidParam: AUTH_ERROR_MESSAGES.STATE_PARAM_EMPTY }),
         );
       }
 
@@ -153,7 +152,7 @@ export class OauthController {
         if (!redirect) throw new Error('Missing redirect in state');
       } catch {
         throw new BadRequestException(
-          createValidationError('state', { invalidParam: 'Invalid state parameter' }),
+          createValidationError('state', { invalidParam: AUTH_ERROR_MESSAGES.INVALID_STATE_PARAM }),
         );
       }
 
@@ -162,7 +161,7 @@ export class OauthController {
         appUrl = new URL(redirect);
       } catch {
         throw new BadRequestException(
-          createValidationError('state', { invalidParam: 'Invalid state parameter' }),
+          createValidationError('state', { invalidParam: AUTH_ERROR_MESSAGES.INVALID_STATE_PARAM }),
         );
       }
 
@@ -200,7 +199,7 @@ export class OauthController {
     }
     if (!clientType.toUpperCase().includes('WEB') && !clientType.toUpperCase().includes('MOBILE')) {
       throw new BadRequestException({
-        message: 'Invalid X-Client-Type header',
+        message: AUTH_ERROR_MESSAGES.MISSING_CLIENT_TYPE_HEADER,
       });
     }
   }

@@ -14,35 +14,30 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
-import { StartRegistrationDto } from './dto/start-registration.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { CompleteRegistrationDto } from './dto/complete-registration.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { LanguageCode } from '@prisma/client';
 import {
-  AUTH_ERROR_MESSAGES,
-  AUTH_ERROR_CODES,
-  REDIS_KEYS,
-  AUTH_CONFIG,
-} from 'src/auth/constants/auth.constants';
-import { VerifyForgotPasswordDto } from './dto/verify-forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { hashPassword } from './utils/password.util';
-import { ResendPasswordOtpDto } from './dto/resend-password-otp.dto';
-import { generateAndStoreOtp } from './utils/otp.util';
+  StartRegistrationDto,
+  VerifyOtpDto,
+  CompleteRegistrationDto,
+  ForgotPasswordDto,
+  VerifyForgotPasswordDto,
+  ResetPasswordDto,
+  ResendPasswordOtpDto,
+} from './dtos';
+import { LanguageCode } from '@prisma/client';
+import { AUTH_ERROR_MESSAGES, AUTH_ERROR_CODES, REDIS_KEYS, AUTH_CONFIG } from 'src/auth/constants';
+import { hashPassword, generateAndStoreOtp } from './utils';
 import { DevicesService } from 'src/devices/devices.service';
-import { OtpType } from 'src/email/interfaces/email.interfaces';
+import { OtpType } from 'src/email/interfaces';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { Device } from 'src/devices/interfaces/device.interface';
-import { RefreshToken } from 'src/refresh-tokens/interfaces/refresh-token.interface';
-import { CachedRegistrationData } from './interfaces/CachedRegistrationData.interface';
-import { NewUser } from 'src/users/interfaces/NewUser.interface';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
-import { CachedPasswordResetData } from './interfaces/CachedPasswordResetData.interface';
-import type { RequestUser } from './types';
+import { Device } from 'src/devices/interfaces';
+import { RefreshToken } from 'src/refresh-tokens/interfaces';
+import { CachedRegistrationData, CachedPasswordResetData } from './interfaces';
+import { NewUser } from 'src/users/interfaces';
+import { createValidationError, generateUsernames } from 'src/common/utils';
+import type { RequestUser } from '../common/interfaces';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { generateUsernames } from 'src/common/utils/generate-validate-usernames.util';
+import { UsersRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class AuthService {
@@ -55,6 +50,7 @@ export class AuthService {
     private readonly devicesService: DevicesService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
+    private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @InjectQueue('email') private emailQueue: Queue,
@@ -76,8 +72,8 @@ export class AuthService {
     if (existingUser) {
       throw new HttpException(
         {
-          message: 'Email is already registered',
-          code: 'EMAIL_REGISTERED',
+          message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
+          code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -170,15 +166,13 @@ export class AuthService {
     const hashedPassword = await hashPassword(completeRegistrationDto.password);
 
     const generated = await generateUsernames(
+      this.usersRepository,
       registrationData.name,
       registrationData.email,
       undefined,
       1,
     );
-    // Fallback to email if username generation fails
-    // VERY VERY UNLIKELY TO HAPPEN
-    // TODO HANDLE FIND WITH INDENTIFER IF USERNAME = EMAIL IN CASE TONY MENTIONED
-    const username = generated && generated.length > 0 ? generated[0] : registrationData.email;
+    const username = generated[0];
 
     const userData = {
       email: registrationData.email,
@@ -515,7 +509,7 @@ export class AuthService {
   async checkIdentifier(identifier: string) {
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
+        OR: [{ username: identifier }, { email: identifier }],
       },
     });
 
@@ -523,11 +517,14 @@ export class AuthService {
       return {
         exists: true,
         type:
-          identifier === user.username ? 'username' : identifier === user.email ? 'email' : 'phone',
+          user.username && identifier.toLowerCase() === user.username.toLowerCase()
+            ? 'username'
+            : 'email',
       };
     }
     return { exists: false };
   }
+
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date();
@@ -594,6 +591,52 @@ export class AuthService {
         }),
         this.prisma.userDevice.delete({ where: { id: BigInt(token.deviceId) } }),
       ]);
+    }
+  }
+
+  async validateUserToken(token: string): Promise<{
+    id: bigint;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+  } | null> {
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payload = this.jwtService.verify<{ id: string }>(token);
+      const userId = BigInt(payload.id);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          profile: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      if (!user || !user.profile) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        username: user.username,
+        displayName: user.profile.displayName,
+        avatarUrl: user.profile.avatarUrl,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Failed to validate token: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return null;
     }
   }
 }
