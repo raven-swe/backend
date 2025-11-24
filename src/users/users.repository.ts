@@ -368,12 +368,11 @@ export class UsersRepository {
 
   async getUserFollowings(
     requestedUserId: bigint,
-    excludeFollowerIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
-      where: { followerId: requestedUserId, followedId: { notIn: excludeFollowerIds } },
+      where: { followerId: requestedUserId },
       take: limit,
       cursor: prevCursor
         ? {
@@ -433,14 +432,13 @@ export class UsersRepository {
   async getUserMutualFollowers(
     requestedUserId: bigint,
     authFollowedIds: bigint[],
-    excludeFollowedIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
       where: {
         followedId: requestedUserId,
-        followerId: { in: authFollowedIds, notIn: excludeFollowedIds }, // Filter at DB level
+        followerId: { in: authFollowedIds }, // Filter at DB level
       },
       take: limit,
       cursor: prevCursor
@@ -473,12 +471,11 @@ export class UsersRepository {
 
   async getUserFollowers(
     requestedUserId: bigint,
-    excludeFollowerIds: bigint[],
     limit: number,
     prevCursor: FollowsCursor | undefined,
   ) {
     return await this.prisma.follow.findMany({
-      where: { followedId: requestedUserId, followerId: { notIn: excludeFollowerIds } },
+      where: { followedId: requestedUserId },
       take: limit,
       cursor: prevCursor
         ? {

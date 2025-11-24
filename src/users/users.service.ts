@@ -631,7 +631,6 @@ export class UsersService {
 
     const followers = await this.usersRepository.getUserFollowers(
       requestedUser.id,
-      [authUserId],
       limit + 1,
       decoded,
     );
@@ -711,7 +710,6 @@ export class UsersService {
     const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
       requestedUser.id,
       authFollowedIds,
-      [authUserId],
       limit + 1,
       decoded,
     );
@@ -787,7 +785,6 @@ export class UsersService {
 
     const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
-      [authUserId],
       limit + 1,
       decoded,
     );
