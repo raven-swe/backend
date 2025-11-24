@@ -115,7 +115,7 @@ export class TweetsService {
 
       const tweet = await this.tweetsRepository.create(tweetData, tx);
       await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
-      await this.mediaRepository.markMediaAsNotPending(mediaIds);
+      await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
 
       return { tweet, mentions, hashtags };
     });
@@ -627,5 +627,57 @@ export class TweetsService {
       );
     }
     return tweet;
+  }
+
+  async getUserLikedTweets(
+    requestingUserId: bigint,
+    targetUsername: string,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!targetUser || targetUser.deletedAt) {
+      // TODO remove if done on global level
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: UserInteractionsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<UserInteractionsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getUserLikedTweets(
+      targetUser.id,
+      requestingUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
+      userId: targetUser.id.toString(),
+      tweetId: tweet.id,
+    }));
+
+    return {
+      items: tweets.slice(0, limit),
+      pagination,
+    };
   }
 }

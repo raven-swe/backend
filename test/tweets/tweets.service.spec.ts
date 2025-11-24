@@ -4,6 +4,8 @@ import { TweetsService } from 'src/tweets/tweets.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from 'src/tweets/constants';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { MediaRepository } from 'src/media/media.repository';
@@ -47,6 +49,7 @@ describe('TweetsService', () => {
     linkTweetMedia: jest.fn(),
     checkExistingTweet: jest.fn(),
     getReferencedTweet: jest.fn(),
+    getUserLikedTweets: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -1551,6 +1554,145 @@ describe('TweetsService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
+    });
+  });
+
+  describe('getUserLikedTweets', () => {
+    const requestingUserId = BigInt(1);
+    const targetUsername = 'testuser';
+    const targetUserId = BigInt(2);
+    const limit = 10;
+
+    const mockLikedTweets = [
+      { id: '100', content: 'Liked tweet 1', createdAt: new Date('2024-01-01') },
+      { id: '101', content: 'Liked tweet 2', createdAt: new Date('2024-01-02') },
+    ];
+
+    it('should return paginated liked tweets', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: targetUsername,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getUserLikedTweets.mockResolvedValue(mockLikedTweets);
+
+      const result = await service.getUserLikedTweets(
+        requestingUserId,
+        targetUsername,
+        limit,
+        undefined,
+      );
+
+      expect(mockUsersRepository.findByUsername).toHaveBeenCalledWith(targetUsername);
+      expect(mockTweetsRepository.getUserLikedTweets).toHaveBeenCalledWith(
+        targetUserId,
+        requestingUserId,
+        limit + 1,
+        undefined,
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination).toBeDefined();
+    });
+
+    it('should throw NOT_FOUND when user does not exist', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue(null);
+
+      await expect(
+        service.getUserLikedTweets(requestingUserId, targetUsername, limit, undefined),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw NOT_FOUND when user is deleted', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: targetUsername,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.getUserLikedTweets(requestingUserId, targetUsername, limit, undefined),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw BAD_REQUEST on invalid cursor', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: targetUsername,
+        deletedAt: null,
+      });
+      const invalidCursor = 'invalid!!!cursor';
+
+      await expect(
+        service.getUserLikedTweets(requestingUserId, targetUsername, limit, invalidCursor),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should decode and pass valid cursor to repository', async () => {
+      const validCursor = encodeCompositeCursor({ userId: '2', tweetId: '50' });
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: targetUsername,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getUserLikedTweets.mockResolvedValue([]);
+
+      await service.getUserLikedTweets(requestingUserId, targetUsername, limit, validCursor);
+
+      expect(mockTweetsRepository.getUserLikedTweets).toHaveBeenCalledWith(
+        targetUserId,
+        requestingUserId,
+        limit + 1,
+        { userId: '2', tweetId: '50' },
+      );
+    });
+
+    it('should correctly limit items when more than limit returned', async () => {
+      const elevenTweets = Array.from({ length: 11 }, (_, i) => ({
+        id: `${100 + i}`,
+        content: `Tweet ${i}`,
+        createdAt: new Date(),
+      }));
+
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: targetUsername,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getUserLikedTweets.mockResolvedValue(elevenTweets);
+
+      const result = await service.getUserLikedTweets(
+        requestingUserId,
+        targetUsername,
+        limit,
+        undefined,
+      );
+
+      expect(result.items).toHaveLength(10);
+      expect(result.pagination.hasNextPage).toBe(true);
     });
   });
 });
