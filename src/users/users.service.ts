@@ -17,7 +17,6 @@ import { AUTH_ERROR_MESSAGES } from 'src/auth/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
-import { UserInteractionsCursor } from 'src/common/types/cursors';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
 
@@ -27,7 +26,6 @@ export class UsersService {
 
   constructor(
     private readonly usersRepository: UsersRepository,
-    private readonly tweetsRepository: TweetsRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
