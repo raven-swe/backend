@@ -631,7 +631,6 @@ export class UsersService {
 
     const followers = await this.usersRepository.getUserFollowers(
       requestedUser.id,
-      [authUserId],
       limit + 1,
       decoded,
     );
@@ -711,7 +710,6 @@ export class UsersService {
     const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
       requestedUser.id,
       authFollowedIds,
-      [authUserId],
       limit + 1,
       decoded,
     );
@@ -787,7 +785,6 @@ export class UsersService {
 
     const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
-      [authUserId],
       limit + 1,
       decoded,
     );
@@ -967,11 +964,13 @@ export class UsersService {
 
     return usernames.reduce(
       (acc, mention) => {
-        const user = existingUsernames.find((u) => u.username === mention.username);
-        if (user) {
+        const index = existingUsernames.findIndex(
+          (u) => u.username.toLowerCase() === mention.username.toLowerCase(),
+        );
+        if (index !== -1) {
           acc.push({
-            userId: user.id,
-            username: user.username,
+            userId: existingUsernames[index].id,
+            username: existingUsernames[index].username,
             startPosition: mention.startPosition,
           });
         }

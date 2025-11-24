@@ -3,7 +3,6 @@ import { plainToInstance } from 'class-transformer';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { ConversationsRepository } from '../conversations.repository';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
@@ -85,7 +84,8 @@ export class MessagesService {
     const participant = plainToInstance(ParticipantDto, {
       username: otherParticipant.user.username,
       displayName: otherParticipant.user.profile?.displayName ?? '',
-      avatarUrl: otherParticipant.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString(),
+      avatarUrl: otherParticipant.user.profile?.avatarUrl,
     });
 
     const messagesDto = plainToInstance(MessageDto, formattedMessages);

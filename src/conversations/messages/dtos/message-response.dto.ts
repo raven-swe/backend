@@ -9,4 +9,5 @@ export class ParticipantDto {
   username: string;
   displayName: string;
   avatarUrl: string;
+  otherParticipantLastSeenMessageId: string;
 }
