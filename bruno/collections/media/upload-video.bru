@@ -1,0 +1,15 @@
+meta {
+  name: upload-video
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/media/upload/video
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

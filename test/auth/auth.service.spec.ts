@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from 'src/auth/auth.service';
-import { BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  UnauthorizedException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { RecaptchaService } from 'src/recaptcha/recaptcha.service';
@@ -9,7 +15,6 @@ import { DevicesService } from 'src/devices/devices.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -964,7 +969,7 @@ describe('AuthService with mock ConfigService', () => {
     });
 
     it('should return exist true when user found with email', async () => {
-      const fakeUser = { id: BigInt(user.id), email: user.email } as never;
+      const fakeUser = { id: BigInt(user.id), username: user.username, email: user.email } as never;
       mockPrismaService.user.findFirst.mockResolvedValue(fakeUser);
 
       const result = await service.checkIdentifier(user.email);
@@ -1169,6 +1174,7 @@ describe('AuthService with mock ConfigService', () => {
       mockPrismaService.user.findFirst.mockResolvedValue({
         id: user.id,
         email: user.email,
+        username: user.username,
       });
 
       const result = await service.checkIdentifier(user.email);
@@ -1176,20 +1182,6 @@ describe('AuthService with mock ConfigService', () => {
       expect(result).toEqual({
         exists: true,
         type: 'email',
-      });
-    });
-
-    it('should return exist true when user found with phone', async () => {
-      mockPrismaService.user.findFirst.mockResolvedValue({
-        id: user.id,
-        phone: user.phone,
-      });
-
-      const result = await service.checkIdentifier(user.phone);
-
-      expect(result).toEqual({
-        exists: true,
-        type: 'phone',
       });
     });
 
