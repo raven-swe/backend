@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { ConversationsService } from './conversations.service';
-import { ConversationsRepository } from './conversations.repository';
+import { ConversationsService } from '../../src/conversations/conversations.service';
+import { ConversationsRepository } from '../../src/conversations/conversations.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import { USERS_ERROR_MESSAGES } from 'src/users/constants';
-import { CONVERSATIONS_ERROR_CODES } from './constants/conversation-constants';
+import { CONVERSATIONS_ERROR_CODES } from '../../src/conversations/constants/conversation-constants';
 
 describe('ConversationsService', () => {
   let service: ConversationsService;

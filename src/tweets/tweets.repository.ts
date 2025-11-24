@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { TweetDto, UserInteractionDto } from './dtos';
+import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
+import { FeedSkeleton } from './interfaces';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
-import { UserInteractionDto, TweetDto } from './dtos';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants/users';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
@@ -26,6 +28,9 @@ const tweetInclude = (currentUserId: bigint) =>
         },
         followers: {
           where: { followerId: currentUserId },
+        },
+        mutedBy: {
+          where: { userId: currentUserId },
         },
       },
     },
@@ -140,6 +145,7 @@ export class TweetsRepository {
         avatarUrl: tweet.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
         isBlocked: tweet.user.blockedBy.length > 0,
         isFollowing: tweet.user.followers.length > 0,
+        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -190,6 +196,7 @@ export class TweetsRepository {
             data: tweetData.Hashtags,
           },
         },
+        hasMedia: tweetData.hasMedia,
       },
     });
   }
@@ -244,7 +251,57 @@ export class TweetsRepository {
     };
   }
 
-  //--------------------------------------
+  async validateReferences(
+    tweetIds: bigint[],
+    mediaIds: bigint[],
+  ): Promise<{
+    tweetCount: number;
+    mediaCount: number;
+  }> {
+    const results = await this.prisma.$queryRaw<
+      Array<{ tweet_count: bigint; media_count: bigint }>
+    >`
+      SELECT 
+        (SELECT COUNT(*) FROM tweets WHERE id = ANY(${tweetIds}::bigint[]) AND is_deleted = false) as tweet_count,
+        (SELECT COUNT(*) FROM media WHERE id = ANY(${mediaIds}::bigint[])) as media_count
+    `;
+
+    return {
+      tweetCount: results[0]?.tweet_count ? Number(results[0].tweet_count) : 0,
+      mediaCount: results[0]?.media_count ? Number(results[0].media_count) : 0,
+    };
+  }
+
+  async updateTweetReplyCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        replyCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
+  async updateTweetRetweetCount(
+    tweetId: bigint,
+    increment = true,
+    prismaClient: Prisma.TransactionClient = this.prisma,
+  ) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: {
+        retweetCount: {
+          ...(increment ? { increment: 1 } : { decrement: 1 }),
+        },
+      },
+    });
+  }
+
   async likeTweet(userId: bigint, tweetId: bigint) {
     await this.prisma.$transaction(async (tx) => {
       await tx.like.create({
@@ -572,5 +629,106 @@ export class TweetsRepository {
     return this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
     });
+  }
+
+  async getFeedSkeletonSQL(
+    targetUserId: bigint,
+    limit: number,
+    cursor: FeedCursor | undefined,
+    includeReplies: boolean,
+  ): Promise<FeedSkeleton[]> {
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    // 1. Dynamic Filter Logic
+    // If includeReplies is TRUE, we want EVERYTHING (empty string).
+    // If includeReplies is FALSE, we filter out items that have a parent.
+    const replyFilter = includeReplies ? Prisma.sql`` : Prisma.sql`AND "reply_to_tweet_id" IS NULL`;
+
+    // 2. Cursor Logic (The Epoch Math )
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM "created_at") * 1000, 
+          "id"
+        ) <= (${cursorTime}, ${cursorId})`
+        : Prisma.sql``;
+
+    return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
+    SELECT * FROM (
+      -- 1. Tweets (Applied dynamic filter here)
+      SELECT id, "created_at", 'tweet' as type 
+      FROM "tweets"
+      WHERE "user_id" = ${targetUserId} 
+      ${replyFilter}
+      
+      UNION ALL
+      
+      -- 2. Reposts (Always included in both tabs usually)
+      SELECT "tweet_id" as id, "created_at", 'repost' as type 
+      FROM "retweets"
+      WHERE "user_id" = ${targetUserId}
+    ) AS feed
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "created_at" DESC, "id" DESC, "type" DESC
+    LIMIT ${limit}
+  `;
+  }
+
+  async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
+    return await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+      },
+      include: {
+        ...tweetInclude(authUserId),
+        quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+      },
+    });
+  }
+
+  async getUserLikedTweets(
+    userId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: UserInteractionsCursor | undefined,
+  ): Promise<TweetDto[]> {
+    const likes = await this.prisma.like.findMany({
+      where: {
+        userId,
+        tweet: {
+          isDeleted: false,
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { userId: 'asc' }, { tweetId: 'asc' }],
+      include: {
+        tweet: {
+          include: {
+            ...tweetInclude(currentUserId),
+            quotedTweet: {
+              include: tweetInclude(currentUserId),
+            },
+          },
+        },
+      },
+      cursor: prevCursor
+        ? {
+            userId_tweetId: {
+              userId: BigInt(prevCursor.userId),
+              tweetId: BigInt(prevCursor.tweetId),
+            },
+          }
+        : undefined,
+      take: limit || 20,
+    });
+
+    const tweets = likes
+      .filter((like) => like.tweet)
+      .map((like) => this.mapToTweetDto(like.tweet as TweetWithIncludes));
+
+    return tweets;
   }
 }

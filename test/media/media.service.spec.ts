@@ -51,7 +51,15 @@ const createMockFile = (overrides?: Partial<Express.Multer.File>): Express.Multe
 });
 
 const mockSharpInstance = {
-  metadata: jest.fn(),
+  metadata: jest.fn().mockResolvedValue({
+    width: 100,
+    height: 100,
+    format: 'jpeg',
+  }),
+  resize: jest.fn().mockReturnThis(),
+  jpeg: jest.fn().mockReturnThis(),
+  png: jest.fn().mockReturnThis(),
+  toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed image')),
 };
 
 describe('MediaService', () => {

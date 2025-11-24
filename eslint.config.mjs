@@ -30,6 +30,7 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      "no-duplicate-imports": "error",
     },
   },
 );

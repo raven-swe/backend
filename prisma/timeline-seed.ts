@@ -25,7 +25,6 @@ async function getOrCreateHashtag(tag: string) {
 
 async function main() {
   // Step 1: Clean slate for this specific seed's data.
-  console.log('[1/5] Cleaning up old seed data...');
   await prisma.tweetHashtag.deleteMany({});
   await prisma.tweetMention.deleteMany({});
   await prisma.like.deleteMany({});
@@ -35,7 +34,6 @@ async function main() {
   await prisma.trendingKeyword.deleteMany({});
 
   // Step 2: Create the 5 specified user accounts.
-  console.log('[2/5] Creating user accounts...');
   const password = await hashPassword('Password1$');
 
   const omarHassan = await prisma.user.create({
@@ -99,7 +97,6 @@ async function main() {
   });
 
   // Step 3: Create a network where everyone follows each other.
-  console.log('[3/5] Creating mutual follow relationships...');
   const allUsers = [omarHassan, omarGamal, mostafa, anas, tasneem, loay];
   const followData = [];
   for (const follower of allUsers) {
@@ -112,7 +109,6 @@ async function main() {
   await prisma.follow.createMany({ data: followData });
 
   // Step 4: Prepare hashtags that will be used in the tweets.
-  console.log('[4/5] Preparing hashtags...');
   const nestjsHashtag = await getOrCreateHashtag('nestjs');
   const devlifeHashtag = await getOrCreateHashtag('devlife');
   const uidesignHashtag = await getOrCreateHashtag('uidesign');
@@ -121,7 +117,6 @@ async function main() {
   const speedHashtag = await getOrCreateHashtag('ishowspeed');
 
   // Step 5: Create a rich set of over 20 tweets with staggered timestamps.
-  console.log('[5/5] Seeding a rich conversation thread...');
   const baseTime = Date.now();
 
   // A series of tweets telling a story about a project launch.
@@ -377,17 +372,10 @@ async function main() {
       createdAt: new Date(baseTime - 1000 * 60 * 2),
     },
   });
-
-  console.log('--- Seed Finished Successfully! ---');
-  console.log('You can now log in with any of these accounts:');
-  allUsers.forEach((user) => console.log(`  - ${user.email}`));
-  console.log(`  Password for all: Password1$`);
-  console.log('------------------------------------');
 }
 
 main()
-  .catch((e) => {
-    console.error('An error occurred during the timeline seed:', e);
+  .catch(() => {
     process.exit(1);
   })
   .finally(() => {
