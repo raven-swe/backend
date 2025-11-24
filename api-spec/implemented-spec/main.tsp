@@ -45,11 +45,11 @@ model CursorPagination {
 model CursorPaginationParameters {
   @query
   @doc("The cursor position to start fetching from")
-  cursor: string;
+  cursor?: string;
 
   @query
   @doc("The number of items to return per page (default: 20)")
-  limit: int32 = 20;
+  limit?: int32 = 20;
 }
 
 @doc("Block relationship state between two users")
@@ -1402,6 +1402,15 @@ namespace Users {
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
     | DataResponseWithPagination<ProfileTweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("List user's liked tweets")
+  @get
+  @route("/{username}/likes")
+  op getUserLikes(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;

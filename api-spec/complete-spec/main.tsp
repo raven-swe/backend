@@ -721,11 +721,11 @@ model MentionSuggestion {
 model CursorPaginationParameters {
   @query
   @doc("The cursor position to start fetching from")
-  cursor: string;
+  cursor?: string;
 
   @query
   @doc("The number of items to return per page (default: 20)")
-  limit: int32 = 20;
+  limit?: int32 = 20;
 }
 
 // Conversations / Messages related
@@ -1239,7 +1239,6 @@ namespace Users {
     | DataResponseWithPagination<Tweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
-    | ForbiddenResponse
     | InternalServerErrorResponse;
 
   @summary("List user's tweets with media attachments")
