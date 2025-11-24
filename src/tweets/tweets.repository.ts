@@ -698,7 +698,10 @@ export class TweetsRepository {
       where: {
         userId,
         isDeleted: false,
-        hasMedia: true,
+        tweetMedia: {
+          // TODO replace with has media if fixed
+          some: {},
+        },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: {
