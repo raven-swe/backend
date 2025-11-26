@@ -1,3 +1,5 @@
+import { BioEntitiesDto } from './bio-entities.dto';
+
 export class UserRelationshipDto {
   blocking: boolean;
   blockedBy: boolean;
@@ -12,7 +14,7 @@ export class UserProfileResponseDto {
   bio: string | null;
 
   // Should be adjusted after implementing rich text bios
-  bioEntities: null;
+  bioEntities: BioEntitiesDto | null;
 
   avatarUrl: string | null | undefined;
   bannerUrl: string | null;

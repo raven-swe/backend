@@ -15,6 +15,7 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
+import { plainToClass } from 'class-transformer';
 
 @Injectable()
 export class UsersRepository {
@@ -218,7 +219,7 @@ export class UsersRepository {
         username: user.username,
         displayName: user.profile?.displayName || '',
         bio: null,
-        bioEntities: null,
+        bioEntities: plainToClass(BioEntitiesDto, user.profile?.bioEntities) || null,
         location: null,
         birthDate: null,
         avatarUrl: user.profile?.avatarUrl,
@@ -256,8 +257,7 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       bio: user.profile?.bio || null,
-      // TODO: return actual bio entities after implementing rich text bios
-      bioEntities: null,
+      bioEntities: plainToClass(BioEntitiesDto, user.profile?.bioEntities) || null,
       location: user.profile?.location || null,
       birthDate: user.birthdate?.toISOString().split('T')[0] || null,
       avatarUrl: user.profile?.avatarUrl,
