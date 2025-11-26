@@ -1,4 +1,3 @@
-import { Hashtag } from './hashtag.interface';
 import { Mention } from './mention.interface';
 
 export interface CreateTweetData {
@@ -6,7 +5,7 @@ export interface CreateTweetData {
   content: string;
 
   Mentions: Mention[];
-  Hashtags: Hashtag[];
+  // Hashtags: Hashtag[];
 
   replyToTweetId: bigint | null;
   quotedTweetId: bigint | null;

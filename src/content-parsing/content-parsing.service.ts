@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
@@ -10,6 +10,7 @@ export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
 
   constructor(
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly trendingService: TrendingService,
   ) {}
@@ -27,24 +28,21 @@ export class ContentParsingService {
     mentions: (PlainMention & {
       userId: bigint;
     })[];
-    hashtags: (PlainHashtag & {
-      hashtagId: bigint;
-    })[];
+    hashtags: PlainHashtag[];
   }> {
     if (!content || content.length === 0) {
       return { mentions: [], hashtags: [] };
     }
-    const { mentions: plainMentions, hashtags: plainHashtags } = this.parsePlainContent(content);
+    const { mentions: plainMentions, hashtags } = this.parsePlainContent(content);
     const mentions = await this.usersService.checkUsernamesExistenceAndReplaceIds(
       plainMentions,
       tx,
     );
-    const hashtags = await this.trendingService.createOrIncrementHashtags(plainHashtags, tx);
+
     return { mentions, hashtags };
   }
 
   /**
-   *
    * @param content The text to parse (tweet, bio or message)
    * @returns An array of mentions and hashtags with their starting positions (need to be checked against db)
    */

@@ -184,15 +184,9 @@ export class TweetsRepository {
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
         hasMentions: tweetData.Mentions.length > 0,
-        hasHashtags: tweetData.Hashtags.length > 0,
         tweetMentions: {
           createMany: {
             data: tweetData.Mentions,
-          },
-        },
-        tweetHashtags: {
-          createMany: {
-            data: tweetData.Hashtags,
           },
         },
         hasMedia: tweetData.hasMedia,

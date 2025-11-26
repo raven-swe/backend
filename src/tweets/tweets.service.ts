@@ -120,10 +120,6 @@ export class TweetsService {
           userId: mention.userId,
           startPosition: mention.startPosition,
         })),
-        Hashtags: hashtags.map((hashtag) => ({
-          hashtagId: hashtag.hashtagId,
-          startPosition: hashtag.startPosition,
-        })),
         hasMedia: mediaIds.length > 0,
       };
 

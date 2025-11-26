@@ -1,4 +1,12 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -19,6 +27,7 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 
 @Injectable()
 export class UsersService {
@@ -28,6 +37,8 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    @Inject(forwardRef(() => ContentParsingService))
+    private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -208,13 +219,41 @@ export class UsersService {
       const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
       const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
 
-      // Update database
-      const profile = await this.usersRepository.updateProfile(
-        userId,
-        data,
-        finalAvatarUrl,
-        finalBannerUrl,
-      );
+      // Update database with profile and bio entities
+      const profile = await this.prisma.$transaction(async (tx) => {
+        let mentions, hashtags;
+        if (data.bio) {
+          ({ mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+            data.bio,
+            tx,
+          ));
+        }
+
+        const bioEntities = {
+          mentions:
+            mentions?.map((m) => ({
+              username: m.username,
+              startPosition: m.startPosition,
+            })) ?? null,
+          hashtags:
+            hashtags?.map((h) => ({
+              hashtag: h.keyword,
+              startPosition: h.startPosition,
+            })) ?? null,
+        };
+
+        const profile = await this.usersRepository.updateProfile(
+          userId,
+          data,
+          finalAvatarUrl,
+          finalBannerUrl,
+          bioEntities,
+          tx,
+        );
+
+        return profile;
+      });
+
       this.logger.log(`Profile updated for user ID: ${user.id}`);
 
       // Delete old files from S3 AFTER successful DB update
