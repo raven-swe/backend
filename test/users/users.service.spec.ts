@@ -93,7 +93,8 @@ describe('UsersService', () => {
     getUserFollowings: jest.fn(),
     getUserMutualFollowers: jest.fn(),
     getUserFollowRelations: jest.fn(),
-    getUserBlocks: jest.fn(),
+    getUserBlockRelations: jest.fn(),
+    getUserMuteRelations: jest.fn(),
     getUserIdsFollowedBy: jest.fn(),
   };
 
@@ -1421,8 +1422,8 @@ describe('UsersService', () => {
       await expect(service.unfollowUser(followerId, usernameToUnfollow)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
-            code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
+            message: USERS_ERROR_MESSAGES.NOT_FOLLOWING,
+            code: USERS_ERROR_CODES.NOT_FOLLOWING,
           },
           HttpStatus.NOT_FOUND,
         ),
@@ -2203,7 +2204,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([
         { followerId: BigInt(2), followedId: authUserId }, // follower1 follows auth user
@@ -2215,7 +2217,6 @@ describe('UsersService', () => {
 
       // Assert
       expect(mockRepository.findByUsername).toHaveBeenCalledWith(mockUsername);
-      expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserFollowers).toHaveBeenCalledWith(
         requestedUserId,
         limit + 1,
@@ -2226,22 +2227,38 @@ describe('UsersService', () => {
         BigInt(2),
         BigInt(3),
       ]);
+      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
 
       // Only first 2 items returned (limit=2), third is used for pagination
       expect(result.items).toHaveLength(2);
       expect(result.items[0]).toMatchObject({
         displayName: 'Follower One',
         username: 'follower1',
-        isFollowing: false, // auth user doesn't follow follower1
-        followsYou: true, // follower1 follows auth user
-        isBlocked: false,
+        relationship: {
+          following: false,
+          follower: true,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
       expect(result.items[1]).toMatchObject({
         displayName: 'Follower Two',
         username: 'follower2',
-        isFollowing: true, // auth user follows follower2
-        followsYou: false, // follower2 doesn't follow auth user
-        isBlocked: false,
+        relationship: {
+          following: true,
+          follower: false,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
 
       // Pagination should indicate next page
@@ -2273,7 +2290,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
@@ -2312,7 +2330,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should filter out blocked users in the response', async () => {
+    it('should flag blocked and muted users in the response', async () => {
       // Arrange
       const mockFollowers = [
         {
@@ -2335,8 +2353,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([
-        { blockerId: authUserId, blockedId: BigInt(2) }, // auth user blocked follower1
+      mockRepository.getUserBlockRelations.mockResolvedValue([
+        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked follower1
       ]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
@@ -2345,8 +2363,8 @@ describe('UsersService', () => {
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].isBlocked).toBe(true); // follower1 is blocked
-      expect(result.items[1].isBlocked).toBe(false); // follower2 is not blocked
+      expect(result.items[0].relationship.blocking).toBe(true); // follower1 is blocked
+      expect(result.items[1].relationship.blocking).toBe(false); // follower2 is not blocked
     });
 
     it('should correctly set isFollowing flag based on user follows Relation ', async () => {
@@ -2372,7 +2390,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([
         { followerId: BigInt(3), followedId: authUserId }, // follower2 follows auth user
@@ -2384,10 +2403,10 @@ describe('UsersService', () => {
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].isFollowing).toBe(true); // follower1 not followed back
-      expect(result.items[0].followsYou).toBe(false); // follower1 doesn't follows auth user
-      expect(result.items[1].isFollowing).toBe(true); // follower2 followed back
-      expect(result.items[1].followsYou).toBe(true); // follower2 follow auth user
+      expect(result.items[0].relationship.following).toBe(true); // follower1 not followed back
+      expect(result.items[0].relationship.follower).toBe(false); // follower1 doesn't follows auth user
+      expect(result.items[1].relationship.following).toBe(true); // follower2 followed back
+      expect(result.items[1].relationship.follower).toBe(true); // follower2 follow auth user
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -2412,7 +2431,8 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no followers', async () => {
       // Arrange
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue([]);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
@@ -2478,8 +2498,9 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowRelations.mockResolvedValue([
         { followerId: BigInt(2), followedId: authUserId }, // follower1 follows auth user
         { followerId: authUserId, followedId: BigInt(3) }, // auth user follows follower2
@@ -2490,7 +2511,6 @@ describe('UsersService', () => {
 
       // Assert
       expect(mockRepository.findByUsername).toHaveBeenCalledWith(mockUsername);
-      expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserFollowings).toHaveBeenCalledWith(
         requestedUserId,
         limit + 1,
@@ -2501,22 +2521,38 @@ describe('UsersService', () => {
         BigInt(2),
         BigInt(3),
       ]);
+      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
 
       // Only first 2 items returned (limit=2), third is used for pagination
       expect(result.items).toHaveLength(2);
       expect(result.items[0]).toMatchObject({
         displayName: 'Followed One',
         username: 'followed1',
-        isFollowing: false,
-        followsYou: true,
-        isBlocked: false,
+        relationship: {
+          following: false,
+          follower: true,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
       expect(result.items[1]).toMatchObject({
         displayName: 'Followed Two',
         username: 'followed2',
-        isFollowing: true,
-        followsYou: false,
-        isBlocked: false,
+        relationship: {
+          following: true,
+          follower: false,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
 
       // Pagination should indicate next page
@@ -2548,7 +2584,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
@@ -2587,7 +2624,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should filter out blocked users in the response', async () => {
+    it('should flag blocked and muted users in the response', async () => {
       // Arrange
       const mockFollowings = [
         {
@@ -2610,18 +2647,23 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([
-        { blockerId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
-      ]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([
+        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
+      ]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([
+        { userId: authUserId, mutedId: BigInt(2) }, // auth user blocked followed1
+      ]);
 
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].isBlocked).toBe(true); // followed1 is blocked
-      expect(result.items[1].isBlocked).toBe(false); // followed2 is not blocked
+      expect(result.items[0].relationship.blocking).toBe(true); // followed1 is blocked
+      expect(result.items[1].relationship.blocking).toBe(false); // followed2 is not blocked
+      expect(result.items[0].relationship.muted).toBe(true); // followed1 is blocked
+      expect(result.items[1].relationship.muted).toBe(false); // followed2 is not blocked
     });
 
     it('should correctly set isFollowing flag based on follow backs', async () => {
@@ -2647,7 +2689,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
       mockRepository.getUserFollowRelations.mockResolvedValue([
         { followerId: BigInt(3), followedId: authUserId },
@@ -2658,10 +2701,10 @@ describe('UsersService', () => {
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
       // Assert
-      expect(result.items[0].isFollowing).toBe(true);
-      expect(result.items[0].followsYou).toBe(false);
-      expect(result.items[1].isFollowing).toBe(true);
-      expect(result.items[1].followsYou).toBe(true);
+      expect(result.items[0].relationship.following).toBe(true);
+      expect(result.items[0].relationship.follower).toBe(false);
+      expect(result.items[1].relationship.following).toBe(true);
+      expect(result.items[1].relationship.follower).toBe(true);
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -2686,8 +2729,9 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no followings', async () => {
       // Arrange
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
       // Act
@@ -2789,7 +2833,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserIdsFollowedBy.mockResolvedValue(mockAuthFollowings);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([
@@ -2802,7 +2847,6 @@ describe('UsersService', () => {
 
       // Assert
       expect(mockRepository.findByUsername).toHaveBeenCalledWith(mockUsername);
-      expect(mockRepository.getUserBlocks).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserIdsFollowedBy).toHaveBeenCalledWith(authUserId);
       expect(mockRepository.getUserMutualFollowers).toHaveBeenCalledWith(
         requestedUserId,
@@ -2815,22 +2859,38 @@ describe('UsersService', () => {
         BigInt(2),
         BigInt(3),
       ]);
+      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
 
       // Only first 2 items returned (limit=2), third is used for pagination
       expect(result.items).toHaveLength(2);
       expect(result.items[0]).toMatchObject({
         displayName: 'Followed One',
         username: 'followed1',
-        isFollowing: true,
-        followsYou: true,
-        isBlocked: false,
+        relationship: {
+          following: true,
+          follower: true,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
       expect(result.items[1]).toMatchObject({
         displayName: 'Followed Two',
         username: 'followed2',
-        isFollowing: false,
-        followsYou: false,
-        isBlocked: false,
+        relationship: {
+          following: false,
+          follower: false,
+          blockedBy: false,
+          blocking: false,
+          muted: false,
+        },
       });
 
       // Pagination should indicate next page
@@ -2892,7 +2952,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserIdsFollowedBy.mockResolvedValue(mockAuthFollowings);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
@@ -2938,7 +2999,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should filter out blocked users in the response', async () => {
+    it('should flag blocked and muted users as blocked in the response', async () => {
       // Arrange
       const mockMutualFollowers = [
         {
@@ -2961,8 +3022,11 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([
-        { blockerId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
+      mockRepository.getUserBlockRelations.mockResolvedValue([
+        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
+      ]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([
+        { userId: authUserId, mutedId: BigInt(2) }, // auth user blocked followed1
       ]);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
@@ -2971,8 +3035,10 @@ describe('UsersService', () => {
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].isBlocked).toBe(true); // followed1 is blocked
-      expect(result.items[1].isBlocked).toBe(false); // followed2 is not blocked
+      expect(result.items[0].relationship.blocking).toBe(true); // followed1 is blocked
+      expect(result.items[1].relationship.blocking).toBe(false); // followed2 is not blocked
+      expect(result.items[0].relationship.muted).toBe(true); // followed1 is muted
+      expect(result.items[1].relationship.muted).toBe(false); // followed2 is not blocked
     });
 
     it('should correctly set isFollowing flag based on follow backs', async () => {
@@ -2998,7 +3064,8 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
       mockRepository.getUserFollowRelations.mockResolvedValue([
         { followerId: authUserId, followedId: BigInt(2) },
@@ -3009,10 +3076,10 @@ describe('UsersService', () => {
       // Act
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
       // Assert
-      expect(result.items[0].isFollowing).toBe(true);
-      expect(result.items[0].followsYou).toBe(true);
-      expect(result.items[1].isFollowing).toBe(false);
-      expect(result.items[1].followsYou).toBe(true);
+      expect(result.items[0].relationship.following).toBe(true);
+      expect(result.items[0].relationship.follower).toBe(true);
+      expect(result.items[1].relationship.following).toBe(false);
+      expect(result.items[1].relationship.follower).toBe(true);
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -3037,7 +3104,8 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no mutualFollowers', async () => {
       // Arrange
-      mockRepository.getUserBlocks.mockResolvedValue([]);
+      mockRepository.getUserBlockRelations.mockResolvedValue([]);
+      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserMutualFollowers.mockResolvedValue([]);
       mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
