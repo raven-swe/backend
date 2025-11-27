@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto, UserInteractionDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -12,30 +12,31 @@ import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
+export const authorSelect = (currentUserId: bigint) =>
+  ({
+    username: true,
+    profile: {
+      select: {
+        displayName: true,
+        avatarUrl: true,
+      },
+    },
+    // Relationship checks
+    blockedBy: { where: { userId: currentUserId } },
+    blockedUsers: { where: { blockedId: currentUserId } },
+    followers: { where: { followerId: currentUserId } },
+    following: { where: { followedId: currentUserId } },
+    mutedBy: { where: { userId: currentUserId } },
+  }) satisfies Prisma.UserSelect;
+
+export type RawAuthor = Prisma.UserGetPayload<{
+  select: ReturnType<typeof authorSelect>;
+}>;
+
 const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
-      select: {
-        username: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
-          },
-        },
-        blockedBy: {
-          where: { userId: currentUserId },
-        },
-        followers: {
-          where: { followerId: currentUserId },
-        },
-        following: {
-          where: { followedId: currentUserId },
-        },
-        mutedBy: {
-          where: { userId: currentUserId },
-        },
-      },
+      select: authorSelect(currentUserId),
     },
     _count: {
       select: {
@@ -139,20 +140,28 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToAuthorDto(user: RawAuthor): AuthorDto {
+    return {
+      username: user.username,
+      displayName: user.profile?.displayName ?? '',
+      avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        blocking: user.blockedBy.length > 0,
+        blockedBy: user.blockedUsers.length > 0,
+        following: user.followers.length > 0,
+        follower: user.following.length > 0,
+        muted: user.mutedBy.length > 0,
+      },
+    };
+  }
+
+  mapToTweetDto(
+    tweet: TweetWithIncludes,
+    context: { isRepost?: boolean; repostedBy?: AuthorDto } = {},
+  ): TweetDto {
     return {
       id: tweet.id.toString(),
-      author: {
-        username: tweet.user.username,
-        displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl,
-        relationship: {
-          blocking: tweet.user.blockedBy.length > 0,
-          following: tweet.user.followers.length > 0,
-          follower: tweet.user.following.length > 0,
-          muted: tweet.user.mutedBy.length > 0,
-        },
-      },
+      author: this.mapToAuthorDto(tweet.user),
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
@@ -179,7 +188,11 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
-      quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
+      quotedTweet: tweet.quotedTweet
+        ? this.mapToTweetDto(tweet.quotedTweet, { isRepost: false })
+        : undefined,
+      isRepost: context.isRepost ?? false,
+      repostedBy: context.repostedBy,
     };
   }
 

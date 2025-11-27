@@ -236,8 +236,14 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
-      quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
+      quotedTweet:
+        createTweetDto.quoteToTweetId && referencedTweet
+          ? (referencedTweet as TweetDto)
+          : undefined,
+
+      isRepost: false,
+      repostedBy: undefined,
     };
   }
 
@@ -456,7 +462,10 @@ export class TweetsService {
     prevCursor: string | undefined,
     includeReplies: boolean,
   ) {
-    const requestedUser = await this.usersRepository.findByUsername(username);
+    const requestedUser = await this.usersRepository.findByUsernameWithRelations(
+      username,
+      authUserId,
+    );
 
     if (!requestedUser) {
       throw new HttpException(
@@ -509,9 +518,16 @@ export class TweetsService {
 
         if (!tweetData) return null; // Should technically never happen
 
+        let repostedBy: AuthorDto | undefined = undefined;
+
+        if (item.type === 'repost') {
+          repostedBy = this.tweetsRepository.mapToAuthorDto(requestedUser);
+        }
+
         return {
           ...tweetData,
           isRepost: item.type === 'repost',
+          repostedBy,
           createdAt: item.created_at,
         };
       })

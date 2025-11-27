@@ -22,4 +22,7 @@ export class TweetDto {
   quoteToTweetId: string | null;
 
   quotedTweet?: TweetDto;
+
+  isRepost: boolean;
+  repostedBy?: AuthorDto;
 }

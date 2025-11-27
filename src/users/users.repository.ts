@@ -17,6 +17,7 @@ import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
+import { authorSelect } from 'src/tweets/tweets.repository';
 
 @Injectable()
 export class UsersRepository {
@@ -1355,5 +1356,12 @@ export class UsersRepository {
         muted: false,
       },
     };
+  }
+
+  async findByUsernameWithRelations(username: string, currentUserId: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { username },
+      select: { ...authorSelect(currentUserId), id: true },
+    });
   }
 }
