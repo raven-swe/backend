@@ -280,6 +280,9 @@ export class SettingsService {
     const items = mutedUsers.map((b) => ({
       ...b.mutedUser.profile,
       username: b.mutedUser.username,
+      relationship: {
+        muted: true,
+      },
     }));
 
     return { items, pagination };
@@ -312,6 +315,9 @@ export class SettingsService {
     const items = blockedUsers.map((b) => ({
       ...b.blockedUser.profile,
       username: b.blockedUser.username,
+      relationship: {
+        blocking: true,
+      },
     }));
 
     return { items, pagination };
