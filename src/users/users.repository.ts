@@ -652,12 +652,35 @@ export class UsersRepository {
     return !!mute;
   }
 
-  async getUserBlocks(userId: bigint) {
-    return await this.prisma.block.findMany({
+  async getUserBlockRelations(userId: bigint, userIds?: bigint[]) {
+    const hasUserIds = Array.isArray(userIds) && userIds.length > 0;
+
+    return this.prisma.block.findMany({
       where: {
-        userId,
+        OR: [
+          {
+            userId,
+            ...(hasUserIds && { blockedId: { in: userIds } }),
+          },
+          {
+            ...(hasUserIds && { userId: { in: userIds } }),
+            blockedId: userId,
+          },
+        ],
       },
+
       select: { userId: true, blockedId: true },
+    });
+  }
+
+  async getUserMuteRelations(userId: bigint, userIds: bigint[]) {
+    return await this.prisma.mute.findMany({
+      where: {
+        OR: [
+          { userId, mutedId: { in: userIds } }, // user-> them
+        ],
+      },
+      select: { userId: true, mutedId: true },
     });
   }
 
