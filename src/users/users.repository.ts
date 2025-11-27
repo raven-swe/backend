@@ -282,8 +282,8 @@ export class UsersRepository {
       // TODO: Get mutual followers count and names
     }
 
-    const relationship: UserRelationshipDto | null = isMyProfile
-      ? null
+    const relationship: UserRelationshipDto = isMyProfile
+      ? { blocking: false, blockedBy: false, following: false, follower: false, muted: false }
       : {
           blocking: isBlocking,
           blockedBy: isBlockedBy,
@@ -1347,9 +1347,13 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      isBlocked: false,
-      isFollowing: false,
-      isMuted: false,
+      relationship: {
+        blocking: false,
+        blockedBy: false,
+        following: false,
+        follower: false,
+        muted: false,
+      },
     };
   }
 }

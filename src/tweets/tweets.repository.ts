@@ -29,6 +29,9 @@ const tweetInclude = (currentUserId: bigint) =>
         followers: {
           where: { followerId: currentUserId },
         },
+        following: {
+          where: { followedId: currentUserId },
+        },
         mutedBy: {
           where: { userId: currentUserId },
         },
@@ -143,9 +146,12 @@ export class TweetsRepository {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl,
-        isBlocked: tweet.user.blockedBy.length > 0,
-        isFollowing: tweet.user.followers.length > 0,
-        isMuted: tweet.user.mutedBy.length > 0,
+        relationship: {
+          blocking: tweet.user.blockedBy.length > 0,
+          following: tweet.user.followers.length > 0,
+          follower: tweet.user.following.length > 0,
+          muted: tweet.user.mutedBy.length > 0,
+        },
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,

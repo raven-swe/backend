@@ -215,14 +215,7 @@ export class TweetsService {
   ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
-      author: {
-        username: authorDto.username,
-        displayName: authorDto.displayName,
-        avatarUrl: authorDto.avatarUrl,
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
-      },
+      author: authorDto,
       content: tweet.content,
       createdAt: tweet.createdAt,
       replyCount: 0,
