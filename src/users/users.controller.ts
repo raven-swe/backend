@@ -1,10 +1,10 @@
 import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
-import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { CompactUserDto } from './dtos/compact-user.dto';
 
 @Controller('users')
 export class UsersController {
@@ -50,7 +50,7 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 
@@ -70,7 +70,7 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 
@@ -90,7 +90,7 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 }
