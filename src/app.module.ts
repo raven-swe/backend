@@ -30,6 +30,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
+import { TimelineModule } from './tweets/timeline/timeline.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
+    TimelineModule,
     LoggerModule,
   ],
   controllers: [HealthController],
