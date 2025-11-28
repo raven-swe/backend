@@ -1414,6 +1414,15 @@ namespace Users {
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
+
+  @summary("List user's tweets with media attachments")
+  @get
+  @route("/{username}/media")
+  op getUserMedia(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
