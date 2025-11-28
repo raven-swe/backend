@@ -31,15 +31,17 @@ export class TimelineConsumer extends WorkerHost {
       existingKeyspipeline.exists(`timeline:${key}`);
     }
     const existingKeysResults = await existingKeyspipeline.exec();
-
-    const existingKeys = timelineKeys.filter((_, index) => existingKeysResults![index][1] === 1);
+    if (!existingKeysResults) {
+      // can be null, no active followers
+      return;
+    }
+    const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
 
     const compositeId = `${authorId}:${tweetId}`;
     const writePipeline = this.redisClient.pipeline();
     for (const key of existingKeys) {
       writePipeline.zadd(key, timestamp, compositeId);
     }
-
     await writePipeline.exec();
   }
 }

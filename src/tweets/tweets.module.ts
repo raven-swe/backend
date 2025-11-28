@@ -8,9 +8,18 @@ import { ProfileTweetsController } from './profile-tweets.controller';
 import { TrendingModule } from 'src/trending/trending.module';
 import { ContentParsingModule } from 'src/content-parsing/content-parsing.module';
 import { MediaModule } from 'src/media/media.module';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
-  imports: [UsersModule, TrendingModule, ContentParsingModule, MediaModule],
+  imports: [
+    UsersModule,
+    TrendingModule,
+    ContentParsingModule,
+    MediaModule,
+    BullModule.registerQueue({
+      name: 'timeline-following',
+    }),
+  ],
   providers: [TweetsService, TweetsRepository],
   controllers: [TweetsController, TimelineController, ProfileTweetsController],
   exports: [TweetsService],
