@@ -1,6 +1,9 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
+const avatarFile = open('./avatar.png', 'b');
+const bannerFile = open('./banner.jpg', 'b');
+
 export const options = {
   stages: [
     { duration: '30s', target: 20 },  
@@ -12,13 +15,12 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'],
     'http_req_duration{name:01_Login_Action}': ['p(95)<1800'],
-    'http_req_duration{name:02_Update_Password}': ['p(95)<100'],
-    'http_req_duration{name:03_Validate_Password}': ['p(95)<100'],
+    'http_req_duration{name:02_Update_Profile_With_Files}': ['p(95)<2000'],
+
   },
 };
 
 const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3001'; 
-
 
 export default function () {
     
@@ -65,48 +67,40 @@ export default function () {
         'Authorization': `Bearer ${accessToken}`,
     };
 
-    // PUT /me/password
-    const newPassword = 'NewP@ssw0rd123!';
-    const payloadPassword = JSON.stringify({
-        currentPassword: userPassword,
-        newPassword: newPassword,
-    });
-    const paramsPassword = {
-        headers: headers,
-        tags: { name: '02_Update_Password' }
+    // PATCH /me
+    const dataPayload = {
+        birthDate: '1990-01-01',
+        displayName: 'Test User',
+        bio: 'This is a test bio',
+        location: 'Cairo',
+        websiteUrl: 'https://example.com',
     };
-    const resPassword = http.put(
-        `${STRESS_TEST_URL}/me/password`,
-        payloadPassword,
-        paramsPassword
-    );
 
-    if (!check(resPassword, {
-        'Update Password status is 200': (r) => r.status === 200,
+    const formData = {
+        ...dataPayload,
+        avatar: http.file(avatarFile, 'avatar.png', 'image/png'),
+        banner: http.file(bannerFile, 'banner.png', 'image/png'),
+    };
+
+    const paramsMe = {
+        headers: {
+            'X-Client-Type': 'web',
+            'Authorization': `Bearer ${accessToken}`,
+        },
+        tags: { name: '02_Update_Profile_With_Files' } 
+    };
+
+    const resMe = http.patch(
+        `${STRESS_TEST_URL}/me`,
+        formData,
+        paramsMe
+    );
+    if (!check(resMe, {
+        'Update Me status is 200': (r) => r.status === 200,
     })) {
-        console.error(`Update Password Failed: ${resPassword.body}`);
+        console.error(`Update Me Failed: ${resMe.body}`);
         return;
     }
+    
 
-    // POST /me/settings/password/validate
-    const validatePayload = JSON.stringify({
-        password: newPassword,
-    });
-    const validateParams = {
-        headers: headers,
-        tags: { name: '03_Validate_Password' }
-    };
-    const resValidate = http.post(
-        `${STRESS_TEST_URL}/me/settings/password/validate`,
-        validatePayload,
-        validateParams
-    );
-
-    if (!check(resValidate, {
-        'Validate Password status is 200': (r) => r.status === 200,
-        'Validate Password is valid': (r) => r.json('data.isValid') === true,
-    })) {
-        console.error(`Validate Password Failed: ${resValidate.body}`);
-        return;
-    }
 }
