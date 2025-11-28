@@ -1,8 +1,8 @@
 import { NotificationType } from '@prisma/client';
 
 export class NotificationTriggerOptions {
-  actorId: string;
-  receiverId: string;
+  actorId: bigint;
+  receiverId: bigint;
   type: NotificationType;
-  tweetId?: string;
+  tweetId?: bigint;
 }

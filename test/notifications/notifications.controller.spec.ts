@@ -28,32 +28,32 @@ describe('NotificationsController', () => {
     it('should return unseen count from the service', async () => {
       (mockNotificationsSerivce.getUnseenCount as jest.Mock).mockResolvedValue(5);
 
-      const result = await controller.getUnseenCount({ id: 'user1' });
+      const result = await controller.getUnseenCount({ id: '100' });
 
-      expect(mockNotificationsSerivce.getUnseenCount).toHaveBeenCalledWith('user1');
-      expect(result).toBe(5);
+      expect(mockNotificationsSerivce.getUnseenCount).toHaveBeenCalledWith(BigInt('100'));
+      expect(result).toEqual({ unseenCount: 5 });
     });
   });
 
   describe('markAllAsSeen', () => {
     it('should call the service to mark all as seen', async () => {
-      (mockNotificationsSerivce.markAllAsSeen as jest.Mock).mockResolvedValue(undefined);
+      (mockNotificationsSerivce.markAllAsSeen as jest.Mock).mockResolvedValue(100);
 
-      const result = await controller.markAllAsSeen({ id: 'user1' });
+      const result = await controller.markAllAsSeen({ id: '100' });
 
-      expect(mockNotificationsSerivce.markAllAsSeen).toHaveBeenCalledWith('user1');
-      expect(result).toBeUndefined();
+      expect(mockNotificationsSerivce.markAllAsSeen).toHaveBeenCalledWith(BigInt('100'));
+      expect(result).toEqual({ updatedCount: 100 });
     });
   });
 
   describe('markAsSeen', () => {
     it('should call the service to mark a notification as seen', async () => {
-      (mockNotificationsSerivce.markAsSeen as jest.Mock).mockResolvedValue(undefined);
+      (mockNotificationsSerivce.markAsSeen as jest.Mock).mockResolvedValue(1);
 
-      const result = await controller.markAsSeen({ id: 'user1' }, 'notification123');
+      const result = await controller.markAsSeen({ id: '100' }, BigInt('1'));
 
-      expect(mockNotificationsSerivce.markAsSeen).toHaveBeenCalledWith('notification123', 'user1');
-      expect(result).toBeUndefined();
+      expect(mockNotificationsSerivce.markAsSeen).toHaveBeenCalledWith(BigInt('1'), BigInt('100'));
+      expect(result).toEqual({ updatedCount: 1 });
     });
   });
 });
