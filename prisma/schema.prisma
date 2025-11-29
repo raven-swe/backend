@@ -43,6 +43,7 @@ model User {
   userExternalAccounts     UserExternalAccount[]
   sessions                 Session[]
   interests                String[]                  @default([])
+  sessions                 Session[]
 
   @@map("users")
 }
