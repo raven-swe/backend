@@ -33,7 +33,7 @@ export class DevicesRepository {
   ) {
     const device = await tx.userDevice.upsert({
       where: { fcmToken },
-      update: { userId },
+      update: { userId, ipAddress, deviceType },
       create: {
         userId,
         fcmToken: fcmToken,
@@ -51,6 +51,7 @@ export class DevicesRepository {
       },
       data: {
         userId: null,
+        pushEnabled: false,
       },
     });
   }

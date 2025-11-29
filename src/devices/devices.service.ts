@@ -21,7 +21,7 @@ export class DevicesService {
 
   async registerDevice(device: Device, tx: Prisma.TransactionClient = this.prisma) {
     const newDevice = await this.devicesRepository.registerDevice(device, tx);
-    this.logger.log('Device created successfully for user ID: ' + device.userId);
+    this.logger.log('Device registered successfully for user ID: ' + device.userId);
     return newDevice;
   }
 
