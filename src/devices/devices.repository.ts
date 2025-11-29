@@ -54,6 +54,7 @@ export class DevicesRepository {
         pushEnabled: false,
       },
     });
+    return device;
   }
 
   async togglePushNotifications(
