@@ -139,7 +139,6 @@ describe('AuthService with mock ConfigService', () => {
     getTokenByHash: jest.fn(),
     updateTokenHash: jest.fn(),
     deleteTokensById: jest.fn(),
-    hashStringDeterministic: jest.fn().mockReturnValue('mockHashedToken'),
   };
 
   const mockUser = {
