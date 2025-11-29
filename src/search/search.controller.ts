@@ -4,6 +4,7 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { SearchService } from './search.service';
+import { SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
 
 @Controller('search')
 export class SearchController {
@@ -16,5 +17,15 @@ export class SearchController {
   ) {
     const userId = BigInt(user.id);
     return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
+  }
+
+  @Get('tweets')
+  @UseGuards(JwtAuthGuard)
+  async searchTweets(
+    @User() user: RequestUser,
+    @Query() searchTweetsQueryDto: SearchTweetsQueryDto,
+  ) {
+    const currentUserId = BigInt(user.id);
+    return this.searchService.searchTweets(currentUserId, searchTweetsQueryDto);
   }
 }

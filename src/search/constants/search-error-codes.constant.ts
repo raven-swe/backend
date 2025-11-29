@@ -1,7 +1,9 @@
 export const SEARCH_ERROR_CODES = {
   NO_MATCHING_USERS: 'NO_MATCHING_USERS',
+  EMPTY_SEARCH_QUERY: 'EMPTY_SEARCH_QUERY',
 } as const;
 
 export const SEARCH_ERROR_MESSAGES = {
   NO_MATCHING_USERS: 'No matching users found.',
+  EMPTY_SEARCH_QUERY: 'Search query cannot be empty.',
 } as const;
