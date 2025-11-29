@@ -40,6 +40,7 @@ model User {
   userDevices              UserDevice[]
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
+  sessions                 Session[]
 
   @@map("users")
 }
@@ -69,17 +70,34 @@ model Profile {
 }
 
 model RefreshToken {
-  id         BigInt     @id @default(autoincrement())
-  deviceId   BigInt     @unique @map("device_id")
-  userId     BigInt     @map("user_id")
-  tokenHash  String     @unique @map("token_hash")
-  expiresAt  DateTime   @map("expires_at")
-  lastUsedAt DateTime?  @map("last_used_at")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  userDevice UserDevice @relation(fields: [deviceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user       User       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id         BigInt      @id @default(autoincrement())
+  deviceId   BigInt?     @unique @map("device_id")
+  sessionId  BigInt?     @map("session_id")
+  userId     BigInt      @map("user_id")
+  tokenHash  String      @unique @map("token_hash")
+  expiresAt  DateTime    @map("expires_at")
+  lastUsedAt DateTime?   @map("last_used_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  userDevice UserDevice? @relation(fields: [deviceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User        @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  session    Session?    @relation("session_refresh_tokens", fields: [sessionId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+model Session {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt    @map("user_id")
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address") @db.Inet
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user          User           @relation(fields: [userId], references: [id])
+  refreshTokens RefreshToken[] @relation("session_refresh_tokens")
+
+  @@map("sessions")
 }
 
 model UserExternalAccount {
@@ -96,14 +114,15 @@ model UserExternalAccount {
 
 model UserDevice {
   id           BigInt        @id @default(autoincrement())
-  userId       BigInt        @map("user_id")
-  fcmToken     String?       @map("fcm_token")
+  userId       BigInt?       @map("user_id")
+  fcmToken     String        @unique @map("fcm_token")
+  pushEnabled  Boolean       @default(true) @map("push_enabled")
   ipAddress    String?       @map("ip_address") @db.Inet
   deviceType   String?       @map("device_type")
   lastUsedAt   DateTime      @default(now()) @map("last_used_at")
   createdAt    DateTime      @default(now()) @map("created_at")
   refreshToken RefreshToken?
-  user         User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("user_devices")
 }
@@ -218,7 +237,7 @@ model TrendingKeyword {
 model TweetHashtag {
   tweetId       BigInt          @map("tweet_id")
   hashtagId     BigInt          @map("hashtag_id")
-  startPosition Int     @map("starting_index")
+  startPosition Int             @map("starting_index")
   hashtag       TrendingKeyword @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet         Tweet           @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
