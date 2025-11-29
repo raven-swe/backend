@@ -21,7 +21,7 @@ export class MessagesService {
     userId: bigint,
     conversationId: bigint,
     limit: number,
-    cursor: string,
+    cursor: string | undefined,
   ) {
     const conversation = await this.conversationsRepository.getConversation(conversationId);
 

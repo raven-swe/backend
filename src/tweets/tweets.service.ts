@@ -8,12 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
 import { UsersRepository } from 'src/users/users.repository';
-import {
-  decodeCompositeCursor,
-  decodeCursor,
-  paginateComposite,
-  paginateSingle,
-} from 'src/common/utils';
+import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import {
@@ -41,13 +36,30 @@ export class TweetsService {
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
   ) {}
 
-  async getTimeline(userId: bigint, cursor: string, limit: number) {
+  async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
     this.logger.log(`Fetching following timeline for user ID: ${userId}`);
-    const id = decodeCursor(cursor);
-    const timeline = await this.tweetsRepository.getTimelineForUser(userId, id, limit + 1);
+    let decoded: FeedCursor | undefined;
+    if (cursor) {
+      try {
+        decoded = decodeCompositeCursor<FeedCursor>(cursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const timeline = await this.tweetsRepository.getTimelineForUser(userId, decoded, limit + 1);
     const validTweets = timeline.filter((tweet) => tweet !== undefined);
 
-    const pagination = paginateSingle(validTweets, limit, cursor, (tweet) => tweet.id.toString());
+    const pagination = paginateComposite(validTweets, limit, cursor, (tweet) => ({
+      createdAt: tweet.createdAt,
+      id: tweet.id.toString(),
+    }));
     return {
       items: validTweets,
       pagination,

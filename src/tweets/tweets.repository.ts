@@ -97,7 +97,7 @@ type DetailedTweetWithIncludes = BaseTweetWithIncludes & {
 export class TweetsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getTimelineForUser(userId: bigint, cursor: string | undefined, limit: number) {
+  async getTimelineForUser(userId: bigint, cursor: FeedCursor | undefined, limit: number) {
     // get followed users
     const followedUnMutedUserIds = await this.prisma.follow.findMany({
       where: {
@@ -128,7 +128,7 @@ export class TweetsRepository {
           include: tweetInclude(userId),
         },
       },
-      cursor: cursor ? { id: BigInt(cursor) } : undefined,
+      cursor: cursor ? { createdAt: new Date(cursor.createdAt), id: BigInt(cursor.id) } : undefined, // id as a tiebreaker
       take: limit || 20,
     });
 
