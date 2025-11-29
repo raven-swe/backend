@@ -1289,13 +1289,4 @@ export class UsersRepository {
       })
       .then((mutings) => mutings.map((mute) => mute.userId));
   }
-
-  getBlockingUsersUnPaginated(blockedId: bigint): Promise<bigint[]> {
-    return this.prisma.block
-      .findMany({
-        where: { blockedId },
-        select: { userId: true },
-      })
-      .then((blockings) => blockings.map((block) => block.userId));
-  }
 }
