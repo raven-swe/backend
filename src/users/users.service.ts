@@ -29,6 +29,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
+    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
   ) {}
 
   async findByEmail(email: string) {
@@ -415,6 +416,26 @@ export class UsersService {
 
     await this.usersRepository.unfollowUser(followerId, followedId);
     this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
+
+    //dispatch purge job to remove tweets from unfollowed user's cached timeline
+    await this.timelineFollowingQueue.add(
+      'purge',
+      {
+        unfollowerId: followerId.toString(),
+        unfollowedId: followedId.toString(),
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      },
+    );
+
+    this.logger.log(
+      `Dispatched purge job for unfollower ID: ${followerId} and unfollowed ID: ${followedId}`,
+    );
 
     return { message: 'User unfollowed successfully.' };
   }
@@ -1001,14 +1022,10 @@ export class UsersService {
   async getFollowersForTweetFanout(userId: bigint): Promise<bigint[]> {
     const allFollowers = await this.usersRepository.getFollowersUnPaginated(userId);
     const mutingUsers = await this.usersRepository.getMutingUsersUnPaginated(userId);
-    const blockingUsers = await this.usersRepository.getBlockingUsersUnPaginated(userId);
     const excludedFollowersSet = new Set<bigint>();
 
     for (const mutingUser of mutingUsers) {
       excludedFollowersSet.add(mutingUser);
-    }
-    for (const blockingUser of blockingUsers) {
-      excludedFollowersSet.add(blockingUser);
     }
 
     return allFollowers.filter((followerId) => !excludedFollowersSet.has(followerId));
