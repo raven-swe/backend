@@ -34,7 +34,7 @@ describe('RefreshTokensService', () => {
     it('should correctly call the repository with token data and return the created token', async () => {
       const tokenData: RefreshToken = {
         userId: BigInt(123),
-        deviceId: BigInt(456),
+        sessionId: BigInt(456),
         tokenHash: 'a-very-secure-token-hash',
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expires in 7 days
       };
@@ -42,7 +42,7 @@ describe('RefreshTokensService', () => {
       const expectedCreatedToken = {
         id: BigInt(1), // A new ID from the database
         user_id: tokenData.userId,
-        device_id: tokenData.deviceId,
+        session_id: tokenData.sessionId,
         token_hash: tokenData.tokenHash,
         expires_at: tokenData.expiresAt,
         created_at: new Date(),

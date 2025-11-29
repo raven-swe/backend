@@ -19,4 +19,16 @@ export class RefreshTokensService {
     this.logger.log('Refresh token created successfully for user ID: ' + refreshToken.userId);
     return token;
   }
+
+  async getTokenByHash(hash: string) {
+    return await this.refreshTokensRepository.getTokenByHash(hash);
+  }
+
+  async updateTokenHash(tokenId: bigint, newHash: string, expiresAt: Date) {
+    return await this.refreshTokensRepository.updateTokenHash(tokenId, newHash, expiresAt);
+  }
+
+  async deleteTokensById(tokenId: bigint, tx: Prisma.TransactionClient = this.prisma) {
+    return await this.refreshTokensRepository.deleteTokensById(tokenId, tx);
+  }
 }

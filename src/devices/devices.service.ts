@@ -24,4 +24,8 @@ export class DevicesService {
     this.logger.log('Device created successfully for user ID: ' + device.userId);
     return newDevice;
   }
+
+  async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
+    return this.devicesRepository.unassignDeviceFromUser(fcmToken, tx);
+  }
 }

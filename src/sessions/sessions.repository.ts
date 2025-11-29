@@ -17,4 +17,8 @@ export class SessionsRepository {
       },
     });
   }
+
+  async deleteSessionById(sessionId: bigint, prismaClient: Prisma.TransactionClient = this.prisma) {
+    return await prismaClient.session.delete({ where: { id: sessionId } });
+  }
 }

@@ -43,4 +43,15 @@ export class DevicesRepository {
     });
     return device;
   }
+
+  async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
+    await tx.userDevice.update({
+      where: {
+        fcmToken: fcmToken,
+      },
+      data: {
+        userId: null,
+      },
+    });
+  }
 }

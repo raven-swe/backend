@@ -459,12 +459,7 @@ export class AuthService {
   }
 
   async validateUser(identifier: string, password: string): Promise<RequestUser | null> {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ username: identifier }, { email: identifier }, { phone: identifier }],
-      },
-    });
-
+    const user = await this.usersService.findByIdentifier(identifier);
     if (user && user.passwordHash) {
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (isMatch) {
@@ -485,22 +480,26 @@ export class AuthService {
       this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
-      const session = await tx.session.create({
-        data: {
+      const session = await this.sessionService.createSession(
+        {
           userId: BigInt(user.id),
           ipAddress: ipAddress,
           userAgent: deviceType,
         },
-      });
+        tx,
+      );
+      this.logger.log(`Session created with ID: ${session.id} for user ID: ${user.id}`);
 
-      await tx.refreshToken.create({
-        data: {
-          userId: BigInt(user.id),
-          tokenHash: hashedRefreshToken,
-          expiresAt: expiresAt,
-          sessionId: session.id,
-        },
-      });
+      const refreshTokenData: RefreshToken = {
+        userId: BigInt(user.id),
+        sessionId: session.id,
+        tokenHash: hashedRefreshToken,
+        expiresAt,
+      };
+      await this.refreshTokensService.createRefreshToken(refreshTokenData, tx);
+      this.logger.log(
+        `Refresh token created for user ID: ${user.id} and session ID: ${session.id}`,
+      );
     });
     return {
       accessToken,
@@ -509,12 +508,7 @@ export class AuthService {
   }
 
   async checkIdentifier(identifier: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ username: identifier }, { email: identifier }],
-      },
-    });
-
+    const user = await this.usersService.findByIdentifier(identifier);
     if (user) {
       return {
         exists: true,
@@ -541,20 +535,9 @@ export class AuthService {
     return hash.digest('hex');
   }
 
-  private async getTokenByHash(hash: string) {
-    return await this.prisma.refreshToken.findUnique({
-      where: {
-        tokenHash: hash,
-      },
-      include: {
-        user: { select: { id: true, username: true } },
-      },
-    });
-  }
-
   async refreshAccessToken(refreshToken: string) {
     const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-    const oldToken = await this.getTokenByHash(hashedRefreshToken);
+    const oldToken = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
 
     if (!oldToken) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -576,29 +559,26 @@ export class AuthService {
       expiresAt,
     } = this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
-    await this.prisma.refreshToken.update({
-      where: { id: oldToken.id },
-      data: { tokenHash: newHashedRefreshToken, expiresAt: expiresAt },
-    });
+    await this.refreshTokensService.updateTokenHash(oldToken.id, newHashedRefreshToken, expiresAt);
+
     return { refreshToken: newRefreshToken, accessToken };
   }
 
   async logout(userId: bigint, refreshToken: string, fcmToken?: string) {
     const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-    const token = await this.getTokenByHash(hashedRefreshToken);
+    const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
     if (token) {
       await this.prisma.$transaction(async (tx) => {
-        await tx.refreshToken.delete({ where: { id: token.id } });
-        await tx.session.delete({ where: { id: token.sessionId!, userId } });
+        await this.refreshTokensService.deleteTokensById(token.id, tx);
+        this.logger.log(`Refresh token with ID: ${token.id} deleted during logout`);
+
+        await this.sessionService.deleteSessionById(token.sessionId!, tx);
+        this.logger.log(`Session with ID: ${token.sessionId} deleted during logout`);
         if (fcmToken) {
-          await tx.userDevice.update({
-            where: {
-              fcmToken: fcmToken,
-            },
-            data: {
-              userId: null,
-            },
-          });
+          await this.devicesService.unassignDeviceFromUser(fcmToken, tx);
+          this.logger.log(
+            `Device with FCM token: ${fcmToken} unassigned from user ID: ${userId} during logout`,
+          );
         }
       });
     }

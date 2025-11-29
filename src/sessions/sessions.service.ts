@@ -17,4 +17,8 @@ export class SessionsService {
     this.logger.log('Session created successfully for user ID: ' + session.userId);
     return newSession;
   }
+
+  async deleteSessionById(sessionId: bigint, tx: Prisma.TransactionClient = this.prisma) {
+    return await this.sessionRepository.deleteSessionById(sessionId, tx);
+  }
 }

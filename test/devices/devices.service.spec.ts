@@ -9,7 +9,7 @@ describe('DevicesService', () => {
 
   const mockDevicesRepository = {
     removeAllUserDevices: jest.fn(),
-    createDevice: jest.fn(),
+    registerDevice: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -74,12 +74,13 @@ describe('DevicesService', () => {
     });
   });
 
-  describe('createDevice', () => {
+  describe('register Device', () => {
     it('should correctly call the repository with device data and return the created device', async () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
         deviceType: 'Chrome on Window',
+        fcmToken: 'some-fcm-token',
       };
 
       const expectedCreatedDevice = {
@@ -91,21 +92,20 @@ describe('DevicesService', () => {
         updated_at: new Date(),
       };
 
-      mockDevicesRepository.createDevice.mockResolvedValue(expectedCreatedDevice);
+      mockDevicesRepository.registerDevice.mockResolvedValue(expectedCreatedDevice);
 
-      const result = await service.createDevice(deviceData, {} as never);
+      const result = await service.registerDevice(deviceData, {} as never);
 
-      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as never);
+      expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
     });
-  });
 
-  describe('createDevice', () => {
     it('should correctly call the repository with device data and return the created device', async () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
         deviceType: 'Chrome on Window',
+        fcmToken: 'some-fcm-token',
       };
 
       const expectedCreatedDevice = {
@@ -113,15 +113,16 @@ describe('DevicesService', () => {
         user_id: deviceData.userId,
         ip_address: deviceData.ipAddress,
         device_type: deviceData.deviceType,
+        fcm_token: deviceData.fcmToken,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
-      mockDevicesRepository.createDevice.mockResolvedValue(expectedCreatedDevice);
+      mockDevicesRepository.registerDevice.mockResolvedValue(expectedCreatedDevice);
 
-      const result = await service.createDevice(deviceData, {} as never);
+      const result = await service.registerDevice(deviceData, {} as never);
 
-      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as never);
+      expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
     });
   });
