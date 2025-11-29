@@ -279,7 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-
 model RegisterStartBody {
   name: string;
   email: string;
@@ -770,6 +769,22 @@ model TweetWithReplyTo extends Tweet {
   replyToTweet: CompactTweet | null;
 }
 
+model AllMatchingUsers {
+  @doc("Paginated list of all matching users (default 20 per page)")
+  users: UserMetadataWithFollowInfo[];
+}
+
+model TopHashtags {
+  @doc("Top 3 relevant hashtags for the search query")
+  @maxItems(3)
+  hashtags: string[];
+}
+
+enum SearchTab {
+  TOP: "top",
+  LATEST: "latest",
+  MEDIA: "media",
+}
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1595,7 +1610,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1739,4 +1754,56 @@ namespace Conversations {
   op getUnseenCounts(): DataResponse<{
     count: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Search")
+@route("/search")
+@useAuth(BearerAuth)
+namespace Search {
+  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @get
+  @route("/hashtags/top")
+  op getTopHashtags(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopHashtags>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get all users matching the search query - returns paginated user results")
+  @get
+  @route("/users")
+  op searchUsers(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<AllMatchingUsers>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @get
+  @route("/tweets")
+  op searchTweets(
+    @doc("The search query")
+    @query
+    query: string,
+
+    @doc("Tab type: top (default) | latest | media ")
+    @query
+    tab?: SearchTab,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<Tweet[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
