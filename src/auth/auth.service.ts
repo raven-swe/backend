@@ -29,7 +29,6 @@ import { hashPassword, generateAndStoreOtp } from './utils';
 import { DevicesService } from 'src/devices/devices.service';
 import { OtpType } from 'src/email/interfaces';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { Device } from 'src/devices/interfaces';
 import { RefreshToken } from 'src/refresh-tokens/interfaces';
 import { CachedRegistrationData, CachedPasswordResetData } from './interfaces';
 import { NewUser } from 'src/users/interfaces';
@@ -38,6 +37,8 @@ import type { RequestUser } from '../common/interfaces';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UsersRepository } from 'src/users/users.repository';
+import { SessionsService } from 'src/sessions/sessions.service';
+import { Session } from 'src/sessions/interfaces';
 
 @Injectable()
 export class AuthService {
@@ -48,6 +49,7 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly jwtService: JwtService,
     private readonly devicesService: DevicesService,
+    private readonly sessionService: SessionsService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly recaptchaService: RecaptchaService,
     private readonly usersRepository: UsersRepository,
@@ -187,16 +189,16 @@ export class AuthService {
     const tokenHash = crypto.createHash('sha256').update(randomToken).digest('hex');
     const refreshToken: RefreshToken = {
       userId: BigInt(0), //placeholders to be set in transaction
-      deviceId: BigInt(0),
+      sessionId: BigInt(0),
       tokenHash: tokenHash,
       expiresAt: new Date(AUTH_CONFIG.REFRESH_TOKEN_TTL + Date.now()),
     };
-    const newDevice: Device = {
+    const newSession: Session = {
       userId: BigInt(0),
       ipAddress: ipAddress || 'unknown',
-      deviceType: deviceType,
+      userAgent: deviceType,
     };
-    const userId = await this.createUserAndDeviceAndToken(userData, newDevice, refreshToken);
+    const userId = await this.createUserAndSessionAndToken(userData, newSession, refreshToken);
     const accessToken = await this.jwtService.signAsync({ id: userId.toString() });
 
     // clean up redis entry
@@ -429,28 +431,28 @@ export class AuthService {
   }
 
   //naming can be better ofc :)
-  private async createUserAndDeviceAndToken(
+  private async createUserAndSessionAndToken(
     newUser: NewUser,
-    newDevice: Device,
+    newSession: Session,
     refreshToken: RefreshToken,
   ): Promise<bigint> {
     return await this.prisma.$transaction(async (tx) => {
       const { id: userId } = await this.usersService.createUser(newUser, tx);
       this.logger.log(`User created with ID: ${userId}`);
-      newDevice.userId = userId;
+      newSession.userId = userId;
 
       await tx.profile.create({
         data: { userId, displayName: newUser.name },
       });
       this.logger.log(`Profile created for user ID: ${userId} with display name: ${newUser.name}`);
 
-      const { id: deviceId } = await this.devicesService.createDevice(newDevice, tx);
-      this.logger.log(`Device created with ID: ${deviceId}`);
+      const { id: sessionId } = await this.sessionService.createSession(newSession, tx);
+      this.logger.log(`Session created with ID: ${sessionId}`);
 
       refreshToken.userId = userId;
-      refreshToken.deviceId = deviceId;
+      refreshToken.sessionId = sessionId;
       await this.refreshTokensService.createRefreshToken(refreshToken, tx);
-      this.logger.log(`Refresh token created for user ID: ${userId} and device ID: ${deviceId}`);
+      this.logger.log(`Refresh token created for user ID: ${userId} and session ID: ${sessionId}`);
 
       return userId;
     });
@@ -483,20 +485,20 @@ export class AuthService {
       this.generateRefreshTokenWithExpiry(refreshTokenExpiresIn);
 
     await this.prisma.$transaction(async (tx) => {
-      const userDevice = await tx.userDevice.create({
+      const session = await tx.session.create({
         data: {
           userId: BigInt(user.id),
-          deviceType: deviceType,
           ipAddress: ipAddress,
+          userAgent: deviceType,
         },
       });
 
       await tx.refreshToken.create({
         data: {
           userId: BigInt(user.id),
-          deviceId: userDevice.id,
           tokenHash: hashedRefreshToken,
           expiresAt: expiresAt,
+          sessionId: session.id,
         },
       });
     });
@@ -581,16 +583,24 @@ export class AuthService {
     return { refreshToken: newRefreshToken, accessToken };
   }
 
-  async clearRefreshToken(userId: string, refreshToken: string) {
+  async logout(userId: bigint, refreshToken: string, fcmToken?: string) {
     const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
     const token = await this.getTokenByHash(hashedRefreshToken);
     if (token) {
-      await this.prisma.$transaction([
-        this.prisma.refreshToken.delete({
-          where: { id: BigInt(token.id), userId: BigInt(userId) },
-        }),
-        this.prisma.userDevice.delete({ where: { id: BigInt(token.deviceId) } }),
-      ]);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refreshToken.delete({ where: { id: token.id } });
+        await tx.session.delete({ where: { id: token.sessionId!, userId } });
+        if (fcmToken) {
+          await tx.userDevice.update({
+            where: {
+              fcmToken: fcmToken,
+            },
+            data: {
+              userId: null,
+            },
+          });
+        }
+      });
     }
   }
 

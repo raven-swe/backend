@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Device } from '../devices/interfaces';
 import { Prisma } from '@prisma/client';
+import { Device } from './interfaces';
 
 @Injectable()
 export class DevicesRepository {
@@ -26,15 +26,21 @@ export class DevicesRepository {
     return deletedCount;
   }
 
-  //allows passing a transactional client, service is responsible for this, else it defaults to normal prisma client
-  async createDevice(device: Device, prismaClient: Prisma.TransactionClient = this.prisma) {
-    const { userId, ipAddress, deviceType } = device;
-    return prismaClient.userDevice.create({
-      data: {
-        userId: userId,
-        ipAddress: ipAddress,
-        deviceType: deviceType,
+  async registerDevice(
+    { userId, fcmToken, ipAddress, deviceType }: Device,
+
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    const device = await tx.userDevice.upsert({
+      where: { fcmToken },
+      update: { userId },
+      create: {
+        userId,
+        fcmToken: fcmToken,
+        ipAddress,
+        deviceType,
       },
     });
+    return device;
   }
 }
