@@ -83,6 +83,7 @@ describe('DevicesController', () => {
       expect(result).toEqual({
         message: `Push notifications ${enable ? 'enabled' : 'disabled'} successfully.`,
       });
+      expect(result).toEqual(expectedResult);
     });
   });
 });
