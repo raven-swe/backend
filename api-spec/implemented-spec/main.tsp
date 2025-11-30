@@ -2044,3 +2044,20 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
+
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
