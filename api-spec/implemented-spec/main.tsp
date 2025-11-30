@@ -279,7 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-
 model RegisterStartBody {
   name: string;
   email: string;
@@ -299,6 +298,14 @@ model DataResponseWithPagination<T> {
 
 model MessageResponse<TMessage extends string> {
   ...OkResponse;
+  ...Body<{
+    success: true;
+    message?: TMessage; // optional message field on success
+  }>;
+}
+
+model MessageCreatedResponse<TMessage extends string> {
+  ...CreatedResponse;
   ...Body<{
     success: true;
     message?: TMessage; // optional message field on success
@@ -953,6 +960,7 @@ namespace Auth {
     @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
+      fcmToken?: string;
     },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
@@ -1604,7 +1612,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1748,4 +1756,21 @@ namespace Conversations {
   op getUnseenCounts(): DataResponse<{
     count: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }

@@ -16,11 +16,12 @@ export class DevicesController {
     @DeviceType() deviceType: string,
     @Body() deviceDto: RegisterDeviceDto,
   ) {
-    return this.devicesService.registerDevice({
+    await this.devicesService.registerDevice({
       fcmToken: deviceDto.fcmToken,
       userId: BigInt(user.id),
       ipAddress,
       deviceType,
     });
+    return { message: 'Device registered successfully for push notifications.' };
   }
 }

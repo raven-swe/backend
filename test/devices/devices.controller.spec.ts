@@ -53,7 +53,7 @@ describe('DevicesController', () => {
         ipAddress,
         deviceType,
       });
-      expect(result).toEqual(expectedResult);
+      expect(result).toEqual({ message: 'Device registered successfully for push notifications.' });
     });
   });
 });

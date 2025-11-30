@@ -845,6 +845,14 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model MessageCreatedResponse<TMessage extends string> {
+  ...CreatedResponse;
+  ...Body<{
+    success: true;
+    message?: TMessage; // optional message field on success
+  }>;
+}
+
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
@@ -988,6 +996,7 @@ namespace Auth {
     @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
+      fcmToken?: string;
     },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
@@ -2184,6 +2193,23 @@ namespace Media {
         message: string;
       }>
     | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
