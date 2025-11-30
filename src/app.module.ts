@@ -30,6 +30,8 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
+import { SseController } from './conversations/sse.controller';
+import cors from 'cors';
 
 @Module({
   imports: [
@@ -98,5 +100,15 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+
+    consumer
+      .apply(
+        cors({
+          origin: '*',
+          methods: 'GET,OPTIONS',
+          credentials: true,
+        }),
+      )
+      .forRoutes(SseController);
   }
 }
