@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DomainEventsService } from './domain-events.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DOMAIN_EVENT_NAMES,
@@ -10,7 +10,7 @@ import {
   TweetRetweetedEvent,
   UserFollowedEvent,
   UserMentionedEvent,
-} from './interfaces/event.interface';
+} from 'src/events/interfaces/event.interface';
 
 describe('DomainEventsService', () => {
   let domainEventsService: DomainEventsService;
