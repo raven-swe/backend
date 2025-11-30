@@ -668,7 +668,7 @@ model NotificationActorSummary {
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
-  totalActorCount: int32;
+  totalCount: int32;
 }
 
 @doc("Encapsulates the content payload of the notification.")
