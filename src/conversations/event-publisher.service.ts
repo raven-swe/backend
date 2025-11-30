@@ -35,7 +35,7 @@ export class EventPublisherService {
 
     for (const user of participants) {
       this.logger.debug(`Publishing dm.new_message to user ${user.user.id}`);
-      this.sse.publish(user.user.id.toString(), {
+      await this.sse.publish(user.user.id.toString(), {
         event: 'dm.new_message',
         data: {
           messageId: message.id.toString(),
@@ -55,7 +55,7 @@ export class EventPublisherService {
         this.logger.debug(`Publishing unseen_conversations_count to user ${user.user.id}`);
         const unseenCount = await this.conversationsService.countUnseenConversations(user.user.id);
 
-        this.sse.publish(user.user.id.toString(), {
+        await this.sse.publish(user.user.id.toString(), {
           event: 'dm.unseen_conversations_count',
           data: {
             count: unseenCount,
