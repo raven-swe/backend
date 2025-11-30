@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
-import { DmGateway } from './dm.gateway';
-import { ConversationsService } from '../conversations.service';
-import { MessagesService } from '../messages/messages.services';
-import { EventPublisherService } from '../event-publisher.service';
+import { DmGateway } from 'src/conversations/gateways/dm.gateway';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { MessagesService } from 'src/conversations/messages/messages.services';
+import { EventPublisherService } from 'src/conversations/event-publisher.service';
 import { Server, Socket } from 'socket.io';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
-} from '../constants/conversation-constants';
+} from 'src/conversations/constants/conversation-constants';
 import { WsJwtGuard } from 'src/auth/guards';
 
 describe('DmGateway', () => {

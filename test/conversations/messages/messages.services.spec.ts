@@ -4,14 +4,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { MessagesService } from './messages.services';
-import { ConversationsRepository } from '../conversations.repository';
-import { MessagesRepository } from './messages.repository';
+import { MessagesService } from 'src/conversations/messages/messages.services';
+import { ConversationsRepository } from 'src/conversations/conversations.repository';
+import { MessagesRepository } from 'src/conversations/messages/messages.repository';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
-} from '../constants/conversation-constants';
+} from 'src/conversations/constants/conversation-constants';
 
 describe('MessagesService', () => {
   let service: MessagesService;
