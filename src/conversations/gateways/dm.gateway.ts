@@ -150,6 +150,8 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
+    await this.publisher.publishUnseenCountEvent(BigInt(user.id));
+
     const { lastSeenMessageId, seenAt, username, unseenCount } = res;
 
     const prev = (client.data as { currentConversationId: string }).currentConversationId;

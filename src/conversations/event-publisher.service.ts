@@ -11,6 +11,18 @@ export class EventPublisherService {
     private readonly conversationsService: ConversationsService,
   ) {}
 
+  async publishUnseenCountEvent(userId: bigint) {
+    this.logger.log(`Publishing unseen_conversations_count to user ${userId}`);
+    const unseenCount = await this.conversationsService.countUnseenConversations(userId);
+
+    await this.sse.publish(userId.toString(), {
+      event: 'dm.unseen_conversations_count',
+      data: {
+        count: unseenCount,
+      },
+    });
+  }
+
   async publishNewMessagePreview(
     conversationId: string,
     message: {
@@ -34,7 +46,7 @@ export class EventPublisherService {
     }
 
     for (const user of participants) {
-      this.logger.debug(`Publishing dm.new_message to user ${user.user.id}`);
+      this.logger.log(`Publishing dm.new_message to user ${user.user.id}`);
       await this.sse.publish(user.user.id.toString(), {
         event: 'dm.new_message',
         data: {
@@ -52,15 +64,7 @@ export class EventPublisherService {
       });
 
       if (user.user.id !== message.userId) {
-        this.logger.debug(`Publishing unseen_conversations_count to user ${user.user.id}`);
-        const unseenCount = await this.conversationsService.countUnseenConversations(user.user.id);
-
-        await this.sse.publish(user.user.id.toString(), {
-          event: 'dm.unseen_conversations_count',
-          data: {
-            count: unseenCount,
-          },
-        });
+        await this.publishUnseenCountEvent(user.user.id);
       }
     }
     this.logger.log(`Finished publishing message preview for conversation ${conversationId}`);
