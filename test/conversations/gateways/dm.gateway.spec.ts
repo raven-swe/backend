@@ -31,6 +31,9 @@ describe('DmGateway', () => {
     emit: jest.fn(),
     join: jest.fn(),
     leave: jest.fn(),
+    to: jest.fn().mockReturnValue({
+      emit: jest.fn(),
+    }),
   } as unknown as Socket;
 
   const mockServer = {
@@ -541,6 +544,252 @@ describe('DmGateway', () => {
       expect(mockSocket.leave).toHaveBeenCalledWith('2');
       expect(mockSocket.join).toHaveBeenCalledWith('1');
       expect(mockSocket.data).toHaveProperty('currentConversationId', '1');
+    });
+  });
+
+  describe('typing_start', () => {
+    const payload = {
+      conversationId: '2',
+    };
+
+    beforeEach(() => {
+      mockSocket.data = { user: mockUser };
+    });
+
+    it('should successfully broadcast typing indicator to other users', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(conversationsService.assertParticipant).toHaveBeenCalledWith('6', '2');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+      expect(mockSocket.to).toHaveBeenCalledWith('2');
+      expect(mockSocket.emit).not.toHaveBeenCalled();
+    });
+
+    it('should emit user_typing event with correct payload', async () => {
+      const emitMock = jest.fn();
+      const toMock = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+      mockSocket.to = toMock;
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(emitMock).toHaveBeenCalledWith('user_typing', {
+        conversationId: '2',
+        username: 'layla',
+      });
+    });
+
+    it('should not leave previous room if already in the same conversation', async () => {
+      mockSocket.data = { user: mockUser, currentConversationId: '2' };
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.leave).not.toHaveBeenCalled();
+      expect(mockSocket.join).not.toHaveBeenCalled();
+    });
+
+    it('should leave previous room and join new one when switching conversations', async () => {
+      mockSocket.data = { user: mockUser, currentConversationId: '1' };
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.leave).toHaveBeenCalledWith('1');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+      expect(mockSocket.data).toHaveProperty('currentConversationId', '2');
+    });
+
+    it('should emit error when conversation ID is invalid', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(null);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
+      });
+    });
+
+    it('should emit error when user is blocked', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
+        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
+      });
+    });
+
+    it('should emit error when access is forbidden', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(false);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
+      });
+    });
+
+    it('should emit error when assertParticipant fails', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'UNKNOWN_ERROR' });
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
+        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
+      });
+    });
+
+    it('should log typing start event', async () => {
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('typing_start event'));
+    });
+
+    it('should not broadcast if participant validation fails', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(null);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.to).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('typing_stop', () => {
+    const payload = {
+      conversationId: '2',
+    };
+
+    beforeEach(() => {
+      mockSocket.data = { user: mockUser, currentConversationId: '2' };
+    });
+
+    it('should successfully broadcast typing stop indicator to other users', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(conversationsService.assertParticipant).toHaveBeenCalledWith('6', '2');
+      expect(mockSocket.emit).not.toHaveBeenCalled();
+    });
+
+    it('should emit user_typing_stop event with correct payload', async () => {
+      const emitMock = jest.fn();
+      const toMock = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+      mockSocket.to = toMock;
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(emitMock).toHaveBeenCalledWith('user_typing_stop', {
+        conversationId: '2',
+        username: 'layla',
+      });
+    });
+
+    it('should emit error when conversation ID is invalid', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(null);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
+      });
+    });
+
+    it('should emit error when user is blocked', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
+        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
+      });
+    });
+
+    it('should emit error when access is forbidden', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(false);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
+      });
+    });
+
+    it('should emit error when assertParticipant fails', async () => {
+      conversationsService.assertParticipant.mockResolvedValue({ error: 'ASSERT_FAILED' });
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
+        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
+      });
+    });
+
+    it('should log typing stop event', async () => {
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('typing_stop event'));
+    });
+
+    it('should not broadcast if participant validation fails', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(null);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(mockSocket.to).not.toHaveBeenCalled();
+    });
+
+    it('should broadcast username in stop event (lightweight)', async () => {
+      const emitMock = jest.fn();
+      const toMock = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+      mockSocket.to = toMock;
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStop(mockSocket, payload);
+
+      expect(emitMock).toHaveBeenCalledWith('user_typing_stop', {
+        conversationId: '2',
+        username: 'layla',
+      });
+
+      const callArgs = emitMock.mock.calls[0] as Array<unknown>;
+      const eventData = callArgs?.[1] as Record<string, unknown>;
+      expect(Object.keys(eventData || {})).toHaveLength(2);
     });
   });
 });
