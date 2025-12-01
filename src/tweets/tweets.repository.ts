@@ -730,4 +730,25 @@ export class TweetsRepository {
 
     return tweets;
   }
+
+  async getTopTweetsByQuery(currentUserId: bigint, query: string, limit: number, cursor?: string) {
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        content: {
+          search: query,
+        },
+        isDeleted: false,
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+      take: limit,
+    });
+
+    const tweetDtos = tweets.map((tweet) => this.mapToTweetDto(tweet));
+    return tweetDtos;
+  }
 }

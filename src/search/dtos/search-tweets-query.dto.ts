@@ -1,4 +1,4 @@
-import { IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export enum SearchTab {
   Top = 'top',
@@ -10,12 +10,7 @@ export class SearchTweetsQueryDto {
   @IsString()
   query: string;
 
-  @IsString()
+  @IsEnum(SearchTab)
+  @IsOptional()
   tab?: SearchTab;
-
-  @IsString()
-  limit?: string;
-
-  @IsString()
-  cursor?: string;
 }

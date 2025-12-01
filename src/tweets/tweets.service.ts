@@ -730,4 +730,8 @@ export class TweetsService {
       pagination,
     };
   }
+
+  async getTopTweetsByQuery(currentUserId: bigint, query: string, limit: number, cursor?: string) {
+    return this.tweetsRepository.getTopTweetsByQuery(currentUserId, query, limit, cursor);
+  }
 }

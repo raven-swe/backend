@@ -24,8 +24,16 @@ export class SearchController {
   async searchTweets(
     @User() user: RequestUser,
     @Query() searchTweetsQueryDto: SearchTweetsQueryDto,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const currentUserId = BigInt(user.id);
-    return this.searchService.searchTweets(currentUserId, searchTweetsQueryDto);
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    return this.searchService.searchTweets(
+      currentUserId,
+      searchTweetsQueryDto,
+      parsedLimit,
+      cursor,
+    );
   }
 }
