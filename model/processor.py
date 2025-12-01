@@ -154,7 +154,7 @@ class TweetProcessor:
                     "id": i + 1,
                     "content": text,
                     "top_class": "General",
-                    "error": str(e)
+                    "err": str(e)
                 })
 
         final_tracker = self.merge_similar_keywords(keyword_tracker)
