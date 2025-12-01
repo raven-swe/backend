@@ -19,3 +19,4 @@ docker-compose.yml
 docker-compose.dev.yml
 
 .dockerignore
+./model
