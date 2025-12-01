@@ -33,7 +33,7 @@ class TrendingKeyword(BaseModel):
     top_related_topics: List[TopicInfo] = Field(..., description="Top related topics for this keyword")
 
 class BatchMeta(BaseModel):
-    totaltweets: int = Field(..., description="Total number of tweets processed")
+    total_tweets: int = Field(..., description="Total number of tweets processed")
 
 class ProcessedTweet(BaseModel):
     id: int = Field(..., description="Tweet ID")

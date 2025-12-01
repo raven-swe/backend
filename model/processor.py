@@ -154,7 +154,7 @@ class TweetProcessor:
                     "id": i + 1,
                     "content": text,
                     "top_class": "General",
-                    "err": str(e)
+                    "error": str(e)
                 })
 
         final_tracker = self.merge_similar_keywords(keyword_tracker)
@@ -186,7 +186,7 @@ class TweetProcessor:
 
         return {
             "batch_meta": {
-                "totaltweets": len(processed_tweets),
+                "total_tweets": len(processed_tweets),
             },
             "trending_keywords": trending_keywords,
             "tweets_detail": processed_tweets
