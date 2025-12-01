@@ -18,7 +18,7 @@ export class ConversationsService {
     private readonly usersRepository: UsersRepository,
   ) {}
 
-  async getUserConversations(userId: bigint, limit: number, cursor: string) {
+  async getUserConversations(userId: bigint, limit: number = 20, cursor: string) {
     let decoded:
       | {
           conversationId: string;
