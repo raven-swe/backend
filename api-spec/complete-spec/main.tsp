@@ -653,9 +653,6 @@ model TweetWithoutQuotedTweet {
 
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
-  @doc("Show all types of notifications.")
-  all,
-
   @doc("Show only conversational notifications like replies, mentions, and quotes.")
   mentions,
 }
@@ -673,17 +670,14 @@ model NotificationActorSummary {
 
 @doc("Encapsulates the content payload of the notification.")
 model NotificationTweetSummary {
-  @doc("The actual tweet objects to display as previews.\n LIMIT: Usually contains only 1 item (the latest one), even if totalCount is higher.")
-  primaryTweets: CompactTweet[];
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
 
   @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
   totalCount: int32;
 
   @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
   subjectIds: string[];
-
-  @doc("The context tweet (e.g., the parent of a reply).")
-  parentTweet?: CompactTweet;
 }
 
 @doc("Represents a single notification item for a user.")
@@ -1706,8 +1700,8 @@ namespace Notifications {
     ...CursorPaginationParameters,
 
     @query
-    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
-    filter?: NotificationFilter = NotificationFilter.all,
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
   ):
     | NotificationsListResponse
     | BadRequestResponse
@@ -1723,14 +1717,14 @@ namespace Notifications {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/mark-all-seen")
+  @route("/seen")
   @doc("Mark all notifications as seen")
   op markAllNotificationsAsSeen(): DataResponse<{
     updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/{notificationId}/mark-seen")
+  @route("/{notificationId}/seen")
   @doc("Mark a specific notification as seen by its ID")
   op markNotificationAsSeen(@path notificationId: string):
     | DataResponse<{
