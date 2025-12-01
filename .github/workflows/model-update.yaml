@@ -16,8 +16,8 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Test SSH
-        run: ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo 'SSH connection established'"
+        run: ssh -o StrictHostKeyChecking=no root@${{ secrets.SSH_HOST }} "echo 'SSH connection established'"
 
       - name: Run command on remote server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /root/raven-backend/raven-backend && git pull origin feat/model-api"
+          ssh -o StrictHostKeyChecking=no root@${{ secrets.SSH_HOST }} "cd /root/raven-backend/raven-backend && git pull origin feat/model-api"
