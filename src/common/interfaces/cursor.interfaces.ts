@@ -21,3 +21,8 @@ export type FeedCursor = {
   createdAt: Date;
   id: string;
 };
+
+export type NotificationCursor = {
+  latestEventAt: Date;
+  id: string;
+};
