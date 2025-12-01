@@ -186,7 +186,7 @@ class TweetProcessor:
 
         return {
             "batch_meta": {
-                "total_tweets": len(processed_tweets),
+                "totaltweets": len(processed_tweets),
             },
             "trending_keywords": trending_keywords,
             "tweets_detail": processed_tweets
