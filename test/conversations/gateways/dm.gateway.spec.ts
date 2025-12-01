@@ -59,6 +59,7 @@ describe('DmGateway', () => {
           provide: EventPublisherService,
           useValue: {
             publishNewMessagePreview: jest.fn(),
+            publishUnseenCountEvent: jest.fn(),
           },
         },
       ],

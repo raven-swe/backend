@@ -109,6 +109,7 @@ describe('MessagesService', () => {
 
       expect(conversationsRepository.getConversation).toHaveBeenCalledWith(conversationId);
       expect(messagesRepository.getMessages).toHaveBeenCalledWith(
+        userId,
         conversationId,
         limit + 1,
         undefined,
@@ -167,9 +168,14 @@ describe('MessagesService', () => {
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, cursor);
 
-      expect(messagesRepository.getMessages).toHaveBeenCalledWith(conversationId, limit + 1, {
-        messageId: '5',
-      });
+      expect(messagesRepository.getMessages).toHaveBeenCalledWith(
+        userId,
+        conversationId,
+        limit + 1,
+        {
+          messageId: '5',
+        },
+      );
       expect(result.items.messages).toHaveLength(1);
     });
 
