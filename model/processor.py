@@ -127,7 +127,7 @@ class TweetProcessor:
                 for hashtag in hashtags:
                     clean_hashtag = hashtag[1:]
                     if clean_hashtag:
-                        keyword_tracker[hashtag][trend_category]["score"] += score
+                        keyword_tracker[hashtag][trend_category]["score"] += 1.0
                         keyword_tracker[hashtag][trend_category]["tweet_ids"].add(tweet_id)
 
                 keywords_raw = self.kw_model.extract_keywords(
@@ -139,23 +139,21 @@ class TweetProcessor:
                     diversity=0.65
                 )
                 
-                keywords_list = []
+                keywords_with_scores = []
                 for k in keywords_raw:
                     word = k[0]
+                    keybert_score = k[1]
                     if word.lower() not in CUSTOM_IGNORE_LIST:
-                        keywords_list.append(word)
+                        keywords_with_scores.append((word, keybert_score))
                 
-                if not keywords_list:
-                    keywords_list = [k[0] for k in keywords_raw]
+                if not keywords_with_scores:
+                    keywords_with_scores = [(k[0], k[1]) for k in keywords_raw]
 
-                filtered_keywords = []
-                
-                for kw in keywords_list:
+                for kw, keybert_score in keywords_with_scores:
                     if not re.fullmatch(r'[A-Za-z]+(?:\s+[A-Za-z]+)*', kw):
                         continue
                     
-                    filtered_keywords.append(kw)
-                    keyword_tracker[kw][trend_category]["score"] += score
+                    keyword_tracker[kw][trend_category]["score"] += keybert_score
                     keyword_tracker[kw][trend_category]["tweet_ids"].add(tweet_id)
 
                 processed_tweets.append({
