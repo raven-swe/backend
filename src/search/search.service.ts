@@ -4,6 +4,7 @@ import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
 import { SearchTab, SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
 import { TweetDto } from 'src/tweets/dtos';
 import { TweetsService } from 'src/tweets/tweets.service';
+import { prepareSearchQuery } from './utils/search-query.util';
 
 @Injectable()
 export class SearchService {
@@ -68,22 +69,44 @@ export class SearchService {
       );
     }
 
-    let tweets: TweetDto[] = [];
-    switch (tab) {
-      case SearchTab.Top:
-        tweets = await this.tweetsService.getTopTweetsByQuery(currentUserId, query, limit, cursor);
-        break;
-      case SearchTab.Latest:
-        tweets = await this.searchTweetsLatest(currentUserId, query, limit, cursor);
-        break;
-      case SearchTab.Media:
-        tweets = await this.searchTweetsMedia(currentUserId, query, limit, cursor);
-        break;
-      default:
-        tweets = await this.tweetsService.getTopTweetsByQuery(currentUserId, query, limit, cursor);
+    const cleanedQuery = prepareSearchQuery(query);
+    if (!cleanedQuery) {
+      throw new HttpException(
+        {
+          message: SEARCH_ERROR_MESSAGES.INVALID_SEARCH_QUERY,
+          code: SEARCH_ERROR_CODES.INVALID_SEARCH_QUERY,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    return { tweets };
+    let tweets: TweetDto[] = [];
+    let pagination;
+    switch (tab) {
+      case SearchTab.Top:
+        ({ items: tweets, pagination } = await this.tweetsService.getTopTweetsByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          cursor,
+        ));
+        break;
+      case SearchTab.Latest:
+        tweets = await this.searchTweetsLatest(currentUserId, cleanedQuery, limit, cursor);
+        break;
+      case SearchTab.Media:
+        tweets = await this.searchTweetsMedia(currentUserId, cleanedQuery, limit, cursor);
+        break;
+      default:
+        ({ items: tweets, pagination } = await this.tweetsService.getTopTweetsByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          cursor,
+        ));
+    }
+
+    return { tweets, pagination };
   }
 
   // async searchTweetsTop(currentUserId: bigint, query: string, limit?: string, cursor?: string) {

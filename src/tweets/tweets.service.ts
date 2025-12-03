@@ -548,7 +548,12 @@ export class TweetsService {
     return this.getTweetRelations('quotes', tweetId, currentUserId, limit, prevCursor);
   }
 
-  getTweetReplies(tweetId: bigint, currentUserId: bigint, limit: number = 20, prevCursor?: string) {
+  async getTweetReplies(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
     return this.getTweetRelations('replies', tweetId, currentUserId, limit, prevCursor);
   }
 
@@ -731,7 +736,43 @@ export class TweetsService {
     };
   }
 
-  async getTopTweetsByQuery(currentUserId: bigint, query: string, limit: number, cursor?: string) {
-    return this.tweetsRepository.getTopTweetsByQuery(currentUserId, query, limit, cursor);
+  async getTopTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    let decodedCursor: TweetRelationsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
+            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const items = await this.tweetsRepository.getTopTweetsByQuery(
+      currentUserId,
+      query,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
+      return {
+        createdAt: tweet.createdAt,
+        id: tweet.id.toString(),
+      };
+    });
+
+    this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
+
+    return { items, pagination };
   }
 }

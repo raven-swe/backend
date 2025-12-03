@@ -103,15 +103,6 @@ async function main() {
       profile: { create: { displayName: 'Tasneem', bio: 'Life is good.' } },
     },
     {
-      username: 'habiba_ayman',
-      email: 'habiba@gmail.com',
-      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
-      birthdate: new Date('2004-07-04'),
-      phone: '01001052319',
-      countryId: egypt?.id,
-      profile: { create: { displayName: 'Habiba', bio: 'Loves nature and art.' } },
-    },
-    {
       username: 'anasbrahim',
       email: 'anas@gmail.com',
       passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',

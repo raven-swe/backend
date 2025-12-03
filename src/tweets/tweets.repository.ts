@@ -731,13 +731,50 @@ export class TweetsRepository {
     return tweets;
   }
 
-  async getTopTweetsByQuery(currentUserId: bigint, query: string, limit: number, cursor?: string) {
+  async getTopTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    cursor?: TweetRelationsCursor,
+  ) {
+    const cursorCondition = cursor
+      ? Prisma.sql`
+        AND (
+          t.created_at < ${cursor.createdAt}::timestamp
+          OR (
+            t.created_at = ${cursor.createdAt}::timestamp 
+            AND t.id <= ${BigInt(cursor.id)}
+          )
+        )
+      `
+      : Prisma.empty;
+
+    const sqlQuery = Prisma.sql`
+    SELECT t.id, t.created_at 
+    FROM tweets t
+    WHERE t.search_document @@ to_tsquery('english', ${query})
+      AND t.is_deleted = false
+      ${cursorCondition}
+    ORDER BY t.created_at DESC, t.id DESC
+    LIMIT ${limit}
+  `;
+
+    console.log('Cursor:', cursor);
+
+    const tweetIds = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        created_at: Date;
+      }[]
+    >(sqlQuery);
+
+    if (tweetIds.length === 0) {
+      return [];
+    }
+
     const tweets = await this.prisma.tweet.findMany({
       where: {
-        content: {
-          search: query,
-        },
-        isDeleted: false,
+        id: { in: tweetIds.map((row) => row.id) },
       },
       include: {
         ...tweetInclude(currentUserId),
@@ -745,10 +782,14 @@ export class TweetsRepository {
           include: tweetInclude(currentUserId),
         },
       },
-      take: limit,
     });
 
-    const tweetDtos = tweets.map((tweet) => this.mapToTweetDto(tweet));
-    return tweetDtos;
+    // Maintain the order from the search query
+    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
+    const orderedTweets = tweetIds
+      .map((row) => tweetMap.get(row.id.toString()))
+      .filter((tweet) => tweet !== undefined);
+
+    return orderedTweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 }
