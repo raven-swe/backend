@@ -219,6 +219,7 @@ class TweetProcessor:
         trending_hashtags.sort(key=lambda x: x["general_trend_score"], reverse=True)
         
         all_trending = trending_keywords + trending_hashtags
+        all_trending.sort(key=lambda x: x["general_trend_score"], reverse=True)
 
         return {
             "batch_meta": {
