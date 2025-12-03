@@ -13,7 +13,7 @@ import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import { Server, Socket } from 'socket.io';
 import { ConversationsService } from '../conversations.service';
 import { MessagesService } from '../messages/messages.services';
-import { EventPublisherService } from '../../sse/event-publisher.service';
+import { SseEventsService } from '../../sse/sse-events.service';
 import { WsJwtGuard } from 'src/auth/guards';
 import { SendMessageDto } from './dto/send-message.dto';
 import {
@@ -37,7 +37,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
-    private readonly publisher: EventPublisherService,
+    private readonly sseEvents: SseEventsService,
   ) {
     this.logger.log('DmGateway initialized');
   }
@@ -124,12 +124,8 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private async publishUnseenCountEvent(userId: bigint): Promise<void> {
-    this.logger.log(`Publishing unseen_conversations_count to user ${userId}`);
     const unseenCount = await this.conversationsService.countUnseenConversations(userId);
-    await this.publisher.publishToUser(userId.toString(), {
-      event: 'dm.unseen_conversations_count',
-      data: { count: unseenCount },
-    });
+    await this.sseEvents.publishUnseenCount(userId, unseenCount);
   }
 
   private async publishNewMessagePreview(
@@ -143,10 +139,6 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     sender: WsUser,
   ) {
-    this.logger.log(
-      `Publishing new message preview for conversation ${conversationId}, messageId: ${message.id}`,
-    );
-
     const participants =
       await this.conversationsService.getConversationParticipants(conversationId);
 
@@ -157,22 +149,18 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     for (const participant of participants) {
       const userId = participant.user.id;
-      this.logger.log(`Publishing dm.new_message to user ${userId}`);
 
-      await this.publisher.publishToUser(userId.toString(), {
-        event: 'dm.new_message',
-        data: {
-          messageId: message.id.toString(),
-          conversationId,
-          sender: {
-            id: message.userId.toString(),
-            username: sender.username,
-            displayName: sender.displayName,
-            avatarUrl: sender?.avatarUrl,
-          },
-          bodySnippet: message.content.slice(0, 80),
-          createdAt: message.createdAt,
+      await this.sseEvents.publishNewMessagePreview(userId, {
+        messageId: message.id.toString(),
+        conversationId,
+        sender: {
+          id: message.userId.toString(),
+          username: sender.username,
+          displayName: sender.displayName,
+          avatarUrl: sender?.avatarUrl,
         },
+        bodySnippet: message.content.slice(0, 80),
+        createdAt: message.createdAt,
       });
 
       if (userId !== message.userId) {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 import { ConversationsRepository } from './conversations.repository';
@@ -12,7 +12,7 @@ import { DmGateway } from './gateways/dm.gateway';
 import { SseModule } from '../sse/sse.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, AuthModule, SseModule],
+  imports: [UsersModule, PrismaModule, AuthModule, forwardRef(() => SseModule)],
   controllers: [ConversationsController, MessagesController],
   providers: [
     ConversationsService,
@@ -21,5 +21,6 @@ import { SseModule } from '../sse/sse.module';
     MessagesRepository,
     DmGateway,
   ],
+  exports: [ConversationsService, ConversationsRepository],
 })
 export class ConversationsModule {}
