@@ -24,6 +24,9 @@ class TweetProcessor:
     def merge_similar_keywords(self, tracker):
         keyword_list = []
         for kw, topic_data in tracker.items():
+            if kw.startswith('#'):
+                continue
+            
             total_score = sum(t["score"] for t in topic_data.values())
             all_tweet_ids = set()
             for t in topic_data.values():
@@ -84,6 +87,12 @@ class TweetProcessor:
                 for topic, stats in item["topics"].items():
                     final_tracker[kw][topic]["score"] += stats["score"]
                     final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
+
+        for kw, topic_data in tracker.items():
+            if kw.startswith('#'):
+                for topic, stats in topic_data.items():
+                    final_tracker[kw][topic]["score"] = stats["score"]
+                    final_tracker[kw][topic]["tweet_ids"] = stats["tweet_ids"]
 
         return final_tracker
 
