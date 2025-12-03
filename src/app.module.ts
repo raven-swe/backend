@@ -44,6 +44,7 @@ import { SseController } from './conversations/sse.controller';
 import { SseModule } from './sse/sse.module';
 import { SseController } from './sse/sse.controller';
 import cors from 'cors';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import cors from 'cors';
     EventsModule,
     SessionsModule,
     NotificationsModule,
+    EventsModule,
   ],
   controllers: [HealthController],
   providers: [
