@@ -49,7 +49,7 @@ export class ConversationsService {
 
     const conversationsWithBlockStatus = userConversations
       .filter((conversation) => {
-        return conversation.lastMessageId !== null || conversation.creatorId === userId;
+        return conversation.lastMessageId !== null;
       })
       .filter((conversation) => {
         const otherParticipant = conversation.conversationParticipants.find(
