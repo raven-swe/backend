@@ -56,4 +56,26 @@ export class ProfileTweetsController {
 
     return this.tweetsService.getUserLikedTweets(BigInt(user.id), username, parsedLimit, cursor);
   }
+
+  @Get('media')
+  @UseGuards(JwtAuthGuard)
+  async getUserMediaTweets(
+    @Param('username') username: string,
+    @User() user: RequestUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const parsed = Number(limit);
+    const parsedLimit =
+      Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, PAGINATION.MAX_LIMIT) // Whichever is smaller: the user's request or 100
+        : PAGINATION.DEFAULT_LIMIT;
+
+    return await this.tweetsService.getUserMediaTweets(
+      BigInt(user.id),
+      username,
+      parsedLimit,
+      cursor,
+    );
+  }
 }

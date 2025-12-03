@@ -52,6 +52,7 @@ describe('TweetsService', () => {
     getReferencedTweet: jest.fn(),
     updateTweetRetweetCount: jest.fn(),
     getUserLikedTweets: jest.fn(),
+    getMediaTweetsForUser: jest.fn(),
     validateReferences: jest.fn(),
     getTweetsByQuery: jest.fn(),
   };
@@ -1832,6 +1833,135 @@ describe('TweetsService', () => {
           decodedCursor,
         );
       });
+    });
+  });
+
+  describe('getUserMediaTweets', () => {
+    const username = 'testuser';
+    const requestingUserId = BigInt(1);
+    const targetUserId = BigInt(2);
+    const limit = 10;
+
+    const mockMediaTweets = [
+      { id: '100', content: 'Tweet with photo', createdAt: new Date('2024-01-01') },
+      { id: '101', content: 'Tweet with video', createdAt: new Date('2024-01-02') },
+    ];
+
+    it('should return paginated media tweets', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: username,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getMediaTweetsForUser.mockResolvedValue(mockMediaTweets);
+
+      const result = await service.getUserMediaTweets(requestingUserId, username, limit, undefined);
+
+      expect(mockUsersRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(mockTweetsRepository.getMediaTweetsForUser).toHaveBeenCalledWith(
+        targetUserId,
+        requestingUserId,
+        limit + 1,
+        undefined,
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination).toBeDefined();
+    });
+
+    it('should throw NOT_FOUND when user does not exist', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue(null);
+
+      await expect(
+        service.getUserMediaTweets(requestingUserId, username, limit, undefined),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw NOT_FOUND when user is deleted', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: username,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.getUserMediaTweets(requestingUserId, username, limit, undefined),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw BAD_REQUEST on invalid cursor', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: username,
+        deletedAt: null,
+      });
+      const invalidCursor = 'invalid!!!cursor';
+
+      await expect(
+        service.getUserMediaTweets(requestingUserId, username, limit, invalidCursor),
+      ).rejects.toThrow(
+        new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should decode and pass valid cursor to repository', async () => {
+      const validCursor = encodeCompositeCursor({ id: '50', createdAt: '2024-01-01T00:00:00Z' });
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: username,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getMediaTweetsForUser.mockResolvedValue([]);
+
+      await service.getUserMediaTweets(requestingUserId, username, limit, validCursor);
+
+      expect(mockTweetsRepository.getMediaTweetsForUser).toHaveBeenCalledWith(
+        targetUserId,
+        requestingUserId,
+        limit + 1,
+        { id: '50', createdAt: '2024-01-01T00:00:00Z' },
+      );
+    });
+
+    it('should correctly limit items when more than limit returned', async () => {
+      const elevenTweets = Array.from({ length: 11 }, (_, i) => ({
+        id: `${100 + i}`,
+        content: `Media tweet ${i}`,
+        createdAt: new Date(),
+      }));
+
+      mockUsersRepository.findByUsername.mockResolvedValue({
+        id: targetUserId,
+        username: username,
+        deletedAt: null,
+      });
+      mockTweetsRepository.getMediaTweetsForUser.mockResolvedValue(elevenTweets);
+
+      const result = await service.getUserMediaTweets(requestingUserId, username, limit, undefined);
+
+      expect(result.items).toHaveLength(10);
+      expect(result.pagination.hasNextPage).toBe(true);
     });
   });
 });

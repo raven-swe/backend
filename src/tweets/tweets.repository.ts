@@ -827,4 +827,37 @@ export class TweetsRepository {
 
     return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
   }
+
+  async getMediaTweetsForUser(
+    userId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    prevCursor: TweetRelationsCursor | undefined,
+  ): Promise<TweetDto[]> {
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        userId,
+        isDeleted: false,
+        tweetMedia: {
+          // TODO replace with has media if fixed
+          some: {},
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+      cursor: prevCursor
+        ? {
+            id: BigInt(prevCursor.id),
+          }
+        : undefined,
+      take: limit || 20,
+    });
+
+    return tweets.map((tweet) => this.mapToTweetDto(tweet));
+  }
 }

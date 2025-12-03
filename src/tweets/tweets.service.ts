@@ -774,4 +774,56 @@ export class TweetsService {
       decodedCursor,
     );
   }
+
+  async getUserMediaTweets(
+    requestingUserId: bigint,
+    targetUsername: string,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!targetUser || targetUser.deletedAt) {
+      // TODO remove if done on global level
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: TweetRelationsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getMediaTweetsForUser(
+      targetUser.id,
+      requestingUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
+      id: tweet.id,
+      createdAt: tweet.createdAt,
+    }));
+
+    return {
+      items: tweets.slice(0, limit),
+      pagination,
+    };
+  }
 }
