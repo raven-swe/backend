@@ -9,7 +9,7 @@ export function prepareSearchQuery(query: string): string {
   const cleaned = query
     .trim()
     .toLowerCase()
-    .replace(/[@#]/g, '')
+    .replace(/[#]/g, '')
     .replace(/[^\w\s]/g, ' ')
     .trim();
 

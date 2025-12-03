@@ -740,39 +740,13 @@ export class TweetsService {
     currentUserId: bigint,
     query: string,
     limit: number,
-    prevCursor?: string,
+    decodedCursor?: TweetRelationsCursor,
   ) {
-    let decodedCursor: TweetRelationsCursor | undefined;
-    if (prevCursor) {
-      try {
-        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
-      } catch {
-        throw new HttpException(
-          {
-            message: TWEETS_ERROR_MESSAGES.INVALID_CURSOR,
-            code: TWEETS_ERROR_CODES.INVALID_CURSOR,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    const items = await this.tweetsRepository.getTopTweetsByQuery(
+    return await this.tweetsRepository.getTopTweetsByQuery(
       currentUserId,
       query,
       limit + 1,
       decodedCursor,
     );
-
-    const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
-      return {
-        createdAt: tweet.createdAt,
-        id: tweet.id.toString(),
-      };
-    });
-
-    this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
-
-    return { items, pagination };
   }
 }

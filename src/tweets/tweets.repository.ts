@@ -759,8 +759,6 @@ export class TweetsRepository {
     LIMIT ${limit}
   `;
 
-    console.log('Cursor:', cursor);
-
     const tweetIds = await this.prisma.$queryRaw<
       {
         id: bigint;
@@ -781,6 +779,9 @@ export class TweetsRepository {
         quotedTweet: {
           include: tweetInclude(currentUserId),
         },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
       },
     });
 
@@ -790,6 +791,6 @@ export class TweetsRepository {
       .map((row) => tweetMap.get(row.id.toString()))
       .filter((tweet) => tweet !== undefined);
 
-    return orderedTweets.map((tweet) => this.mapToTweetDto(tweet));
+    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
   }
 }

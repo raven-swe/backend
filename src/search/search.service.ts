@@ -1,13 +1,18 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
 import { SearchTab, SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
-import { TweetDto } from 'src/tweets/dtos';
+import { GetTweetResponseDto, TweetDto } from 'src/tweets/dtos';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { prepareSearchQuery } from './utils/search-query.util';
+import { TweetRelationsCursor } from 'src/common/types/cursors';
+import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
+import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 
 @Injectable()
 export class SearchService {
+  private readonly logger = new Logger(SearchService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly tweetsService: TweetsService,
@@ -55,7 +60,7 @@ export class SearchService {
     currentUserId: bigint,
     searchTweetsQueryDto: SearchTweetsQueryDto,
     limit: number,
-    cursor?: string,
+    prevCursor?: string,
   ) {
     const { query, tab } = searchTweetsQueryDto;
 
@@ -70,60 +75,66 @@ export class SearchService {
     }
 
     const cleanedQuery = prepareSearchQuery(query);
-    if (!cleanedQuery) {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.INVALID_SEARCH_QUERY,
-          code: SEARCH_ERROR_CODES.INVALID_SEARCH_QUERY,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    console.log('Cleaned Query:', cleanedQuery);
+    // if (!cleanedQuery) {
+    //   throw new HttpException(
+    //     {
+    //       message: SEARCH_ERROR_MESSAGES.INVALID_SEARCH_QUERY,
+    //       code: SEARCH_ERROR_CODES.INVALID_SEARCH_QUERY,
+    //     },
+    //     HttpStatus.BAD_REQUEST,
+    //   );
+    // }
+
+    let decodedCursor: TweetRelationsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
-    let tweets: TweetDto[] = [];
-    let pagination;
+    let items: GetTweetResponseDto[] = [];
     switch (tab) {
       case SearchTab.Top:
-        ({ items: tweets, pagination } = await this.tweetsService.getTopTweetsByQuery(
+        items = await this.tweetsService.getTopTweetsByQuery(
           currentUserId,
           cleanedQuery,
           limit,
-          cursor,
-        ));
+          decodedCursor,
+        );
         break;
       case SearchTab.Latest:
-        tweets = await this.searchTweetsLatest(currentUserId, cleanedQuery, limit, cursor);
+        //  tweets = await this.searchTweetsLatest(currentUserId, cleanedQuery, limit, cursor);
         break;
       case SearchTab.Media:
-        tweets = await this.searchTweetsMedia(currentUserId, cleanedQuery, limit, cursor);
+        // tweets = await this.searchTweetsMedia(currentUserId, cleanedQuery, limit, cursor);
         break;
       default:
-        ({ items: tweets, pagination } = await this.tweetsService.getTopTweetsByQuery(
+        items = await this.tweetsService.getTopTweetsByQuery(
           currentUserId,
           cleanedQuery,
           limit,
-          cursor,
-        ));
+          decodedCursor,
+        );
     }
 
-    return { tweets, pagination };
-  }
+    const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
+      return {
+        createdAt: tweet.createdAt,
+        id: tweet.id.toString(),
+      };
+    });
 
-  // async searchTweetsTop(currentUserId: bigint, query: string, limit?: string, cursor?: string) {
-  //   // Implement the logic to search top tweets based on the query
-  //   // Please don't forget to remove tweets of blocked users
-  //   return [];
-  // }
+    this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
-  async searchTweetsLatest(currentUserId: bigint, query: string, limit?: number, cursor?: string) {
-    // Implement the logic to search latest tweets based on the query
-    // Please don't forget to remove tweets of blocked users
-    return [];
-  }
-
-  async searchTweetsMedia(currentUserId: bigint, query: string, limit?: number, cursor?: string) {
-    // Implement the logic to search media tweets based on the query
-    // Please don't forget to remove tweets of blocked users
-    return [];
+    return { items, pagination };
   }
 }
