@@ -327,4 +327,5 @@ describe('SearchService', () => {
     expect(result.items).toEqual(mockTweets);
     expect(result.pagination).toBeDefined();
   });
+
 });
