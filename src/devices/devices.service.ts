@@ -28,4 +28,10 @@ export class DevicesService {
   async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
     return this.devicesRepository.unassignDeviceFromUser(fcmToken, tx);
   }
+
+  async togglePushNotifications(fcmToken: string, userId: bigint, enable: boolean) {
+    const updatedDevice = await this.devicesRepository.togglePushNotifications(fcmToken, enable);
+    this.logger.log(`Push notifications ${enable ? 'enabled' : 'disabled'} for user ID: ${userId}`);
+    return updatedDevice;
+  }
 }

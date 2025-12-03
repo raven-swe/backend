@@ -33,7 +33,7 @@ export class DevicesRepository {
   ) {
     const device = await tx.userDevice.upsert({
       where: { fcmToken },
-      update: { userId, ipAddress, deviceType },
+      update: { userId, ipAddress, deviceType, pushEnabled: true },
       create: {
         userId,
         fcmToken: fcmToken,
@@ -54,5 +54,17 @@ export class DevicesRepository {
         pushEnabled: false,
       },
     });
+  }
+
+  async togglePushNotifications(
+    fcmToken: string,
+    pushEnabled: boolean,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    const device = await tx.userDevice.update({
+      where: { fcmToken },
+      data: { pushEnabled },
+    });
+    return device;
   }
 }
