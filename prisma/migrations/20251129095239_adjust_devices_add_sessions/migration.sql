@@ -14,8 +14,7 @@ ALTER COLUMN "device_id" DROP NOT NULL;
 -- AlterTable
 ALTER TABLE "user_devices"
 ADD COLUMN     "push_enabled" BOOLEAN NOT NULL DEFAULT true,
-ALTER COLUMN "user_id" DROP NOT NULL,
-ALTER COLUMN "fcm_token" SET NOT NULL;
+ALTER COLUMN "user_id" DROP NOT NULL;
 
 -- CreateTable
 CREATE TABLE "sessions" (
