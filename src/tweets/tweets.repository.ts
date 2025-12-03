@@ -10,6 +10,7 @@ import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/c
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
+import { PeopleSearchFilter } from 'src/search/dtos';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -735,6 +736,8 @@ export class TweetsRepository {
     currentUserId: bigint,
     query: string,
     hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
     limit: number,
     cursor?: TweetRelationsCursor,
   ) {
@@ -750,6 +753,22 @@ export class TweetsRepository {
       `
       : Prisma.empty;
 
+    // Exclude tweets from muted and blocked users if the flag is set
+    const mutedAndBlockedCondition = excludeMutedAndBlocked
+      ? Prisma.sql`
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM blocks b 
+          WHERE b.user_id = ${currentUserId} AND b.blocked_id = t.user_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM mutes m 
+          WHERE m.user_id = ${currentUserId} AND m.muted_id = t.user_id
+        )
+      `
+      : Prisma.empty;
+
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
     FROM tweets t
@@ -757,11 +776,7 @@ export class TweetsRepository {
       AND t.is_deleted = false
       ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
       ${cursorCondition}
-      AND NOT EXISTS (
-        SELECT 1 
-        FROM blocks b 
-        WHERE b.user_id = ${currentUserId} AND b.blocked_id = t.user_id
-      )
+      ${mutedAndBlockedCondition}
     ORDER BY t.created_at DESC, t.id DESC
     LIMIT ${limit}
   `;

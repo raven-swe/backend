@@ -24,6 +24,7 @@ import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
+import { PeopleSearchFilter } from 'src/search/dtos';
 
 @Injectable()
 export class TweetsService {
@@ -741,11 +742,15 @@ export class TweetsService {
     query: string,
     limit: number,
     decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
   ) {
     return await this.tweetsRepository.getTweetsByQuery(
       currentUserId,
       query,
       false,
+      excludeMutedAndBlocked,
+      peopleFilter,
       limit + 1,
       decodedCursor,
     );
@@ -756,11 +761,15 @@ export class TweetsService {
     query: string,
     limit: number,
     decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
   ) {
     return await this.tweetsRepository.getTweetsByQuery(
       currentUserId,
       query,
       true,
+      excludeMutedAndBlocked,
+      peopleFilter,
       limit + 1,
       decodedCursor,
     );

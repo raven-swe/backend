@@ -62,7 +62,7 @@ export class SearchService {
     limit: number,
     prevCursor?: string,
   ) {
-    const { query, tab } = searchTweetsQueryDto;
+    const { query, tab, peopleFilter, excludeMutedAndBlocked } = searchTweetsQueryDto;
 
     if (!query || query.trim() === '') {
       throw new HttpException(
@@ -99,6 +99,8 @@ export class SearchService {
           cleanedQuery,
           limit,
           decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
         );
         break;
       case SearchTab.Latest:
@@ -107,6 +109,8 @@ export class SearchService {
           cleanedQuery,
           limit,
           decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
         );
         break;
       case SearchTab.Media:
@@ -115,6 +119,8 @@ export class SearchService {
           cleanedQuery,
           limit,
           decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
         );
         break;
       default:
@@ -123,6 +129,8 @@ export class SearchService {
           cleanedQuery,
           limit,
           decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
         );
     }
 
