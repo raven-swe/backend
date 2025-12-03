@@ -5,6 +5,7 @@ import { DevicesService } from 'src/devices/devices.service';
 
 const mockDevicesService = {
   registerDevice: jest.fn(),
+  togglePushNotifications: jest.fn(),
 };
 
 describe('DevicesController', () => {
@@ -54,6 +55,34 @@ describe('DevicesController', () => {
         deviceType,
       });
       expect(result).toEqual({ message: 'Device registered successfully for push notifications.' });
+    });
+  });
+
+  describe('toggleDeviceNotifications', () => {
+    it('should call devicesService.togglePushNotifications with correct parameters', async () => {
+      const user: RequestUser = { id: '123' };
+      const fcmToken = 'sample-fcm-token';
+      const enable = true;
+
+      const expectedResult = {
+        id: BigInt(1),
+        userId: BigInt(123),
+        fcmToken: 'sample-fcm-token',
+        pushNotificationsEnabled: enable,
+      };
+
+      mockDevicesService.togglePushNotifications.mockResolvedValue(expectedResult);
+
+      const result = await controller.togglePushNotifications(user, { fcmToken, enable });
+
+      expect(mockDevicesService.togglePushNotifications).toHaveBeenCalledWith(
+        fcmToken,
+        BigInt(user.id),
+        enable,
+      );
+      expect(result).toEqual({
+        message: `Push notifications ${enable ? 'enabled' : 'disabled'} successfully.`,
+      });
     });
   });
 });

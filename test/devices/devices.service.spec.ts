@@ -10,6 +10,7 @@ describe('DevicesService', () => {
   const mockDevicesRepository = {
     removeAllUserDevices: jest.fn(),
     registerDevice: jest.fn(),
+    togglePushNotifications: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -124,6 +125,31 @@ describe('DevicesService', () => {
 
       expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
+    });
+  });
+
+  describe('toggleDeviceNotifications', () => {
+    it('should correctly call the repository to toggle push notifications', async () => {
+      const fcmToken = 'some-fcm-token';
+      const userId = BigInt(123);
+      const enable = true;
+
+      const expectedUpdatedDevice = {
+        id: BigInt(1),
+        user_id: userId,
+        fcm_token: fcmToken,
+        push_notifications_enabled: enable,
+        updated_at: new Date(),
+      };
+
+      mockDevicesRepository.togglePushNotifications = jest
+        .fn()
+        .mockResolvedValue(expectedUpdatedDevice);
+
+      const result = await service.togglePushNotifications(fcmToken, userId, enable);
+
+      expect(mockDevicesRepository.togglePushNotifications).toHaveBeenCalledWith(fcmToken, enable);
+      expect(result).toBe(expectedUpdatedDevice);
     });
   });
 });
