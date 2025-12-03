@@ -769,6 +769,17 @@ export class TweetsRepository {
       `
       : Prisma.empty;
 
+    const peopleFilterCondition =
+      peopleFilter === PeopleSearchFilter.Following
+        ? Prisma.sql`
+        AND EXISTS (
+          SELECT 1 
+          FROM follows f 
+          WHERE f.follower_id = ${currentUserId} AND f.followed_id = t.user_id
+        )
+      `
+        : Prisma.empty;
+
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
     FROM tweets t
@@ -777,6 +788,7 @@ export class TweetsRepository {
       ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
       ${cursorCondition}
       ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
     ORDER BY t.created_at DESC, t.id DESC
     LIMIT ${limit}
   `;
