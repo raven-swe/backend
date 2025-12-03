@@ -757,6 +757,11 @@ export class TweetsRepository {
       AND t.is_deleted = false
       ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
       ${cursorCondition}
+      AND NOT EXISTS (
+        SELECT 1 
+        FROM blocks b 
+        WHERE b.user_id = ${currentUserId} AND b.blocked_id = t.user_id
+      )
     ORDER BY t.created_at DESC, t.id DESC
     LIMIT ${limit}
   `;

@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
 import { SearchTab, SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
-import { GetTweetResponseDto, TweetDto } from 'src/tweets/dtos';
+import { GetTweetResponseDto } from 'src/tweets/dtos';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { prepareSearchQuery } from './utils/search-query.util';
 import { TweetRelationsCursor } from 'src/common/types/cursors';
