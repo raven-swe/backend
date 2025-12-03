@@ -2060,4 +2060,18 @@ namespace Devices {
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @put
+  @route("toggle-push")
+  @summary("Enable or disable push notifications for the device")
+  op togglePushNotifications(
+    @body body: {
+      fcmToken: string;
+      enable: boolean;
+    },
+  ):
+    | MessageResponse<"Push notifications enabled/disabled successfully.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
