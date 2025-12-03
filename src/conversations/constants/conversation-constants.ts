@@ -21,3 +21,4 @@ export const CONVERSATIONS_ERROR_MESSAGES = {
   UPDATE_LAST_SEEN_FAILED: 'Failed to update last seen message',
   ASSERT_PARTICPANT_FAILED: 'Failed to assert conversation participants',
 };
+

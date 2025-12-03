@@ -41,6 +41,8 @@ import { EventsModule } from './events/events.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SseController } from './conversations/sse.controller';
+import { SseModule } from './sse/sse.module';
+import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 
 @Module({
