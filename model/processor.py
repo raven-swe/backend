@@ -107,7 +107,10 @@ class TweetProcessor:
             if not text.strip():
                 continue
 
-            is_ar = bool(re.search(r'[\u0600-\u06FF]', text))
+            has_arabic = bool(re.search(r'[\u0600-\u06FF]', text))
+            has_english = bool(re.search(r'[a-zA-Z]', text))
+            
+            is_ar = has_arabic and not has_english
 
             try:
                 if is_ar:
@@ -178,6 +181,7 @@ class TweetProcessor:
 
         final_tracker = self.merge_similar_keywords(keyword_tracker)
         trending_keywords = []
+        trending_hashtags = []
         
         for kw, topic_data in final_tracker.items():
             general_trend_score = sum(t["score"] for t in topic_data.values())
@@ -197,20 +201,29 @@ class TweetProcessor:
             
             top_relevant_topics = topics_list[:TOP_K_SUBTOPICS]
 
-            trending_keywords.append({
+            keyword_obj = {
                 "keyword": kw,
                 "general_trend_score": round(general_trend_score, 4),
                 "occurrence_count": len(all_tweet_ids),
                 "top_related_topics": top_relevant_topics
-            })
+            }
+            
+            if kw.startswith('#'):
+                trending_hashtags.append(keyword_obj)
+            else:
+                trending_keywords.append(keyword_obj)
 
         trending_keywords.sort(key=lambda x: x["general_trend_score"], reverse=True)
         trending_keywords = trending_keywords[:TOP_TREND_LIMIT]
+        
+        trending_hashtags.sort(key=lambda x: x["general_trend_score"], reverse=True)
+        
+        all_trending = trending_keywords + trending_hashtags
 
         return {
             "batch_meta": {
                 "total_tweets": len(processed_tweets),
             },
-            "trending_keywords": trending_keywords,
+            "trending_keywords": all_trending,
             "tweets_detail": processed_tweets
         }
