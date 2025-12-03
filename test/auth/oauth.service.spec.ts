@@ -97,7 +97,7 @@ describe('OAuthService', () => {
     it('should throw BadRequestException for unsupported provider', async () => {
       await expect(
         service.handleOauthToken(
-          'facebook' as any,
+          'facebook' as 'github' | 'google',
           'token-123',
           mockDeviceType,
           mockIpAddress,
