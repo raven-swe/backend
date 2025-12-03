@@ -785,6 +785,29 @@ enum SearchTab {
   LATEST: "latest",
   MEDIA: "media",
 }
+
+enum PeopleSearchFilter {
+  Anyone: "anyone",
+  Following: "following",
+}
+
+model SearchTweetsParameters {
+  @doc("The search query")
+  @query
+  query: string;
+
+  @doc("Tab type: top (default) | latest | media ")
+  @query
+  tab?: SearchTab;
+
+  @doc("Show tweets from anyone (default) or only from people you follow")
+  @query
+  peopleFilter?: PeopleSearchFilter;
+
+  @doc("Exclude tweets from muted and blocked users")
+  @query
+  excludeMutedAndBlocked?: boolean;
+}
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1791,18 +1814,8 @@ namespace Search {
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
   @get
   @route("/tweets")
-  op searchTweets(
-    @doc("The search query")
-    @query
-    query: string,
-
-    @doc("Tab type: top (default) | latest | media ")
-    @query
-    tab?: SearchTab,
-
-    ...CursorPaginationParameters,
-  ):
-    | DataResponseWithPagination<Tweet[]>
+  op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
