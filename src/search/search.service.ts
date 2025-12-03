@@ -83,8 +83,8 @@ export class SearchService {
       } catch {
         throw new HttpException(
           {
-            message: PAGINATION_ERROR_CODES.INVALID_CURSOR,
-            code: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
           },
           HttpStatus.BAD_REQUEST,
         );
