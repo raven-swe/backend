@@ -731,9 +731,10 @@ export class TweetsRepository {
     return tweets;
   }
 
-  async getTopTweetsByQuery(
+  async getTweetsByQuery(
     currentUserId: bigint,
     query: string,
+    hasMedia: boolean = false,
     limit: number,
     cursor?: TweetRelationsCursor,
   ) {
@@ -754,6 +755,7 @@ export class TweetsRepository {
     FROM tweets t
     WHERE t.search_document @@ to_tsquery('english', ${query})
       AND t.is_deleted = false
+      ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
       ${cursorCondition}
     ORDER BY t.created_at DESC, t.id DESC
     LIMIT ${limit}

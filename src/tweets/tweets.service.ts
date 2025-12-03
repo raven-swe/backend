@@ -742,9 +742,25 @@ export class TweetsService {
     limit: number,
     decodedCursor?: TweetRelationsCursor,
   ) {
-    return await this.tweetsRepository.getTopTweetsByQuery(
+    return await this.tweetsRepository.getTweetsByQuery(
       currentUserId,
       query,
+      false,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+
+  async getTweetsWithMediaByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRelationsCursor,
+  ) {
+    return await this.tweetsRepository.getTweetsByQuery(
+      currentUserId,
+      query,
+      true,
       limit + 1,
       decodedCursor,
     );

@@ -75,16 +75,6 @@ export class SearchService {
     }
 
     const cleanedQuery = prepareSearchQuery(query);
-    console.log('Cleaned Query:', cleanedQuery);
-    // if (!cleanedQuery) {
-    //   throw new HttpException(
-    //     {
-    //       message: SEARCH_ERROR_MESSAGES.INVALID_SEARCH_QUERY,
-    //       code: SEARCH_ERROR_CODES.INVALID_SEARCH_QUERY,
-    //     },
-    //     HttpStatus.BAD_REQUEST,
-    //   );
-    // }
 
     let decodedCursor: TweetRelationsCursor | undefined;
     if (prevCursor) {
@@ -112,10 +102,20 @@ export class SearchService {
         );
         break;
       case SearchTab.Latest:
-        //  tweets = await this.searchTweetsLatest(currentUserId, cleanedQuery, limit, cursor);
+        items = await this.tweetsService.getTopTweetsByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+        );
         break;
       case SearchTab.Media:
-        // tweets = await this.searchTweetsMedia(currentUserId, cleanedQuery, limit, cursor);
+        items = await this.tweetsService.getTweetsWithMediaByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+        );
         break;
       default:
         items = await this.tweetsService.getTopTweetsByQuery(
