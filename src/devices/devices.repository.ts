@@ -68,4 +68,16 @@ export class DevicesRepository {
     });
     return device;
   }
+
+  async togglePushNotifications(
+    fcmToken: string,
+    pushEnabled: boolean,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    const device = await tx.userDevice.update({
+      where: { fcmToken },
+      data: { pushEnabled },
+    });
+    return device;
+  }
 }
