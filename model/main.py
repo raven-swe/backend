@@ -29,7 +29,6 @@ class TweetRequest(BaseModel):
 class TopicInfo(BaseModel):
     topic: str = Field(..., description="Topic category")
     trend_score: float = Field(..., description="Trend score for this topic")
-    occurrence_count: int = Field(..., description="Number of occurrences in this topic")
 
 class TrendingKeyword(BaseModel):
     keyword: str = Field(..., description="The trending keyword or hashtag")

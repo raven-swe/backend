@@ -183,8 +183,7 @@ class TweetProcessor:
             for topic, stats in topic_data.items():
                 topics_list.append({
                     "topic": topic,
-                    "trend_score": round(stats["score"], 4),
-                    "occurrence_count": len(stats["tweet_ids"])
+                    "trend_score": round(stats["score"], 4)
                 })
             
             topics_list.sort(key=lambda x: x["trend_score"], reverse=True)
