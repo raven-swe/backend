@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 from contextlib import asynccontextmanager
 from processor import TweetProcessor
 
@@ -19,8 +19,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+class Tweet(BaseModel):
+    id: str = Field(..., description="Unique tweet identifier")
+    content: str = Field(..., description="Tweet text content")
+
 class TweetRequest(BaseModel):
-    texts: List[str] = Field(..., description="List of tweet texts to analyze", min_items=1)
+    tweets: List[Tweet] = Field(..., description="List of tweets to analyze", min_items=1)
 
 class TopicInfo(BaseModel):
     topic: str = Field(..., description="Topic category")
@@ -28,18 +32,17 @@ class TopicInfo(BaseModel):
     occurrence_count: int = Field(..., description="Number of occurrences in this topic")
 
 class TrendingKeyword(BaseModel):
-    keyword: str = Field(..., description="The trending keyword")
+    keyword: str = Field(..., description="The trending keyword or hashtag")
     general_trend_score: float = Field(..., description="Overall trend score across all topics")
+    occurrence_count: int = Field(..., description="Number of unique tweets containing this keyword")
     top_related_topics: List[TopicInfo] = Field(..., description="Top related topics for this keyword")
 
 class BatchMeta(BaseModel):
     total_tweets: int = Field(..., description="Total number of tweets processed")
 
 class ProcessedTweet(BaseModel):
-    id: int = Field(..., description="Tweet ID")
-    content: str = Field(..., description="Original tweet content")
-    top_class: str = Field(..., description="Classified topic category")
-    error: Optional[str] = Field(None, description="Error message if processing failed")
+    id: str = Field(..., description="Tweet ID")
+    class_: str = Field(..., description="Classified topic category", alias="class")
 
 class TweetResponse(BaseModel):
     batch_meta: BatchMeta = Field(..., description="Metadata about the batch processing")
@@ -57,7 +60,8 @@ class TweetResponse(BaseModel):
     - Detects language (Arabic or English)
     - Classifies tweets into topic categories
     - Extracts relevant keywords using KeyBERT
-    - Calculates trend scores for keywords
+    - Extracts and processes hashtags
+    - Calculates trend scores for keywords and hashtags
     - Groups keywords by related topics
     - Returns top trending keywords with their topic associations
     
@@ -75,10 +79,10 @@ class TweetResponse(BaseModel):
 )
 async def analyze_tweets(request: TweetRequest):
     try:
-        if not request.texts:
-            raise HTTPException(status_code=400, detail="No texts provided")
+        if not request.tweets:
+            raise HTTPException(status_code=400, detail="No tweets provided")
         
-        result = processor.process_tweets(request.texts)
+        result = processor.process_tweets(request.tweets)
         return result
     
     except Exception as e:

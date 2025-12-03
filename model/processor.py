@@ -25,10 +25,15 @@ class TweetProcessor:
         keyword_list = []
         for kw, topic_data in tracker.items():
             total_score = sum(t["score"] for t in topic_data.values())
+            all_tweet_ids = set()
+            for t in topic_data.values():
+                all_tweet_ids.update(t["tweet_ids"])
+            
             keyword_list.append({
                 "keyword": kw,
                 "total_score": total_score,
-                "topics": topic_data
+                "topics": topic_data,
+                "all_tweet_ids": all_tweet_ids
             })
         
         def extract_tokens(kw):
@@ -43,7 +48,7 @@ class TweetProcessor:
             for tok in sig_tokens:
                 token_groups[tok].append(item)
 
-        final_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "count": 0}))
+        final_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "tweet_ids": set()}))
         used = set()
 
         for token, group in token_groups.items():
@@ -52,7 +57,7 @@ class TweetProcessor:
                 kw = item["keyword"]
                 for topic, stats in item["topics"].items():
                     final_tracker[kw][topic]["score"] += stats["score"]
-                    final_tracker[kw][topic]["count"] += stats["count"]
+                    final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
                 continue
 
             total_scores = [g["total_score"] for g in group]
@@ -69,7 +74,7 @@ class TweetProcessor:
             for item in group:
                 for topic, stats in item["topics"].items():
                     final_tracker[parent_kw][topic]["score"] += stats["score"]
-                    final_tracker[parent_kw][topic]["count"] += stats["count"]
+                    final_tracker[parent_kw][topic]["tweet_ids"].update(stats["tweet_ids"])
 
                 used.add(item["keyword"])
 
@@ -78,15 +83,18 @@ class TweetProcessor:
                 kw = item["keyword"]
                 for topic, stats in item["topics"].items():
                     final_tracker[kw][topic]["score"] += stats["score"]
-                    final_tracker[kw][topic]["count"] += stats["count"]
+                    final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
 
         return final_tracker
 
-    def process_tweets(self, texts):
+    def process_tweets(self, tweets):
         processed_tweets = []
-        keyword_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "count": 0}))
+        keyword_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "tweet_ids": set()}))
 
-        for i, text in enumerate(texts):
+        for tweet in tweets:
+            tweet_id = tweet.id
+            text = tweet.content
+            
             if not text.strip():
                 continue
 
@@ -106,7 +114,7 @@ class TweetProcessor:
                 else:
                     if not is_ar and label in LABEL_MAP:
                         label = LABEL_MAP[label]
-                    if label == "Religion": # specific case to not map Religion
+                    if label == "Religion":
                         label = "General"
 
                 trend_category = LABEL_MAP.get(label, label)
@@ -114,6 +122,13 @@ class TweetProcessor:
                     trend_category = TREND_TOPIC_MAP[label]
                 else:
                     trend_category = "General"
+
+                hashtags = re.findall(r'#[\w\u0600-\u06FF]+', text)
+                for hashtag in hashtags:
+                    clean_hashtag = hashtag[1:]
+                    if clean_hashtag:
+                        keyword_tracker[hashtag][trend_category]["score"] += score
+                        keyword_tracker[hashtag][trend_category]["tweet_ids"].add(tweet_id)
 
                 keywords_raw = self.kw_model.extract_keywords(
                     text, 
@@ -141,20 +156,17 @@ class TweetProcessor:
                     
                     filtered_keywords.append(kw)
                     keyword_tracker[kw][trend_category]["score"] += score
-                    keyword_tracker[kw][trend_category]["count"] += 1
+                    keyword_tracker[kw][trend_category]["tweet_ids"].add(tweet_id)
 
                 processed_tweets.append({
-                    "id": i + 1,
-                    "content": text,
-                    "top_class": label 
+                    "id": tweet_id,
+                    "class": label 
                 })
 
             except Exception as e:
                 processed_tweets.append({
-                    "id": i + 1,
-                    "content": text,
-                    "top_class": "General",
-                    "error": str(e)
+                    "id": tweet_id,
+                    "class": "General"
                 })
 
         final_tracker = self.merge_similar_keywords(keyword_tracker)
@@ -163,12 +175,16 @@ class TweetProcessor:
         for kw, topic_data in final_tracker.items():
             general_trend_score = sum(t["score"] for t in topic_data.values())
             
+            all_tweet_ids = set()
+            for t in topic_data.values():
+                all_tweet_ids.update(t["tweet_ids"])
+            
             topics_list = []
             for topic, stats in topic_data.items():
                 topics_list.append({
                     "topic": topic,
                     "trend_score": round(stats["score"], 4),
-                    "occurrence_count": stats["count"]
+                    "occurrence_count": len(stats["tweet_ids"])
                 })
             
             topics_list.sort(key=lambda x: x["trend_score"], reverse=True)
@@ -178,6 +194,7 @@ class TweetProcessor:
             trending_keywords.append({
                 "keyword": kw,
                 "general_trend_score": round(general_trend_score, 4),
+                "occurrence_count": len(all_tweet_ids),
                 "top_related_topics": top_relevant_topics
             })
 
