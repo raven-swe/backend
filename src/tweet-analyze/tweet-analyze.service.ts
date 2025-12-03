@@ -1,9 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
 import { TweetAnalyzeRepository } from './tweet-analyze.repository';
-import { ClassificationRequest, ClassificationResponse, TweetToClassify } from './interfaces';
+import { ClassificationRequest, ClassificationResponse } from './interfaces';
 import { firstValueFrom } from 'rxjs';
 import { RedisService } from 'src/redis/redis.service';
 
@@ -174,7 +173,7 @@ export class TweetAnalyzeService implements OnModuleInit {
     const requestPayload: ClassificationRequest = {
       tweets: tweets.map((tweet) => ({
         id: tweet.id.toString(),
-        content: tweet.content!,
+        content: tweet.content,
       })),
     };
 
