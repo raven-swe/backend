@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DmGateway } from 'src/conversations/gateways/dm.gateway';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { MessagesService } from 'src/conversations/messages/messages.services';
-import { EventPublisherService } from 'src/sse/event-publisher.service';
+import { SseEventsService } from 'src/sse/sse-events.service';
 import { Server, Socket } from 'socket.io';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import {
@@ -16,7 +16,7 @@ describe('DmGateway', () => {
   let gateway: DmGateway;
   let conversationsService: jest.Mocked<ConversationsService>;
   let messagesService: jest.Mocked<MessagesService>;
-  let eventPublisher: jest.Mocked<EventPublisherService>;
+  let sseEvents: jest.Mocked<SseEventsService>;
 
   const mockUser: WsUser = {
     id: '6',
@@ -61,10 +61,11 @@ describe('DmGateway', () => {
           },
         },
         {
-          provide: EventPublisherService,
+          provide: SseEventsService,
           useValue: {
-            publishToUser: jest.fn(),
-            publishToUsers: jest.fn(),
+            publishUnseenCount: jest.fn(),
+            publishNewMessagePreview: jest.fn(),
+            publishNewMessagePreviewToMany: jest.fn(),
           },
         },
       ],
@@ -76,7 +77,7 @@ describe('DmGateway', () => {
     gateway = module.get<DmGateway>(DmGateway);
     conversationsService = module.get(ConversationsService);
     messagesService = module.get(MessagesService);
-    eventPublisher = module.get(EventPublisherService);
+    sseEvents = module.get(SseEventsService);
 
     gateway.server = mockServer;
 
@@ -361,7 +362,7 @@ describe('DmGateway', () => {
           createdAt: expect.any(Date) as Date,
         },
       });
-      expect(eventPublisher.publishToUser).toHaveBeenCalled();
+      expect(sseEvents.publishNewMessagePreview).toHaveBeenCalled();
     });
 
     it('should join new conversation room when switching conversations', async () => {

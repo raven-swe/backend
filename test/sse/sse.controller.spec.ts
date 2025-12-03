@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SseController } from 'src/sse/sse.controller';
 import { SseService } from 'src/sse/sse.service';
+import { SseEventsService } from 'src/sse/sse-events.service';
+import { ConversationsRepository } from 'src/conversations/conversations.repository';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { Response } from 'express';
 import type { RequestUser } from 'src/common/interfaces';
@@ -16,6 +18,15 @@ describe('SseController', () => {
     getConnectionCount: jest.fn().mockReturnValue(1),
   };
 
+  const mockSseEventsService = {
+    publishUnseenCount: jest.fn().mockResolvedValue(undefined),
+    publishNewMessagePreview: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockConversationsRepository = {
+    countUnseenConversations: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -25,6 +36,14 @@ describe('SseController', () => {
         {
           provide: SseService,
           useValue: mockSseService,
+        },
+        {
+          provide: SseEventsService,
+          useValue: mockSseEventsService,
+        },
+        {
+          provide: ConversationsRepository,
+          useValue: mockConversationsRepository,
         },
       ],
     })
