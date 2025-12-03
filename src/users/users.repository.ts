@@ -1329,4 +1329,20 @@ export class UsersRepository {
       isMuted: false,
     };
   }
+
+  async toggleUserNotifications(userId: bigint, followedId: bigint, enable: boolean) {
+    return await this.prisma.follow.upsert({
+      where: {
+        followerId_followedId: { followerId: userId, followedId: followedId },
+      },
+      create: {
+        followerId: userId,
+        followedId: followedId,
+        withNotifications: enable,
+      },
+      update: {
+        withNotifications: enable,
+      },
+    });
+  }
 }

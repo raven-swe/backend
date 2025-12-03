@@ -1376,6 +1376,24 @@ namespace Users {
         | InternalServerErrorResponse;
     }
   }
+
+  @summary("enable notifications for a user, follows the user if not followed")
+  @post
+  @route("{username}/notify")
+  op enableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications enabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("disable notifications for a user, follows the user if not followed")
+  @delete
+  @route("{username}/notify")
+  op disableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications disabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Me")
