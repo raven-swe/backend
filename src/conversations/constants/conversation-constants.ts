@@ -22,6 +22,3 @@ export const CONVERSATIONS_ERROR_MESSAGES = {
   ASSERT_PARTICPANT_FAILED: 'Failed to assert conversation participants',
 };
 
-export const MAX_CONNECTIONS_PER_USER = 5;
-export const CONNECTION_TTL_SECONDS = 2 * 60 * 60;
-export const SSE_CONNECTION_TIMEOUT = 2 * 60 * 60 * 1000;

@@ -1,0 +1,2 @@
+export const MAX_CONNECTIONS_PER_USER = 5;
+export const SSE_CONNECTION_TIMEOUT = 2 * 60 * 60 * 1000;

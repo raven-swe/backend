@@ -4,7 +4,7 @@ import { SseService } from './sse.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
-import { SSE_CONNECTION_TIMEOUT } from './constants/conversation-constants';
+import { SSE_CONNECTION_TIMEOUT } from './constants/sse-constants';
 
 interface SseEvent {
   event?: string;

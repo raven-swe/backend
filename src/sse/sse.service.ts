@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { Subject } from 'rxjs';
 import { RedisService } from '../redis/redis.service';
 import { Redis } from 'ioredis';
-import { MAX_CONNECTIONS_PER_USER } from './constants/conversation-constants';
+import { MAX_CONNECTIONS_PER_USER } from './constants/sse-constants';
 
 @Injectable()
 export class SseService implements OnModuleInit, OnModuleDestroy {

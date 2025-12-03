@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { SseController } from 'src/conversations/sse.controller';
-import { SseService } from 'src/conversations/sse.service';
+import { SseController } from 'src/sse/sse.controller';
+import { SseService } from 'src/sse/sse.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { Response } from 'express';
 import type { RequestUser } from 'src/common/interfaces';

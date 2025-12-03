@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DmGateway } from 'src/conversations/gateways/dm.gateway';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { MessagesService } from 'src/conversations/messages/messages.services';
-import { EventPublisherService } from 'src/conversations/event-publisher.service';
+import { EventPublisherService } from 'src/sse/event-publisher.service';
 import { Server, Socket } from 'socket.io';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import {
@@ -49,6 +49,8 @@ describe('DmGateway', () => {
           provide: ConversationsService,
           useValue: {
             assertParticipant: jest.fn(),
+            getConversationParticipants: jest.fn(),
+            countUnseenConversations: jest.fn(),
           },
         },
         {
@@ -61,8 +63,8 @@ describe('DmGateway', () => {
         {
           provide: EventPublisherService,
           useValue: {
-            publishNewMessagePreview: jest.fn(),
-            publishUnseenCountEvent: jest.fn(),
+            publishToUser: jest.fn(),
+            publishToUsers: jest.fn(),
           },
         },
       ],
@@ -323,6 +325,16 @@ describe('DmGateway', () => {
 
     beforeEach(() => {
       mockSocket.data = { user: mockUser };
+      conversationsService.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: { displayName: 'Layla', avatarUrl: 'https://example.com/avatar.jpg' },
+          },
+        },
+      ]);
+      conversationsService.countUnseenConversations.mockResolvedValue(0);
     });
 
     it('should successfully send message and emit to room', async () => {
@@ -349,11 +361,7 @@ describe('DmGateway', () => {
           createdAt: expect.any(Date) as Date,
         },
       });
-      expect(eventPublisher.publishNewMessagePreview).toHaveBeenCalledWith(
-        '2',
-        mockMessage,
-        mockUser,
-      );
+      expect(eventPublisher.publishToUser).toHaveBeenCalled();
     });
 
     it('should join new conversation room when switching conversations', async () => {

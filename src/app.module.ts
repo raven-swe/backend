@@ -30,7 +30,8 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
-import { SseController } from './conversations/sse.controller';
+import { SseModule } from './sse/sse.module';
+import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 
 @Module({
@@ -66,6 +67,7 @@ import cors from 'cors';
     TweetsModule,
     ConversationsModule,
     SearchModule,
+    SseModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,

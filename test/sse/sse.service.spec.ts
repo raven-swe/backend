@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { SseService } from 'src/conversations/sse.service';
+import { SseService } from 'src/sse/sse.service';
 import { RedisService } from 'src/redis/redis.service';
 import { Redis } from 'ioredis';
 import { Subject } from 'rxjs';
