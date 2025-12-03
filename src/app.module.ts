@@ -30,6 +30,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
+import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
     TrendingModule,
     ContentParsingModule,
     LoggerModule,
+    TweetAnalyzeModule,
   ],
   controllers: [HealthController],
   providers: [
