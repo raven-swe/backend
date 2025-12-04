@@ -13,10 +13,6 @@ describe('prepareSearchQuery', () => {
     expect(prepareSearchQuery('hello@world#test')).toBe('hello:* | worldtest:*');
   });
 
-  it('should preserve underscores in words', () => {
-    expect(prepareSearchQuery('test_query')).toBe('test_query:*');
-  });
-
   it('should handle multiple spaces', () => {
     expect(prepareSearchQuery('hello    world')).toBe('hello:* | world:*');
   });

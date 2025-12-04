@@ -10,7 +10,7 @@ export function prepareSearchQuery(query: string): string {
     .trim()
     .toLowerCase()
     .replace(/[#]/g, '')
-    .replace(/[^\w\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .trim();
 
   if (!cleaned) return '';
