@@ -417,26 +417,6 @@ export class UsersService {
     await this.usersRepository.unfollowUser(followerId, followedId);
     this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
 
-    //dispatch purge job to remove tweets from unfollowed user's cached timeline
-    await this.timelineFollowingQueue.add(
-      'purge',
-      {
-        unfollowerId: followerId.toString(),
-        unfollowedId: followedId.toString(),
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-      },
-    );
-
-    this.logger.log(
-      `Dispatched purge job for unfollower ID: ${followerId} and unfollowed ID: ${followedId}`,
-    );
-
     return { message: 'User unfollowed successfully.' };
   }
 

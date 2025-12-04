@@ -5,7 +5,6 @@ import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { TweetFanoutJob } from './interfaces/TweetFanoutJob.interface';
 import { TIMELINE_MAX_SIZE } from '../timeline/constants/timeline.constants';
-import { PurgeTimelineJob } from './interfaces/PurgeTimelineJob.interface';
 
 @Processor('timeline-following')
 export class TimelineConsumer extends WorkerHost {
@@ -25,9 +24,6 @@ export class TimelineConsumer extends WorkerHost {
       case 'fanout':
         await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>);
         break;
-      case 'purge':
-        await this.purgeTimelinesOnUnfollow(job as Job<PurgeTimelineJob>);
-        return;
       default:
         this.logger.warn(`Unknown job name: ${job.name} with id ${job.id}`);
         await job.remove();
@@ -69,40 +65,6 @@ export class TimelineConsumer extends WorkerHost {
       await writePipeline.exec();
     } catch (error) {
       this.logger.error(`Error processing timeline-following fanout job ${job.id}`, error);
-      throw error; // for retry
-    }
-  }
-
-  async purgeTimelinesOnUnfollow(job: Job<PurgeTimelineJob>): Promise<void> {
-    try {
-      const { unfollowerId, unfollowedId } = job.data;
-      const timelineKey = `timeline:${unfollowerId}`;
-      const prefixToPurge = `${unfollowedId}:`;
-
-      this.logger.log(
-        `Processing timeline-following purge job ${job.id} to remove tweets from unfollowed user ${unfollowedId} in follower ${unfollowerId} timeline`,
-      );
-
-      const entries = await this.redisClient.zrange(timelineKey, 0, -1);
-      if (!entries || entries.length === 0) {
-        this.logger.log(`No entries found in timeline ${timelineKey} for purge operation`);
-        return;
-      }
-
-      const entriesToRemove = entries.filter((entry) => entry.startsWith(prefixToPurge));
-      if (entriesToRemove.length === 0) {
-        this.logger.log(
-          `No entries to remove from timeline ${timelineKey} for unfollowed user ${unfollowedId}`,
-        );
-        return;
-      }
-
-      await this.redisClient.zrem(timelineKey, ...entriesToRemove);
-      this.logger.log(
-        `Removed ${entriesToRemove.length} entries from timeline ${timelineKey} for unfollowed user ${unfollowedId}`,
-      );
-    } catch (error) {
-      this.logger.error(`Error processing timeline-following purge job ${job.id}`, error);
       throw error; // for retry
     }
   }
