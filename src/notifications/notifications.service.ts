@@ -1,18 +1,22 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { NotificationsRepository } from './notifications.repository';
 import { NotificationTriggerOptions } from './interfaces/notification-trigger.interface';
 import { NOTIFICATIONS_ERROR_CODES, NOTIFICATIONS_ERROR_MESSAGES } from './constants';
 import { NotificationCursor } from 'src/common/interfaces';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
+import { SseEventsService } from 'src/sse/sse-events.service';
 import { NotificationResponseDto } from './dtos/notification-response.dto';
-import { TweetsRepository } from 'src/tweets/tweets.repository';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
-    private readonly tweetRepository: TweetsRepository,
+    private readonly sseEvents: SseEventsService,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
   async trigger(options: NotificationTriggerOptions) {
     if (options.actorId === options.receiverId) return;
@@ -20,7 +24,32 @@ export class NotificationsService {
     const existing = await this.notificationsRepository.findExisting(options);
     if (existing) return existing;
 
-    return await this.notificationsRepository.createNotification(options);
+    const notification = await this.notificationsRepository.createNotification(options);
+
+    const dto = this.notificationsRepository.mapToNotificationDto(notification);
+
+    await this.publishNotification(options.receiverId, dto);
+
+    await this.notificationsQueue.add(
+      'sendPush',
+      { notificationId: notification.id.toString(), receiverId: options.receiverId.toString() },
+      {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+        jobId: `notification:push:${notification.id}`,
+      },
+    );
+
+    return notification;
+  }
+
+  private async publishNotification(receiverId: bigint, notification: NotificationResponseDto) {
+    await this.sseEvents.publishNewNotification(receiverId, notification);
+
+    this.logger.log(
+      `Finished publishing new notification with id ${notification.id} to user ${receiverId}`,
+    );
   }
 
   async markAllAsSeen(receiverId: bigint) {
@@ -87,29 +116,8 @@ export class NotificationsService {
     }));
 
     //TODO: should update when aggregation is implemented
-    const items = notifiacations.map(
-      (n): NotificationResponseDto => ({
-        id: n.id.toString(),
-        type: n.type,
-        actorSummary: {
-          totalCount: 1,
-          previewActors: [
-            {
-              username: n.actor.username,
-              displayName: n.actor.profile?.displayName,
-              avatarUrl: n.actor.profile?.avatarUrl || null,
-              isFollowing: n.actor.followers.length > 0,
-            },
-          ],
-        },
-        tweetSummary: {
-          totalCount: n.tweet?.id ? 1 : 0,
-          subjectIds: n.tweet?.id ? [n.tweet.id.toString()] : [],
-          primaryTweet: n.tweet ? this.tweetRepository.mapToTweetDto(n.tweet) : null,
-        },
-        latestEventAt: n.latestEventAt,
-        isSeen: n.seen,
-      }),
+    const items = notifiacations.map((notification) =>
+      this.notificationsRepository.mapToNotificationDto(notification),
     );
 
     return { items, pagination };
