@@ -74,6 +74,7 @@ export class SearchService {
     console.log({ query });
 
     const rawQuery = decodeURIComponent(query);
+    console.log({ rawQuery });
 
     if (!rawQuery || rawQuery.trim() === '') {
       throw new HttpException(
