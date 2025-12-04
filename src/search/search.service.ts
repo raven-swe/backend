@@ -71,10 +71,8 @@ export class SearchService {
     prevCursor?: string,
   ) {
     const { query, tab, peopleFilter, excludeMutedAndBlocked } = searchTweetsQueryDto;
-    console.log({ query });
 
     const rawQuery = decodeURIComponent(query);
-    console.log({ rawQuery });
 
     if (!rawQuery || rawQuery.trim() === '') {
       throw new HttpException(
@@ -89,7 +87,6 @@ export class SearchService {
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
     const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
     const decodedCursor = this.decodeCursor(prevCursor);
-    console.log({ cleanedQuery, isHashtagSearch });
 
     const items = await this.fetchTweetsByTab(
       tab,

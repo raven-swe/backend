@@ -214,6 +214,7 @@ model TrendingKeyword {
   tweetHashtags TweetHashtag[]
 
   @@unique([keyword, isHashtag])
+  @@index([isHashtag, keyword, count(sort: Desc)], map: "trending_hashtags_search_idx")
   @@map("trending_keywords")
 }
 

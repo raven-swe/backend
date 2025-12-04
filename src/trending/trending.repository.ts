@@ -60,4 +60,23 @@ export class TrendingRepository {
       },
     });
   }
+
+  async searchHashtagsByKeyword(query: string, limit: number): Promise<string[]> {
+    const results = await this.prisma.trendingKeyword.findMany({
+      where: {
+        isHashtag: true,
+        keyword: {
+          startsWith: query.toLowerCase(),
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        keyword: true,
+        count: true,
+      },
+      orderBy: { count: 'desc' },
+      take: limit,
+    });
+    return results.map((result) => result.keyword);
+  }
 }
