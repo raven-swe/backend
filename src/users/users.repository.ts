@@ -603,7 +603,7 @@ export class UsersRepository {
         },
       },
     });
-    return !!mute || (await this.isBlocked(userId, mutedId));
+    return !!mute;
   }
 
   async getUserBlocks(userId: bigint) {

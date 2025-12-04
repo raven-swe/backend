@@ -518,9 +518,10 @@ export class UsersService {
       );
     }
 
-    // Check if already muted
+    // Check if already muted or blocked
     const isAlreadyMuted = await this.usersRepository.isMuted(userId, mutedId);
-    if (isAlreadyMuted) {
+    const isBlocked = await this.usersRepository.isBlocked(userId, mutedId);
+    if (isAlreadyMuted || isBlocked) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.ALREADY_MUTED,
@@ -549,20 +550,6 @@ export class UsersService {
     }
 
     const mutedId = mutedUser.id;
-
-    // Check if user is blocked (either direction)
-    const youBlockedUser = await this.usersRepository.isBlocked(userId, mutedId);
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-
-    if (youBlockedUser || userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
 
     const isMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (!isMuted) {
