@@ -64,6 +64,31 @@ export class NotificationsRepository {
     };
   }
 
+  async findByIdForPush(notificationId: bigint) {
+    return await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+      select: {
+        id: true,
+        type: true,
+        createdAt: true,
+        latestEventAt: true,
+        seen: true,
+        tweetId: true,
+        actor: {
+          select: {
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async createNotification(data: NotificationTriggerOptions): Promise<NotificationWithDetails> {
     return await this.prisma.notification.create({
       data,

@@ -64,6 +64,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "faker-js": "^1.0.0",
+    "firebase-admin": "^13.6.0",
     "google-auth-library": "^10.4.2",
     "ioredis": "^5.8.1",
     "multer": "^2.0.2",

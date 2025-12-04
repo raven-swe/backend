@@ -80,4 +80,17 @@ export class DevicesRepository {
     });
     return device;
   }
+
+  async getUserDevices(userId: bigint) {
+    return await this.prisma.userDevice.findMany({
+      where: { userId: userId, fcmToken: { not: null }, pushEnabled: true },
+    });
+  }
+
+  async deleteDevicesByTokens(fcmTokens: string[]) {
+    const deletedDevices = await this.prisma.userDevice.deleteMany({
+      where: { fcmToken: { in: fcmTokens } },
+    });
+    return deletedDevices;
+  }
 }
