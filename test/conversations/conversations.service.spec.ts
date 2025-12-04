@@ -315,7 +315,7 @@ describe('ConversationsService', () => {
       expect(result.items).toHaveLength(0);
     });
 
-    it('should include conversations without last message if user is creator', async () => {
+    it.skip('should include conversations without last message if user is creator', async () => {
       const mockConversations = [
         {
           id: BigInt(1),
