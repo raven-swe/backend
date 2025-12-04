@@ -1375,7 +1375,8 @@ describe('SettingsService', () => {
       expect(mockUsersService.updateInterests).toHaveBeenCalledTimes(1);
       const calls = mockUsersService.updateInterests.mock.calls;
       expect(calls).toHaveLength(1);
-      const calledWith = calls[0][1] as string[];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const calledWith = calls[0]?.[1] as string[];
       expect(calledWith).toHaveLength(3);
       expect(new Set(calledWith).size).toBe(3); // Verify no duplicates
       expect(calledWith).toContain('TECH');
