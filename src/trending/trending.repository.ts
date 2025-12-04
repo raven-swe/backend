@@ -61,13 +61,12 @@ export class TrendingRepository {
     });
   }
 
-  async searchHashtagsByKeyword(query: string, limit: number): Promise<string[]> {
+  async getTopHashtagsByKeyword(query: string, limit: number): Promise<string[]> {
     const results = await this.prisma.trendingKeyword.findMany({
       where: {
         isHashtag: true,
         keyword: {
           startsWith: query.toLowerCase(),
-          mode: 'insensitive',
         },
       },
       select: {

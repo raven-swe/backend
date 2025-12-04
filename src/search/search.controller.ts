@@ -6,9 +6,13 @@ import type { RequestUser } from 'src/common/interfaces';
 import { SearchService } from './search.service';
 import { SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
 import { ParseBooleanPipe } from 'src/common/pipes/parse-boolean.pipe';
+import { TrendingService } from 'src/trending/trending.service';
 @Controller('search')
 export class SearchController {
-  constructor(private readonly searchService: SearchService) {}
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly trendingService: TrendingService,
+  ) {}
   @Get('users')
   @UseGuards(JwtAuthGuard)
   async getTopUsers(
@@ -37,5 +41,11 @@ export class SearchController {
       parsedLimit,
       cursor,
     );
+  }
+
+  @Get('hashtags/top')
+  @UseGuards(JwtAuthGuard)
+  async getTopHashtags(@Query('query') query: string) {
+    return this.trendingService.getTrendingHashtags(query, 3);
   }
 }

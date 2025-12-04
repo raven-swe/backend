@@ -23,4 +23,9 @@ export class TrendingService {
   async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
     return await this.TrendingRepository.getHashtagId(hashtag);
   }
+
+  async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
+    const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
+    return hashtags;
+  }
 }
