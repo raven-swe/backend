@@ -71,8 +71,11 @@ export class SearchService {
     prevCursor?: string,
   ) {
     const { query, tab, peopleFilter, excludeMutedAndBlocked } = searchTweetsQueryDto;
+    console.log({ query });
 
-    if (!query || query.trim() === '') {
+    const rawQuery = decodeURIComponent(query);
+
+    if (!rawQuery || rawQuery.trim() === '') {
       throw new HttpException(
         {
           message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
@@ -82,9 +85,10 @@ export class SearchService {
       );
     }
 
-    const isHashtagSearch = isSingleHashtagQuery(query);
-    const cleanedQuery = isHashtagSearch ? extractHashtag(query) : prepareSearchQuery(query);
+    const isHashtagSearch = isSingleHashtagQuery(rawQuery);
+    const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
     const decodedCursor = this.decodeCursor(prevCursor);
+    console.log({ cleanedQuery, isHashtagSearch });
 
     const items = await this.fetchTweetsByTab(
       tab,
