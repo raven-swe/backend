@@ -460,6 +460,9 @@ model UpdateProfileRequest {
   @maxLength(160)
   bio?: string | null;
 
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities?: BioEntities | null;
+
   @doc("User's location")
   @maxLength(100)
   location?: string | null;

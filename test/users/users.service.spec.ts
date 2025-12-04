@@ -3,10 +3,9 @@ import { UsersService } from 'src/users/users.service';
 import { UsersRepository } from 'src/users/users.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
-import { NewUser } from 'src/users/interfaces';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
-import { LanguageCode } from '@prisma/client';
+import { LanguageCode, Prisma } from '@prisma/client';
 import { ChangePasswordBasicDto, UpdateProfileDto } from 'src/users/dtos';
 import { OtpType } from 'src/email/interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
@@ -112,10 +111,7 @@ describe('UsersService', () => {
   };
 
   const mockPrismaService = {
-    $transaction: jest.fn((callback: (tx: never) => Promise<never>) => {
-      const mockTx = {};
-      return callback(mockTx as never);
-    }),
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -290,10 +286,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
@@ -319,10 +316,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
 
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
@@ -357,10 +355,11 @@ describe('UsersService', () => {
     it('should handle empty update data', async () => {
       const emptyUpdateDto: UpdateProfileDto = {};
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
@@ -384,10 +383,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -424,10 +424,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -463,10 +464,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
@@ -498,10 +500,11 @@ describe('UsersService', () => {
         mentions: [],
         hashtags: [],
       });
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const mockTx = {};
-        return callback(mockTx);
-      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
