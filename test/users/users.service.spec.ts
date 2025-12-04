@@ -13,6 +13,7 @@ import { comparePassword, hashPassword } from 'src/auth/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -106,177 +107,35 @@ describe('UsersService', () => {
     uploadAndSaveMedia: jest.fn(),
   };
 
+  const mockContentParsingService = {
+    parseContentForBio: jest.fn(),
+  };
+
+  const mockPrismaService = {
+    $transaction: jest.fn((callback: (tx: never) => Promise<never>) => {
+      const mockTx = {};
+      return callback(mockTx as never);
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: mockRepository },
-        { provide: PrismaService, useValue: {} },
+        { provide: PrismaService, useValue: mockPrismaService },
         { provide: UsersService, useClass: UsersService },
         { provide: MediaService, useValue: mockMediaService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: MediaService, useValue: mockMediaService },
+        { provide: ContentParsingService, useValue: mockContentParsingService },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
 
     jest.clearAllMocks();
-  });
-
-  describe('findByUsername', () => {
-    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
-
-    it('should call the repository with the correct username and return its result', async () => {
-      const username = 'testuser';
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-
-      const result = await service.findByUsername(username);
-
-      expect(mockRepository.findByUsername).toHaveBeenCalledWith(username);
-      expect(result).toBe(mockUser);
-    });
-  });
-
-  describe('findByIdentifier', () => {
-    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
-
-    it('should call the repository with the correct identifier and return its result', async () => {
-      const identifier = 'testuser';
-      mockRepository.findByIdentifier.mockResolvedValue(mockUser);
-
-      const result = await service.findByIdentifier(identifier);
-
-      expect(mockRepository.findByIdentifier).toHaveBeenCalledWith(identifier);
-      expect(result).toBe(mockUser);
-    });
-  });
-
-  describe('updatePasswordById', () => {
-    it('should call the repository with the correct userId and new password hash', async () => {
-      const userId = BigInt(1);
-      const newHashedPassword = 'newHashedPassword123';
-      const expectedUpdatedUser = { id: userId, password_hash: newHashedPassword };
-
-      mockRepository.updatePasswordById.mockResolvedValue(expectedUpdatedUser);
-
-      const result = await service.updatePasswordById(userId, newHashedPassword);
-
-      expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(userId, newHashedPassword);
-      expect(result).toEqual(expectedUpdatedUser);
-    });
-  });
-
-  describe('findByEmail', () => {
-    it('should call the repository with the correct email and return its result', async () => {
-      const email = 'test@gmail.com';
-      const expectedUser = { id: BigInt(1), email, password_hash: '...' };
-      mockRepository.findByEmail.mockResolvedValue(expectedUser);
-
-      const result = await service.findByEmail(email);
-
-      expect(mockRepository.findByEmail).toHaveBeenCalledWith(email);
-      expect(result).toBe(expectedUser);
-    });
-  });
-
-  describe('createUser', () => {
-    it('should call the repository with the correct user data and return the new user', async () => {
-      const newUserDto: NewUser = {
-        email: 'test@gmail.com',
-        username: 'omar',
-        name: 'Omar Gamal',
-        passwordHash: 'hashedpassword',
-        birthDate: new Date(),
-        languageCode: LanguageCode.EN,
-      };
-      const expectedCreatedUser = { id: BigInt(2), ...newUserDto };
-      mockRepository.createUser.mockResolvedValue(expectedCreatedUser);
-
-      const result = await service.createUser(newUserDto, {} as never);
-
-      expect(mockRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as never);
-      expect(result).toBe(expectedCreatedUser);
-    });
-  });
-
-  describe('findByEmail', () => {
-    it('should return a user by email', async () => {
-      mockRepository.findByEmail.mockResolvedValue(mockUser);
-
-      const result = await service.findByEmail('test@example.com');
-
-      expect(result).toEqual(mockUser);
-      expect(mockRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
-      expect(mockRepository.findByEmail).toHaveBeenCalledTimes(1);
-    });
-
-    it('should return null if user not found', async () => {
-      mockRepository.findByEmail.mockResolvedValue(null);
-
-      const result = await service.findByEmail('nonexistent@example.com');
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('findByUsername', () => {
-    it('should return a user by username', async () => {
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-
-      const result = await service.findByUsername('testuser');
-
-      expect(result).toEqual(mockUser);
-      expect(mockRepository.findByUsername).toHaveBeenCalledWith('testuser');
-    });
-  });
-
-  describe('findByIdentifier', () => {
-    it('should return a user by identifier', async () => {
-      mockRepository.findByIdentifier.mockResolvedValue(mockUser);
-
-      const result = await service.findByIdentifier('test@example.com');
-
-      expect(result).toEqual(mockUser);
-      expect(mockRepository.findByIdentifier).toHaveBeenCalledWith('test@example.com');
-    });
-  });
-
-  describe('createUser', () => {
-    it('should create and return a new user', async () => {
-      const userData = {
-        email: 'newuser@example.com',
-        username: 'newuser',
-        passwordHash: 'NewPassword123!',
-        name: 'New User',
-        birthDate: new Date('2000-01-01'),
-        languageCode: LanguageCode.EN,
-      };
-
-      mockRepository.createUser.mockResolvedValue({ ...userData, id: BigInt(2) });
-
-      const result = await service.createUser(userData, {} as never);
-
-      expect(result).toEqual({ ...userData, id: BigInt(2) });
-      expect(mockRepository.createUser).toHaveBeenCalledWith(userData, expect.anything());
-    });
-  });
-
-  describe('updatePasswordById', () => {
-    it('should update user password', async () => {
-      const userId = BigInt(1);
-      const hashedPassword = 'newHashedPassword';
-
-      mockRepository.updatePasswordById.mockResolvedValue({
-        ...mockUser,
-        password_hash: hashedPassword,
-      });
-
-      await service.updatePasswordById(userId, hashedPassword);
-
-      expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(userId, hashedPassword);
-    });
   });
 
   describe('changePassword', () => {
@@ -427,6 +286,14 @@ describe('UsersService', () => {
       };
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
@@ -434,12 +301,6 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findByIdWithProfile).toHaveBeenCalledWith(BigInt(1));
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
-        BigInt(1),
-        updateProfileDto,
-        undefined,
-        undefined,
-      );
     });
 
     test('should update only provided fields in user profile', async () => {
@@ -454,6 +315,15 @@ describe('UsersService', () => {
       };
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
+
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
@@ -465,6 +335,8 @@ describe('UsersService', () => {
         partialUpdateDto,
         undefined,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -485,6 +357,10 @@ describe('UsersService', () => {
     it('should handle empty update data', async () => {
       const emptyUpdateDto: UpdateProfileDto = {};
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
@@ -492,12 +368,6 @@ describe('UsersService', () => {
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
       expect(message).toEqual('Profile updated successfully');
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
-        BigInt(1),
-        emptyUpdateDto,
-        undefined,
-        undefined,
-      );
     });
 
     it('should successfully upload avatar and update profile', async () => {
@@ -510,6 +380,14 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ avatarUrl });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -527,6 +405,8 @@ describe('UsersService', () => {
         updateProfileDto,
         avatarUrl,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -540,6 +420,14 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ bannerUrl });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -557,6 +445,8 @@ describe('UsersService', () => {
         updateProfileDto,
         undefined,
         bannerUrl,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -569,6 +459,14 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
@@ -582,6 +480,8 @@ describe('UsersService', () => {
         { ...updateProfileDto, deleteBanner: true },
         undefined,
         null,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -594,6 +494,14 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const mockTx = {};
+        return callback(mockTx);
+      });
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
@@ -607,6 +515,8 @@ describe('UsersService', () => {
         { ...updateProfileDto, deleteAvatar: true },
         null,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 

@@ -163,15 +163,14 @@ export class UsersRepository {
     };
   }
 
-  async findUserProfileByUsername(
+  private async fetchUserWithCounts(
     username: string,
-    currentUserId?: bigint,
-    isMyProfile: boolean = false,
-  ): Promise<UserProfileResponseDto | null> {
-    // Build the where clause based on whether it's the user's own profile
+    currentUserId: bigint | undefined,
+    isMyProfile: boolean,
+  ) {
     const whereClause = isMyProfile && currentUserId ? { id: currentUserId } : { username };
 
-    const user = await this.prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: whereClause,
       include: {
         profile: true,
@@ -183,10 +182,43 @@ export class UsersRepository {
         },
       },
     });
+  }
 
+  private async getProfileMutualFollowersNames(currentUserId: bigint, targetUserId: bigint) {
+    // Get the list of users that currentUser follows
+    const authFollowedIds = await this.getUserIdsFollowedBy(currentUserId);
+
+    // Get mutual followers
+    const mutualFollows = await this.getUserMutualFollowers(
+      targetUserId,
+      authFollowedIds,
+      3,
+      undefined,
+    );
+
+    // Get total count
+    const mutualsCount = await this.prisma.follow.count({
+      where: {
+        followedId: targetUserId,
+        followerId: { in: authFollowedIds },
+      },
+    });
+
+    const mutualNames = mutualFollows.map((mutual) => ({
+      displayName: mutual.followerUser.profile?.displayName || '',
+      avatarUrl: mutual.followerUser.profile?.avatarUrl,
+    }));
+
+    return { mutualsCount, mutualNames };
+  }
+  async findUserProfileByUsername(
+    username: string,
+    currentUserId?: bigint,
+    isMyProfile: boolean = false,
+  ): Promise<UserProfileResponseDto | null> {
+    const user = await this.fetchUserWithCounts(username, currentUserId, isMyProfile);
     if (!user || user.deletedAt) return null;
 
-    // Mutuals variables
     let mutualsCount: number | null = null;
     let mutualNames: MutualUserDto[] | null = null;
 
@@ -212,6 +244,12 @@ export class UsersRepository {
         ]);
         [isFollowing, isFollower, isMuted] = [following, follower, muted];
       }
+
+      // Mutuals variables
+      ({ mutualsCount, mutualNames } = await this.getProfileMutualFollowersNames(
+        currentUserId,
+        user.id,
+      ));
     }
 
     // If current user is blocking the user, return limited profile info
@@ -268,8 +306,8 @@ export class UsersRepository {
       relationship,
       followingCount: user._count.following,
       followersCount: user._count.followers,
-      mutualsCount: mutualsCount && !isMyProfile ? mutualsCount : null,
-      mutualNames: mutualNames && !isMyProfile ? mutualNames : null,
+      mutualsCount: mutualsCount,
+      mutualNames: mutualNames,
       email: isMyProfile ? user.email : undefined,
     };
   }
