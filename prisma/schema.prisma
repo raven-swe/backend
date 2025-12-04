@@ -40,6 +40,7 @@ model User {
   userDevices              UserDevice[]
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
+  interests                String[]                  @default([])
 
   @@map("users")
 }
