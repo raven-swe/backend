@@ -357,6 +357,9 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
+
+  @doc("True if the current user is following this actor")
+  isFollowing?: boolean;
 }
 
 @doc("Author metadata for tweets with relationship status")

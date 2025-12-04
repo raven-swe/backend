@@ -98,6 +98,7 @@ export class NotificationsService {
               username: n.actor.username,
               displayName: n.actor.profile?.displayName,
               avatarUrl: n.actor.profile?.avatarUrl || null,
+              isFollowing: n.actor.followers.length > 0,
             },
           ],
         },

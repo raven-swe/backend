@@ -74,6 +74,9 @@ export class NotificationsRepository {
         seen: true,
         actor: {
           select: {
+            followers: {
+              where: { followerId: userId },
+            },
             username: true,
             profile: {
               select: {
