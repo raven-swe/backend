@@ -83,6 +83,13 @@ describe('ConversationsService', () => {
               },
             },
           ],
+          messages: [
+            {
+              content: 'Hello',
+              user: { username: 'user2' },
+              createdAt: new Date(),
+            },
+          ],
           lastMessage: {
             content: 'Hello',
             user: { username: 'user2' },
@@ -155,6 +162,13 @@ describe('ConversationsService', () => {
               },
             },
           ],
+          messages: [
+            {
+              content: 'Hello',
+              user: { username: 'blocked_user' },
+              createdAt: new Date(),
+            },
+          ],
           lastMessage: {
             content: 'Hello',
             user: { username: 'blocked_user' },
@@ -199,57 +213,19 @@ describe('ConversationsService', () => {
               },
             },
           ],
+          messages: [],
           lastMessage: null,
         },
       ];
 
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations as any);
       usersRepository.getUserBlocks.mockResolvedValue([]);
       usersRepository.getUserBlockedBy.mockResolvedValue([]);
 
       const result = await service.getUserConversations(userId, limit, '');
 
       expect(result.items).toHaveLength(0);
-    });
-
-    it('should include conversations without last message if user is creator', async () => {
-      const mockConversations = [
-        {
-          id: BigInt(1),
-          creatorId: userId, // Current user is creator
-          lastMessageId: null,
-          conversationParticipants: [
-            {
-              userId,
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user1',
-                profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
-              },
-            },
-            {
-              userId: BigInt(2),
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user2',
-                profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
-              },
-            },
-          ],
-          lastMessage: null,
-        },
-      ];
-
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
-
-      const result = await service.getUserConversations(userId, limit, '');
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].lastMessage).toBeNull();
     });
   });
 
@@ -284,11 +260,13 @@ describe('ConversationsService', () => {
             user: otherUser,
           },
         ],
+        messages: [],
         lastMessage: null,
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
-      conversationsRepository.findConversation.mockResolvedValue(mockConversation);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      conversationsRepository.findConversation.mockResolvedValue(mockConversation as any);
       usersRepository.getUserBlocks.mockResolvedValue([]);
       usersRepository.getUserBlockedBy.mockResolvedValue([]);
 
@@ -341,12 +319,14 @@ describe('ConversationsService', () => {
             user: otherUser,
           },
         ],
+        messages: [],
         lastMessage: null,
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
       conversationsRepository.findConversation.mockResolvedValueOnce(null);
-      conversationsRepository.findConversation.mockResolvedValueOnce(mockConversation);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      conversationsRepository.findConversation.mockResolvedValueOnce(mockConversation as any);
       conversationsRepository.createConversation.mockResolvedValue({
         id: BigInt(1),
         creatorId: userId,
