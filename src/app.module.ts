@@ -36,7 +36,6 @@ import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
