@@ -54,4 +54,20 @@ export class SseEventsService {
       data: notification,
     });
   }
+
+  async publishNotificationSeen(
+    receiverId: bigint,
+    notificationId?: bigint,
+    unSeenCount?: number,
+  ): Promise<void> {
+    this.logger.log(`Publishing notification seen event to user ${receiverId}`);
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.seen',
+      data: {
+        notificationId: notificationId?.toString() ?? null,
+        scope: notificationId ? 'SINGLE' : 'ALL',
+        unSeenCount: unSeenCount ?? 0,
+      },
+    });
+  }
 }

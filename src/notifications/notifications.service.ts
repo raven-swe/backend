@@ -6,7 +6,6 @@ import { NotificationCursor } from 'src/common/interfaces';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { SseEventsService } from 'src/sse/sse-events.service';
-import { NotificationResponseDto } from './dtos/notification-response.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
@@ -40,7 +39,11 @@ export class NotificationsService {
 
     const dto = this.notificationsRepository.mapToNotificationDto(notification);
 
-    await this.publishNotification(options.receiverId, dto);
+    await this.sseEvents.publishNewNotification(options.receiverId, dto);
+
+    this.logger.log(
+      `Finished publishing new notification with id ${notification.id} to user ${options.receiverId}`,
+    );
 
     await this.notificationsQueue.add(
       'sendPush',
@@ -59,16 +62,13 @@ export class NotificationsService {
     return notification;
   }
 
-  private async publishNotification(receiverId: bigint, notification: NotificationResponseDto) {
-    await this.sseEvents.publishNewNotification(receiverId, notification);
-
-    this.logger.log(
-      `Finished publishing new notification with id ${notification.id} to user ${receiverId}`,
-    );
-  }
-
   async markAllAsSeen(receiverId: bigint) {
     const { count } = await this.notificationsRepository.markAllAsSeen(receiverId);
+
+    await this.sseEvents.publishNotificationSeen(receiverId);
+
+    this.logger.log(`Finished publishing mark all notifications as seen to user ${receiverId}`);
+
     return count;
   }
 
@@ -84,6 +84,18 @@ export class NotificationsService {
       );
     }
     const { count } = await this.notificationsRepository.markAsSeen(notificationId, receiverId);
+
+    this.logger.log(
+      `Marked notification id ${notificationId} as seen for user ${receiverId}, updated rows: ${count}`,
+    );
+
+    const unSeenCount = await this.notificationsRepository.getUnseenCount(receiverId);
+
+    await this.sseEvents.publishNotificationSeen(receiverId, notificationId, unSeenCount);
+
+    this.logger.log(
+      `Finished publishing mark notification id ${notificationId} as seen to user ${receiverId}`,
+    );
     return count;
   }
 
