@@ -8,7 +8,10 @@ export async function processImage(
   const logger = new Logger('processImage');
 
   try {
-    let image = sharp(file.buffer);
+    let image = sharp(file.buffer, { failOnError: false });
+
+    // Correct orientation based on EXIF data
+    image = image.rotate();
     const metadata = await image.metadata();
 
     if (
