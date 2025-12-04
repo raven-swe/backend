@@ -19,4 +19,8 @@ export class TrendingService {
   ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
     return await this.TrendingRepository.createOrIncrementHashtags(hashtags, tx);
   }
+
+  async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
+    return await this.TrendingRepository.getHashtagId(hashtag);
+  }
 }

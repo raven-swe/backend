@@ -25,6 +25,7 @@ import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/c
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
 
 @Injectable()
 export class TweetsService {
@@ -34,6 +35,7 @@ export class TweetsService {
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
+    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
   ) {}
@@ -773,6 +775,36 @@ export class TweetsService {
       limit + 1,
       decodedCursor,
     );
+  }
+
+  async getTweetsByHashtag(
+    hashtag: string,
+    currentUserId: bigint,
+    limit: number,
+    hasMedia: boolean = false,
+    prevCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    // Get hashtag record
+    const hashtagRecord = await this.trendingService.getHashtagId(hashtag);
+    if (!hashtagRecord) {
+      return [];
+    }
+
+    // Get tweet ids from tweet hashtags table
+    const tweetIds = await this.tweetsRepository.getTweetIdsLinkedToHashtag(
+      hashtagRecord.id,
+      currentUserId,
+      limit + 1,
+      hasMedia,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      prevCursor,
+    );
+
+    // Get full tweets data
+    return await this.tweetsRepository.getTweetsByIds(currentUserId, tweetIds);
   }
 
   async getUserMediaTweets(

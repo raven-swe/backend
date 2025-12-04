@@ -22,3 +22,19 @@ export function prepareSearchQuery(query: string): string {
 
   return words.join(' | ');
 }
+
+/**
+ * Check if query is a single hashtag search
+ */
+export function isSingleHashtagQuery(query: string): boolean {
+  const trimmed = query.trim();
+  // Check if it starts with # and has no spaces (single hashtag)
+  return trimmed.startsWith('#') && !trimmed.includes(' ');
+}
+
+/**
+ * Extract hashtag from query (removes the #)
+ */
+export function extractHashtag(query: string): string {
+  return query.trim().replace(/^#/, '').toLowerCase();
+}

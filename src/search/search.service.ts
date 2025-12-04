@@ -1,10 +1,18 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
-import { SearchTab, SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
+import {
+  PeopleSearchFilter,
+  SearchTab,
+  SearchTweetsQueryDto,
+} from './dtos/search-tweets-query.dto';
 import { GetTweetResponseDto } from 'src/tweets/dtos';
 import { TweetsService } from 'src/tweets/tweets.service';
-import { prepareSearchQuery } from './utils/search-query.util';
+import {
+  extractHashtag,
+  isSingleHashtagQuery,
+  prepareSearchQuery,
+} from './utils/search-query.util';
 import { TweetRelationsCursor } from 'src/common/types/cursors';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
@@ -74,65 +82,20 @@ export class SearchService {
       );
     }
 
-    const cleanedQuery = prepareSearchQuery(query);
+    const isHashtagSearch = isSingleHashtagQuery(query);
+    const cleanedQuery = isHashtagSearch ? extractHashtag(query) : prepareSearchQuery(query);
+    const decodedCursor = this.decodeCursor(prevCursor);
 
-    let decodedCursor: TweetRelationsCursor | undefined;
-    if (prevCursor) {
-      try {
-        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
-      } catch {
-        throw new HttpException(
-          {
-            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
-            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    let items: GetTweetResponseDto[] = [];
-    switch (tab) {
-      case SearchTab.Top:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      case SearchTab.Latest:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      case SearchTab.Media:
-        items = await this.tweetsService.getTweetsWithMediaByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      default:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-    }
+    const items = await this.fetchTweetsByTab(
+      tab,
+      isHashtagSearch,
+      cleanedQuery,
+      currentUserId,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
 
     const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
       return {
@@ -144,5 +107,64 @@ export class SearchService {
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
     return { items, pagination };
+  }
+
+  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
+    if (!prevCursor) return undefined;
+
+    try {
+      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+    } catch {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  private async fetchTweetsByTab(
+    tab: SearchTab | undefined,
+    isHashtagSearch: boolean,
+    cleanedQuery: string,
+    currentUserId: bigint,
+    limit: number,
+    decodedCursor: TweetRelationsCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ): Promise<GetTweetResponseDto[]> {
+    const withMedia = tab === SearchTab.Media;
+
+    if (isHashtagSearch) {
+      return this.tweetsService.getTweetsByHashtag(
+        cleanedQuery,
+        currentUserId,
+        limit,
+        withMedia,
+        decodedCursor,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    }
+
+    return withMedia
+      ? this.tweetsService.getTweetsWithMediaByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
+        )
+      : this.tweetsService.getTopTweetsByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
+        );
   }
 }

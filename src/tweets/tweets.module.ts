@@ -10,7 +10,7 @@ import { ContentParsingModule } from 'src/content-parsing/content-parsing.module
 import { MediaModule } from 'src/media/media.module';
 
 @Module({
-  imports: [UsersModule, TrendingModule, ContentParsingModule, MediaModule],
+  imports: [UsersModule, TrendingModule, ContentParsingModule, MediaModule, TrendingModule],
   providers: [TweetsService, TweetsRepository],
   controllers: [TweetsController, TimelineController, ProfileTweetsController],
   exports: [TweetsService],
