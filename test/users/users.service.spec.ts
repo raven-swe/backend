@@ -13,6 +13,7 @@ import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { NewUser } from 'src/users/interfaces';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
