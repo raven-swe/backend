@@ -5,16 +5,18 @@ import { DOMAIN_EVENT_NAMES } from 'src/events/interfaces/event.interface';
 import type {
   TweetLikedEvent,
   TweetCreatedEvent,
-  TweetQuotedEvent,
-  TweetRepliedEvent,
   TweetRetweetedEvent,
   UserFollowedEvent,
-  UserMentionedEvent,
 } from 'src/events/interfaces/event.interface';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
 @Injectable()
 export class NotificationsListeners {
   private readonly logger = new Logger(NotificationsListeners.name);
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly tweetRepository: TweetsRepository,
+  ) {}
+
   @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Liked) async handleTweetLiked(payload: TweetLikedEvent) {
     try {
       await this.notificationsService.trigger({
@@ -26,13 +28,8 @@ export class NotificationsListeners {
     } catch (error) {
       this.logger.error('Error processing Tweet_Liked event:', error);
     }
-    await this.notificationsService.trigger({
-      actorId: payload.actorId,
-      receiverId: payload.receiverId,
-      tweetId: payload.tweetId,
-      type: 'LIKE',
-    });
   }
+
   @OnEvent(DOMAIN_EVENT_NAMES.User_Followed) async handleUserFollowed(payload: UserFollowedEvent) {
     try {
       await this.notificationsService.trigger({
@@ -42,30 +39,6 @@ export class NotificationsListeners {
       });
     } catch (error) {
       this.logger.error('Error processing User_Followed event:', error);
-    }
-  }
-  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Replied) async handleTweetReplied(payload: TweetRepliedEvent) {
-    try {
-      await this.notificationsService.trigger({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'REPLY',
-      });
-    } catch (error) {
-      this.logger.error('Error processing Tweet_Replied event:', error);
-    }
-  }
-  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Quoted) async handleTweetQuoted(payload: TweetQuotedEvent) {
-    try {
-      await this.notificationsService.trigger({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'QUOTE',
-      });
-    } catch (error) {
-      this.logger.error('Error processing Tweet_Quoted event:', error);
     }
   }
   @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Retweeted) async handleTweetRetweeted(
@@ -82,28 +55,54 @@ export class NotificationsListeners {
       this.logger.error('Error processing Tweet_Retweeted event:', error);
     }
   }
-  @OnEvent(DOMAIN_EVENT_NAMES.User_Mentioned) async handleUserMentioned(
-    payload: UserMentionedEvent,
-  ) {
-    try {
-      await this.notificationsService.trigger({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'MENTION',
-      });
-    } catch (error) {
-      this.logger.error('Error processing User_Mentioned event:', error);
-    }
-  }
   @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Created) async handleTweetCreated(payload: TweetCreatedEvent) {
+    const { tweetId, authorId, replyToTweetId, quoteToTweetId, mentionedUserIds } = payload;
+
+    const authorsIdsNotified = new Set<bigint>();
+
     try {
-      await this.notificationsService.trigger({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'TWEET',
-      });
+      if (replyToTweetId) {
+        const parentTweet = await this.tweetRepository.findTweetById(replyToTweetId);
+
+        if (parentTweet && parentTweet.userId !== authorId) {
+          authorsIdsNotified.add(parentTweet.userId);
+          await this.notificationsService.trigger({
+            type: 'REPLY',
+            actorId: authorId,
+            receiverId: parentTweet.userId,
+            tweetId: tweetId,
+          });
+        }
+      }
+      if (quoteToTweetId) {
+        const quotedTweet = await this.tweetRepository.findTweetById(quoteToTweetId);
+
+        if (quotedTweet && quotedTweet.userId !== authorId) {
+          authorsIdsNotified.add(quotedTweet.userId);
+          await this.notificationsService.trigger({
+            type: 'QUOTE',
+            actorId: authorId,
+            receiverId: quotedTweet.userId,
+            tweetId: tweetId,
+          });
+        }
+      }
+
+      if (mentionedUserIds.length > 0) {
+        for (const targetId of mentionedUserIds) {
+          if (targetId === authorId) continue;
+
+          // Avoid sending duplicate notifications to users already notified for reply or quote
+          if (authorsIdsNotified.has(targetId)) continue;
+
+          await this.notificationsService.trigger({
+            type: 'MENTION',
+            actorId: authorId,
+            receiverId: targetId,
+            tweetId: tweetId,
+          });
+        }
+      }
     } catch (error) {
       this.logger.error('Error processing Tweet_Created event:', error);
     }

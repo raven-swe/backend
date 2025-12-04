@@ -23,6 +23,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class TweetsService {
@@ -35,6 +36,7 @@ export class TweetsService {
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
@@ -139,6 +141,16 @@ export class TweetsService {
         return { tweet, mentions, hashtags, tweetId: tweet.id, authorId: tweet.userId };
       },
     );
+      await this.domainEvents.emitTweetCreated({
+        tweetId: tweet.id,
+        authorId: userId,
+        replyToTweetId: tweet.replyToTweetId,
+        quoteToTweetId: tweet.quotedTweetId,
+        mentionedUserIds: mentions.map((m) => m.userId),
+      });
+
+      return { tweet, mentions, hashtags };
+    });
 
     const mediaObjectsPromise =
       mediaIds.length > 0
@@ -358,6 +370,12 @@ export class TweetsService {
     await this.tweetsRepository.likeTweet(userId, tweetId);
     this.logger.log(`User ${userId} liked tweet ${tweetId} successfully`);
 
+    await this.domainEvents.emitTweetLiked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
+
     return { message: 'Tweet liked successfully' };
   }
 
@@ -413,6 +431,12 @@ export class TweetsService {
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
     this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+
+    await this.domainEvents.emitTweetRetweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
 
     return { message: 'Tweet retweeted successfully' };
   }

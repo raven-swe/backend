@@ -57,7 +57,7 @@ export class NotificationProcessor extends WorkerHost {
         notification.actor.profile?.displayName ?? notification.actor.username,
       ];
       const tweetSnippet = notification.tweet?.content ?? null;
-      const locale = 'ar'; //TODO: fetch user locale
+      const locale = 'en'; //TODO: fetch user locale
 
       const { title, body } = buildFcmNotificationText({
         notificationType: notification.type,
