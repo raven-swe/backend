@@ -1,5 +1,14 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import {
+  USERS_ERROR_CODES,
+  USERS_ERROR_MESSAGES,
+  INTEREST_CODES,
+  INTEREST_NAMES,
+  InterestCode,
+  MIN_INTERESTS_REQUIRED,
+  INTERESTS_ERROR_CODES,
+  INTERESTS_ERROR_MESSAGES,
+} from 'src/users/constants';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
@@ -19,14 +28,6 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { BlocksCursor, MutesCursor } from 'src/common/interfaces';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
-import {
-  INTEREST_CODES,
-  INTEREST_NAMES,
-  InterestCode,
-  MIN_INTERESTS_REQUIRED,
-  INTERESTS_ERROR_CODES,
-  INTERESTS_ERROR_MESSAGES,
-} from 'src/users/constants';
 
 interface CachedEmailUpdateData {
   userId: string;
