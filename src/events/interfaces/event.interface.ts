@@ -9,14 +9,14 @@ export const DOMAIN_EVENT_NAMES = {
 } as const;
 
 interface UserEvent {
-  actorId: string;
-  receiverId: string;
+  actorId: bigint;
+  receiverId: bigint;
 }
 
 interface TweetEvent {
-  actorId: string;
-  receiverId: string;
-  tweetId: string;
+  actorId: bigint;
+  receiverId: bigint;
+  tweetId: bigint;
 }
 
 export type UserFollowedEvent = UserEvent;

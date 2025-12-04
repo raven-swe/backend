@@ -45,6 +45,7 @@ import { SseModule } from './sse/sse.module';
 import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { EventsModule } from './events/events.module';
     SessionsModule,
     NotificationsModule,
     EventsModule,
+    FirebaseModule,
   ],
   controllers: [HealthController],
   providers: [
