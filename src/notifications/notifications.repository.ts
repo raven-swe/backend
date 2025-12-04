@@ -73,7 +73,10 @@ export class NotificationsRepository {
         createdAt: true,
         latestEventAt: true,
         seen: true,
-        tweetId: true,
+        isAggregated: true,
+        tweet: {
+          select: { id: true, content: true },
+        },
         actor: {
           select: {
             username: true,

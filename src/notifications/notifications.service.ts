@@ -19,12 +19,24 @@ export class NotificationsService {
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
   async trigger(options: NotificationTriggerOptions) {
+    this.logger.log(
+      `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
+    );
     if (options.actorId === options.receiverId) return;
 
     const existing = await this.notificationsRepository.findExisting(options);
-    if (existing) return existing;
+    if (existing) {
+      this.logger.log(
+        `Found existing notification with id ${existing.id}, updating instead of creating a new one`,
+      );
+      return existing;
+    }
 
     const notification = await this.notificationsRepository.createNotification(options);
+
+    this.logger.log(
+      `Created new notification with id ${notification.id} of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
+    );
 
     const dto = this.notificationsRepository.mapToNotificationDto(notification);
 
@@ -32,13 +44,16 @@ export class NotificationsService {
 
     await this.notificationsQueue.add(
       'sendPush',
-      { notificationId: notification.id.toString(), receiverId: options.receiverId.toString() },
+      { notificationId: notification.id.toString(), userId: options.receiverId.toString() },
       {
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
         jobId: `notification:push:${notification.id}`,
       },
+    );
+    this.logger.log(
+      `Enqueued push notification job for notification id ${notification.id} to user ${options.receiverId}`,
     );
 
     return notification;
