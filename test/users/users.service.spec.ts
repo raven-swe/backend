@@ -134,6 +134,160 @@ describe('UsersService', () => {
     jest.clearAllMocks();
   });
 
+  describe('findByUsername', () => {
+    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
+
+    it('should call the repository with the correct username and return its result', async () => {
+      const username = 'testuser';
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+
+      const result = await service.findByUsername(username);
+
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(result).toBe(mockUser);
+    });
+  });
+
+  describe('findByIdentifier', () => {
+    const mockUser = { id: BigInt(1), email: 'test@gmail.com', username: 'testuser' };
+
+    it('should call the repository with the correct identifier and return its result', async () => {
+      const identifier = 'testuser';
+      mockRepository.findByIdentifier.mockResolvedValue(mockUser);
+
+      const result = await service.findByIdentifier(identifier);
+
+      expect(mockRepository.findByIdentifier).toHaveBeenCalledWith(identifier);
+      expect(result).toBe(mockUser);
+    });
+  });
+
+  describe('updatePasswordById', () => {
+    it('should call the repository with the correct userId and new password hash', async () => {
+      const userId = BigInt(1);
+      const newHashedPassword = 'newHashedPassword123';
+      const expectedUpdatedUser = { id: userId, password_hash: newHashedPassword };
+
+      mockRepository.updatePasswordById.mockResolvedValue(expectedUpdatedUser);
+
+      const result = await service.updatePasswordById(userId, newHashedPassword);
+
+      expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(userId, newHashedPassword);
+      expect(result).toEqual(expectedUpdatedUser);
+    });
+  });
+
+  describe('findByEmail', () => {
+    it('should call the repository with the correct email and return its result', async () => {
+      const email = 'test@gmail.com';
+      const expectedUser = { id: BigInt(1), email, password_hash: '...' };
+      mockRepository.findByEmail.mockResolvedValue(expectedUser);
+
+      const result = await service.findByEmail(email);
+
+      expect(mockRepository.findByEmail).toHaveBeenCalledWith(email);
+      expect(result).toBe(expectedUser);
+    });
+  });
+
+  describe('createUser', () => {
+    it('should call the repository with the correct user data and return the new user', async () => {
+      const newUserDto: NewUser = {
+        email: 'test@gmail.com',
+        username: 'omar',
+        name: 'Omar Gamal',
+        passwordHash: 'hashedpassword',
+        birthDate: new Date(),
+        languageCode: LanguageCode.EN,
+      };
+      const expectedCreatedUser = { id: BigInt(2), ...newUserDto };
+      mockRepository.createUser.mockResolvedValue(expectedCreatedUser);
+
+      const result = await service.createUser(newUserDto, {} as never);
+
+      expect(mockRepository.createUser).toHaveBeenCalledWith(newUserDto, {} as never);
+      expect(result).toBe(expectedCreatedUser);
+    });
+  });
+
+  describe('findByEmail', () => {
+    it('should return a user by email', async () => {
+      mockRepository.findByEmail.mockResolvedValue(mockUser);
+
+      const result = await service.findByEmail('test@example.com');
+
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockRepository.findByEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return null if user not found', async () => {
+      mockRepository.findByEmail.mockResolvedValue(null);
+
+      const result = await service.findByEmail('nonexistent@example.com');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByUsername', () => {
+    it('should return a user by username', async () => {
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+
+      const result = await service.findByUsername('testuser');
+
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith('testuser');
+    });
+  });
+
+  describe('findByIdentifier', () => {
+    it('should return a user by identifier', async () => {
+      mockRepository.findByIdentifier.mockResolvedValue(mockUser);
+
+      const result = await service.findByIdentifier('test@example.com');
+
+      expect(result).toEqual(mockUser);
+      expect(mockRepository.findByIdentifier).toHaveBeenCalledWith('test@example.com');
+    });
+  });
+
+  describe('createUser', () => {
+    it('should create and return a new user', async () => {
+      const userData = {
+        email: 'newuser@example.com',
+        username: 'newuser',
+        passwordHash: 'NewPassword123!',
+        name: 'New User',
+        birthDate: new Date('2000-01-01'),
+        languageCode: LanguageCode.EN,
+      };
+
+      mockRepository.createUser.mockResolvedValue({ ...userData, id: BigInt(2) });
+
+      const result = await service.createUser(userData, {} as never);
+
+      expect(result).toEqual({ ...userData, id: BigInt(2) });
+      expect(mockRepository.createUser).toHaveBeenCalledWith(userData, expect.anything());
+    });
+  });
+
+  describe('updatePasswordById', () => {
+    it('should update user password', async () => {
+      const userId = BigInt(1);
+      const hashedPassword = 'newHashedPassword';
+
+      mockRepository.updatePasswordById.mockResolvedValue({
+        ...mockUser,
+        password_hash: hashedPassword,
+      });
+
+      await service.updatePasswordById(userId, hashedPassword);
+
+      expect(mockRepository.updatePasswordById).toHaveBeenCalledWith(userId, hashedPassword);
+    });
+  });
+
   describe('changePassword', () => {
     const changePasswordDto = {
       currentPassword: 'OldPassword123!',
