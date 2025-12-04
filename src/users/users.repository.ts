@@ -3,13 +3,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
-import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
+import {
+  BioEntitiesDto,
+  MutualUserDto,
+  UpdateProfileDto,
+  UserProfileResponseDto,
+  UserRelationshipDto,
+} from './dtos';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
+import { plainToClass } from 'class-transformer';
 
 @Injectable()
 export class UsersRepository {
@@ -99,59 +106,61 @@ export class UsersRepository {
     data: UpdateProfileDto,
     avatarUrl?: string | null,
     bannerUrl?: string | null,
+    bioEntities?: BioEntitiesDto | null,
+    prismaClient: Prisma.TransactionClient = this.prisma,
   ) {
-    return await this.prisma.$transaction(async (tx) => {
-      let birthDate: string | undefined = undefined;
+    let birthDate: string | undefined = undefined;
 
-      // Update birthDate in users table if provided
-      if (data.birthDate !== undefined) {
-        const updatedUser = await tx.user.update({
-          where: { id: userId },
-          data: { birthdate: data.birthDate },
-        });
-        birthDate = updatedUser.birthdate?.toISOString().split('T')[0];
-      }
+    // Update birthDate in users table if provided
+    if (data.birthDate !== undefined) {
+      const updatedUser = await prismaClient.user.update({
+        where: { id: userId },
+        data: { birthdate: data.birthDate },
+      });
+      birthDate = updatedUser.birthdate?.toISOString().split('T')[0];
+    }
 
-      // Build prismaData conditionally
-      const prismaData: Prisma.ProfileUpdateInput = {};
-      if (data.displayName !== undefined) prismaData.displayName = data.displayName;
-      if (data.bio !== undefined) prismaData.bio = data.bio;
-      if (data.location !== undefined) prismaData.location = data.location;
-      if (data.websiteUrl !== undefined) prismaData.websiteUrl = data.websiteUrl;
-      if (avatarUrl !== undefined) prismaData.avatarUrl = avatarUrl;
-      if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
+    // Build prismaData conditionally
+    const prismaData: Prisma.ProfileUpdateInput = {};
+    if (data.displayName !== undefined) prismaData.displayName = data.displayName;
+    if (data.bio !== undefined) prismaData.bio = data.bio;
+    if (data.location !== undefined) prismaData.location = data.location;
+    if (data.websiteUrl !== undefined) prismaData.websiteUrl = data.websiteUrl;
+    if (avatarUrl !== undefined) prismaData.avatarUrl = avatarUrl;
+    if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
+    if (bioEntities !== undefined)
+      prismaData.bioEntities = bioEntities as unknown as Prisma.InputJsonValue;
 
-      // Only update if there are fields to update
-      let profile;
-      if (Object.keys(prismaData).length > 0) {
-        profile = await tx.profile.update({
-          where: { userId: userId },
-          data: prismaData,
-        });
-      } else {
-        // If no profile fields to update, just fetch the existing profile
-        profile = await tx.profile.findUnique({
-          where: { userId: userId },
-        });
-      }
+    // Only update if there are fields to update
+    let profile;
+    if (Object.keys(prismaData).length > 0) {
+      profile = await prismaClient.profile.update({
+        where: { userId: userId },
+        data: prismaData,
+      });
+    } else {
+      // If no profile fields to update, just fetch the existing profile
+      profile = await prismaClient.profile.findUnique({
+        where: { userId: userId },
+      });
+    }
 
-      if (!profile) {
-        throw new Error(`Profile not found for user ${userId}`);
-      }
+    if (!profile) {
+      throw new Error(`Profile not found for user ${userId}`);
+    }
 
-      // Map profile fields to return
-      return {
-        displayName: profile.displayName,
-        bio: profile.bio,
-        bioEntities: profile.bioEntities,
-        location: profile.location,
-        birthDate,
-        websiteUrl: profile.websiteUrl,
-        avatarUrl: profile.avatarUrl,
-        bannerUrl: profile.bannerUrl,
-        updatedAt: profile.updatedAt,
-      };
-    });
+    // Map profile fields to return
+    return {
+      displayName: profile.displayName,
+      bio: profile.bio,
+      bioEntities: profile.bioEntities,
+      location: profile.location,
+      birthDate,
+      websiteUrl: profile.websiteUrl,
+      avatarUrl: profile.avatarUrl,
+      bannerUrl: profile.bannerUrl,
+      updatedAt: profile.updatedAt,
+    };
   }
 
   async findUserProfileByUsername(
@@ -177,9 +186,9 @@ export class UsersRepository {
 
     if (!user || user.deletedAt) return null;
 
-    // TODO: convert to "let" after implementing mutual followers
-    const mutualsCount: number | null = 2;
-    const mutualNames: string[] | null = ['Omar', 'Tasneem'];
+    // Mutuals variables
+    let mutualsCount: number | null = null;
+    let mutualNames: MutualUserDto[] | null = null;
 
     // Get relationship status only if currentUserId is provided and is not my profile
     let [isBlocking, isBlockedBy] = [false, false];
@@ -211,7 +220,7 @@ export class UsersRepository {
         username: user.username,
         displayName: user.profile?.displayName || '',
         bio: null,
-        bioEntities: null,
+        bioEntities: plainToClass(BioEntitiesDto, user.profile?.bioEntities) || null,
         location: null,
         birthDate: null,
         avatarUrl: user.profile?.avatarUrl,
@@ -249,8 +258,7 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       bio: user.profile?.bio || null,
-      // TODO: return actual bio entities after implementing rich text bios
-      bioEntities: null,
+      bioEntities: plainToClass(BioEntitiesDto, user.profile?.bioEntities) || null,
       location: user.profile?.location || null,
       birthDate: user.birthdate?.toISOString().split('T')[0] || null,
       avatarUrl: user.profile?.avatarUrl,
