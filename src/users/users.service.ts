@@ -19,6 +19,8 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class UsersService {
@@ -992,5 +994,23 @@ export class UsersService {
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
   }
 }

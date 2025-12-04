@@ -10,6 +10,8 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class UsersRepository {
@@ -122,7 +124,6 @@ export class UsersRepository {
       if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
 
       // Only update if there are fields to update
-      console.log('Prisma Data to update:', prismaData);
       let profile;
       if (Object.keys(prismaData).length > 0) {
         profile = await tx.profile.update({
@@ -1270,6 +1271,129 @@ export class UsersRepository {
       isBlocked: false,
       isFollowing: false,
       isMuted: false,
+    };
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+  ) {
+    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition } =
+      this.buildUserSearchFilters(
+        currentUserId,
+        excludeMutedAndBlocked,
+        peopleFilter,
+        decodedCursor,
+      );
+
+    const sqlQuery = Prisma.sql`
+      SELECT 
+        u.id,
+        u.username,
+        p.display_name,
+        p.avatar_url,
+        p.banner_url,
+        p.bio,
+        p.bio_entities,
+        GREATEST(
+          similarity(LOWER(u.username), ${query}),
+          COALESCE(similarity(LOWER(p.display_name), ${query}), 0)
+        ) as sim_score
+      FROM 
+        users u
+        LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE 
+        u.deleted_at IS NULL
+        AND (
+          LOWER(u.username) % ${query}
+          OR LOWER(p.display_name) % ${query}
+        )
+        ${mutedAndBlockedCondition}
+        ${peopleFilterCondition}
+        ${cursorCondition}
+      ORDER BY 
+        sim_score DESC,
+        u.created_at DESC,
+        u.id DESC
+      LIMIT ${limit};
+    `;
+
+    const results = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        username: string;
+        display_name: string | null;
+        avatar_url: string | null;
+        banner_url: string | null;
+        bio: string | null;
+        bio_entities: Prisma.JsonValue | null;
+        sim_score: number;
+      }[]
+    >(sqlQuery);
+
+    return results.map((row) => ({
+      id: row.id,
+      username: row.username,
+      displayName: row.display_name || '',
+      avatarUrl: row.avatar_url,
+      bannerUrl: row.banner_url || null,
+      bio: row.bio || null,
+      bioEntities: row.bio_entities || null,
+    }));
+  }
+
+  private buildUserSearchFilters(
+    currentUserId: bigint,
+    excludeMutedAndBlocked: boolean,
+    peopleFilter: PeopleSearchFilter,
+    cursor: UserSearchCursor | undefined,
+  ) {
+    const cursorCondition = cursor
+      ? Prisma.sql`
+            AND (
+              t.created_at < ${cursor.createdAt}::timestamp
+              OR (
+                t.created_at = ${cursor.createdAt}::timestamp 
+                AND t.id <= ${BigInt(cursor.id)}
+              )
+            )
+          `
+      : Prisma.empty;
+
+    const mutedAndBlockedCondition = excludeMutedAndBlocked
+      ? Prisma.sql`
+            AND NOT EXISTS (
+              SELECT 1 
+              FROM blocks b 
+              WHERE b.user_id = ${currentUserId} AND b.blocked_id = u.id
+            )
+            AND NOT EXISTS (
+              SELECT 1 
+              FROM mutes m 
+              WHERE m.user_id = ${currentUserId} AND m.muted_id = u.id
+            )
+          `
+      : Prisma.empty;
+
+    const peopleFilterCondition =
+      peopleFilter === PeopleSearchFilter.Following
+        ? Prisma.sql`
+            AND EXISTS (
+              SELECT 1 
+              FROM follows f 
+              WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+            )
+          `
+        : Prisma.empty;
+
+    return {
+      cursorCondition,
+      mutedAndBlockedCondition,
+      peopleFilterCondition,
     };
   }
 }

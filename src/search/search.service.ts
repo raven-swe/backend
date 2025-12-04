@@ -16,6 +16,7 @@ import {
 import { TweetRelationsCursor } from 'src/common/types/cursors';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
+import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
 
 @Injectable()
 export class SearchService {
@@ -168,5 +169,64 @@ export class SearchService {
           excludeMutedAndBlocked,
           peopleFilter,
         );
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    searchUsersQueryDto: SearchUsersQueryDto,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const { query, peopleFilter, excludeMutedAndBlocked } = searchUsersQueryDto;
+
+    const rawQuery = decodeURIComponent(query);
+
+    if (!rawQuery || rawQuery.trim() === '') {
+      throw new HttpException(
+        {
+          message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
+          code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const cleanedQuery = prepareSearchQuery(rawQuery);
+    const decodedCursor = this.decodeCursor(prevCursor);
+
+    const items = await this.usersService.searchUsers(
+      currentUserId,
+      cleanedQuery,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+
+    const pagination = paginateComposite(items, limit, prevCursor, (user) => {
+      return {
+        createdAt: user.createdAt,
+        id: user.id.toString(),
+      };
+    });
+
+    this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
+    return { items, pagination };
+  }
+
+  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
+    if (!prevCursor) return undefined;
+
+    try {
+      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+    } catch {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }
