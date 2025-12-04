@@ -37,9 +37,9 @@ export class TimelineConsumer extends WorkerHost {
       this.logger.log(
         `Processing timeline-following fanout job ${job.id} for tweet ${tweetId} by author ${authorId}`,
       );
-      const followerIds: string[] = (
-        await this.usersService.getFollowersForTweetFanout(BigInt(authorId))
-      ).map((id) => id.toString());
+      const followerIds: string[] = (await this.usersService.getFollowersIds(BigInt(authorId))).map(
+        (id) => id.toString(),
+      );
       followerIds.unshift(authorId.toString());
 
       // Fanout should be to existing keys only (active users), those keys are created when the timeline cache misses, and persist for a configured time
