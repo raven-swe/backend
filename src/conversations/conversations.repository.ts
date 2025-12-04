@@ -10,20 +10,19 @@ export class ConversationsRepository {
     limit: number,
     prevCursor: { conversationId: string } | undefined,
   ) {
-    return await this.prisma.conversation.findMany({
+    const conversations = await this.prisma.conversation.findMany({
       where: {
         conversationParticipants: {
-          some: {
-            userId,
-          },
+          some: { userId },
         },
       },
       take: limit,
-      cursor: prevCursor
-        ? {
-            id: BigInt(prevCursor.conversationId),
-          }
-        : undefined,
+      cursor: prevCursor ? { id: BigInt(prevCursor.conversationId) } : undefined,
+      orderBy: {
+        lastMessage: {
+          createdAt: 'desc',
+        },
+      },
       select: {
         id: true,
         creatorId: true,
@@ -46,35 +45,49 @@ export class ConversationsRepository {
             },
           },
         },
-        lastMessage: {
+        messages: {
+          where: {
+            OR: [
+              {
+                userId,
+                isDeletedSender: false,
+              },
+              {
+                NOT: { userId },
+                isDeletedReceiver: false,
+              },
+            ],
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
           select: {
             content: true,
+            createdAt: true,
             user: {
               select: {
                 username: true,
               },
             },
-            createdAt: true,
           },
         },
       },
-      orderBy: {
-        lastMessage: {
-          createdAt: 'desc',
-        },
-      },
     });
+
+    return conversations.map((conv) => ({
+      ...conv,
+      lastMessage: conv.messages[0] ?? null,
+    }));
   }
 
   async findConversation(authUserId: bigint, otherUserId: bigint) {
-    return await this.prisma.conversation.findFirst({
+    const conversation = await this.prisma.conversation.findFirst({
       where: {
         conversationParticipants: {
           every: {
-            user: {
-              id: {
-                in: [authUserId, otherUserId],
-              },
+            userId: {
+              in: [authUserId, otherUserId],
             },
           },
         },
@@ -100,19 +113,42 @@ export class ConversationsRepository {
             },
           },
         },
-        lastMessage: {
+        messages: {
+          where: {
+            OR: [
+              {
+                userId: authUserId,
+                isDeletedSender: false,
+              },
+              {
+                NOT: { userId: authUserId },
+                isDeletedReceiver: false,
+              },
+            ],
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
           select: {
             content: true,
+            createdAt: true,
             user: {
               select: {
                 username: true,
               },
             },
-            createdAt: true,
           },
         },
       },
     });
+
+    if (!conversation) return null;
+
+    return {
+      ...conversation,
+      lastMessage: conversation.messages[0] ?? null,
+    };
   }
 
   async createConversation(authUserId: bigint, otherUserId: bigint) {

@@ -1,9 +1,12 @@
 import { Controller, Get, Logger, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { SseService } from './sse.service';
+import { SseEventsService } from './sse-events.service';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { SSE_CONNECTION_TIMEOUT } from './constants/sse-constants';
+import { ConversationsRepository } from 'src/conversations/conversations.repository';
 
 interface SseEvent {
   event?: string;
@@ -11,17 +14,25 @@ interface SseEvent {
   data: unknown;
 }
 
-const SSE_CONNECTION_TIMEOUT = 2 * 60 * 60 * 1000;
-
 @Controller('stream')
 export class SseController {
   private readonly logger = new Logger(SseController.name);
 
-  constructor(private readonly sse: SseService) {}
+  constructor(
+    private readonly sse: SseService,
+    private readonly sseEvents: SseEventsService,
+    private readonly conversationsRepository: ConversationsRepository,
+  ) {}
+
+  private async publishUnseenCountEvent(userId: bigint): Promise<void> {
+    this.logger.log(`Publishing unseen_conversations_count (on initial load) to user ${userId}`);
+    const unseenCount = await this.conversationsRepository.countUnseenConversations(userId);
+    await this.sseEvents.publishUnseenCount(userId, unseenCount);
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  stream(
+  async stream(
     @User() user: RequestUser,
     @Res({ passthrough: false }) res: Response,
     @Query('topics') topics?: string,
@@ -35,7 +46,7 @@ export class SseController {
     }
     const userId = user.id;
 
-    const subject = this.sse.subscribe(userId);
+    const subject = await this.sse.subscribe(userId);
 
     if (!subject) {
       this.logger.warn(`SSE connection limit reached - User: ${userId}`);
@@ -55,8 +66,14 @@ export class SseController {
 
     res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
 
+    this.publishUnseenCountEvent(BigInt(userId)).catch((err: unknown) => {
+      this.logger.error(`Failed to send initial unseen count for user ${userId}`, err);
+    });
+
     this.logger.log(
-      `SSE client connected - User: ${userId}, Active connections: ${this.sse.getConnectionCount(userId)}`,
+      `SSE client connected - User: ${userId}, Active connections (this pod): ${this.sse.getConnectionCount(
+        userId,
+      )}`,
     );
 
     const subscription = subject.asObservable().subscribe((ev: SseEvent) => {
@@ -84,7 +101,7 @@ export class SseController {
       subscription.unsubscribe();
       this.sse.unsubscribe(userId, subject);
       this.logger.log(
-        `SSE client disconnected - User: ${userId}, Remaining connections: ${this.sse.getConnectionCount(userId)}`,
+        `SSE client disconnected - User: ${userId}, Remaining connections (this pod): ${this.sse.getConnectionCount(userId)}`,
       );
     });
   }

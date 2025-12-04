@@ -31,6 +31,10 @@ import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { SessionsModule } from './sessions/sessions.module';
+import { SseModule } from './sse/sse.module';
+import { SseController } from './sse/sse.controller';
+import cors from 'cors';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -65,11 +69,14 @@ import { SessionsModule } from './sessions/sessions.module';
     TweetsModule,
     ConversationsModule,
     SearchModule,
+    SseModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
     LoggerModule,
     SessionsModule,
+    EventsModule,
+
   ],
   controllers: [HealthController],
   providers: [
@@ -100,5 +107,15 @@ import { SessionsModule } from './sessions/sessions.module';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+
+    consumer
+      .apply(
+        cors({
+          origin: '*',
+          methods: 'GET,OPTIONS',
+          credentials: true,
+        }),
+      )
+      .forRoutes(SseController);
   }
 }

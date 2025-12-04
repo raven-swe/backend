@@ -359,6 +359,7 @@ alias MessageListResponse = DataResponseWithPagination<{
   messages: Message[];
 }>;
 alias ConversationResponse = DataResponse<Conversation>;
+alias DeleteMessageResponse = MessageResponse<"Message deleted successfully">;
 
 @doc("A single external social account connected to the user's primary account.")
 model ConnectedAccountResponse {
@@ -1756,6 +1757,22 @@ namespace Conversations {
   op getUnseenCounts(): DataResponse<{
     count: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+  
+  @delete
+  @route("/{conversationId}/messages/{messageId}")
+  @summary("Soft-delete a message by IDs")
+  @doc("""
+    Soft-deletes a message using conversation ID and message ID.
+    Sets is_deleted_sender or is_deleted_receiver flag based on user role.
+    """)
+  op deleteMessage(@path conversationId: string, @path messageId: string):
+    | DeleteMessageResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
 }
 
 @tag("Devices")
@@ -1788,3 +1805,5 @@ namespace Devices {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
+
+
