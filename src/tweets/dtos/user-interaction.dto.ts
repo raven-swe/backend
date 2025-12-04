@@ -1,13 +1,9 @@
-import { Exclude } from 'class-transformer';
-import { BioDto } from 'src/users/dtos';
+import { BioDto, UserRelationshipDto } from 'src/users/dtos';
 
 export class UserInteractionDto {
   username: string;
   displayName: string;
   avatarUrl: string;
-  isFollowing: boolean;
-  isFollower: boolean;
-  isBlocked: boolean;
-  isMuted: boolean;
+  relationship: UserRelationshipDto;
   bio: BioDto | null;
 }

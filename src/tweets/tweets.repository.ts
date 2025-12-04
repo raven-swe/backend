@@ -623,10 +623,12 @@ export class TweetsRepository {
               bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
             }
           : null,
-        isFollowing: user.followers.length > 0,
-        isFollower: user.following.length > 0,
-        isBlocked: user.blockedBy.length > 0,
-        isMuted: user.mutedBy.length > 0,
+        relationship: {
+          following: user.followers.length > 0,
+          follower: user.following.length > 0,
+          blocking: user.blockedBy.length > 0,
+          muted: user.mutedBy.length > 0,
+        },
       });
 
       return {

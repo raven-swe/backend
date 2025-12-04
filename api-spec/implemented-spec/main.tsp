@@ -567,16 +567,13 @@ model UserMetadataWithFollowInfo {
 
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
-  ...UserMetadataWithFollowInfo;
+  ...UserMetadata;
 
   @doc("The user's biography with structured entities")
   bio: UserBio | null;
 
-  @doc("True if the current user has blocked this user")
-  isBlocked: boolean;
-
-  @doc("True if the current user has muted this user")
-  isMuted: boolean;
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
 }
 
 @doc("User's biography with structured entities")
