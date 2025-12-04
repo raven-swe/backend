@@ -1372,7 +1372,7 @@ describe('SettingsService', () => {
       await service.updateInterests(userId, dto);
 
       // Assert
-      const calledWith = mockUsersService.updateInterests.mock.calls[0][1] as string[];
+      const calledWith = mockUsersService.updateInterests.mock.calls[0]?.[1] as string[];
       expect(calledWith).toHaveLength(3);
       expect(new Set(calledWith).size).toBe(3); // Verify no duplicates
       expect(calledWith).toContain('TECH');
