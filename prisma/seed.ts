@@ -860,49 +860,6 @@ async function main() {
   await prisma.tweet.update({ where: { id: quote13.id }, data: { likeCount: 2 } });
   await prisma.tweet.update({ where: { id: quote14.id }, data: { likeCount: 1 } });
 
-  const groupConversation1 = await prisma.conversation.create({
-    data: {
-      creatorId: 4,
-      conversationParticipants: {
-        create: [
-          { userId: 4, notificationsMuted: false },
-          { userId: 1, notificationsMuted: true },
-          { userId: 2, lastSeenMessageId: null },
-        ],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Hey guys, thinking of making that NestJS project open source.',
-      conversationId: groupConversation1.id,
-      userId: 4,
-      messageEntities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
-    },
-  });
-  await prisma.message.create({
-    data: {
-      content: 'Great idea! I can help with the database schema design.',
-      conversationId: groupConversation1.id,
-      userId: 1,
-      messageEntities: { text: 'Great idea! I can help with the database schema design.' },
-    },
-  });
-  const msg1_3 = await prisma.message.create({
-    data: {
-      content: "I'm in! I can set up the frontend with React/Next.js.",
-      conversationId: groupConversation1.id,
-      userId: 2,
-      messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation1.id },
-    data: { lastMessageId: msg1_3.id },
-  });
-
   const privateConv1 = await prisma.conversation.create({
     data: {
       creatorId: 6,

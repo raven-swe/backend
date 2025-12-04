@@ -6,6 +6,7 @@ export class MessagesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async getMessages(
+    userId: bigint,
     conversationId: bigint,
     limit: number,
     prevCursor: { messageId: string } | undefined,
@@ -13,6 +14,16 @@ export class MessagesRepository {
     return await this.prisma.message.findMany({
       where: {
         conversationId: conversationId,
+        OR: [
+          {
+            userId,
+            isDeletedSender: false,
+          },
+          {
+            NOT: { userId },
+            isDeletedReceiver: false,
+          },
+        ],
       },
       take: limit,
       cursor: prevCursor
@@ -99,5 +110,26 @@ export class MessagesRepository {
       },
     });
     return message;
+  }
+
+  async getMessageById(messageId: bigint) {
+    return this.prisma.message.findUnique({
+      where: {
+        id: messageId,
+      },
+      select: {
+        userId: true,
+        conversationId: true,
+      },
+    });
+  }
+
+  async deleteMessage(messageId: bigint, authUserId: bigint, authorId: bigint) {
+    const data = authUserId === authorId ? { isDeletedSender: true } : { isDeletedReceiver: true };
+
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data,
+    });
   }
 }
