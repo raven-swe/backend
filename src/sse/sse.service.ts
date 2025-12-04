@@ -4,11 +4,16 @@ import { RedisService } from '../redis/redis.service';
 import { Redis } from 'ioredis';
 import { MAX_CONNECTIONS_PER_USER } from './constants/sse-constants';
 
+interface SseConnection {
+  subject: Subject<unknown>;
+  topics: Set<string>;
+}
+
 @Injectable()
 export class SseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SseService.name);
 
-  private subjects = new Map<string, Subject<unknown>[]>();
+  private connections = new Map<string, SseConnection[]>();
 
   private pubClient: Redis;
   private subClient: Redis;
@@ -59,28 +64,39 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private forwardToLocalSubjects(userId: string, event: unknown) {
-    const userSubjects = this.subjects.get(userId);
-    if (userSubjects) {
-      userSubjects.forEach((subject) => subject.next(event));
-    }
+    const userConnections = this.connections.get(userId);
+    if (!userConnections) return;
+
+    const eventName = (event as Record<string, string>)['event'] || '';
+    const eventTopic = eventName.split('.')[0];
+
+    userConnections.forEach((connection) => {
+      if (connection.topics.has(eventTopic)) {
+        connection.subject.next(event);
+      }
+    });
   }
 
-  async subscribe(userId: string): Promise<Subject<unknown> | null> {
+  async subscribe(userId: string, topics: string[]): Promise<Subject<unknown> | null> {
     await this.ready;
 
-    if (!this.subjects.has(userId)) {
-      this.subjects.set(userId, []);
+    if (!this.connections.has(userId)) {
+      this.connections.set(userId, []);
     }
 
-    const userSubjects = this.subjects.get(userId)!;
+    const userConnections = this.connections.get(userId)!;
 
-    if (userSubjects.length >= MAX_CONNECTIONS_PER_USER) {
-      const oldestSubject = userSubjects.shift()!;
-      oldestSubject.complete();
+    if (userConnections.length >= MAX_CONNECTIONS_PER_USER) {
+      const oldestConnection = userConnections.shift()!;
+      oldestConnection.subject.complete();
     }
 
     const newSubject = new Subject<unknown>();
-    userSubjects.push(newSubject);
+
+    userConnections.push({
+      subject: newSubject,
+      topics: new Set(topics),
+    });
 
     return newSubject;
   }
@@ -91,21 +107,20 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
   }
 
   unsubscribe(userId: string, subject: Subject<unknown>) {
-    const userSubjects = this.subjects.get(userId);
-    if (!userSubjects) return;
+    const userConnections = this.connections.get(userId);
+    if (!userConnections) return;
 
-    const index = userSubjects.indexOf(subject);
+    const index = userConnections.findIndex((c) => c.subject === subject);
     if (index === -1) return;
 
     subject.complete();
-    userSubjects.splice(index, 1);
+    userConnections.splice(index, 1);
 
-    if (userSubjects.length === 0) {
-      this.subjects.delete(userId);
+    if (userConnections.length === 0) {
+      this.connections.delete(userId);
     }
   }
-
   getConnectionCount(userId: string): number {
-    return this.subjects.get(userId)?.length ?? 0;
+    return this.connections.get(userId)?.length ?? 0;
   }
 }
