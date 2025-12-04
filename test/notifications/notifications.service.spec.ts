@@ -149,6 +149,7 @@ describe('NotificationsService', () => {
           displayName: 'Test User',
           avatarUrl: 'http://example.com/avatar.jpg',
         },
+        followers: [{ followerId: userId, followedId: BigInt(1) }],
       },
       tweet: {
         id: BigInt(100),
@@ -168,6 +169,7 @@ describe('NotificationsService', () => {
           displayName: 'Follower User',
           avatarUrl: 'http://example.com/avatar2.jpg',
         },
+        followers: [{ followerId: userId, followedId: BigInt(2) }],
       },
       tweet: null,
       latestEventAt: new Date('2024-01-02'),
@@ -206,6 +208,7 @@ describe('NotificationsService', () => {
               username: 'testuser',
               displayName: 'Test User',
               avatarUrl: 'http://example.com/avatar.jpg',
+              isFollowing: true,
             },
           ],
         },
@@ -274,6 +277,7 @@ describe('NotificationsService', () => {
             displayName: 'Test User',
             avatarUrl: 'http://example.com/avatar.jpg',
           },
+          followers: [{ followerId: userId, followedId: BigInt(2) }],
         },
         tweet: {
           id: BigInt(100),
@@ -363,6 +367,7 @@ describe('NotificationsService', () => {
             displayName: null,
             avatarUrl: null,
           },
+          followers: [{ followerId: userId, followedId: BigInt(2) }],
         },
       };
 
@@ -376,6 +381,7 @@ describe('NotificationsService', () => {
         username: 'testuser',
         displayName: null,
         avatarUrl: null,
+        isFollowing: true,
       });
     });
 
