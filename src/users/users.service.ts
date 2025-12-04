@@ -530,17 +530,6 @@ export class UsersService {
       );
     }
 
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     await this.usersRepository.muteUser(userId, mutedId);
     this.logger.log(`User ID: ${userId} muted User ID: ${mutedId}`);
 
