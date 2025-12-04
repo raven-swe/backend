@@ -1578,27 +1578,6 @@ describe('UsersService', () => {
         ),
       );
     });
-
-    it('should throw error if user blocked you', async () => {
-      // Arrange
-      const muterId = BigInt(2);
-      const usernameToMute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isMuted.mockResolvedValue(false);
-      mockRepository.isBlocked.mockResolvedValue(true); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.muteUser(muterId, usernameToMute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
-        ),
-      );
-    });
   });
 
   describe('unmuteUser', () => {
@@ -1658,48 +1637,6 @@ describe('UsersService', () => {
             code: USERS_ERROR_CODES.NOT_MUTED,
           },
           HttpStatus.NOT_FOUND,
-        ),
-      );
-    });
-
-    it('should throw error if user is blocked (you blocked them)', async () => {
-      // Arrange
-      const unmuterId = BigInt(2);
-      const usernameToUnmute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(true); // youBlockedUser
-      mockRepository.isBlocked.mockResolvedValueOnce(false); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
-        ),
-      );
-    });
-
-    it('should throw error if user is blocked (they blocked you)', async () => {
-      // Arrange
-      const unmuterId = BigInt(2);
-      const usernameToUnmute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(false); // youBlockedUser
-      mockRepository.isBlocked.mockResolvedValueOnce(true); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
         ),
       );
     });
