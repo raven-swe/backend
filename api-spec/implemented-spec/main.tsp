@@ -553,7 +553,7 @@ model UserMetadata {
   @doc("URL to the user's avatar image")
   avatarUrl: string;
 
-  @doc("True if the current user is following this actor")
+  @doc("Is the user followed by the current logged-in user")
   isFollowing?: boolean;
 }
 
@@ -564,18 +564,12 @@ model TweetAuthor {
   @doc("True if the current user has blocked this author")
   isBlocked: boolean;
 
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
-
   @doc("True if the current user has muted this author")
   isMuted: boolean;
 }
 
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
-
-  @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean;
 
   @doc("Is the user following the current logged-in user")
   isFollower: boolean;
