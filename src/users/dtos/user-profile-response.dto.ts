@@ -31,7 +31,7 @@ export class UserProfileResponseDto {
   followingCount: number;
   followersCount: number;
   mutualsCount?: number | null;
-  mutualNames?: MutualUserDto[] | null;
+  mutualUsers?: MutualUserDto[] | null;
 
   email?: string;
 }

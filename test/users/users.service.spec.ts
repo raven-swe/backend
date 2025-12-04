@@ -49,7 +49,7 @@ describe('UsersService', () => {
     followingCount: '100',
     followersCount: '200',
     mutualsCount: 2,
-    mutualNames: ['Omar', 'Tasneem'],
+    mutualUsers: ['Omar', 'Tasneem'],
   };
 
   const mockRepository = {
@@ -993,7 +993,7 @@ describe('UsersService', () => {
       const profileWithMutuals = {
         ...mockUserProfile,
         mutualsCount: 2,
-        mutualNames: ['Omar', 'Tasneem'],
+        mutualUsers: ['Omar', 'Tasneem'],
       };
 
       mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithMutuals);
@@ -1001,7 +1001,7 @@ describe('UsersService', () => {
       const result = await service.getUserProfile('testuser', BigInt(2));
 
       expect(result.mutualsCount).toBe(2);
-      expect(result.mutualNames).toEqual(['Omar', 'Tasneem']);
+      expect(result.mutualUsers).toEqual(['Omar', 'Tasneem']);
       expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
         'testuser',
         BigInt(2),

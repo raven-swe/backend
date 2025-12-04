@@ -204,12 +204,12 @@ export class UsersRepository {
       },
     });
 
-    const mutualNames = mutualFollows.map((mutual) => ({
+    const mutualUsers = mutualFollows.map((mutual) => ({
       displayName: mutual.followerUser.profile?.displayName || '',
       avatarUrl: mutual.followerUser.profile?.avatarUrl,
     }));
 
-    return { mutualsCount, mutualNames };
+    return { mutualsCount, mutualUsers };
   }
   async findUserProfileByUsername(
     username: string,
@@ -220,7 +220,7 @@ export class UsersRepository {
     if (!user || user.deletedAt) return null;
 
     let mutualsCount: number | null = null;
-    let mutualNames: MutualUserDto[] | null = null;
+    let mutualUsers: MutualUserDto[] | null = null;
 
     // Get relationship status only if currentUserId is provided and is not my profile
     let [isBlocking, isBlockedBy] = [false, false];
@@ -246,7 +246,7 @@ export class UsersRepository {
       }
 
       // Mutuals variables
-      ({ mutualsCount, mutualNames } = await this.getProfileMutualFollowersNames(
+      ({ mutualsCount, mutualUsers } = await this.getProfileMutualFollowersNames(
         currentUserId,
         user.id,
       ));
@@ -276,7 +276,7 @@ export class UsersRepository {
         followingCount: user._count.following,
         followersCount: user._count.followers,
         mutualsCount: null,
-        mutualNames: null,
+        mutualUsers: null,
       };
 
       // TODO: Get mutual followers count and names
@@ -307,7 +307,7 @@ export class UsersRepository {
       followingCount: user._count.following,
       followersCount: user._count.followers,
       mutualsCount: mutualsCount,
-      mutualNames: mutualNames,
+      mutualUsers: mutualUsers,
       email: isMyProfile ? user.email : undefined,
     };
   }
