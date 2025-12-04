@@ -569,8 +569,7 @@ model UserMetadataWithFollowInfo {
 model UserMetadataWithBio {
   ...UserMetadata;
 
-  @doc("The user's biography with structured entities")
-  bio: UserBio | null;
+  ...UserBio;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
   relationship: UserRelationship;
@@ -580,7 +579,7 @@ model UserMetadataWithBio {
 model UserBio {
   @doc("The user's bio text (max 160 characters)")
   @maxLength(160)
-  text: string | null;
+  bio: string | null;
 
   @doc("Structured entities found in the bio (mentions and hashtags)")
   bioEntities: BioEntities | null;

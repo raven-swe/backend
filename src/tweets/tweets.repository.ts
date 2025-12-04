@@ -617,12 +617,8 @@ export class TweetsRepository {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl,
-        bio: user.profile?.bio
-          ? {
-              text: user.profile.bio,
-              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
-            }
-          : null,
+        bio: user.profile?.bio ?? null,
+        bioEntities: (user.profile?.bioEntities as unknown as BioEntitiesDto) ?? null,
         relationship: {
           following: user.followers.length > 0,
           follower: user.following.length > 0,
