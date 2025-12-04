@@ -783,7 +783,7 @@ export class TweetsRepository {
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
     FROM tweets t
-    WHERE t.search_document @@ to_tsquery('english', ${query})
+    WHERE t.search_document @@ to_tsquery('simple', ${query})
       AND t.is_deleted = false
       ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
       ${cursorCondition}

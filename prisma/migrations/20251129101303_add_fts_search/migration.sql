@@ -1,6 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- This is an empty migration.
 ALTER TABLE "tweets" ADD COLUMN IF NOT EXISTS search_document tsvector;
 
 CREATE OR REPLACE FUNCTION build_tweet_search_document(
@@ -17,7 +16,7 @@ DECLARE
     parent_author_display_name TEXT;
 BEGIN
     -- Weight A: Tweet content
-    search_doc := setweight(to_tsvector('english', COALESCE(p_content, '')), 'A');
+    search_doc := setweight(to_tsvector('simple', COALESCE(p_content, '')), 'A');
 
     -- Weight B: Author username and display name
     SELECT u.username, p.display_name
@@ -27,11 +26,11 @@ BEGIN
     WHERE u.id = p_user_id;
 
     IF author_username IS NOT NULL THEN
-        search_doc := search_doc || setweight(to_tsvector('english', author_username), 'B');
+        search_doc := search_doc || setweight(to_tsvector('simple', author_username), 'B');
     END IF;
 
     IF author_display_name IS NOT NULL THEN
-        search_doc := search_doc || setweight(to_tsvector('english', author_display_name), 'B');
+        search_doc := search_doc || setweight(to_tsvector('simple', author_display_name), 'B');
     END IF;
 
     -- Weight C: Parent tweet author's username and display name
@@ -44,11 +43,11 @@ BEGIN
         WHERE t.id = p_reply_to_tweet_id;
 
         IF parent_author_username IS NOT NULL THEN
-            search_doc := search_doc || setweight(to_tsvector('english', parent_author_username), 'C');
+            search_doc := search_doc || setweight(to_tsvector('simple', parent_author_username), 'C');
         END IF;
 
         IF parent_author_display_name IS NOT NULL THEN
-            search_doc := search_doc || setweight(to_tsvector('english', parent_author_display_name), 'C');
+            search_doc := search_doc || setweight(to_tsvector('simple', parent_author_display_name), 'C');
         END IF;
     END IF;
 
