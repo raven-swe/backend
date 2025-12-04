@@ -76,7 +76,6 @@ import { EventsModule } from './events/events.module';
     LoggerModule,
     SessionsModule,
     EventsModule,
-
   ],
   controllers: [HealthController],
   providers: [
