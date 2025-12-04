@@ -1001,7 +1001,7 @@ export class UsersService {
     query: string,
     limit: number,
     decodedCursor: UserSearchCursor | undefined,
-    excludeMutedAndBlocked: boolean,
+    excludeMutedAndBlocked: boolean = false,
     peopleFilter?: PeopleSearchFilter,
   ) {
     return this.usersRepository.searchUsers(

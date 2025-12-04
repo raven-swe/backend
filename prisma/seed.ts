@@ -178,6 +178,36 @@ async function main() {
       countryId: usa?.id,
       profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
     },
+    {
+      username: 'reactjs',
+      email: 'react@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO845Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'React', bio: 'The library for web and native user interfaces' },
+      },
+    },
+    {
+      username: 'vel_rea_en',
+      email: 'velvelreact@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'Velvel React (EN)', bio: 'Idk who is velvet react just testing.' },
+      },
+    },
+    {
+      username: 'sumit_saurabh',
+      email: 'sumit@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO8938Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'Sumit Saurabh | Javascrip | React', bio: 'Senior full stack dev' },
+      },
+    },
   ];
   for (const user of usersToCreate) {
     await prisma.user.create({ data: user });

@@ -192,6 +192,7 @@ export class SearchService {
     }
 
     const cleanedQuery = prepareSearchQuery(rawQuery);
+    console.log({ cleanedQuery });
     const decodedCursor = this.decodeCursor(prevCursor);
 
     const items = await this.usersService.searchUsers(
@@ -202,6 +203,7 @@ export class SearchService {
       excludeMutedAndBlocked,
       peopleFilter,
     );
+    console.log({ items });
 
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
       return {
@@ -212,21 +214,5 @@ export class SearchService {
 
     this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
     return { items, pagination };
-  }
-
-  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
-    if (!prevCursor) return undefined;
-
-    try {
-      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
-    } catch {
-      throw new HttpException(
-        {
-          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
-          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
   }
 }

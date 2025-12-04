@@ -1294,6 +1294,7 @@ export class UsersRepository {
       SELECT 
         u.id,
         u.username,
+        u.created_at,
         p.display_name,
         p.avatar_url,
         p.banner_url,
@@ -1321,7 +1322,6 @@ export class UsersRepository {
         u.id DESC
       LIMIT ${limit};
     `;
-
     const results = await this.prisma.$queryRaw<
       {
         id: bigint;
@@ -1330,19 +1330,23 @@ export class UsersRepository {
         avatar_url: string | null;
         banner_url: string | null;
         bio: string | null;
+        created_at: Date;
         bio_entities: Prisma.JsonValue | null;
         sim_score: number;
       }[]
     >(sqlQuery);
 
+    console.log({ results });
+
     return results.map((row) => ({
-      id: row.id,
+      id: row.id.toString(),
       username: row.username,
       displayName: row.display_name || '',
       avatarUrl: row.avatar_url,
       bannerUrl: row.banner_url || null,
       bio: row.bio || null,
       bioEntities: row.bio_entities || null,
+      createdAt: row.created_at,
     }));
   }
 
@@ -1355,10 +1359,10 @@ export class UsersRepository {
     const cursorCondition = cursor
       ? Prisma.sql`
             AND (
-              t.created_at < ${cursor.createdAt}::timestamp
+              u.created_at < ${cursor.createdAt}::timestamp
               OR (
-                t.created_at = ${cursor.createdAt}::timestamp 
-                AND t.id <= ${BigInt(cursor.id)}
+                u.created_at = ${cursor.createdAt}::timestamp 
+                AND u.id <= ${BigInt(cursor.id)}
               )
             )
           `

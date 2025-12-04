@@ -1,0 +1,19 @@
+meta {
+  name: search-users
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/search/users?query=o
+  body: none
+  auth: inherit
+}
+
+params:query {
+  query: o
+}
+
+settings {
+  encodeUrl: true
+}
