@@ -676,7 +676,9 @@ export class TweetsService {
 
     this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 
-    return { items, pagination };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const safeItems = items.map(({ userId, ...rest }) => rest);
+    return { items: safeItems, pagination };
   }
 
   async checkIfTweetExists(tweetId: bigint) {
