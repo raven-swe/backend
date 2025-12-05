@@ -24,5 +24,10 @@ export class TweetDto {
   quotedTweet?: TweetDto;
 
   isRepost: boolean;
-  repostedBy?: AuthorDto;
+  repostedBy?: ReposterInfo;
+}
+
+class ReposterInfo {
+  username: string;
+  displayName: string;
 }

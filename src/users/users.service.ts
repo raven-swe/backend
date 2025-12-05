@@ -28,6 +28,7 @@ import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces'
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { UserRelationshipDto } from './dtos/relationship-dto';
 
 @Injectable()
 export class UsersService {
@@ -659,55 +660,20 @@ export class UsersService {
     }));
     const followerIds = followers.map((f) => f.followerUser.id);
 
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(
       authUserId,
       followerIds,
     );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
-
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
-
-    const authBlockRelations = await this.usersRepository.getUserBlockRelations(
-      authUserId,
-      followerIds,
-    );
-
-    const blockingIdsSet = new Set<bigint>();
-    const blockedByIdsSet = new Set<bigint>();
-
-    for (const relation of authBlockRelations) {
-      if (relation.blockedId === authUserId) {
-        blockedByIdsSet.add(relation.userId);
-      }
-      if (relation.userId === authUserId) {
-        blockingIdsSet.add(relation.blockedId);
-      }
-    }
-
-    const authMuteRelations = await this.usersRepository.getUserMuteRelations(
-      authUserId,
-      followerIds,
-    );
-
-    const mutingIdsSet = new Set<bigint>(authMuteRelations.map((relation) => relation.mutedId));
 
     const items = followers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      relationship: {
-        following: followingSet.has(f.followerUser.id),
-        follower: followsYouSet.has(f.followerUser.id),
-        blocking: blockingIdsSet.has(f.followerUser.id),
-        blockedBy: blockedByIdsSet.has(f.followerUser.id),
-        muted: mutingIdsSet.has(f.followerUser.id),
+      relationship: (relationMap.get(f.followerUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
       },
     }));
 
@@ -759,59 +725,17 @@ export class UsersService {
 
     const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
 
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
-      authUserId,
-      mutualIds,
-    );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
-
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
-
-    const authBlockRelations = await this.usersRepository.getUserBlockRelations(
-      authUserId,
-      mutualIds,
-    );
-
-    const blockingIdsSet = new Set<bigint>();
-    const blockedByIdsSet = new Set<bigint>();
-
-    for (const relation of authBlockRelations) {
-      if (relation.blockedId === authUserId) {
-        blockedByIdsSet.add(relation.userId);
-      }
-      if (relation.userId === authUserId) {
-        blockingIdsSet.add(relation.blockedId);
-      }
-    }
-
-    const authMuteRelations = await this.usersRepository.getUserMuteRelations(
-      authUserId,
-      mutualIds,
-    );
-
-    const mutingIdsSet = new Set<bigint>();
-
-    for (const relation of authMuteRelations) {
-      mutingIdsSet.add(relation.mutedId);
-    }
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(authUserId, mutualIds);
 
     const items = mutualFollowers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      relationship: {
-        following: followingSet.has(f.followerUser.id),
-        follower: followsYouSet.has(f.followerUser.id),
-        blocking: blockingIdsSet.has(f.followerUser.id),
-        blockedBy: blockedByIdsSet.has(f.followerUser.id),
-        muted: mutingIdsSet.has(f.followerUser.id),
+      relationship: (relationMap.get(f.followerUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
       },
     }));
     return { items, pagination };
@@ -858,59 +782,21 @@ export class UsersService {
     }));
 
     const followingIds = followings.map((f) => f.followedUser.id);
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(
       authUserId,
       followingIds,
     );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
-
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
-
-    const authBlockRelations = await this.usersRepository.getUserBlockRelations(
-      authUserId,
-      followingIds,
-    );
-
-    const blockingIdsSet = new Set<bigint>();
-    const blockedByIdsSet = new Set<bigint>();
-
-    for (const relation of authBlockRelations) {
-      if (relation.blockedId === authUserId) {
-        blockedByIdsSet.add(relation.userId);
-      }
-      if (relation.userId === authUserId) {
-        blockingIdsSet.add(relation.blockedId);
-      }
-    }
-
-    const authMuteRelations = await this.usersRepository.getUserMuteRelations(
-      authUserId,
-      followingIds,
-    );
-
-    const mutingIdsSet = new Set<bigint>();
-
-    for (const relation of authMuteRelations) {
-      mutingIdsSet.add(relation.mutedId);
-    }
 
     const items = followings.map((f) => ({
       ...f.followedUser.profile,
       username: f.followedUser.username,
-      relationship: {
-        following: followingSet.has(f.followedUser.id),
-        follower: followsYouSet.has(f.followedUser.id),
-        blocking: blockingIdsSet.has(f.followedUser.id),
-        blockedBy: blockedByIdsSet.has(f.followedUser.id),
-        muted: mutingIdsSet.has(f.followedUser.id),
+      relationship: (relationMap.get(f.followedUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
       },
     }));
 
@@ -1037,11 +923,23 @@ export class UsersService {
     return { message: 'Banner deleted successfully' };
   }
   async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
-    return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+    const mutedUsers = await this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+
+    const mutedIds = mutedUsers.map((m) => m.mutedId);
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(userId, mutedIds);
+
+    return { mutedUsers, relationMap };
   }
 
   async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
-    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+    const blockedUsers = await this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+
+    const blockedIds = blockedUsers.map((b) => b.blockedId);
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(userId, blockedIds);
+
+    return { blockedUsers, relationMap };
   }
 
   /**

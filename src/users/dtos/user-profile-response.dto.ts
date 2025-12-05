@@ -1,14 +1,5 @@
 import { CompactUserDto } from './compact-user.dto';
 
-export class UserProfileResponseDto {
-  username: string;
-  displayName: string;
-  bio: string | null;
-
-  // Should be adjusted after implementing rich text bios
-  bioEntities: BioEntitiesDto | null;
-
-  avatarUrl: string | null | undefined;
 export class UserProfileResponseDto extends CompactUserDto {
   bannerUrl: string | null;
   location: string | null;

@@ -18,6 +18,7 @@ import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces'
 import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
 import { authorSelect } from 'src/tweets/tweets.repository';
+import { UserRelationshipDto } from './dtos/relationship-dto';
 
 @Injectable()
 export class UsersRepository {
@@ -1348,20 +1349,87 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      relationship: {
-        blocking: false,
-        blockedBy: false,
-        following: false,
-        follower: false,
-        muted: false,
-      },
     };
   }
 
-  async findByUsernameWithRelations(username: string, currentUserId: bigint) {
+  async findByUsernameWithDisplayname(username: string) {
     return await this.prisma.user.findUnique({
       where: { username },
-      select: { ...authorSelect(currentUserId), id: true },
+      include: {
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
     });
+  }
+
+  /**
+   * Get a map of user IDs to their relationship status with the current user.
+   *
+   * @param currentUserId - ID of the current user
+   * @param userIds - Array of user IDs to get relationships for
+   *
+   * @returns A map where the key is the user ID and the value is the UserRelationshipDto
+   */
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    const relationshipsMap = new Map<bigint, UserRelationshipDto>();
+
+    if (!userIds || userIds.length === 0) {
+      return relationshipsMap;
+    }
+
+    const results = await this.prisma.$queryRaw<
+      {
+        user_id: bigint;
+        is_blocking: boolean | number;
+        is_blocked_by: boolean | number;
+        is_following: boolean | number;
+        is_follower: boolean | number;
+        is_muted: boolean | number;
+      }[]
+    >`
+      SELECT 
+        u.id AS user_id,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${currentUserId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${currentUserId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${currentUserId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM users u
+      WHERE u.id IN (${Prisma.join(userIds)});
+    `;
+
+    for (const row of results) {
+      relationshipsMap.set(row.user_id, {
+        blocking: Boolean(row.is_blocking),
+        blockedBy: Boolean(row.is_blocked_by),
+        following: Boolean(row.is_following),
+        follower: Boolean(row.is_follower),
+        muted: Boolean(row.is_muted),
+      });
+    }
+
+    return relationshipsMap;
   }
 }

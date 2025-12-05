@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthorDto, TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -11,8 +11,9 @@ import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 
-export const authorSelect = (currentUserId: bigint) =>
+export const authorSelect = () =>
   ({
     username: true,
     profile: {
@@ -21,12 +22,6 @@ export const authorSelect = (currentUserId: bigint) =>
         avatarUrl: true,
       },
     },
-    // Relationship checks
-    blockedBy: { where: { userId: currentUserId } },
-    blockedUsers: { where: { blockedId: currentUserId } },
-    followers: { where: { followerId: currentUserId } },
-    following: { where: { followedId: currentUserId } },
-    mutedBy: { where: { userId: currentUserId } },
   }) satisfies Prisma.UserSelect;
 
 export type RawAuthor = Prisma.UserGetPayload<{
@@ -36,7 +31,7 @@ export type RawAuthor = Prisma.UserGetPayload<{
 const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
-      select: authorSelect(currentUserId),
+      select: authorSelect(),
     },
     _count: {
       select: {
@@ -145,19 +140,12 @@ export class TweetsRepository {
       username: user.username,
       displayName: user.profile?.displayName ?? '',
       avatarUrl: user.profile?.avatarUrl,
-      relationship: {
-        blocking: user.blockedBy.length > 0,
-        blockedBy: user.blockedUsers.length > 0,
-        following: user.followers.length > 0,
-        follower: user.following.length > 0,
-        muted: user.mutedBy.length > 0,
-      },
     };
   }
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { isRepost?: boolean; repostedBy?: AuthorDto } = {},
+    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
   ): TweetDto {
     return {
       id: tweet.id.toString(),
@@ -192,7 +180,12 @@ export class TweetsRepository {
         ? this.mapToTweetDto(tweet.quotedTweet, { isRepost: false })
         : undefined,
       isRepost: context.isRepost ?? false,
-      repostedBy: context.repostedBy,
+      repostedBy: context.isRepost
+        ? {
+            username: context.repostedBy?.username ?? '',
+            displayName: context.repostedBy?.displayName ?? '',
+          }
+        : undefined,
     };
   }
 
@@ -613,7 +606,7 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      const dto = plainToInstance(UserInteractionDto, {
+      const dto = plainToInstance(CompactUserDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl,

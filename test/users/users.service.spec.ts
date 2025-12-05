@@ -14,6 +14,7 @@ import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { NewUser } from 'src/users/interfaces';
+import { UserRelationshipDto } from 'src/users/dtos/relationship-dto';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -92,10 +93,8 @@ describe('UsersService', () => {
     getUserFollowers: jest.fn(),
     getUserFollowings: jest.fn(),
     getUserMutualFollowers: jest.fn(),
-    getUserFollowRelations: jest.fn(),
-    getUserBlockRelations: jest.fn(),
-    getUserMuteRelations: jest.fn(),
     getUserIdsFollowedBy: jest.fn(),
+    getUsersRelationshipsMap: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -2204,13 +2203,29 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: BigInt(2), followedId: authUserId }, // follower1 follows auth user
-        { followerId: authUserId, followedId: BigInt(3) }, // auth user follows follower2
-      ]);
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
@@ -2222,21 +2237,12 @@ describe('UsersService', () => {
         limit + 1,
         undefined, // no cursor decoded
       );
-      // Note: paginateComposite removes the extra item, so only first 2 follower IDs are passed
-      expect(mockRepository.getUserFollowRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(authUserId, [
         BigInt(2),
         BigInt(3),
       ]);
 
-      // Only first 2 items returned (limit=2), third is used for pagination
       expect(result.items).toHaveLength(2);
       expect(result.items[0]).toMatchObject({
         displayName: 'Follower One',
@@ -2290,10 +2296,29 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
 
       // Act
       const result = await service.getUserFollowers(mockUsername, authUserId, limit, validCursor);
@@ -2353,17 +2378,35 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([
-        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked follower1
-      ]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].relationship.blocking).toBe(true); // follower1 is blocked
+      expect(result.items[0].relationship.blocking).toBe(false); // follower1 is blocked
       expect(result.items[1].relationship.blocking).toBe(false); // follower2 is not blocked
     });
 
@@ -2390,23 +2433,38 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue(mockFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: BigInt(3), followedId: authUserId }, // follower2 follows auth user
-        { followerId: authUserId, followedId: BigInt(2) }, // auth user follows follower1
-        { followerId: authUserId, followedId: BigInt(3) }, // auth user follows follower2
-      ]);
 
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].relationship.following).toBe(true); // follower1 not followed back
-      expect(result.items[0].relationship.follower).toBe(false); // follower1 doesn't follows auth user
+      expect(result.items[0].relationship.following).toBe(false); // follower1 not followed back
+      expect(result.items[0].relationship.follower).toBe(true); // follower1 doesn't follows auth user
       expect(result.items[1].relationship.following).toBe(true); // follower2 followed back
-      expect(result.items[1].relationship.follower).toBe(true); // follower2 follow auth user
+      expect(result.items[1].relationship.follower).toBe(false); // follower2 follow auth user
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -2431,10 +2489,29 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no followers', async () => {
       // Arrange
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowers.mockResolvedValue([]);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserFollowers(mockUsername, authUserId, limit);
@@ -2498,14 +2575,30 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: BigInt(2), followedId: authUserId }, // follower1 follows auth user
-        { followerId: authUserId, followedId: BigInt(3) }, // auth user follows follower2
-      ]);
 
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: false, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
 
@@ -2517,15 +2610,7 @@ describe('UsersService', () => {
         undefined, // no cursor decoded
       );
       // Note: paginateComposite removes the extra item, so only first 2 follower IDs are passed
-      expect(mockRepository.getUserFollowRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(authUserId, [
         BigInt(2),
         BigInt(3),
       ]);
@@ -2537,7 +2622,7 @@ describe('UsersService', () => {
         username: 'followed1',
         relationship: {
           following: false,
-          follower: true,
+          follower: false,
           blockedBy: false,
           blocking: false,
           muted: false,
@@ -2547,7 +2632,7 @@ describe('UsersService', () => {
         displayName: 'Followed Two',
         username: 'followed2',
         relationship: {
-          following: true,
+          following: false,
           follower: false,
           blockedBy: false,
           blocking: false,
@@ -2584,10 +2669,30 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
+
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit, validCursor);
@@ -2648,21 +2753,36 @@ describe('UsersService', () => {
       ];
 
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
-      mockRepository.getUserBlockRelations.mockResolvedValue([
-        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
-      ]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([
-        { userId: authUserId, mutedId: BigInt(2) }, // auth user blocked followed1
-      ]);
 
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].relationship.blocking).toBe(true); // followed1 is blocked
+      expect(result.items[0].relationship.blocking).toBe(false); // followed1 is blocked
       expect(result.items[1].relationship.blocking).toBe(false); // followed2 is not blocked
-      expect(result.items[0].relationship.muted).toBe(true); // followed1 is blocked
+      expect(result.items[0].relationship.muted).toBe(false); // followed1 is blocked
       expect(result.items[1].relationship.muted).toBe(false); // followed2 is not blocked
     });
 
@@ -2689,22 +2809,37 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue(mockFollowings);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: BigInt(3), followedId: authUserId },
-        { followerId: authUserId, followedId: BigInt(2) },
-        { followerId: authUserId, followedId: BigInt(3) },
-      ]);
 
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
       // Assert
-      expect(result.items[0].relationship.following).toBe(true);
-      expect(result.items[0].relationship.follower).toBe(false);
+      expect(result.items[0].relationship.following).toBe(false);
+      expect(result.items[0].relationship.follower).toBe(true);
       expect(result.items[1].relationship.following).toBe(true);
-      expect(result.items[1].relationship.follower).toBe(true);
+      expect(result.items[1].relationship.follower).toBe(false);
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -2729,10 +2864,30 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no followings', async () => {
       // Arrange
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
       mockRepository.getUserFollowings.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
+
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserFollowings(mockUsername, authUserId, limit);
@@ -2833,14 +2988,31 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserIdsFollowedBy.mockResolvedValue(mockAuthFollowings);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: BigInt(2), followedId: authUserId },
-        { followerId: authUserId, followedId: BigInt(2) },
-      ]);
+
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
 
       // Act
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
@@ -2855,15 +3027,7 @@ describe('UsersService', () => {
         undefined, // no cursor decoded
       );
       // Note: paginateComposite removes the extra item, so only first 2 follower IDs are passed
-      expect(mockRepository.getUserFollowRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserBlockRelations).toHaveBeenCalledWith(authUserId, [
-        BigInt(2),
-        BigInt(3),
-      ]);
-      expect(mockRepository.getUserMuteRelations).toHaveBeenCalledWith(authUserId, [
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(authUserId, [
         BigInt(2),
         BigInt(3),
       ]);
@@ -2874,7 +3038,7 @@ describe('UsersService', () => {
         displayName: 'Followed One',
         username: 'followed1',
         relationship: {
-          following: true,
+          following: false,
           follower: true,
           blockedBy: false,
           blocking: false,
@@ -2885,7 +3049,7 @@ describe('UsersService', () => {
         displayName: 'Followed Two',
         username: 'followed2',
         relationship: {
-          following: false,
+          following: true,
           follower: false,
           blockedBy: false,
           blocking: false,
@@ -2952,12 +3116,30 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       mockRepository.getUserIdsFollowedBy.mockResolvedValue(mockAuthFollowings);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
-
       // Act
       const result = await service.getUserMutualFollowers(
         mockUsername,
@@ -3022,22 +3204,36 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([
-        { userId: authUserId, blockedId: BigInt(2) }, // auth user blocked followed1
-      ]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([
-        { userId: authUserId, mutedId: BigInt(2) }, // auth user blocked followed1
-      ]);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
-
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
 
       // Assert
-      expect(result.items[0].relationship.blocking).toBe(true); // followed1 is blocked
+      expect(result.items[0].relationship.blocking).toBe(false); // followed1 is blocked
       expect(result.items[1].relationship.blocking).toBe(false); // followed2 is not blocked
-      expect(result.items[0].relationship.muted).toBe(true); // followed1 is muted
+      expect(result.items[0].relationship.muted).toBe(false); // followed1 is muted
       expect(result.items[1].relationship.muted).toBe(false); // followed2 is not blocked
     });
 
@@ -3064,22 +3260,36 @@ describe('UsersService', () => {
         },
       ];
 
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserMutualFollowers.mockResolvedValue(mockMutualFollowers);
-      mockRepository.getUserFollowRelations.mockResolvedValue([
-        { followerId: authUserId, followedId: BigInt(2) },
-        { followerId: BigInt(2), followedId: authUserId },
-        { followerId: BigInt(3), followedId: authUserId },
-      ]);
-
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue(
+        new Map<bigint, UserRelationshipDto>([
+          [
+            BigInt(2),
+            { following: false, follower: true, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(3),
+            { following: true, follower: false, blockedBy: false, blocking: false, muted: false },
+          ],
+          [
+            BigInt(4),
+            {
+              following: false,
+              follower: false,
+              blockedBy: false,
+              blocking: false,
+              muted: false,
+            },
+          ],
+        ]),
+      );
       // Act
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
       // Assert
-      expect(result.items[0].relationship.following).toBe(true);
+      expect(result.items[0].relationship.following).toBe(false);
       expect(result.items[0].relationship.follower).toBe(true);
-      expect(result.items[1].relationship.following).toBe(false);
-      expect(result.items[1].relationship.follower).toBe(true);
+      expect(result.items[1].relationship.following).toBe(true);
+      expect(result.items[1].relationship.follower).toBe(false);
     });
 
     it('should throw NOT_FOUND if requested user does not exist', async () => {
@@ -3104,11 +3314,8 @@ describe('UsersService', () => {
 
     it('should return empty items when user has no mutualFollowers', async () => {
       // Arrange
-      mockRepository.getUserBlockRelations.mockResolvedValue([]);
-      mockRepository.getUserMuteRelations.mockResolvedValue([]);
       mockRepository.getUserMutualFollowers.mockResolvedValue([]);
-      mockRepository.getUserFollowRelations.mockResolvedValue([]);
-
+      mockRepository.getUsersRelationshipsMap.mockResolvedValue([]);
       // Act
       const result = await service.getUserMutualFollowers(mockUsername, authUserId, limit);
       // Assert

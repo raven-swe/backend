@@ -62,7 +62,7 @@ describe('TweetsService', () => {
   const mockUsersRepository = {
     areUsersBlocked: jest.fn(),
     findByUsername: jest.fn(),
-    findByUsernameWithRelations: jest.fn(),
+    findByUsernameWithDisplayname: jest.fn(),
     findOwnTweetAuthorMetaData: jest.fn(),
   };
 
@@ -948,7 +948,7 @@ describe('TweetsService', () => {
 
     describe('getUserPosts', () => {
       it('should call getGenericProfileFeed with includeReplies=false', async () => {
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -968,7 +968,7 @@ describe('TweetsService', () => {
 
     describe('getUserPostsAndReplies', () => {
       it('should call getGenericProfileFeed with includeReplies=true', async () => {
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -988,7 +988,7 @@ describe('TweetsService', () => {
 
     describe('getGenericProfileFeed (via getUserPosts)', () => {
       it('should throw NOT_FOUND when user does not exist', async () => {
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue(null);
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue(null);
 
         await expect(service.getUserPosts(username, authUserId, limit, undefined)).rejects.toThrow(
           HttpException,
@@ -1001,7 +1001,7 @@ describe('TweetsService', () => {
       });
 
       it('should throw BAD_REQUEST for invalid cursor', async () => {
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1019,7 +1019,7 @@ describe('TweetsService', () => {
 
       it('should decode valid cursor and pass to repository', async () => {
         const validCursor = encodeCompositeCursor({ id: '123', createdAt: '2024-01-01T00:00:00Z' });
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1037,7 +1037,7 @@ describe('TweetsService', () => {
       });
 
       it('should handle empty feed', async () => {
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1064,7 +1064,7 @@ describe('TweetsService', () => {
           { id: '2', content: 'Tweet 2' },
         ];
 
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1088,7 +1088,7 @@ describe('TweetsService', () => {
         const fullTweets = [{ id: BigInt(1), content: 'Tweet 1' }];
         const tweetDtos = [{ id: '1', content: 'Tweet 1' }];
 
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1108,7 +1108,7 @@ describe('TweetsService', () => {
           { id: BigInt(1), type: 'repost', created_at: '2024-01-02T00:00:00Z' },
         ];
 
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });
@@ -1130,7 +1130,7 @@ describe('TweetsService', () => {
         const fullTweets = [{ id: BigInt(1), content: 'Tweet 1', createdAt: tweetCreatedAt }];
         const tweetDtos = [{ id: '1', content: 'Tweet 1', createdAt: tweetCreatedAt }];
 
-        mockUsersRepository.findByUsernameWithRelations.mockResolvedValue({
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
           id: requestedUserId,
           username,
         });

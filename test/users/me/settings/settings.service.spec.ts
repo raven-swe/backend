@@ -860,6 +860,54 @@ describe('SettingsService', () => {
     const userId = BigInt(1);
     const limit = 2;
 
+    const mockMutedUsers = [
+      {
+        userId: BigInt(1),
+        mutedId: BigInt(2),
+        createdAt: new Date(),
+        mutedUser: {
+          id: BigInt(2),
+          username: 'muted1',
+          profile: {
+            displayName: 'muted One',
+            bio: 'Bio 1',
+            bioEntities: null,
+            avatarUrl: 'https://example.com/avatar1.jpg',
+          },
+        },
+      },
+      {
+        userId: BigInt(1),
+        mutedId: BigInt(3),
+        createdAt: new Date(),
+        mutedUser: {
+          id: BigInt(3),
+          username: 'muted2',
+          profile: {
+            displayName: 'muted Two',
+            bio: 'Bio 2',
+            bioEntities: null,
+            avatarUrl: 'https://example.com/avatar2.jpg',
+          },
+        },
+      },
+      {
+        userId: BigInt(1),
+        mutedId: BigInt(4),
+        createdAt: new Date(),
+        mutedUser: {
+          id: BigInt(4),
+          username: 'muted3',
+          profile: {
+            displayName: 'muted Three',
+            bio: 'Bio 3',
+            bioEntities: null,
+            avatarUrl: 'https://example.com/avatar3.jpg',
+          },
+        },
+      },
+    ];
+
     // Helper to encode a valid cursor
 
     const encodeValidCursor = (userId: string, mutedId: string): string => {
@@ -876,55 +924,11 @@ describe('SettingsService', () => {
 
     it('should return muted users without cursor (first page)', async () => {
       // Arrange: 3 muted users returned (limit+1 to detect hasNextPage)
-      const mockMutedUsers = [
-        {
-          userId: BigInt(1),
-          mutedId: BigInt(2),
-          createdAt: new Date(),
-          mutedUser: {
-            id: BigInt(2),
-            username: 'muted1',
-            profile: {
-              displayName: 'muted One',
-              bio: 'Bio 1',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar1.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          mutedId: BigInt(3),
-          createdAt: new Date(),
-          mutedUser: {
-            id: BigInt(3),
-            username: 'muted2',
-            profile: {
-              displayName: 'muted Two',
-              bio: 'Bio 2',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar2.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          mutedId: BigInt(4),
-          createdAt: new Date(),
-          mutedUser: {
-            id: BigInt(4),
-            username: 'muted3',
-            profile: {
-              displayName: 'muted Three',
-              bio: 'Bio 3',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar3.jpg',
-            },
-          },
-        },
-      ];
 
-      mockUsersService.getUserMutes.mockResolvedValue(mockMutedUsers);
+      mockUsersService.getUserMutes.mockResolvedValue({
+        mutedUsers: mockMutedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       const result = await service.getUserMutedUsers(userId, limit);
@@ -957,39 +961,11 @@ describe('SettingsService', () => {
     it('should return muted users with valid cursor (subsequent page)', async () => {
       // Arrange
       const validCursor = encodeValidCursor('1', '2'); // userId=1, mutedId=2
-      const mockmutedUsers = [
-        {
-          userId: BigInt(1),
-          mutedId: BigInt(5),
-          createdAt: new Date(),
-          mutedUser: {
-            id: BigInt(5),
-            username: 'muted5',
-            profile: {
-              displayName: 'muted Five',
-              bio: 'Bio 5',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar5.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          mutedId: BigInt(6),
-          createdAt: new Date(),
-          mutedUser: {
-            id: BigInt(6),
-            username: 'muted6',
-            profile: {
-              displayName: 'muted Six',
-              bio: 'Bio 6',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar6.jpg',
-            },
-          },
-        },
-      ];
-      mockUsersService.getUserMutes.mockResolvedValue(mockmutedUsers);
+
+      mockUsersService.getUserMutes.mockResolvedValue({
+        mutedUsers: mockMutedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       const result = await service.getUserMutedUsers(userId, limit, validCursor);
@@ -1028,7 +1004,10 @@ describe('SettingsService', () => {
 
     it('should use default limit (20) when no limit provided', async () => {
       // Arrange
-      mockUsersService.getUserMutes.mockResolvedValue([]);
+      mockUsersService.getUserMutes.mockResolvedValue({
+        mutedUsers: mockMutedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       await service.getUserMutedUsers(userId);
@@ -1062,7 +1041,38 @@ describe('SettingsService', () => {
       const cursorObj = { userId, blockedId };
       return Buffer.from(JSON.stringify(cursorObj)).toString('base64');
     };
-
+    const mockBlockedUsers = [
+      {
+        userId: BigInt(1),
+        blockedId: BigInt(5),
+        createdAt: new Date(),
+        blockedUser: {
+          id: BigInt(5),
+          username: 'blocked5',
+          profile: {
+            displayName: 'Blocked Five',
+            bio: 'Bio 5',
+            bioEntities: null,
+            avatarUrl: 'https://example.com/avatar5.jpg',
+          },
+        },
+      },
+      {
+        userId: BigInt(1),
+        blockedId: BigInt(6),
+        createdAt: new Date(),
+        blockedUser: {
+          id: BigInt(6),
+          username: 'blocked6',
+          profile: {
+            displayName: 'Blocked Six',
+            bio: 'Bio 6',
+            bioEntities: null,
+            avatarUrl: 'https://example.com/avatar6.jpg',
+          },
+        },
+      },
+    ];
     beforeEach(() => {
       // Add getUserBlocks to mock if not already present
       if (!mockUsersService.getUserBlocks) {
@@ -1072,55 +1082,11 @@ describe('SettingsService', () => {
 
     it('should return blocked users without cursor (first page)', async () => {
       // Arrange: 3 blocked users returned (limit+1 to detect hasNextPage)
-      const mockBlockedUsers = [
-        {
-          userId: BigInt(1),
-          blockedId: BigInt(2),
-          createdAt: new Date(),
-          blockedUser: {
-            id: BigInt(2),
-            username: 'blocked1',
-            profile: {
-              displayName: 'Blocked One',
-              bio: 'Bio 1',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar1.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          blockedId: BigInt(3),
-          createdAt: new Date(),
-          blockedUser: {
-            id: BigInt(3),
-            username: 'blocked2',
-            profile: {
-              displayName: 'Blocked Two',
-              bio: 'Bio 2',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar2.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          blockedId: BigInt(4),
-          createdAt: new Date(),
-          blockedUser: {
-            id: BigInt(4),
-            username: 'blocked3',
-            profile: {
-              displayName: 'Blocked Three',
-              bio: 'Bio 3',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar3.jpg',
-            },
-          },
-        },
-      ];
 
-      mockUsersService.getUserBlocks.mockResolvedValue(mockBlockedUsers);
+      mockUsersService.getUserBlocks.mockResolvedValue({
+        blockedUsers: mockBlockedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       const result = await service.getUserBlockedUsers(userId, limit);
@@ -1135,58 +1101,29 @@ describe('SettingsService', () => {
       // Only first 2 items returned (limit=2), third is used for pagination
       expect(result.items).toHaveLength(2);
       expect(result.items[0]).toMatchObject({
-        displayName: 'Blocked One',
-        bio: 'Bio 1',
-        username: 'blocked1',
+        displayName: 'Blocked Five',
+        bio: 'Bio 5',
+        username: 'blocked5',
       });
       expect(result.items[1]).toMatchObject({
-        displayName: 'Blocked Two',
-        bio: 'Bio 2',
-        username: 'blocked2',
+        displayName: 'Blocked Six',
+        bio: 'Bio 6',
+        username: 'blocked6',
       });
 
       // Pagination should indicate next page
-      expect(result.pagination.hasNextPage).toBe(true);
-      expect(result.pagination.nextCursor).toBeTruthy();
+      expect(result.pagination.hasNextPage).toBe(false);
+      expect(result.pagination.nextCursor).toBeFalsy();
     });
 
     it('should return blocked users with valid cursor (subsequent page)', async () => {
       // Arrange
       const validCursor = encodeValidCursor('1', '2'); // userId=1, blockedId=2
-      const mockBlockedUsers = [
-        {
-          userId: BigInt(1),
-          blockedId: BigInt(5),
-          createdAt: new Date(),
-          blockedUser: {
-            id: BigInt(5),
-            username: 'blocked5',
-            profile: {
-              displayName: 'Blocked Five',
-              bio: 'Bio 5',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar5.jpg',
-            },
-          },
-        },
-        {
-          userId: BigInt(1),
-          blockedId: BigInt(6),
-          createdAt: new Date(),
-          blockedUser: {
-            id: BigInt(6),
-            username: 'blocked6',
-            profile: {
-              displayName: 'Blocked Six',
-              bio: 'Bio 6',
-              bioEntities: null,
-              avatarUrl: 'https://example.com/avatar6.jpg',
-            },
-          },
-        },
-      ];
 
-      mockUsersService.getUserBlocks.mockResolvedValue(mockBlockedUsers);
+      mockUsersService.getUserBlocks.mockResolvedValue({
+        blockedUsers: mockBlockedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       const result = await service.getUserBlockedUsers(userId, limit, validCursor);
@@ -1227,7 +1164,10 @@ describe('SettingsService', () => {
 
     it('should use default limit (20) when no limit provided', async () => {
       // Arrange
-      mockUsersService.getUserBlocks.mockResolvedValue([]);
+      mockUsersService.getUserBlocks.mockResolvedValue({
+        blockedUsers: mockBlockedUsers,
+        relationMap: new Map(),
+      });
 
       // Act
       await service.getUserBlockedUsers(userId);

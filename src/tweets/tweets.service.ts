@@ -462,10 +462,7 @@ export class TweetsService {
     prevCursor: string | undefined,
     includeReplies: boolean,
   ) {
-    const requestedUser = await this.usersRepository.findByUsernameWithRelations(
-      username,
-      authUserId,
-    );
+    const requestedUser = await this.usersRepository.findByUsernameWithDisplayname(username);
 
     if (!requestedUser) {
       throw new HttpException(
@@ -513,25 +510,25 @@ export class TweetsService {
     const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
 
     const items = feedItems
-      .map((item) => {
+      .map((item): TweetDto | null => {
         const tweetData = tweetsMap.get(item.id.toString());
 
         if (!tweetData) return null; // Should technically never happen
 
-        let repostedBy: AuthorDto | undefined = undefined;
-
-        if (item.type === 'repost') {
-          repostedBy = this.tweetsRepository.mapToAuthorDto(requestedUser);
-        }
-
         return {
           ...tweetData,
           isRepost: item.type === 'repost',
-          repostedBy,
+          repostedBy:
+            item.type === 'repost'
+              ? {
+                  username: requestedUser?.username || '',
+                  displayName: requestedUser.profile?.displayName || '',
+                }
+              : undefined,
           createdAt: item.created_at,
         };
       })
-      .filter(Boolean); // Remove any nulls
+      .filter(Boolean);
 
     return { items, pagination };
   }
