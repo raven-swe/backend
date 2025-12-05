@@ -46,7 +46,12 @@ export class TweetAnalyzeService implements OnModuleInit {
       );
 
       setInterval(() => {
-        this.classifyTweets();
+        this.classifyTweets().catch((error) => {
+          this.logger.error(
+            'Error occurred during scheduled tweet classification',
+            error instanceof Error ? error.stack : String(error),
+          );
+        });
       }, intervalMs);
     } else {
       this.logger.log('Classification job is disabled');
