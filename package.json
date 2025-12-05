@@ -63,6 +63,7 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "emoji-regex": "^10.6.0",
     "faker-js": "^1.0.0",
     "firebase-admin": "^13.6.0",
     "google-auth-library": "^10.4.2",

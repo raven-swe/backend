@@ -23,6 +23,8 @@ import {
 import { WsValidationExceptionFilter } from 'src/common/filters/ws-validation-exception.filter';
 import { MarkSeenDto } from './dto/mark-seen.dto';
 import { TypingIndicatorDto } from './dto/typing-indicator.dto';
+import { ReactionDto } from './dto/react-message.dto';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 @WebSocketGateway({
   namespace: '/ws/dm',
@@ -409,5 +411,89 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       conversationId,
       username: user.username,
     });
+  }
+
+  @SubscribeMessage('reaction')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async reactToMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: ReactionDto) {
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+      isTyping?: boolean;
+    };
+    const user = data.user;
+
+    this.logger.log(
+      `Reaction event - User: ${user.id}, Message: ${payload.messageId}, Reaction: ${payload.reaction}`,
+    );
+
+    const conversationId = payload.conversationId;
+
+    const isAllowed = await this.conversationsService.assertParticipant(user.id, conversationId);
+
+    if (this.handleParticipantError(client, isAllowed, BigInt(user.id), payload.conversationId)) {
+      return;
+    }
+
+    const prev = data.currentConversationId;
+
+    if (prev && prev !== conversationId) {
+      if (prev) await client.leave(prev);
+      await client.join(conversationId);
+      data.currentConversationId = conversationId;
+      this.logger.log(`User ${user.id} joined room: ${conversationId}`);
+    }
+
+    const reactionState = await this.messagesService.addReactionToMessage(
+      user.id,
+      payload.messageId,
+      payload.reaction,
+      payload.conversationId,
+    );
+
+    if ('error' in reactionState) {
+      this.logger.error(
+        `Message creation failed - User: ${user.id}, Conversation: ${conversationId}, Error: ${reactionState.error}`,
+      );
+      const errorCode: string =
+        reactionState.error === 'INVALID_ID'
+          ? CONVERSATIONS_ERROR_CODES.INVALID_MESSAGE_ID
+          : CONVERSATIONS_ERROR_CODES.REACTION_CREATION_FAILED;
+      const errorMessage: string =
+        reactionState.error === 'INVALID_ID'
+          ? CONVERSATIONS_ERROR_MESSAGES.INVALID_MESSAGE_ID
+          : CONVERSATIONS_ERROR_MESSAGES.REACTION_CREATION_FAILED;
+
+      return client.emit('error', {
+        type: 'error',
+        code: errorCode,
+        message: errorMessage,
+      });
+    }
+
+    const { reactionDb, sender, receiver } = reactionState;
+
+    const socketPayload = {
+      conversationId,
+      messageId: payload.messageId,
+      reactions: {
+        sender: {
+          username: sender!.user.username,
+          displayName: sender!.user.profile!.displayName,
+          avatarUrl: sender!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          reaction: reactionDb.reactionSender,
+          reactedAt: reactionDb.reactionSenderAt,
+        },
+        receiver: {
+          username: receiver!.user.username,
+          displayName: receiver!.user.profile!.displayName,
+          avatarUrl: receiver!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          reaction: reactionDb.reactionReceiver,
+          reactedAt: reactionDb.reactionReceiverAt,
+        },
+      },
+    };
+
+    this.server.to(conversationId).emit('reaction', socketPayload);
   }
 }

@@ -281,6 +281,10 @@ model Message {
   mediaUrl                    String?                   @map("media_url")
   isDeletedSender             Boolean                   @default(false) @map("is_deleted_sender")
   isDeletedReceiver           Boolean                   @default(false) @map("is_deleted_receiver")
+  reactionSender              String?                   @map("reaction_sender")
+  reactionSenderAt            DateTime?                 @map("reaction_sender_at")
+  reactionReceiver            String?                   @map("reaction_receiver")
+  reactionReceiverAt          DateTime?                 @map("reaction_receiver_at")
 
   @@index([conversationId, createdAt])
   @@map("messages")
