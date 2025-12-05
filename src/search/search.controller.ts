@@ -4,7 +4,8 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { SearchService } from './search.service';
-
+import { SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
+import { ParseBooleanPipe } from 'src/common/pipes/parse-boolean.pipe';
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
@@ -16,5 +17,25 @@ export class SearchController {
   ) {
     const userId = BigInt(user.id);
     return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
+  }
+
+  @Get('tweets')
+  @UseGuards(JwtAuthGuard)
+  async searchTweets(
+    @User() user: RequestUser,
+    @Query() searchTweetsQueryDto: SearchTweetsQueryDto,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+    @Query('excludeMutedAndBlocked', ParseBooleanPipe) excludeMutedAndBlocked?: boolean,
+  ) {
+    const currentUserId = BigInt(user.id);
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    searchTweetsQueryDto.excludeMutedAndBlocked = excludeMutedAndBlocked;
+    return this.searchService.searchTweets(
+      currentUserId,
+      searchTweetsQueryDto,
+      parsedLimit,
+      cursor,
+    );
   }
 }
