@@ -79,7 +79,7 @@ import { EventsModule } from './events/events.module';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: IpThrottlerGuard,
     },
     {
       provide: APP_FILTER,
@@ -92,10 +92,6 @@ import { EventsModule } from './events/events.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: AvatarUrlInterceptor,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: IpThrottlerGuard,
     },
     HttpExceptionFilter,
     AppLogger,
