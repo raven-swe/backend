@@ -18,7 +18,7 @@ import {
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
-import { AuthorDto, TweetDto } from './dtos';
+import { CompactAuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
@@ -35,36 +35,6 @@ export class TweetsService {
     private readonly prisma: PrismaService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
   ) {}
-
-  async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
-    this.logger.log(`Fetching following timeline for user ID: ${userId}`);
-    let decoded: FeedCursor | undefined;
-    if (cursor) {
-      try {
-        decoded = decodeCompositeCursor<FeedCursor>(cursor);
-      } catch {
-        throw new HttpException(
-          {
-            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
-            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    const timeline = await this.tweetsRepository.getTimelineForUser(userId, decoded, limit + 1);
-    const validTweets = timeline.filter((tweet) => tweet !== undefined);
-
-    const pagination = paginateComposite(validTweets, limit, cursor, (tweet) => ({
-      createdAt: tweet.createdAt,
-      id: tweet.id.toString(),
-    }));
-    return {
-      items: validTweets,
-      pagination,
-    };
-  }
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
@@ -181,23 +151,25 @@ export class TweetsService {
     // I know this probably confilcts with "nested replies"
 
     // dispatch fanout job
-    const fanoutJob: TweetFanoutJob = {
-      tweetId: tweetId.toString(),
-      authorId: authorId.toString(),
-      timestamp: Date.now(),
-    };
+    if (!createTweetDto.replyToTweetId) {
+      const fanoutJob: TweetFanoutJob = {
+        tweetId: tweetId.toString(),
+        authorId: authorId.toString(),
+        timestamp: Date.now(),
+      };
 
-    await this.timelineFollowingQueue.add('fanout', fanoutJob, {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 1000,
-      },
-    });
+      await this.timelineFollowingQueue.add('fanout', fanoutJob, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      });
 
-    this.logger.log(
-      `Dispathced fanout on write job for tweet ID: ${tweetId} by user ID: ${userId}`,
-    );
+      this.logger.log(
+        `Dispathced fanout on write job for tweet ID: ${tweetId} by user ID: ${userId}`,
+      );
+    }
 
     const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
       mediaObjectsPromise,
@@ -247,19 +219,17 @@ export class TweetsService {
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
     media: MediaResponseDto[],
-    authorDto: AuthorDto,
+    compactAuthorDto: CompactAuthorDto,
     createTweetDto: CreateTweetDto,
     referencedTweet: GetTweetResponseDto | undefined | null,
   ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
       author: {
-        username: authorDto.username,
-        displayName: authorDto.displayName,
-        avatarUrl: authorDto.avatarUrl,
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        id: compactAuthorDto.id,
+        username: compactAuthorDto.username,
+        displayName: compactAuthorDto.displayName,
+        avatarUrl: compactAuthorDto.avatarUrl,
       },
       content: tweet.content,
       createdAt: tweet.createdAt,
