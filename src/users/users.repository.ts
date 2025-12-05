@@ -311,6 +311,8 @@ export class UsersRepository {
       mutualsCount: mutualsCount,
       mutualUsers: mutualUsers,
       email: isMyProfile ? user.email : undefined,
+      phone: user.phone || undefined,
+      languageCode: user.languageCode || undefined,
     };
   }
 
