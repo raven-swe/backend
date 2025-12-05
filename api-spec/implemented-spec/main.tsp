@@ -550,9 +550,6 @@ model UserMetadata {
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
-
-  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship;
 }
 
 model UserMetadataWithFollowInfo {
@@ -568,7 +565,6 @@ model UserMetadataWithFollowInfo {
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
   ...UserMetadata;
-
   ...UserBio;
 
   @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
@@ -773,7 +769,12 @@ model Tweet {
   isRepost: boolean;
 
   @doc("User who reposted this tweet.")
-  repostedBy?: TweetAuthor;
+  repostedBy?: TweetReposter;
+}
+
+model TweetReposter {
+  username: string;
+  displayName: string;
 }
 
 model TweetWithoutQuotedTweet {
@@ -1455,6 +1456,16 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @route("/{username}/relationship")
+  @get
+  @summary("Get relationship status with a user by their username")
+  op getUserRelationship(@path username: string):
+    | DataResponse<UserRelationship>
+    | BadRequestResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   namespace Follows {
     @summary("List a user's followers")
     @get

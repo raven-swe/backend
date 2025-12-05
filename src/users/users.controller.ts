@@ -93,4 +93,10 @@ export class UsersController {
     const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
+
+  @Get(':username/relationship')
+  @UseGuards(JwtAuthGuard)
+  async getUserRelationship(@Param('username') username: string, @User() user: RequestUser) {
+    return this.usersService.getUserRelationship(BigInt(user.id), username);
+  }
 }

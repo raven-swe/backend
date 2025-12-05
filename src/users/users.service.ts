@@ -992,4 +992,21 @@ export class UsersService {
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
+
+  async getUserRelationship(userId: bigint, targetUsername: string) {
+    const requestedUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const map = await this.usersRepository.getUsersRelationshipsMap(userId, [requestedUser.id]);
+    return map.get(requestedUser.id) || null;
+  }
 }

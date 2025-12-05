@@ -1250,6 +1250,16 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @route("/{username}/relationship")
+  @get
+  @summary("Get relationship status with a user by their username")
+  op getUserRelationship(@path username: string):
+    | DataResponse<UserRelationship>
+    | BadRequestResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Get a user's profile preview.")
   @get
   @route("/{username}/preview")
