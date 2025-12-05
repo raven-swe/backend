@@ -10,26 +10,22 @@ import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/c
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
+import { CachedStaticTweet } from './interfaces/cached-static-tweet';
+import { CompactAuthorDto } from './dtos/compact-author.dto';
+import { DynamicDataFromCache } from './timeline/interfaces/DynamicDataFromCache.interface';
+import { TIMELINE_MAX_SIZE } from './timeline/constants';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
       select: {
         username: true,
+        id: true,
         profile: {
           select: {
             displayName: true,
             avatarUrl: true,
           },
-        },
-        blockedBy: {
-          where: { userId: currentUserId },
-        },
-        followers: {
-          where: { followerId: currentUserId },
-        },
-        mutedBy: {
-          where: { userId: currentUserId },
         },
       },
     },
@@ -97,7 +93,11 @@ type DetailedTweetWithIncludes = BaseTweetWithIncludes & {
 export class TweetsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getTimelineForUser(userId: bigint, cursor: FeedCursor | undefined, limit: number) {
+  async getTimelineForUser(
+    userId: bigint,
+    cursor: FeedCursor | undefined,
+    limit: number | undefined,
+  ) {
     // get followed users
     const followedUnMutedUserIds = await this.prisma.follow.findMany({
       where: {
@@ -129,7 +129,7 @@ export class TweetsRepository {
         },
       },
       cursor: cursor ? { createdAt: new Date(cursor.createdAt), id: BigInt(cursor.id) } : undefined, // id as a tiebreaker
-      take: limit || 20,
+      take: limit || TIMELINE_MAX_SIZE,
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
@@ -139,12 +139,10 @@ export class TweetsRepository {
     return {
       id: tweet.id.toString(),
       author: {
+        id: tweet.user.id.toString(),
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl,
-        isBlocked: tweet.user.blockedBy.length > 0,
-        isFollowing: tweet.user.followers.length > 0,
-        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -729,5 +727,184 @@ export class TweetsRepository {
       .map((like) => this.mapToTweetDto(like.tweet as TweetWithIncludes));
 
     return tweets;
+  }
+
+  async getTweetsByIds(tweetIds: bigint[]): Promise<CachedStaticTweet[]> {
+    if (tweetIds.length === 0) {
+      return [];
+    }
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+        isDeleted: false,
+      },
+      include: {
+        tweetMentions: {
+          select: {
+            startPosition: true,
+            user: {
+              select: {
+                username: true,
+              },
+            },
+          },
+        },
+        tweetHashtags: {
+          select: {
+            startPosition: true,
+            hashtag: {
+              select: {
+                keyword: true,
+              },
+            },
+          },
+        },
+        tweetMedia: {
+          select: {
+            order: true,
+            media: {
+              select: {
+                url: true,
+                type: true,
+                altText: true,
+                width: true,
+                height: true,
+              },
+            },
+          },
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return tweets.map((tweet) => ({
+      id: tweet.id.toString(),
+      authorId: tweet.userId.toString(),
+      content: tweet.content ?? '',
+      createdAt: tweet.createdAt,
+      entities: {
+        mentions: tweet.tweetMentions.map((mention) => ({
+          username: mention.user.username,
+          startPosition: mention.startPosition,
+        })),
+        hashtags: tweet.tweetHashtags.map((hashtag) => ({
+          hashtag: hashtag.hashtag.keyword,
+          startPosition: hashtag.startPosition,
+        })),
+      },
+      media: tweet.tweetMedia?.map((media) => ({
+        url: media.media.url,
+        type: media.media.type,
+        altText: media.media.altText,
+        width: media.media.width ?? 0,
+        height: media.media.height ?? 0,
+      })),
+      replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
+      quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+    }));
+  }
+
+  async getCompactAuthorsByIds(authorIds: Set<bigint>): Promise<CompactAuthorDto[]> {
+    if (authorIds.size === 0) {
+      return [];
+    }
+    const authorIdsArray = Array.from(authorIds);
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: authorIdsArray },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+    return users.map((user) => ({
+      id: user.id.toString(),
+      username: user.username,
+      displayName: user.profile?.displayName ?? '',
+      avatarUrl: user.profile?.avatarUrl,
+    }));
+  }
+
+  async getTweetDynamicDataForUser(
+    missingLikeCounts: Array<bigint>,
+    missingRetweetCounts: Array<bigint>,
+    missingReplyCounts: Array<bigint>,
+    missingInteractionLikes: Array<bigint>,
+    missingInteractionRetweets: Array<bigint>,
+    userId: bigint,
+  ): Promise<DynamicDataFromCache> {
+    const likeCounts = new Map<bigint, number>();
+    const retweetCounts = new Map<bigint, number>();
+    const replyCounts = new Map<bigint, number>();
+    const userTweetInteractions = new Map<bigint, { liked: boolean; retweeted: boolean }>();
+
+    // all can be done in one query
+    const results = await this.prisma.$queryRaw<
+      Array<{
+        tweet_id: bigint;
+        like_count: number;
+        retweet_count: number;
+        reply_count: number;
+        is_liked: boolean;
+        is_retweeted: boolean;
+      }>
+    >`
+      SELECT 
+        t.id AS tweet_id,
+        t.like_count,
+        t.retweet_count,
+        t.reply_count,
+        EXISTS (
+          SELECT 1 FROM likes l WHERE l.tweet_id = t.id AND l.user_id = ${userId}
+        ) AS is_liked,
+        EXISTS (
+          SELECT 1 FROM retweets r WHERE r.tweet_id = t.id AND r.user_id = ${userId}
+        ) AS is_retweeted
+      FROM tweets t
+      WHERE t.id = ANY(${[
+        ...new Set([
+          ...missingLikeCounts,
+          ...missingRetweetCounts,
+          ...missingInteractionLikes,
+          ...missingInteractionRetweets,
+        ]),
+      ]}::bigint[])
+    `;
+
+    for (const row of results) {
+      const tweetId = row.tweet_id;
+
+      if (missingLikeCounts.includes(tweetId)) {
+        likeCounts.set(tweetId, Number(row.like_count));
+      }
+
+      if (missingRetweetCounts.includes(tweetId)) {
+        retweetCounts.set(tweetId, Number(row.retweet_count));
+      }
+
+      if (missingReplyCounts.includes(tweetId)) {
+        replyCounts.set(tweetId, Number(row.reply_count));
+      }
+
+      if (
+        missingInteractionLikes.includes(tweetId) ||
+        missingInteractionRetweets.includes(tweetId)
+      ) {
+        userTweetInteractions.set(tweetId, {
+          liked: row.is_liked,
+          retweeted: row.is_retweeted,
+        });
+      }
+    }
+
+    return { likeCounts, retweetCounts, replyCounts, userTweetInteractions };
   }
 }
