@@ -1706,6 +1706,12 @@ describe('TweetsService', () => {
           { provide: ContentParsingService, useValue: mockContentParsingService },
           { provide: MediaRepository, useValue: mockMediaRepository },
           { provide: PrismaService, useValue: mockPrismaService },
+          {
+            provide: getQueueToken('timeline-following'),
+            useValue: {
+              add: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
