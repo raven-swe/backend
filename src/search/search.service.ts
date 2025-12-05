@@ -75,7 +75,6 @@ export class SearchService {
     }
 
     const cleanedQuery = prepareSearchQuery(query);
-    console.log({ query, cleanedQuery });
 
     let decodedCursor: TweetRelationsCursor | undefined;
     if (prevCursor) {

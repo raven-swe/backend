@@ -122,7 +122,6 @@ export class UsersRepository {
       if (bannerUrl !== undefined) prismaData.bannerUrl = bannerUrl;
 
       // Only update if there are fields to update
-      console.log('Prisma Data to update:', prismaData);
       let profile;
       if (Object.keys(prismaData).length > 0) {
         profile = await tx.profile.update({
