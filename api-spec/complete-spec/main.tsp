@@ -349,6 +349,15 @@ model UserMetadata {
 model TweetAuthor {
   ...UserMetadata;
 
+  @doc("True if the current user has blocked this author")
+  isBlocked: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
+
+  @doc("True if the current user has muted this author")
+  isMuted: boolean;
+
 }
 
 model UserMetadataWithFollowInfo {
