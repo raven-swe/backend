@@ -17,6 +17,7 @@ import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
+import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
 
 @Injectable()
 export class SearchService {
@@ -215,6 +216,20 @@ export class SearchService {
       peopleFilter,
     );
 
+    // Get users relationships
+    const userIds = items.map((user) => BigInt(user.id));
+    const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
+
+    const mappedUsers = mapToUserSearchResultDto(items);
+
+    // Attach relationships
+    for (const user of items) {
+      const relationship = relationships.get(BigInt(user.id));
+      if (relationship) {
+        mappedUsers[items.findIndex((u) => u.id === user.id)].relationship = relationship;
+      }
+    }
+
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
       console.log({ user });
       return {
@@ -225,6 +240,6 @@ export class SearchService {
     });
 
     this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
-    return { items, pagination };
+    return { mappedUsers, pagination };
   }
 }

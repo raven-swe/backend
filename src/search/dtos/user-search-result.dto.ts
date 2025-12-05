@@ -1,7 +1,7 @@
 import { UserRelationshipDto } from 'src/users/dtos';
 import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 
-type UserSearchResultItem = CompactUserDto & {
+export type UserSearchResultItem = CompactUserDto & {
   bannerUrl: string;
   relationship: UserRelationshipDto;
 };

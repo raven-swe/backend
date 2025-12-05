@@ -5,15 +5,20 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/search/users?query=o
+  url: http://localhost:3000/search/users?query=oma
   body: none
-  auth: inherit
+  auth: bearer
 }
 
 params:query {
-  query: o
+  query: oma
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

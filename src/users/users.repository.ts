@@ -1407,4 +1407,64 @@ export class UsersRepository {
       peopleFilterCondition,
     };
   }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    const relationshipsMap = new Map<bigint, UserRelationshipDto>();
+    if (!userIds || userIds.length === 0) {
+      return relationshipsMap;
+    }
+
+    const results = await this.prisma.$queryRaw<
+      {
+        user_id: bigint;
+        is_blocking: boolean | number;
+        is_blocked_by: boolean | number;
+        is_following: boolean | number;
+        is_follower: boolean | number;
+        is_muted: boolean | number;
+      }[]
+    >`
+      SELECT 
+        u.id AS user_id,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${currentUserId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${currentUserId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${currentUserId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM users u
+      WHERE u.id IN (${Prisma.join(userIds)});
+    `;
+
+    // 3. Map results
+    for (const row of results) {
+      // Boolean() conversion handles cases where DB driver returns 1/0 instead of true/false
+      relationshipsMap.set(row.user_id, {
+        blocking: Boolean(row.is_blocking),
+        blockedBy: Boolean(row.is_blocked_by),
+        following: Boolean(row.is_following),
+        follower: Boolean(row.is_follower),
+        muted: Boolean(row.is_muted),
+      });
+    }
+
+    return relationshipsMap;
+  }
 }
