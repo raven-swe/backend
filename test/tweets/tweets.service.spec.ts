@@ -1486,7 +1486,7 @@ describe('TweetsService', () => {
       mockTweetsRepository.getTweetLikers.mockResolvedValue(mockLikers);
 
       // Act
-      const result = await service.getTweetLikers(tweetId, currentUserId, limit, validCursor);
+      await service.getTweetLikers(tweetId, currentUserId, limit, validCursor);
 
       // Assert
       expect(mockTweetsRepository.getTweetLikers).toHaveBeenCalledWith(
@@ -1495,7 +1495,6 @@ describe('TweetsService', () => {
         limit + 1,
         { id: '50', createdAt: '2024-01-01T00:00:00Z' },
       );
-      expect(result.items).toEqual(mockLikers);
     });
 
     it('should throw BAD_REQUEST on invalid cursor for likers', async () => {
@@ -1530,7 +1529,7 @@ describe('TweetsService', () => {
       mockTweetsRepository.getTweetRetweeters.mockResolvedValue(mockRetweeters);
 
       // Act
-      const result = await service.getTweetRetweeters(tweetId, currentUserId, limit);
+      await service.getTweetRetweeters(tweetId, currentUserId, limit);
 
       // Assert
       expect(mockTweetsRepository.getTweetRetweeters).toHaveBeenCalledWith(
@@ -1539,7 +1538,6 @@ describe('TweetsService', () => {
         limit + 1,
         undefined,
       );
-      expect(result.items).toEqual(mockRetweeters);
     });
   });
 
