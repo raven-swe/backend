@@ -182,6 +182,15 @@ export class SearchService {
     const userIds = items.map((user) => BigInt(user.id));
     const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
 
+    const pagination = paginateComposite(items, limit, prevCursor, (user) => {
+      console.log({ user });
+      return {
+        createdAt: user.createdAt,
+        id: user.id.toString(),
+        simScore: user.simScore,
+      };
+    });
+
     // Map items with relationships
     const mappedUsers = mapToUserSearchResultDto(
       items.map((user) => ({
@@ -189,14 +198,6 @@ export class SearchService {
         relationship: relationships.get(BigInt(user.id)),
       })),
     );
-
-    const pagination = paginateComposite(items, limit, prevCursor, (user) => {
-      return {
-        createdAt: user.createdAt,
-        id: user.id.toString(),
-        simScore: user.simScore,
-      };
-    });
 
     this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
     return { items: mappedUsers, pagination };

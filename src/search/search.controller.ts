@@ -1,5 +1,4 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { SearchUsernameQueryDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';

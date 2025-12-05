@@ -1291,37 +1291,50 @@ export class UsersRepository {
       );
 
     const sqlQuery = Prisma.sql`
-      SELECT 
-        u.id,
-        u.username,
-        u.created_at,
-        p.display_name,
-        p.avatar_url,
-        p.banner_url,
-        p.bio,
-        p.bio_entities,
-        GREATEST(
-          similarity(LOWER(u.username), ${query}),
-          COALESCE(similarity(LOWER(p.display_name), ${query}), 0)
-        ) as sim_score
-      FROM 
-        users u
+      WITH ranked_users AS (
+        SELECT 
+          u.id,
+          u.username,
+          u.created_at,
+          p.display_name,
+          p.avatar_url,
+          p.banner_url,
+          p.bio,
+          p.bio_entities,
+          GREATEST(
+            similarity(LOWER(u.username), ${query}),
+            COALESCE(similarity(LOWER(p.display_name), ${query}), 0)
+          ) as sim_score,
+          EXISTS (
+            SELECT 1 FROM follows f
+            WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+          ),
+          EXISTS (
+            SELECT 1 FROM follows f
+            WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
+          )
+        FROM 
+          users u
         LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE 
-        u.deleted_at IS NULL
-        AND (
-          LOWER(u.username) % ${query}
-          OR LOWER(p.display_name) % ${query}
-        )
-        ${mutedAndBlockedCondition}
-        ${peopleFilterCondition}
-        ${cursorCondition}
+        WHERE 
+          u.deleted_at IS NULL
+          AND (
+            LOWER(u.username) % ${query}
+            OR LOWER(p.display_name) % ${query}
+          )
+          ${mutedAndBlockedCondition}
+          ${peopleFilterCondition}
+      )
+      SELECT * FROM ranked_users
+      WHERE 1=1
+      ${cursorCondition}
       ORDER BY 
         sim_score DESC,
-        u.created_at DESC,
-        u.id DESC
+        created_at DESC,
+        id DESC
       LIMIT ${limit};
     `;
+
     const results = await this.prisma.$queryRaw<
       {
         id: bigint;
@@ -1359,20 +1372,19 @@ export class UsersRepository {
   ) {
     const cursorCondition = cursor
       ? Prisma.sql`
-        AND (
-          sim_score < ${cursor.simScore} -- primary ordering
-          OR (
-            sim_score = ${cursor.simScore} 
-            AND (
-              u.created_at < ${cursor.createdAt}::timestamp
-              OR (
-                u.created_at = ${cursor.createdAt}::timestamp
-                AND u.id < ${BigInt(cursor.id)}
-              )
-            )
-          )
+      AND (
+        sim_score < ${cursor.simScore}
+        OR (
+          sim_score = ${cursor.simScore}
+          AND created_at < ${cursor.createdAt}::timestamp
         )
-      `
+        OR (
+          sim_score = ${cursor.simScore}
+          AND created_at = ${cursor.createdAt}::timestamp
+          AND id < ${BigInt(cursor.id)}
+        )
+      )
+    `
       : Prisma.empty;
 
     const mutedAndBlockedCondition = excludeMutedAndBlocked
