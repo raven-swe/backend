@@ -196,4 +196,56 @@ export class MessagesService {
 
     return this.messagesRepository.deleteMessage(messageId, userId, message.userId);
   }
+
+  async addReactionToMessage(
+    userId: string,
+    messageId: string,
+    reaction: string,
+    conversationId: string,
+  ) {
+    let userIdBigInt: bigint;
+    let messageIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(userId);
+      messageIdBigInt = BigInt(messageId);
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return { error: 'INVALID_ID' };
+    }
+
+    const message = await this.messagesRepository.getMessageById(messageIdBigInt);
+
+    if (!message || message.conversationId !== conversationIdBigInt) {
+      return { error: 'INVALID_ID' };
+    }
+
+    const isAuthor = userIdBigInt === message.userId;
+
+    const side: 'sender' | 'receiver' = isAuthor ? 'sender' : 'receiver';
+
+    const current = isAuthor ? message.reactionSender : message.reactionReceiver;
+    const willRemove = current === reaction;
+
+    const valueToWrite: string | null = willRemove ? null : reaction;
+
+    const participants =
+      await this.conversationsRepository.getConversationParticipants(conversationIdBigInt);
+
+    const sender = participants.find((participant) => participant.user.id === message.userId);
+    const receiver = participants.find((participant) => participant.user.id !== message.userId);
+
+    const reactionDb = await this.messagesRepository.addMessageReaction(
+      messageIdBigInt,
+      side,
+      valueToWrite,
+    );
+
+    if (!reactionDb) {
+      return { error: 'REACTION_CREATION_FAILED' };
+    }
+
+    return { reactionDb, sender, receiver };
+  }
 }
