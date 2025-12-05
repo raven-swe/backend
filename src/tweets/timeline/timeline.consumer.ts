@@ -5,6 +5,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { TweetFanoutJob } from './interfaces/TweetFanoutJob.interface';
 import { TIMELINE_MAX_SIZE } from '../timeline/constants/timeline.constants';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 
 @Processor('timeline-following')
 export class TimelineConsumer extends WorkerHost {
@@ -43,21 +44,26 @@ export class TimelineConsumer extends WorkerHost {
       followerIds.unshift(authorId.toString());
 
       // Fanout should be to existing keys only (active users), those keys are created when the timeline cache misses, and persist for a configured time
-      const timelineKeys = followerIds.map((id) => `timeline:${id}`);
+      const timelineKeys = followerIds.map((id) =>
+        REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(id)),
+      );
       const existingKeyspipeline = this.redisClient.pipeline();
       for (const key of timelineKeys) {
-        existingKeyspipeline.exists(`timeline:${key}`);
+        existingKeyspipeline.exists(key);
       }
       const existingKeysResults = await existingKeyspipeline.exec();
 
       if (!existingKeysResults) {
         return; // though this never happens, at least the author timeline key exists
       }
-      // const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
+      const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
       const compositeId = `${authorId}:${tweetId}`;
 
       const writePipeline = this.redisClient.pipeline();
-      for (const key of timelineKeys) {
+      for (const key of existingKeys) {
+        writePipeline.del(
+          REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(BigInt(key.split(':')[1])),
+        ); // remove empty placeholder if exists
         writePipeline.zadd(key, timestamp, compositeId);
         writePipeline.zremrangebyrank(key, 0, -(TIMELINE_MAX_SIZE + 1)); // keep timeline size capped at TIMELINE_MAX_SIZE
       }
@@ -68,4 +74,6 @@ export class TimelineConsumer extends WorkerHost {
       throw error; // for retry
     }
   }
+
+  // TODO i need the backfill to happen for follows
 }
