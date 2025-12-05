@@ -9,9 +9,8 @@ export class IpThrottlerGuard extends ThrottlerGuard {
   protected getTracker(req: Record<string, unknown>): Promise<string> {
     const request = req as unknown as Request;
 
-    const xClientIp = request.headers['x-client-ip'];
-
-    const headerIp = Array.isArray(xClientIp) ? xClientIp[0] : xClientIp;
+    const forwarded = request.headers['x-forwarded-for'];
+    const headerIp = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : undefined;
 
     const ip = headerIp || request.ip || request.socket?.remoteAddress || 'unknown';
 
