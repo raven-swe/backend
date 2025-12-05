@@ -8,6 +8,7 @@ import { TimelineConsumer } from './timeline.consumer';
 
 @Module({
   imports: [BullModule.registerQueue({ name: 'timeline-following' }), UsersModule, TweetsModule],
-  providers: [TimelineService, TimelineController, TimelineConsumer],
+  providers: [TimelineService, TimelineConsumer],
+  controllers: [TimelineController],
 })
 export class TimelineModule {}
