@@ -18,6 +18,10 @@ auth:bearer {
   token: {{access_token}}
 }
 
+vars:pre-request {
+  base_url: http://localhost:3000
+}
+
 settings {
   encodeUrl: true
   timeout: 0

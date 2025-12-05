@@ -9,7 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -31,6 +31,10 @@ import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
+import { SseModule } from './sse/sse.module';
+import { SseController } from './sse/sse.controller';
+import cors from 'cors';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -65,17 +69,19 @@ import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
     TweetsModule,
     ConversationsModule,
     SearchModule,
+    SseModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
     LoggerModule,
     TweetAnalyzeModule,
+    EventsModule,
   ],
   controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: IpThrottlerGuard,
     },
     {
       provide: APP_FILTER,
@@ -89,10 +95,6 @@ import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
       provide: APP_INTERCEPTOR,
       useClass: AvatarUrlInterceptor,
     },
-    {
-      provide: APP_GUARD,
-      useClass: IpThrottlerGuard,
-    },
     HttpExceptionFilter,
     AppLogger,
   ],
@@ -100,5 +102,15 @@ import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+
+    consumer
+      .apply(
+        cors({
+          origin: '*',
+          methods: 'GET,OPTIONS',
+          credentials: true,
+        }),
+      )
+      .forRoutes(SseController);
   }
 }

@@ -4,14 +4,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { MessagesService } from './messages.services';
-import { ConversationsRepository } from '../conversations.repository';
-import { MessagesRepository } from './messages.repository';
+import { MessagesService } from 'src/conversations/messages/messages.services';
+import { ConversationsRepository } from 'src/conversations/conversations.repository';
+import { MessagesRepository } from 'src/conversations/messages/messages.repository';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
-} from '../constants/conversation-constants';
+} from 'src/conversations/constants/conversation-constants';
 
 describe('MessagesService', () => {
   let service: MessagesService;
@@ -109,6 +109,7 @@ describe('MessagesService', () => {
 
       expect(conversationsRepository.getConversation).toHaveBeenCalledWith(conversationId);
       expect(messagesRepository.getMessages).toHaveBeenCalledWith(
+        userId,
         conversationId,
         limit + 1,
         undefined,
@@ -167,9 +168,14 @@ describe('MessagesService', () => {
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, cursor);
 
-      expect(messagesRepository.getMessages).toHaveBeenCalledWith(conversationId, limit + 1, {
-        messageId: '5',
-      });
+      expect(messagesRepository.getMessages).toHaveBeenCalledWith(
+        userId,
+        conversationId,
+        limit + 1,
+        {
+          messageId: '5',
+        },
+      );
       expect(result.items.messages).toHaveLength(1);
     });
 
