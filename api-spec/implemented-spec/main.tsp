@@ -279,7 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-
 model RegisterStartBody {
   name: string;
   email: string;
@@ -764,6 +763,17 @@ model TweetWithoutQuotedTweet {
 
   @doc("The ID of the tweet this one is a reply to.")
   replyToTweetId: string | null;
+}
+
+model TweetWithThread extends Tweet {
+  @doc("The root tweet of the thread (oldest tweet in the chain).")
+  rootTweet: CompactTweet | null;
+
+  @doc("Parent tweets leading to this tweet (up to 4), ordered from oldest to newest, excluding the root tweet.")
+  parentTweets: CompactTweet[] | null;
+
+  @doc("Indicates if there are more parent tweets beyond the provided ones.")
+  hasMoreParents: boolean;
 }
 
 model TweetWithReplyTo extends Tweet {
@@ -1605,7 +1615,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1624,9 +1634,9 @@ namespace Tweets {
 
   @get
   @route("/{id}")
-  @summary("Get a specific tweet by ID")
+  @summary("Get a specific tweet by ID with its thread context")
   op getTweet(@path id: string):
-    | DataResponse<TweetWithReplyTo>
+    | DataResponse<TweetWithThread>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

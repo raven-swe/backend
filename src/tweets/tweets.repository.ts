@@ -172,6 +172,7 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+      rootTweetId: tweet.rootTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
     };
   }

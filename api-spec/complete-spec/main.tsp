@@ -651,6 +651,17 @@ model TweetWithoutQuotedTweet {
   replyToTweetId: string | null;
 }
 
+model TweetWithThread extends Tweet {
+  @doc("The root tweet of the thread (oldest tweet in the chain).")
+  rootTweet: CompactTweet | null;
+
+  @doc("Parent tweets leading to this tweet (up to 4), ordered from oldest to newest, excluding the root tweet.")
+  parentTweets: CompactTweet[] | null;
+
+  @doc("Indicates if there are more parent tweets beyond the provided ones.")
+  hasMoreParents: boolean;
+}
+
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
   @doc("Show all types of notifications.")
@@ -1749,9 +1760,9 @@ namespace Tweets {
 
   @get
   @route("/{id}")
-  @summary("Get a specific tweet by ID")
+  @summary("Get a specific tweet by ID with its thread context")
   op getTweet(@path id: string):
-    | DataResponse<TweetWithReplyTo>
+    | DataResponse<TweetWithThread>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

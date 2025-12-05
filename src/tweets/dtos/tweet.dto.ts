@@ -20,6 +20,7 @@ export class TweetDto {
 
   replyToTweetId: string | null;
   quoteToTweetId: string | null;
+  rootTweetId: string | null;
 
   quotedTweet?: TweetDto;
 }

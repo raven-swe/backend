@@ -242,8 +242,8 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
-      replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
   }
 
