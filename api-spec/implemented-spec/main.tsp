@@ -778,6 +778,45 @@ model TweetWithReplyTo extends Tweet {
   replyToTweet: CompactTweet | null;
 }
 
+model AllMatchingUsers {
+  @doc("Paginated list of all matching users (default 20 per page)")
+  users: UserMetadataWithFollowInfo[];
+}
+
+model TopHashtags {
+  @doc("Top 3 relevant hashtags for the search query")
+  @maxItems(3)
+  hashtags: string[];
+}
+
+enum SearchTab {
+  TOP: "top",
+  LATEST: "latest",
+  MEDIA: "media",
+}
+
+enum PeopleSearchFilter {
+  Anyone: "anyone",
+  Following: "following",
+}
+
+model SearchTweetsParameters {
+  @doc("The search query")
+  @query
+  query: string;
+
+  @doc("Tab type: top (default) | latest | media ")
+  @query
+  tab?: SearchTab;
+
+  @doc("Show tweets from anyone (default) or only from people you follow")
+  @query
+  peopleFilter?: PeopleSearchFilter;
+
+  @doc("Exclude tweets from muted and blocked users")
+  @query
+  excludeMutedAndBlocked?: boolean;
+}
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1770,5 +1809,19 @@ namespace Conversations {
     | UnauthorizedResponse
     | ForbiddenResponse
     | NotFoundResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Search")
+@route("/search")
+@useAuth(BearerAuth)
+namespace Search {
+  @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @get
+  @route("/tweets")
+  op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithReplyTo[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
