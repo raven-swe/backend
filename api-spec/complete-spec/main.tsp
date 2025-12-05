@@ -349,14 +349,6 @@ model UserMetadata {
 model TweetAuthor {
   ...UserMetadata;
 
-  @doc("True if the current user has blocked this author")
-  isBlocked: boolean;
-
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
-
-  @doc("True if the current user has muted this author")
-  isMuted: boolean;
 }
 
 model UserMetadataWithFollowInfo {
@@ -2058,19 +2050,17 @@ namespace Search {
 namespace Explore {
   @get
   @route("/for-you")
-  @summary("Get trending hashtags and tweets")
-  @doc("Returns a mix of trending topics, hashtags and tweets personalized for the user")
-  op getExploreForYou(...CursorPaginationParameters): DataResponse<{
-    @doc("Trending hashtags for the user (6-10 items)")
-    @minItems(6)
-    @maxItems(10)
-    trendingHashtags: HashtagPreview[];
+  @summary("Get a list of tweets grouped by categories, only which the user is interested in")
+  @doc("Returns a list of tweets grouped by categories as key-value pairs")
+  op getExploreForYou(): DataResponse<{
+    @doc("Array of categories with their associated tweets")
+    categories: {
+      @doc("The category name")
+      category: string;
 
-    @doc("Personalized tweets with pagination")
-    tweets: Tweet[];
-
-    @doc("Pagination info for tweets")
-    pagination: CursorPagination;
+      @doc("Array of tweets associated with this category")
+      tweets: Tweet[];
+    }[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
