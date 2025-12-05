@@ -14,6 +14,7 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorDto } from './dtos/compact-author.dto';
 import { DynamicDataFromCache } from './timeline/interfaces/DynamicDataFromCache.interface';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
+import { PeopleSearchFilter } from 'src/search/dtos';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -906,6 +907,101 @@ export class TweetsRepository {
     }
 
     return { likeCounts, retweetCounts, replyCounts, userTweetInteractions };
+  }
+
+  async getTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    limit: number,
+    cursor?: TweetRelationsCursor,
+  ) {
+    const cursorCondition = cursor
+      ? Prisma.sql`
+        AND (
+          t.created_at < ${cursor.createdAt}::timestamp
+          OR (
+            t.created_at = ${cursor.createdAt}::timestamp 
+            AND t.id <= ${BigInt(cursor.id)}
+          )
+        )
+      `
+      : Prisma.empty;
+
+    // Exclude tweets from muted and blocked users if the flag is set
+    const mutedAndBlockedCondition = excludeMutedAndBlocked
+      ? Prisma.sql`
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM blocks b 
+          WHERE b.user_id = ${currentUserId} AND b.blocked_id = t.user_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM mutes m 
+          WHERE m.user_id = ${currentUserId} AND m.muted_id = t.user_id
+        )
+      `
+      : Prisma.empty;
+
+    const peopleFilterCondition =
+      peopleFilter === PeopleSearchFilter.Following
+        ? Prisma.sql`
+        AND EXISTS (
+          SELECT 1 
+          FROM follows f 
+          WHERE f.follower_id = ${currentUserId} AND f.followed_id = t.user_id
+        )
+      `
+        : Prisma.empty;
+
+    const sqlQuery = Prisma.sql`
+    SELECT t.id, t.created_at 
+    FROM tweets t
+    WHERE t.search_document @@ to_tsquery('simple', ${query})
+      AND t.is_deleted = false
+      ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
+      ${cursorCondition}
+      ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
+    ORDER BY t.created_at DESC, t.id DESC
+    LIMIT ${limit}
+  `;
+
+    const tweetIds = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        created_at: Date;
+      }[]
+    >(sqlQuery);
+
+    if (tweetIds.length === 0) {
+      return [];
+    }
+
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds.map((row) => row.id) },
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+    });
+    // Maintain the order from the search query
+    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
+    const orderedTweets = tweetIds
+      .map((row) => tweetMap.get(row.id.toString()))
+      .filter((tweet) => tweet !== undefined);
+
+    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
   }
 
   async getMediaTweetsForUser(

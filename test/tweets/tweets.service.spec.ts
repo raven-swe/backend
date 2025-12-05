@@ -13,6 +13,7 @@ import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
+import { PeopleSearchFilter } from 'src/search/dtos';
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -53,6 +54,7 @@ describe('TweetsService', () => {
     getUserLikedTweets: jest.fn(),
     getMediaTweetsForUser: jest.fn(),
     validateReferences: jest.fn(),
+    getTweetsByQuery: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -1667,6 +1669,149 @@ describe('TweetsService', () => {
 
       expect(result.items).toHaveLength(10);
       expect(result.pagination.hasNextPage).toBe(true);
+    });
+  });
+
+  describe('TweetsService - Query Methods', () => {
+    let service: TweetsService;
+
+    const mockTweetsRepository = {
+      getTweetsByQuery: jest.fn(),
+    };
+
+    const mockUsersRepository = {};
+    const mockContentParsingService = {};
+    const mockMediaRepository = {};
+    const mockPrismaService = {};
+
+    const mockTweets = [
+      {
+        id: BigInt(1),
+        content: 'Test tweet 1',
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: BigInt(2),
+        content: 'Test tweet 2',
+        createdAt: new Date('2024-01-02'),
+      },
+    ];
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TweetsService,
+          { provide: TweetsRepository, useValue: mockTweetsRepository },
+          { provide: UsersRepository, useValue: mockUsersRepository },
+          { provide: ContentParsingService, useValue: mockContentParsingService },
+          { provide: MediaRepository, useValue: mockMediaRepository },
+          { provide: PrismaService, useValue: mockPrismaService },
+        ],
+      }).compile();
+
+      service = module.get<TweetsService>(TweetsService);
+      jest.clearAllMocks();
+    });
+
+    describe('getTopTweetsByQuery', () => {
+      it('should call getTweetsByQuery with hasMedia=false', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+
+        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getTopTweetsByQuery(currentUserId, query, limit);
+
+        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          false,
+          undefined,
+          undefined,
+          limit + 1,
+          undefined,
+        );
+      });
+
+      it('should pass excludeMutedAndBlocked and peopleFilter to repository', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+        const excludeMutedAndBlocked = true;
+        const peopleFilter = PeopleSearchFilter.Anyone;
+
+        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getTopTweetsByQuery(
+          currentUserId,
+          query,
+          limit,
+          undefined,
+          excludeMutedAndBlocked,
+          peopleFilter,
+        );
+
+        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          false,
+          excludeMutedAndBlocked,
+          peopleFilter,
+          limit + 1,
+          undefined,
+        );
+      });
+    });
+
+    describe('getTweetsWithMediaByQuery', () => {
+      it('should call getTweetsByQuery with hasMedia=true', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+
+        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getTweetsWithMediaByQuery(currentUserId, query, limit);
+
+        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          true,
+          undefined,
+          undefined,
+          limit + 1,
+          undefined,
+        );
+      });
+
+      it('should pass cursor and filters to repository', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+        const decodedCursor = { createdAt: new Date(), id: '100' };
+        const excludeMutedAndBlocked = true;
+
+        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getTweetsWithMediaByQuery(
+          currentUserId,
+          query,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+        );
+
+        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          true,
+          excludeMutedAndBlocked,
+          undefined,
+          limit + 1,
+          decodedCursor,
+        );
+      });
     });
   });
 

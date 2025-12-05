@@ -814,12 +814,6 @@ model TopSuggestedUsers {
   users: UserMetadataWithFollowInfo[];
 }
 
-model SuggestedUsersForSearchResults {
-  @doc("The top 10 matching users after searching")
-  @maxItems(10)
-  topUsers: UserMetadataWithFollowInfo[];
-}
-
 model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
   users: UserMetadataWithFollowInfo[];
@@ -829,6 +823,35 @@ model TopHashtags {
   @doc("Top 3 relevant hashtags for the search query")
   @maxItems(3)
   hashtags: string[];
+}
+
+enum SearchTab {
+  TOP: "top",
+  LATEST: "latest",
+  MEDIA: "media",
+}
+
+enum PeopleSearchFilter {
+  Anyone: "anyone",
+  Following: "following",
+}
+
+model SearchTweetsParameters {
+  @doc("The search query")
+  @query
+  query: string;
+
+  @doc("Tab type: top (default) | latest | media ")
+  @query
+  tab?: SearchTab;
+
+  @doc("Show tweets from anyone (default) or only from people you follow")
+  @query
+  peopleFilter?: PeopleSearchFilter;
+
+  @doc("Exclude tweets from muted and blocked users")
+  @query
+  excludeMutedAndBlocked?: boolean;
 }
 
 model RegisterStartBody {
@@ -1991,32 +2014,6 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 10 users matching the current query (while searching/ mentioning users(suggested mentions))")
-  @get
-  @route("/users")
-  op searchUsers(
-    @doc("The search query")
-    @query
-    query: string,
-  ):
-    | DataResponse<TopSuggestedUsers>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @summary("Get top 10 featured users for the People tab")
-  @get
-  @route("/users/top")
-  op getTopUsers(
-    @doc("The search query")
-    @query
-    query: string,
-  ):
-    | DataResponse<SuggestedUsersForSearchResults>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
   @route("/hashtags/top")
@@ -2030,11 +2027,11 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Get all matching users with pagination for the People tab")
+  @summary("Get all users matching the search query - returns paginated user results")
   @get
-  @route("/users/all")
-  op getAllUsers(
-    @doc("The search query")
+  @route("/users")
+  op searchUsers(
+    @doc("Search query (username or display name)")
     @query
     query: string,
 
@@ -2048,14 +2045,8 @@ namespace Search {
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
   @get
   @route("/tweets")
-  op searchTweets(
-    @doc("The search query")
-    @query
-    query: string,
-
-    ...CursorPaginationParameters,
-  ):
-    | DataResponseWithPagination<Tweet[]>
+  op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

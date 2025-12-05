@@ -22,6 +22,7 @@ import { CompactAuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
+import { PeopleSearchFilter } from 'src/search/dtos';
 
 @Injectable()
 export class TweetsService {
@@ -557,7 +558,12 @@ export class TweetsService {
     return this.getTweetRelations('quotes', tweetId, currentUserId, limit, prevCursor);
   }
 
-  getTweetReplies(tweetId: bigint, currentUserId: bigint, limit: number = 20, prevCursor?: string) {
+  async getTweetReplies(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
     return this.getTweetRelations('replies', tweetId, currentUserId, limit, prevCursor);
   }
 
@@ -738,6 +744,44 @@ export class TweetsService {
       items: tweets.slice(0, limit),
       pagination,
     };
+  }
+
+  async getTopTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getTweetsByQuery(
+      currentUserId,
+      query,
+      false,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+
+  async getTweetsWithMediaByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getTweetsByQuery(
+      currentUserId,
+      query,
+      true,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
   }
 
   async getUserMediaTweets(
