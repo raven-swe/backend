@@ -474,4 +474,239 @@ describe('MessagesService', () => {
       expect(result).toEqual({ message: specialMessage });
     });
   });
+
+  describe('addReactionToMessage', () => {
+    const userId = '6';
+    const messageId = '1';
+    const conversationId = '2';
+    const reaction = '👍';
+
+    const mockMessage = {
+      id: BigInt(1),
+      conversationId: BigInt(2),
+      userId: BigInt(3),
+      content: 'Hello!',
+      createdAt: new Date(),
+      reactionSender: null,
+      reactionReceiver: null,
+      reactionSenderAt: null,
+      reactionReceiverAt: null,
+    };
+
+    const mockParticipants = [
+      {
+        userId: BigInt(3),
+        user: {
+          id: BigInt(3),
+          username: 'tasneem',
+          profile: {
+            displayName: 'Tasneem',
+            avatarUrl: 'https://example.com/tasneem.jpg',
+          },
+        },
+      },
+      {
+        userId: BigInt(6),
+        user: {
+          id: BigInt(6),
+          username: 'layla',
+          profile: {
+            displayName: 'Layla',
+            avatarUrl: 'https://example.com/layla.jpg',
+          },
+        },
+      },
+    ];
+
+    const mockReactionDb = {
+      id: BigInt(1),
+      reactionSender: '👍',
+      reactionReceiver: null,
+      reactionSenderAt: new Date(),
+      reactionReceiverAt: null,
+    };
+
+    beforeEach(() => {
+      messagesRepository.getMessageById = jest.fn();
+      messagesRepository.addMessageReaction = jest.fn();
+      conversationsRepository.getConversationParticipants = jest.fn();
+    });
+
+    it('should successfully add reaction from receiver', async () => {
+      messagesRepository.getMessageById.mockResolvedValue(mockMessage as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(mockReactionDb as any);
+
+      const result = await service.addReactionToMessage(
+        userId,
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(messagesRepository.getMessageById).toHaveBeenCalledWith(BigInt(1));
+      expect(conversationsRepository.getConversationParticipants).toHaveBeenCalledWith(BigInt(2));
+      expect(messagesRepository.addMessageReaction).toHaveBeenCalledWith(
+        BigInt(1),
+        'receiver',
+        reaction,
+      );
+      expect(result).toEqual({
+        reactionDb: mockReactionDb,
+        sender: mockParticipants[0],
+        receiver: mockParticipants[1],
+      });
+    });
+
+    it('should successfully add reaction from sender (message author)', async () => {
+      const authorMessage = { ...mockMessage, userId: BigInt(6) };
+      messagesRepository.getMessageById.mockResolvedValue(authorMessage as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(mockReactionDb as any);
+
+      await service.addReactionToMessage(userId, messageId, reaction, conversationId);
+
+      expect(messagesRepository.addMessageReaction).toHaveBeenCalledWith(
+        BigInt(1),
+        'sender',
+        reaction,
+      );
+    });
+
+    it('should toggle reaction when same reaction is sent (remove)', async () => {
+      const messageWithReaction = { ...mockMessage, reactionReceiver: '👍' };
+      messagesRepository.getMessageById.mockResolvedValue(messageWithReaction as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(mockReactionDb as any);
+
+      await service.addReactionToMessage(userId, messageId, '👍', conversationId);
+
+      expect(messagesRepository.addMessageReaction).toHaveBeenCalledWith(
+        BigInt(1),
+        'receiver',
+        null,
+      );
+    });
+
+    it('should return error when userId is invalid', async () => {
+      const result = await service.addReactionToMessage(
+        'invalid',
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toEqual({ error: 'INVALID_ID' });
+      expect(messagesRepository.getMessageById).not.toHaveBeenCalled();
+    });
+
+    it('should return error when messageId is invalid', async () => {
+      const result = await service.addReactionToMessage(
+        userId,
+        'invalid',
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toEqual({ error: 'INVALID_ID' });
+      expect(messagesRepository.getMessageById).not.toHaveBeenCalled();
+    });
+
+    it('should return error when conversationId is invalid', async () => {
+      const result = await service.addReactionToMessage(userId, messageId, reaction, 'invalid');
+
+      expect(result).toEqual({ error: 'INVALID_ID' });
+      expect(messagesRepository.getMessageById).not.toHaveBeenCalled();
+    });
+
+    it('should return error when message does not exist', async () => {
+      messagesRepository.getMessageById.mockResolvedValue(null);
+
+      const result = await service.addReactionToMessage(
+        userId,
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toEqual({ error: 'INVALID_ID' });
+      expect(conversationsRepository.getConversationParticipants).not.toHaveBeenCalled();
+    });
+
+    it('should return error when message belongs to different conversation', async () => {
+      const wrongConversationMessage = { ...mockMessage, conversationId: BigInt(999) };
+      messagesRepository.getMessageById.mockResolvedValue(wrongConversationMessage as any);
+
+      const result = await service.addReactionToMessage(
+        userId,
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toEqual({ error: 'INVALID_ID' });
+      expect(conversationsRepository.getConversationParticipants).not.toHaveBeenCalled();
+    });
+
+    it('should return error when database operation fails', async () => {
+      messagesRepository.getMessageById.mockResolvedValue(mockMessage as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(null as never);
+
+      const result = await service.addReactionToMessage(
+        userId,
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toEqual({ error: 'REACTION_CREATION_FAILED' });
+    });
+
+    it('should find correct sender and receiver from participants', async () => {
+      messagesRepository.getMessageById.mockResolvedValue(mockMessage as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(mockReactionDb as any);
+
+      const result = await service.addReactionToMessage(
+        userId,
+        messageId,
+        reaction,
+        conversationId,
+      );
+
+      expect(result).toHaveProperty('sender');
+      expect(result).toHaveProperty('receiver');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect((result as any).sender.user.id).toBe(BigInt(3));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect((result as any).receiver.user.id).toBe(BigInt(6));
+    });
+
+    it('should handle different emoji reactions', async () => {
+      messagesRepository.getMessageById.mockResolvedValue(mockMessage as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue(
+        mockParticipants as any,
+      );
+      messagesRepository.addMessageReaction.mockResolvedValue(mockReactionDb as any);
+
+      await service.addReactionToMessage(userId, messageId, '❤️', conversationId);
+
+      expect(messagesRepository.addMessageReaction).toHaveBeenCalledWith(
+        BigInt(1),
+        'receiver',
+        '❤️',
+      );
+    });
+  });
 });
