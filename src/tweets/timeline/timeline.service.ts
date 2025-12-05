@@ -34,7 +34,7 @@ export class TimelineService {
   }
 
   async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
-    this.logger.log(`Fetching following timeline for user ID: ${userId}`);
+    this.logger.debug(`Fetching following timeline for user ID: ${userId}`);
     let decoded: FeedCursor | undefined;
     if (cursor) {
       try {
@@ -98,7 +98,7 @@ export class TimelineService {
     const isEmpty = await this.redisClient.exists(`timeline:${userId}:empty`);
     if (isEmpty) {
       await this.redisClient.expire(`timeline:${userId}:empty`, TIMELINE_EMPTY_PLACEHOLDER_TTL); // refresh placeholder ttl
-      this.logger.log(`Timeline empty placeholder hit for user ID: ${userId}`);
+      this.logger.debug(`Timeline empty placeholder hit for user ID: ${userId}`);
       return [];
     }
 
@@ -107,13 +107,13 @@ export class TimelineService {
       return [];
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Hydrating static data for ${items.length} timeline items for user ID: ${userId}`,
     );
     const { tweets, authors, missingTweetIds, missingAuthorIds } =
       await this.hydrateStaticData(items);
 
-    this.logger.log(
+    this.logger.debug(
       `Backfilling ${missingTweetIds.length} tweets and ${missingAuthorIds.size} authors from DB for user ID: ${userId}`,
     );
     const { tweets: backfilledTweets, authors: backfilledAuthors } =
@@ -127,12 +127,12 @@ export class TimelineService {
       authors.set(author.id, author);
     }
 
-    this.logger.log(`Hydrating dynamic data for timeline tweets for user ID: ${userId}`);
+    this.logger.debug(`Hydrating dynamic data for timeline tweets for user ID: ${userId}`);
     const { likeCounts, retweetCounts, replyCounts, userTweetInteractions } =
       await this.getAndBackfillTweetDynamicData(tweets, userId, missingTweetIds);
 
     // second pass to hydrate quote tweets ( only static tweet and author, no need for anything else)
-    this.logger.log(`Hydrating quoted tweets for timeline tweets for user ID: ${userId}`);
+    this.logger.debug(`Hydrating quoted tweets for timeline tweets for user ID: ${userId}`);
     const quoteTweetIdSet = new Set<string>(); // tweetId -> authorId
     for (const tweet of tweets.values()) {
       if (tweet.quoteToTweetId) {
@@ -186,7 +186,7 @@ export class TimelineService {
         TIMELINE_EMPTY_PLACEHOLDER_TTL,
         '1',
       ); // set the empty placeholder
-      this.logger.log(
+      this.logger.debug(
         `No timeline items found in cache for user ID: ${userId}, setting empty placeholder`,
       );
     }
@@ -267,7 +267,7 @@ export class TimelineService {
       }
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Hydrated ${tweetsMap.size} tweets and ${authorsMap.size} authors from cache, missing ${missingTweetIds.length} tweets and ${missingAuthorIds.size} authors to backfill from DB`,
     );
 
@@ -429,7 +429,7 @@ export class TimelineService {
       }
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Hydrated dynamic counts for ${likeCountsMap.size} likes, ${retweetCountsMap.size} retweets, and ${replyCountsMap.size} replies from cache for user ID: ${userId}, and missing counts - ${missingLikeCounts.length} likes, ${missingRetweetCounts.length} retweets, ${missingReplyCounts.length} replies`,
     );
 
@@ -606,7 +606,7 @@ export class TimelineService {
       }
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Hydrated ${tweetsMap.size} quoted tweets from cache, missing ${missingTweetIds.length} quotes to backfill from DB`,
     );
 
@@ -626,7 +626,7 @@ export class TimelineService {
     }
 
     // hydrate authors
-    this.logger.log(`Hydrating ${authorIds.length} authors for quoted tweets from cache`);
+    this.logger.debug(`Hydrating ${authorIds.length} authors for quoted tweets from cache`);
     const authorsHydrationPipeline = this.redisClient.pipeline();
     for (const authorId of authorIds) {
       authorsHydrationPipeline.getex(
@@ -663,7 +663,7 @@ export class TimelineService {
       }
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Hydrated ${authorMap.size} authors for quoted tweets from cache, missing ${missingAuthorIds.size} authors to backfill from DB`,
     );
     // get missing authors from DB
@@ -762,7 +762,7 @@ export class TimelineService {
   }
 
   async timelineCacheMiss(userId: bigint, decodedCursor: FeedCursor | undefined): Promise<void> {
-    this.logger.log(`Timeline cache miss for user ID: ${userId}, fetching from DB`);
+    this.logger.debug(`Timeline cache miss for user ID: ${userId}, fetching from DB`);
 
     // Get the complete timeline from database
     const tweets = await this.tweetsRepository.getTimelineForUser(userId, decodedCursor, undefined);
@@ -774,11 +774,11 @@ export class TimelineService {
         TIMELINE_EMPTY_PLACEHOLDER_TTL,
         '1',
       );
-      this.logger.log(`No tweets found for user ID: ${userId}, setting empty placeholder`);
+      this.logger.debug(`No tweets found for user ID: ${userId}, setting empty placeholder`);
       return;
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Fetched ${tweets.length} tweets from DB for user ID: ${userId}, populating cache`,
     );
 
