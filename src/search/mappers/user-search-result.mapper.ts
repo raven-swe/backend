@@ -19,10 +19,10 @@ export function mapToUserSearchResultDto(
   return items.map((item) => ({
     username: item.username,
     displayName: item.displayName,
-    bio: item.bio || '',
+    bio: item.bio,
     bioEntities: (item.bioEntities as unknown as BioEntitiesDto) || null,
-    avatarUrl: item.avatarUrl || '',
-    bannerUrl: item.bannerUrl || '',
+    avatarUrl: item.avatarUrl,
+    bannerUrl: item.bannerUrl,
     relationship: item.relationship || {
       blocking: false,
       blockedBy: false,

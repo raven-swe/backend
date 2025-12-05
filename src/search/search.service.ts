@@ -28,44 +28,6 @@ export class SearchService {
     private readonly tweetsService: TweetsService,
   ) {}
 
-  async getMatchingUsers(userId: bigint, username: string) {
-    const users = await this.usersService.getMatchingUsers(userId, username);
-    if (!users || users.length === 0) {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.NO_MATCHING_USERS,
-          code: SEARCH_ERROR_CODES.NO_MATCHING_USERS,
-        },
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    const userIds = users.map((u) => u.id);
-    const followRelations = await this.usersService.getUserFollowRelations(userId, userIds);
-
-    const followingSet = new Set<bigint>();
-    const followerSet = new Set<bigint>();
-
-    for (const relation of followRelations) {
-      if (relation.followerId === userId) {
-        followingSet.add(relation.followedId);
-      }
-      if (relation.followedId === userId) {
-        followerSet.add(relation.followerId);
-      }
-    }
-
-    const usersData = users.map((user) => ({
-      username: user.username,
-      displayName: user.profile?.displayName || '',
-      avatarUrl: user.profile?.avatarUrl,
-      isFollowing: followingSet.has(user.id),
-      isFollower: followerSet.has(user.id),
-    }));
-
-    return { users: usersData };
-  }
-
   async searchTweets(
     currentUserId: bigint,
     searchTweetsQueryDto: SearchTweetsQueryDto,
@@ -220,18 +182,15 @@ export class SearchService {
     const userIds = items.map((user) => BigInt(user.id));
     const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
 
-    const mappedUsers = mapToUserSearchResultDto(items);
-
-    // Attach relationships
-    for (const user of items) {
-      const relationship = relationships.get(BigInt(user.id));
-      if (relationship) {
-        mappedUsers[items.findIndex((u) => u.id === user.id)].relationship = relationship;
-      }
-    }
+    // Map items with relationships
+    const mappedUsers = mapToUserSearchResultDto(
+      items.map((user) => ({
+        ...user,
+        relationship: relationships.get(BigInt(user.id)),
+      })),
+    );
 
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
-      console.log({ user });
       return {
         createdAt: user.createdAt,
         id: user.id.toString(),
@@ -240,6 +199,6 @@ export class SearchService {
     });
 
     this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
-    return { mappedUsers, pagination };
+    return { items: mappedUsers, pagination };
   }
 }

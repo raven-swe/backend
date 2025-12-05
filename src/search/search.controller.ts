@@ -14,16 +14,6 @@ export class SearchController {
     private readonly searchService: SearchService,
     private readonly trendingService: TrendingService,
   ) {}
-  // @Get('users')
-  // @UseGuards(JwtAuthGuard)
-  // async getTopUsers(
-  //   @User() user: RequestUser,
-  //   @Query() searchUsernameQueryDto: SearchUsernameQueryDto,
-  // ) {
-  //   const userId = BigInt(user.id);
-  //   return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
-  // }
-
   @Get('tweets')
   @UseGuards(JwtAuthGuard)
   async searchTweets(
