@@ -426,9 +426,17 @@ model UserProfile {
   @doc("The number of mutual followers shared with the authenticated user")
   mutualsCount: int64 | null;
 
-  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @doc("Mutual users of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualUsers: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
