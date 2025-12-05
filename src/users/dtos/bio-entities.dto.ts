@@ -1,8 +1,8 @@
 import { HashtagDto, MentionDto } from 'src/tweets/dtos';
 
 export class BioEntitiesDto {
-  mentions: MentionDto[];
-  hashtags: HashtagDto[];
+  mentions: MentionDto[] | null;
+  hashtags: HashtagDto[] | null;
 }
 
 export class BioDto {

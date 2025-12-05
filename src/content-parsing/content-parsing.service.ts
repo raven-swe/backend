@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
@@ -10,6 +10,7 @@ export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
 
   constructor(
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly trendingService: TrendingService,
   ) {}
@@ -43,6 +44,35 @@ export class ContentParsingService {
     return { mentions, hashtags };
   }
 
+  /**
+   * Parse content for profile bios - validates mentions but doesn't track hashtags
+   *
+   * @param content The bio text to parse
+   * @param tx a transaction client
+   * @returns Mentions with their IDs from the database, and plain hashtags (not saved to DB)
+   */
+  async parseContentForBio(
+    content: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{
+    mentions: (PlainMention & { userId: bigint })[];
+    hashtags: PlainHashtag[];
+  }> {
+    if (!content || content.length === 0) {
+      return { mentions: [], hashtags: [] };
+    }
+
+    const { mentions: plainMentions, hashtags: plainHashtags } = this.parsePlainContent(content);
+
+    // Only validate mentions
+    const mentions = await this.usersService.checkUsernamesExistenceAndReplaceIds(
+      plainMentions,
+      tx,
+    );
+
+    // Return plain hashtags without database interaction
+    return { mentions, hashtags: plainHashtags };
+  }
   /**
    *
    * @param content The text to parse (tweet, bio or message)
