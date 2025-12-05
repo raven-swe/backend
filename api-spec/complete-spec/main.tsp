@@ -253,13 +253,16 @@ model MediaEntity {
   ...MediaItem;
 }
 
-@doc("Preview of a hashtag with its usage statistics")
+@doc("Preview of a hashtag/ keyword with its usage statistics")
 model HashtagPreview {
-  @doc("The hashtag text (without #)")
-  hashtag: string;
+  @doc("The hashtag text (without #)/ The keyword")
+  keyword: string;
 
-  @doc("Number of tweets using this hashtag")
+  @doc("Number of tweets using this hashtag/ keyword")
   tweetsCount: integer;
+
+  @doc("The category this tweet is trending in (e.g., 'news', 'sports', 'entertainment', or 'general')")
+  category: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -2075,42 +2078,26 @@ namespace Explore {
   @get
   @route("/trending")
   @summary("Get trending hashtags/keywords across all categories")
-  @doc("Returns top trending hashtags globally, ordered by trending score")
-  op getTrendingHashtags(): DataResponse<{
-    @doc("Trending news hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending hashtags/keywords globally, ordered by trending score")
+  op getTrendingHashtags(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/news")
   @summary("Get trending keywords/hashtags in the News category")
   @doc("Returns top trending news-related keywords (max 30)")
-  op getNewsExplore(): DataResponse<{
-    @doc("Trending news keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getNewsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
-  @doc("Returns top trending sports-related hashtags (max 30)")
-  op getSportsExplore(): DataResponse<{
-    @doc("Trending sports keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending sports-related keywords (max 30)")
+  op getSportsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
-  @doc("Returns top trending entertainment-related hashtags (max 30)")
-  op getEntertainmentExplore(): DataResponse<{
-    @doc("Trending entertainment keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending entertainment-related keywords (max 30)")
+  op getEntertainmentExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")
