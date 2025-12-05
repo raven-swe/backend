@@ -1347,6 +1347,7 @@ export class UsersRepository {
       bio: row.bio || null,
       bioEntities: row.bio_entities || null,
       createdAt: row.created_at,
+      simScore: row.sim_score,
     }));
   }
 
@@ -1358,14 +1359,20 @@ export class UsersRepository {
   ) {
     const cursorCondition = cursor
       ? Prisma.sql`
+        AND (
+          sim_score < ${cursor.simScore} -- primary ordering
+          OR (
+            sim_score = ${cursor.simScore} 
             AND (
               u.created_at < ${cursor.createdAt}::timestamp
               OR (
-                u.created_at = ${cursor.createdAt}::timestamp 
-                AND u.id <= ${BigInt(cursor.id)}
+                u.created_at = ${cursor.createdAt}::timestamp
+                AND u.id < ${BigInt(cursor.id)}
               )
             )
-          `
+          )
+        )
+      `
       : Prisma.empty;
 
     const mutedAndBlockedCondition = excludeMutedAndBlocked

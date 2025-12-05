@@ -13,7 +13,7 @@ import {
   isSingleHashtagQuery,
   prepareSearchQuery,
 } from './utils/search-query.util';
-import { TweetRelationsCursor } from 'src/common/types/cursors';
+import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
@@ -193,22 +193,34 @@ export class SearchService {
 
     const cleanedQuery = prepareSearchQuery(rawQuery);
     console.log({ cleanedQuery });
-    const decodedCursor = this.decodeCursor(prevCursor);
+    let decodedCursor: UserSearchCursor | undefined;
+    try {
+      decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;
+    } catch {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     const items = await this.usersService.searchUsers(
       currentUserId,
       cleanedQuery,
-      limit,
+      limit + 1,
       decodedCursor,
       excludeMutedAndBlocked,
       peopleFilter,
     );
-    console.log({ items });
 
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
+      console.log({ user });
       return {
         createdAt: user.createdAt,
         id: user.id.toString(),
+        simScore: user.simScore,
       };
     });
 
