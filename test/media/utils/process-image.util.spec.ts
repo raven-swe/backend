@@ -12,6 +12,7 @@ const mockSharpInstance = {
     format: 'jpeg',
   }),
   resize: jest.fn().mockReturnThis(),
+  rotate: jest.fn().mockReturnThis(),
   jpeg: jest.fn().mockReturnThis(),
   png: jest.fn().mockReturnThis(),
   toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed image')),

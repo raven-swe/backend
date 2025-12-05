@@ -279,7 +279,6 @@ model TweetBody {
   quoteToTweetId?: string | null;
 }
 
-
 model RegisterStartBody {
   name: string;
   email: string;
@@ -352,6 +351,7 @@ alias MessageListResponse = DataResponseWithPagination<{
   messages: Message[];
 }>;
 alias ConversationResponse = DataResponse<Conversation>;
+alias DeleteMessageResponse = MessageResponse<"Message deleted successfully">;
 
 @doc("A single external social account connected to the user's primary account.")
 model ConnectedAccountResponse {
@@ -422,7 +422,15 @@ model UserProfile {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -502,7 +510,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")
@@ -1414,6 +1422,15 @@ namespace Users {
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
+
+  @summary("List user's tweets with media attachments")
+  @get
+  @route("/{username}/media")
+  op getUserMedia(@path username: string, ...CursorPaginationParameters):
+    | DataResponseWithPagination<Tweet[]>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("OAuth")
@@ -1595,7 +1612,7 @@ namespace Tweets {
   @post
   @summary("Create a new tweet")
   op postTweet(@body body: TweetBody):
-    | Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>
+    | (Response<201> & Body<ApiSuccessResponse<TweetWithReplyTo>>)
     | ValidationErrorResponse
     | BadRequestResponse
     | UnauthorizedResponse
@@ -1739,4 +1756,19 @@ namespace Conversations {
   op getUnseenCounts(): DataResponse<{
     count: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @delete
+  @route("/{conversationId}/messages/{messageId}")
+  @summary("Soft-delete a message by IDs")
+  @doc("""
+    Soft-deletes a message using conversation ID and message ID.
+    Sets is_deleted_sender or is_deleted_receiver flag based on user role.
+    """)
+  op deleteMessage(@path conversationId: string, @path messageId: string):
+    | DeleteMessageResponse
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
 }

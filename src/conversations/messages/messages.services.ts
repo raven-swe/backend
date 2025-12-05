@@ -17,14 +17,8 @@ export class MessagesService {
     private readonly messagesRepository: MessagesRepository,
   ) {}
 
-  async getMessagesInConversation(
-    userId: bigint,
-    conversationId: bigint,
-    limit: number,
-    cursor: string | undefined,
-  ) {
+  async checkConversationEligibility(userId: bigint, conversationId: bigint) {
     const conversation = await this.conversationsRepository.getConversation(conversationId);
-
     if (!conversation || !conversation.conversationParticipants)
       throw new HttpException(
         {
@@ -33,11 +27,9 @@ export class MessagesService {
         },
         HttpStatus.BAD_REQUEST,
       );
-
     const isParticipant = conversation.conversationParticipants.find(
       (participant) => participant.userId === userId,
     );
-
     if (!isParticipant) {
       throw new HttpException(
         {
@@ -47,6 +39,17 @@ export class MessagesService {
         HttpStatus.FORBIDDEN,
       );
     }
+
+    return conversation;
+  }
+
+  async getMessagesInConversation(
+    userId: bigint,
+    conversationId: bigint,
+    limit: number = 20,
+    cursor: string,
+  ) {
+    const conversation = await this.checkConversationEligibility(userId, conversationId);
 
     let decoded:
       | {
@@ -64,7 +67,12 @@ export class MessagesService {
       }
     }
 
-    const messages = await this.messagesRepository.getMessages(conversationId, limit + 1, decoded);
+    const messages = await this.messagesRepository.getMessages(
+      userId,
+      conversationId,
+      limit + 1,
+      decoded,
+    );
 
     const otherParticipant = conversation.conversationParticipants.find(
       (participant) => participant.userId !== userId,
@@ -152,5 +160,23 @@ export class MessagesService {
     );
 
     return { message };
+  }
+
+  async deleteConversationMessage(userId: bigint, conversationId: bigint, messageId: bigint) {
+    await this.checkConversationEligibility(userId, conversationId);
+
+    const message = await this.messagesRepository.getMessageById(messageId);
+
+    if (!message || message.conversationId !== conversationId) {
+      throw new HttpException(
+        {
+          message: CONVERSATIONS_ERROR_MESSAGES.INVALID_MESSAGE_ID,
+          code: CONVERSATIONS_ERROR_CODES.INVALID_MESSAGE_ID,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.messagesRepository.deleteMessage(messageId, userId, message.userId);
   }
 }

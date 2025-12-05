@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { SseController } from 'src/conversations/sse.controller';
-import { SseService } from 'src/conversations/sse.service';
+import { SseController } from 'src/sse/sse.controller';
+import { SseService } from 'src/sse/sse.service';
+import { SseEventsService } from 'src/sse/sse-events.service';
+import { ConversationsRepository } from 'src/conversations/conversations.repository';
 import { JwtAuthGuard } from 'src/auth/guards';
 import type { Response } from 'express';
 import type { RequestUser } from 'src/common/interfaces';
@@ -16,6 +18,15 @@ describe('SseController', () => {
     getConnectionCount: jest.fn().mockReturnValue(1),
   };
 
+  const mockSseEventsService = {
+    publishUnseenCount: jest.fn().mockResolvedValue(undefined),
+    publishNewMessagePreview: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockConversationsRepository = {
+    countUnseenConversations: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -25,6 +36,14 @@ describe('SseController', () => {
         {
           provide: SseService,
           useValue: mockSseService,
+        },
+        {
+          provide: SseEventsService,
+          useValue: mockSseEventsService,
+        },
+        {
+          provide: ConversationsRepository,
+          useValue: mockConversationsRepository,
         },
       ],
     })
@@ -38,13 +57,7 @@ describe('SseController', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
-    if (mockSseService.subscribe) {
-      mockSseService.subscribe.mockClear();
-    }
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    jest.clearAllMocks();
   });
 
   describe('stream', () => {
@@ -86,36 +99,43 @@ describe('SseController', () => {
       mockRes.emit('close');
     };
 
-    it('should return 400 for invalid topics parameter', () => {
+    it('should be defined', () => {
+      expect(controller).toBeDefined();
+    });
+
+    it('should return 400 for invalid topics parameter', async () => {
       const mockRes = createMockResponse();
 
-      controller.stream(mockUser, mockRes as Response, 'invalid-topic');
+      await controller.stream(mockUser, mockRes as Response, 'invalid-topic');
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Invalid topics parameter. Only "dm" is supported.',
         code: 'INVALID_TOPICS',
       });
+      expect(mockSseService.subscribe).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when topics parameter is missing', () => {
+    it('should return 400 when topics parameter is missing', async () => {
       const mockRes = createMockResponse();
 
-      controller.stream(mockUser, mockRes as Response, undefined);
+      await controller.stream(mockUser, mockRes as Response, undefined);
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Invalid topics parameter. Only "dm" is supported.',
         code: 'INVALID_TOPICS',
       });
+      expect(mockSseService.subscribe).not.toHaveBeenCalled();
     });
 
-    it('should return 429 when connection limit is reached', () => {
+    it('should return 429 when connection limit is reached', async () => {
       const mockRes = createMockResponse();
-      mockSseService.subscribe.mockReturnValue(null);
+      mockSseService.subscribe.mockResolvedValue(null);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
+      expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
       expect(mockRes.status).toHaveBeenCalledWith(429);
       expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Too many active connections. Close some tabs or devices.',
@@ -123,12 +143,12 @@ describe('SseController', () => {
       });
     });
 
-    it('should set correct SSE headers for valid request', () => {
+    it('should set correct SSE headers for valid request', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       expect(mockRes.set).toHaveBeenCalledWith({
         'Content-Type': 'text/event-stream',
@@ -141,12 +161,12 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should send connected event on successful connection', () => {
+    it('should send connected event on successful connection', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       expect(mockRes.write).toHaveBeenCalledWith(
         `event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`,
@@ -156,12 +176,12 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should subscribe to SSE service with user ID', () => {
+    it('should subscribe to SSE service with user ID', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
 
@@ -169,12 +189,12 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should write event data when SSE service publishes', () => {
+    it('should write event data when SSE service publishes', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 
@@ -192,12 +212,12 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should write event with ID when provided', () => {
+    it('should write event with ID when provided', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 
@@ -217,12 +237,12 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should write event without event name when not provided', () => {
+    it('should write event without event name when not provided', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 
@@ -239,26 +259,26 @@ describe('SseController', () => {
       mockSubject.complete();
     });
 
-    it('should clean up on connection close', () => {
+    it('should clean up on connection close', async () => {
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
-      const mockResTyped = mockRes as Partial<Response> & { emit: (event: string) => boolean };
+      const mockResTyped = mockRes;
       mockResTyped.emit('close');
 
       expect(mockSseService.unsubscribe).toHaveBeenCalledWith('123', mockSubject);
     });
 
-    it('should send session expired event after 2 hours', (done) => {
+    it('should send session expired event after 2 hours', async () => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 
@@ -272,16 +292,15 @@ describe('SseController', () => {
       expect(mockRes.end).toHaveBeenCalled();
 
       mockSubject.complete();
-      done();
     });
 
-    it('should send ping events every 25 seconds', (done) => {
+    it('should send ping events every 25 seconds', async () => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 
@@ -294,16 +313,15 @@ describe('SseController', () => {
       expect(mockRes.write).toHaveBeenCalledWith(': ping\n\n');
 
       mockSubject.complete();
-      done();
     });
 
-    it('should clear timers on connection close', () => {
+    it('should clear timers on connection close', async () => {
       jest.useFakeTimers();
       const mockRes = createMockResponse();
       const mockSubject = new Subject();
-      mockSseService.subscribe.mockReturnValue(mockSubject);
+      mockSseService.subscribe.mockResolvedValue(mockSubject);
 
-      controller.stream(mockUser, mockRes as Response, 'dm');
+      await controller.stream(mockUser, mockRes as Response, 'dm');
 
       (mockRes.write as jest.Mock).mockClear();
 

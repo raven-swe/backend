@@ -1,0 +1,25 @@
+meta {
+  name: Delete message
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://localhost:3000/conversations/:conversationId/messages/:messageId
+  body: none
+  auth: bearer
+}
+
+params:path {
+  conversationId: 2
+  messageId: 31
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

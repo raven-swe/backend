@@ -18,7 +18,7 @@ export class ConversationsService {
     private readonly usersRepository: UsersRepository,
   ) {}
 
-  async getUserConversations(userId: bigint, limit: number, cursor: string | undefined) {
+  async getUserConversations(userId: bigint, limit: number = 20, cursor: string) {
     let decoded:
       | {
           conversationId: string;
@@ -49,7 +49,7 @@ export class ConversationsService {
 
     const conversationsWithBlockStatus = userConversations
       .filter((conversation) => {
-        return conversation.lastMessageId !== null || conversation.creatorId === userId;
+        return conversation.lastMessageId !== null;
       })
       .filter((conversation) => {
         const otherParticipant = conversation.conversationParticipants.find(
