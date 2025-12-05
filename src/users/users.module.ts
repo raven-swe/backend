@@ -19,9 +19,6 @@ import { MentionsController } from './mentions/mentions.controller';
     BullModule.registerQueue({
       name: 'email',
     }),
-    BullModule.registerQueue({
-      name: 'timeline-following',
-    }),
     RedisModule,
     PrismaModule,
     MediaModule,

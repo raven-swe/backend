@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
-import { AuthorDto } from 'src/tweets/dtos';
+import { CompactAuthorDto } from 'src/tweets/dtos';
 
 @Injectable()
 export class UsersRepository {
@@ -1244,11 +1244,12 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         username: true,
+        id: true,
         profile: {
           select: {
             displayName: true,
@@ -1263,12 +1264,10 @@ export class UsersRepository {
     }
 
     return {
+      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      isBlocked: false,
-      isFollowing: false,
-      isMuted: false,
     };
   }
 

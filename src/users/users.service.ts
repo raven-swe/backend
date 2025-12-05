@@ -29,7 +29,6 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
     @InjectQueue('email') private emailQueue: Queue,
-    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
   ) {}
 
   async findByEmail(email: string) {
