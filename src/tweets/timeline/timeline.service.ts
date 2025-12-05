@@ -721,8 +721,10 @@ export class TimelineService {
       const isLiked = userInteractions ? userInteractions.liked : false;
       const isRetweeted = userInteractions ? userInteractions.retweeted : false;
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { authorId, ...tweetWithoutAuthorId } = tweet; // remove authorId from tweet
       const tweetDto: TweetDto = {
-        ...tweet,
+        ...tweetWithoutAuthorId,
         author,
         likeCount,
         retweetCount,
@@ -741,8 +743,10 @@ export class TimelineService {
         if (quotedTweet) {
           const quotedAuthor = authors.get(quotedTweet.authorId);
           if (quotedAuthor) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { authorId, ...quotedTweetWithoutAuthorId } = quotedTweet;
             tweet.quotedTweet = {
-              ...quotedTweet,
+              ...quotedTweetWithoutAuthorId,
               author: quotedAuthor,
               likeCount: 0, // these are not needed at all
               replyCount: 0,
