@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -138,6 +139,7 @@ model Tweet {
   @@index([replyToTweetId], map: "tweets_reply_to_tweet_id_idx")
   @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
   @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "tweets_cursor_idx")
   @@map("tweets")
 }
 

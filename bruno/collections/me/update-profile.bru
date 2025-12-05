@@ -11,7 +11,7 @@ patch {
 }
 
 auth:bearer {
-  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjUiLCJpYXQiOjE3NjE5NjQ3OTQsImV4cCI6MTc2MTk2NTY5NH0.MCJ1AHJdojkbJr9V5g_DCl7ms1vYqnvYinRQGdGHInY
+  token: {{access_token}}
 }
 
 body:json {
@@ -22,7 +22,11 @@ body:json {
 }
 
 body:multipart-form {
-  avatar: @file(/home/tasneem/Pictures/osi meme.jpeg)
+  data: '''
+    {
+     "bio": "I am testing this @notnowomar with #hashtaaaags @notvaliduser"
+    }
+  '''
 }
 
 settings {

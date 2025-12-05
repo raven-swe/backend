@@ -1,13 +1,17 @@
 meta {
-  name: mute-user
+  name: search-tweets
   type: http
-  seq: 5
+  seq: 2
 }
 
-post {
-  url: http://localhost:3000/me/mutes/OmarHassan
+get {
+  url: http://localhost:3000/search/tweets?query=tasneem__
   body: none
   auth: bearer
+}
+
+params:query {
+  query: tasneem__
 }
 
 auth:bearer {
