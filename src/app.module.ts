@@ -9,7 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -79,7 +79,7 @@ import { EventsModule } from './events/events.module';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: IpThrottlerGuard,
     },
     {
       provide: APP_FILTER,
@@ -92,10 +92,6 @@ import { EventsModule } from './events/events.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: AvatarUrlInterceptor,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: IpThrottlerGuard,
     },
     HttpExceptionFilter,
     AppLogger,

@@ -422,7 +422,15 @@ model UserProfile {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -502,7 +510,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")

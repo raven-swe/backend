@@ -426,9 +426,17 @@ model UserProfile {
   @doc("The number of mutual followers shared with the authenticated user")
   mutualsCount: int64 | null;
 
-  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @doc("Mutual users of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -446,7 +454,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Request body for updating profile")
@@ -459,6 +467,9 @@ model UpdateProfileRequest {
   @doc("The user's bio (max 160 characters).")
   @maxLength(160)
   bio?: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities?: BioEntities | null;
 
   @doc("User's location")
   @maxLength(100)
