@@ -256,7 +256,7 @@ model MediaEntity {
 @doc("Preview of a hashtag/ keyword with its usage statistics")
 model HashtagPreview {
   @doc("The hashtag text (without #)/ The keyword")
-  keyword: string;
+  hashtag: string;
 
   @doc("Number of tweets using this hashtag/ keyword")
   tweetsCount: integer;
