@@ -558,10 +558,20 @@ export class UsersService {
       );
     }
 
+    const isBlocked = await this.usersRepository.isBlocked(userId, mutedId);
+    if (isBlocked) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     // Check if already muted or blocked
     const isAlreadyMuted = await this.usersRepository.isMuted(userId, mutedId);
-    const isBlocked = await this.usersRepository.isBlocked(userId, mutedId);
-    if (isAlreadyMuted || isBlocked) {
+    if (isAlreadyMuted) {
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.ALREADY_MUTED,
