@@ -87,7 +87,7 @@ export class TimelineService {
   // note: i will filter timeline tweets for people I follow, not muted and accounts are active(i need to reach db for this sadly)
   // why? it's easier that way instead of cleaning the cache on every mute/block/deactivate, the rare case of blocking/muting/deactivating all active people you follow to the point that the timeline becomes short is not worth the extra work
 
-  // keep in mind to create the cuckoo filters lazily (on like or retweet), they persist as long as user acc lives, also invalidating user dto on deactivate and update (another PR after this)
+  // TODO invalidating user dto on deactivate and update (another PR after this), and counter updates
 
   async timelineCacheHit(
     userId: bigint,
