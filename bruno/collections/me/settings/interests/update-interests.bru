@@ -1,0 +1,21 @@
+meta {
+  name: Update Interests
+  type: http
+  seq: 2
+}
+
+put {
+  url: http://localhost:3000/me/settings/interests
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "interests": ["TECH", "SPORTS", "FOOD"]
+  }
+}

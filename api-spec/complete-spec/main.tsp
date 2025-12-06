@@ -209,6 +209,17 @@ model Country {
   name: string;
 }
 
+model Interest {
+  @doc("Interest code identifier (e.g., 'TECH', 'SPORTS')")
+  code: InterestCode;
+
+  @doc("Display name of the interest (e.g., 'Tech', 'Sports')")
+  name: string;
+
+  @doc("Indicates whether the user has selected this interest")
+  isSelected: boolean;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -910,6 +921,20 @@ enum LanguageCode {
 enum Gender {
   Male,
   Female,
+}
+
+enum InterestCode {
+  CULTURE,
+  FINANCE,
+  MEDICAL,
+  POLITICS,
+  SPORTS,
+  TECH,
+  ENTERTAINMENT,
+  GENERAL,
+  FOOD,
+  LEARNING,
+  TRAVEL,
 }
 
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -1640,6 +1665,28 @@ namespace Me {
     @summary("Get all supported countries(for country selection dropdowns)")
     op getSupportedCountries(
     ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+
+    @get
+    @route("/interests")
+    @summary("Get all available interests with user selection status")
+    @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
+    op getInterests(
+    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/interests")
+    @summary("Update the authenticated user's interests")
+    @doc("Replaces the user's entire interest list. The user must select at least one interest. Duplicates are automatically removed.")
+    op updateInterests(
+      @body body: {
+        @doc("Array of interest codes the user wants to select")
+        interests: InterestCode[];
+      },
+    ):
+      | MessageResponse<"Interests updated successfully.">
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
