@@ -504,7 +504,9 @@ export class TweetsService {
 
     const fullTweets = await this.tweetsRepository.hydrateTweetsInList(authUserId, tweetIds);
 
-    const fullTweetsDto = fullTweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+    const fullTweetsDto = fullTweets.map((tweet) =>
+      this.tweetsRepository.mapToDetailedTweetDto(tweet),
+    );
 
     const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
 

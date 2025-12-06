@@ -1555,7 +1555,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
