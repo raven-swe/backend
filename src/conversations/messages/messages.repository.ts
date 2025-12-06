@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -9,36 +10,40 @@ export class MessagesRepository {
     userId: bigint,
     conversationId: bigint,
     limit: number,
-    prevCursor: { messageId: string } | undefined,
+    prevCursor: { messageId: string; createdAt: string } | undefined,
   ) {
+    const baseWhere: Prisma.MessageWhereInput = {
+      conversationId,
+      OR: [
+        { userId, isDeletedSender: false },
+        { NOT: { userId }, isDeletedReceiver: false },
+      ],
+    };
+
+    if (prevCursor) {
+      const cursorDate = new Date(prevCursor.createdAt);
+
+      const cursorId = BigInt(prevCursor.messageId);
+
+      baseWhere.AND = [
+        {
+          OR: [
+            { createdAt: { lt: cursorDate } },
+            { AND: [{ createdAt: cursorDate }, { id: { lte: cursorId } }] },
+          ],
+        },
+      ];
+    }
+
     return await this.prisma.message.findMany({
-      where: {
-        conversationId: conversationId,
-        OR: [
-          {
-            userId,
-            isDeletedSender: false,
-          },
-          {
-            NOT: { userId },
-            isDeletedReceiver: false,
-          },
-        ],
-      },
+      where: baseWhere,
       take: limit,
-      cursor: prevCursor
-        ? {
-            id: BigInt(prevCursor.messageId),
-          }
-        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         content: true,
         createdAt: true,
         userId: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
       },
     });
   }

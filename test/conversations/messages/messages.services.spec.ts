@@ -161,7 +161,9 @@ describe('MessagesService', () => {
     });
 
     it('should handle cursor-based pagination', async () => {
-      const cursor = Buffer.from(JSON.stringify({ messageId: '5' })).toString('base64');
+      const cursor = Buffer.from(
+        JSON.stringify({ messageId: '5', createdAt: '2024-01-01T00:00:00.000Z' }),
+      ).toString('base64');
 
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
       messagesRepository.getMessages.mockResolvedValue([mockMessages[0]]);
@@ -174,6 +176,7 @@ describe('MessagesService', () => {
         limit + 1,
         {
           messageId: '5',
+          createdAt: '2024-01-01T00:00:00.000Z',
         },
       );
       expect(result.items.messages).toHaveLength(1);
@@ -369,6 +372,10 @@ describe('MessagesService', () => {
       mediaUrl: null,
       isDeletedSender: false,
       isDeletedReceiver: false,
+      reactionSender: null,
+      reactionSenderAt: null,
+      reactionReceiver: null,
+      reactionReceiverAt: null,
     };
 
     it('should successfully create a message', async () => {
