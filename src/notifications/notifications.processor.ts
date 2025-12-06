@@ -144,7 +144,7 @@ export class NotificationProcessor extends WorkerHost {
     } catch (err) {
       this.logger.error(
         `Failed to process push notification job for notification id ${notificationId} to user ${userId}`,
-        err.stack,
+        err,
       );
       throw err;
     }

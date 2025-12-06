@@ -1,5 +1,5 @@
 import {
- WebSocketGateway,
+  WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
   OnGatewayDisconnect,
@@ -15,7 +15,7 @@ import { ConversationsService } from '../conversations.service';
 import { MessagesService } from '../messages/messages.services';
 import { SseEventsService } from '../../sse/sse-events.service';
 import { WsJwtGuard } from 'src/auth/guards';
-mport { SendMessageDto } from './dto/send-message.dto';
+import { SendMessageDto } from './dto/send-message.dto';
 import {
   CONVERSATIONS_ERROR_CODES,
   CONVERSATIONS_ERROR_MESSAGES,
@@ -98,13 +98,13 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
         code: errorCode,
         message: errorMessage,
         ...(clientMessageId && { clientMessageId }),
-     });
+      });
       return true;
     } else if (isAllowed === null) {
       this.logger.warn(`Invalid conversation ID: ${conversationId} for user: ${userId}`);
       client.emit('error', {
         type: 'error',
-       code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
         message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
         ...(clientMessageId && { clientMessageId }),
       });
@@ -130,7 +130,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private async publishNewMessagePreview(
     conversationId: string,
-   message: {
+    message: {
       id: bigint;
       createdAt: Date;
       conversationId: bigint;
@@ -229,7 +229,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     this.server.to(payload.conversationId).emit('conversation_seen_update', {
-     conversationId: payload.conversationId,
+      conversationId: payload.conversationId,
       username,
       lastSeenMessageId,
       unseenCount,
@@ -256,7 +256,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (
       this.handleParticipantError(
-       client,
+        client,
         isAllowed,
         BigInt(user.id),
         conversationId,
@@ -316,7 +316,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
         clientMessageId: payload.clientMessageId,
         body: message.content,
         createdAt: message.createdAt,
-     },
+      },
     });
 
     await this.publishNewMessagePreview(conversationId, message, user);
@@ -377,14 +377,14 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async typingStop(@ConnectedSocket() client: Socket, @MessageBody() payload: TypingIndicatorDto) {
     const data = client.data as {
       user: WsUser;
-     currentConversationId?: string;
+      currentConversationId?: string;
       isTyping?: boolean;
-   };
+    };
     const user = data.user;
 
     this.logger.log(
       `typing_stop event - User: ${user.id}, Conversation: ${payload.conversationId}`,
-   );
+    );
 
     const conversationId = payload.conversationId;
 
@@ -397,7 +397,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const prev = data.currentConversationId;
 
     if (prev && prev !== conversationId) {
-     if (prev) await client.leave(prev);
+      if (prev) await client.leave(prev);
       await client.join(conversationId);
       data.currentConversationId = conversationId;
       this.logger.log(`User ${user.id} joined room: ${conversationId}`);
@@ -408,6 +408,6 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(conversationId).emit('user_typing_stop', {
       conversationId,
       username: user.username,
-   });
+    });
   }
-}           i 
+}

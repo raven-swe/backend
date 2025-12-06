@@ -56,7 +56,7 @@ function safeParamToString(v: unknown): string {
   try {
     return JSON.stringify(v);
   } catch {
-    return String(v);
+    return String(v as unknown);
   }
 }
 
@@ -164,7 +164,7 @@ export function buildFcmNotificationText(opts: {
     title = String(msg.format(safeParams));
   } catch (err) {
     console.warn('i18n format failed', err);
-    title = template.replace(/\{([^}]+)\}/g, (_, p) => {
+    title = template.replace(/\{([^}]+)\}/g, (_, p: string) => {
       return safeParamToString(params[p]) ?? '';
     });
   }
