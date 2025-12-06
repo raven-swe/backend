@@ -151,7 +151,7 @@ export class TweetsService {
       : Promise.resolve(undefined);
     // I know this probably confilcts with "nested replies"
 
-    // dispatch fanout job
+    // dispatch tweet fanout job
     if (!createTweetDto.replyToTweetId) {
       const fanoutJob: TweetFanoutJob = {
         tweetId: tweetId.toString(),
@@ -159,7 +159,7 @@ export class TweetsService {
         timestamp: Date.now(),
       };
 
-      await this.timelineFollowingQueue.add('fanout', fanoutJob, {
+      await this.timelineFollowingQueue.add('fanout-tweet', fanoutJob, {
         attempts: 3,
         backoff: {
           type: 'exponential',
@@ -413,6 +413,21 @@ export class TweetsService {
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
     this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+
+    //dispatch retweet fanout job
+    const fanoutJob: TweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+    };
+
+    await this.timelineFollowingQueue.add('fanout-retweet', fanoutJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
 
     return { message: 'Tweet retweeted successfully' };
   }

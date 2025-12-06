@@ -22,8 +22,11 @@ export class TimelineConsumer extends WorkerHost {
 
   async process(job: Job): Promise<void> {
     switch (job.name) {
-      case 'fanout':
-        await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>);
+      case 'fanout-tweet':
+        await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>, 'T');
+        break;
+      case 'fanout-retweet':
+        await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>, 'R');
         break;
       default:
         this.logger.warn(`Unknown job name: ${job.name} with id ${job.id}`);
@@ -32,7 +35,7 @@ export class TimelineConsumer extends WorkerHost {
     }
   }
 
-  async fanoutTweetToTimelines(job: Job<TweetFanoutJob>): Promise<void> {
+  async fanoutTweetToTimelines(job: Job<TweetFanoutJob>, actionType: 'T' | 'R'): Promise<void> {
     try {
       const { tweetId, authorId, timestamp } = job.data;
       this.logger.log(
@@ -57,7 +60,10 @@ export class TimelineConsumer extends WorkerHost {
         return; // though this never happens, at least the author timeline key exists
       }
       const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
-      const compositeId = `${authorId}:${tweetId}`;
+      const compositeId =
+        actionType === 'T'
+          ? REDIS_TIMELINE_KEYS.getTimelineItemTweetKey(authorId, tweetId)
+          : REDIS_TIMELINE_KEYS.getTimelineItemRetweetKey(authorId, tweetId);
 
       const writePipeline = this.redisClient.pipeline();
       for (const key of existingKeys) {

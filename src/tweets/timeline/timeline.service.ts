@@ -89,6 +89,9 @@ export class TimelineService {
 
   // TODO invalidating user dto on deactivate and update (another PR after this), and counter updates
 
+  //FOR RETWEET ADD AN ACTION :R OR :T AFTER THE TWEETID IN THE TIMELINE SET MEMBER STRING TO INDICATE RETWEET OR REPLY,
+  //filter to keep latest id only before passing keys to hydrate
+
   async timelineCacheHit(
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
