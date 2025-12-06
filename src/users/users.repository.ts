@@ -16,6 +16,7 @@ import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces'
 import { AuthorDto } from 'src/tweets/dtos';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
+import { RankedUser } from './interfaces/ranked-user.interface';
 
 @Injectable()
 export class UsersRepository {
@@ -1299,68 +1300,59 @@ export class UsersRepository {
         peopleFilter,
         decodedCursor,
       );
-    const rankingScoreSql = this.buildUsersRankingScore(query);
+    const rankingScoreSql = this.buildUsersRankingScore();
 
     const sqlQuery = Prisma.sql`
-      WITH ranked_users AS (
-        SELECT 
-          u.id,
-          u.username,
-          u.created_at,
-          p.display_name,
-          p.avatar_url,
-          p.banner_url,
-          p.bio,
-          p.bio_entities,
-          (
-            SIMILARITY(LOWER(u.username), ${query}) +
-            COALESCE(SIMILARITY(LOWER(p.display_name), ${query}), 0)
-          ) as sim_score,
-          (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers_count,
-          EXISTS (
-            SELECT 1 
-            FROM follows f 
-            WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
-          ) AS i_follow,
-          EXISTS (
-            SELECT 1 
-            FROM follows f 
-            WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
-          ) AS follows_me
-        FROM 
-          users u
-        LEFT JOIN profiles p ON u.id = p.user_id
-        WHERE 
-          u.deleted_at IS NULL
-          AND (
-            LOWER(u.username) % ${query}
-            OR LOWER(p.display_name) % ${query}
-          )
-          ${mutedAndBlockedCondition}
-          ${peopleFilterCondition}
-      )
-      SELECT *, ${rankingScoreSql} FROM ranked_users
-      WHERE 1=1
-      ${cursorCondition}
-      ORDER BY 
-        ranking_score DESC,
-        id DESC
-      LIMIT ${limit};
-    `;
+   -- First get matching user ids with username or display name similar to query
+    WITH matched_ids AS (
+      SELECT 
+        id as user_id 
+        FROM users WHERE deleted_at IS NULL
+        AND (LOWER(username) % ${query})
 
-    const results = await this.prisma.$queryRaw<
-      {
-        id: bigint;
-        username: string;
-        display_name: string | null;
-        avatar_url: string | null;
-        banner_url: string | null;
-        bio: string | null;
-        created_at: Date;
-        bio_entities: Prisma.JsonValue | null;
-        sim_score: number;
-      }[]
-    >(sqlQuery);
+      UNION
+
+      SELECT user_id 
+      FROM profiles
+      WHERE LOWER(display_name) % ${query}
+    ),
+
+  ranked_users AS (
+    SELECT 
+      u.id, 
+      u.username,
+      u.created_at,
+      u.followers_count,
+      p.display_name,
+      p.avatar_url,
+      p.banner_url,
+      p.bio,
+      p.bio_entities,
+      SIMILARITY(LOWER(u.username), ${query}) AS sim_username,
+      COALESCE(SIMILARITY(LOWER(p.display_name), ${query}), 0) AS sim_display_name,
+      (f_out.follower_id IS NOT NULL) AS i_follow,
+      (f_in.follower_id IS NOT NULL) AS follows_me 
+    FROM matched_ids matched_user
+    JOIN users u ON matched_user.user_id = u.id
+    JOIN profiles p ON matched_user.user_id = p.user_id
+    LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
+    LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
+      ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
+    ),
+    scored_users AS (
+      SELECT *, ${rankingScoreSql} 
+      FROM ranked_users
+    )
+    SELECT *
+    FROM scored_users
+    WHERE 1=1
+    ${cursorCondition}
+    ORDER BY ranking_score DESC, id DESC
+    LIMIT ${limit};
+`;
+
+    const results = await this.prisma.$queryRaw<RankedUser[]>(sqlQuery);
 
     return results.map((row) => ({
       id: row.id.toString(),
@@ -1371,7 +1363,7 @@ export class UsersRepository {
       bio: row.bio || null,
       bioEntities: row.bio_entities || null,
       createdAt: row.created_at,
-      simScore: row.sim_score,
+      rankingScore: row.ranking_score,
     }));
   }
 
@@ -1381,29 +1373,17 @@ export class UsersRepository {
     peopleFilter: PeopleSearchFilter,
     cursor: UserSearchCursor | undefined,
   ) {
-    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorScore = cursor ? BigInt(cursor.rankingScore) : null;
     const cursorId = cursor ? BigInt(cursor.id) : null;
-    // Convert sim_score to integer (multiply by 1,000,000 to preserve 6 decimal places)
-    const cursorSimScoreInt = cursor ? Math.round(cursor.simScore * 1000000) : null;
 
-    const cursorCondition =
-      cursor && cursorTime !== null && cursorId !== null && cursorSimScoreInt !== null
-        ? Prisma.sql`
+    const cursorCondition = cursor
+      ? Prisma.sql`
         AND (
-          ROUND(sim_score * 1000000) < ${cursorSimScoreInt}
-          OR (
-            ROUND(sim_score * 1000000) = ${cursorSimScoreInt}
-            AND (
-              EXTRACT(EPOCH FROM created_at) * 1000 < ${cursorTime}
-              OR (
-                EXTRACT(EPOCH FROM created_at) * 1000 = ${cursorTime}
-                AND id <= ${cursorId}
-              )
-            )
-          )
+          ranking_score < ${cursorScore}
+          OR (ranking_score = ${cursorScore} AND id <= ${cursorId})
         )
       `
-        : Prisma.empty;
+      : Prisma.empty;
 
     const mutedAndBlockedCondition = excludeMutedAndBlocked
       ? Prisma.sql`
@@ -1442,13 +1422,10 @@ export class UsersRepository {
    * Builds the ranking score SQL snippet for user search.
    * Score = sim_score * sim_weight + followers_count * followers_weight + i_follow_weight + follows_me_weight
    */
-  private buildUsersRankingScore(query: string) {
+  private buildUsersRankingScore() {
     return Prisma.sql`
     (
-      (
-        SIMILARITY(LOWER(username), ${query}) + 
-        COALESCE(SIMILARITY(LOWER(display_name), ${query}), 0)
-      ) * (${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY})::bigint +
+      CAST( (COALESCE(sim_username, 0) + COALESCE(sim_display_name, 0)) * ${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY} AS BIGINT )  +
       (LEAST(followers_count, ${USER_SEARCH_RANKING_WEIGHTS.MAX_FOLLOWERS_COUNT}) * (${USER_SEARCH_RANKING_WEIGHTS.FOLLOWERS})::bigint) +
       (CASE WHEN i_follow THEN ${USER_SEARCH_RANKING_WEIGHTS.I_FOLLOW}::bigint ELSE 0 END) +
       (CASE WHEN follows_me THEN ${USER_SEARCH_RANKING_WEIGHTS.FOLLOWS_ME}::bigint ELSE 0 END)

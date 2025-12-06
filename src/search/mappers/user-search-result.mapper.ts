@@ -12,7 +12,7 @@ export function mapToUserSearchResultDto(
     bio: string | null;
     bioEntities: string | number | true | JsonObject | JsonArray | null;
     createdAt: Date;
-    simScore: number;
+    rankingScore: bigint;
     relationship?: UserRelationshipDto | null;
   }[],
 ): UserSearchResultItem[] {

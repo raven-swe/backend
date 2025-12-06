@@ -9,9 +9,7 @@ export interface RankedUser {
   bio: string | null;
   created_at: Date;
   bio_entities: Prisma.JsonValue | null;
-  sim_score: number;
-  followers_count: bigint;
-  i_follow: boolean;
-  follows_me: boolean;
   ranking_score: bigint;
+  sim_username: number;
+  sim_display_name: number;
 }

@@ -39,13 +39,14 @@ export class SearchService {
     const rawQuery = decodeURIComponent(query);
 
     if (!rawQuery || rawQuery.trim() === '') {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
-          code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
+      return {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
         },
-        HttpStatus.BAD_REQUEST,
-      );
+      };
     }
 
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
@@ -145,13 +146,14 @@ export class SearchService {
     const rawQuery = decodeURIComponent(query);
 
     if (!rawQuery || rawQuery.trim() === '') {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
-          code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
+      return {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
         },
-        HttpStatus.BAD_REQUEST,
-      );
+      };
     }
 
     const cleanedQuery = prepareSearchQuery(rawQuery);
@@ -181,11 +183,12 @@ export class SearchService {
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
       console.log({ user });
       return {
-        simScore: user.simScore,
-        createdAt: user.createdAt.toISOString(),
+        rankingScore: BigInt(user.rankingScore),
         id: user.id.toString(),
       };
     });
+
+    console.log({ items });
 
     // Get users relationships
     const userIds = items.map((user) => BigInt(user.id));
