@@ -13,6 +13,7 @@ import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
@@ -76,6 +77,10 @@ describe('TweetsService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockTrendingService = {
+    getHashtagId: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,6 +104,10 @@ describe('TweetsService', () => {
         {
           provide: MediaRepository,
           useValue: mockMediaRepository,
+        },
+        {
+          provide: TrendingService,
+          useValue: mockTrendingService,
         },
       ],
     }).compile();
@@ -1694,17 +1703,6 @@ describe('TweetsService', () => {
   });
 
   describe('TweetsService - Query Methods', () => {
-    let service: TweetsService;
-
-    const mockTweetsRepository = {
-      getTweetsByQuery: jest.fn(),
-    };
-
-    const mockUsersRepository = {};
-    const mockContentParsingService = {};
-    const mockMediaRepository = {};
-    const mockPrismaService = {};
-
     const mockTweets = [
       {
         id: BigInt(1),
@@ -1717,22 +1715,6 @@ describe('TweetsService', () => {
         createdAt: new Date('2024-01-02'),
       },
     ];
-
-    beforeEach(async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          TweetsService,
-          { provide: TweetsRepository, useValue: mockTweetsRepository },
-          { provide: UsersRepository, useValue: mockUsersRepository },
-          { provide: ContentParsingService, useValue: mockContentParsingService },
-          { provide: MediaRepository, useValue: mockMediaRepository },
-          { provide: PrismaService, useValue: mockPrismaService },
-        ],
-      }).compile();
-
-      service = module.get<TweetsService>(TweetsService);
-      jest.clearAllMocks();
-    });
 
     describe('getTopTweetsByQuery', () => {
       it('should call getTweetsByQuery with hasMedia=false', async () => {
