@@ -248,6 +248,84 @@ async function main() {
     });
   };
 
+  // Create media records
+  const media1 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/4846e19b-72b3-4d42-b7d5-b624a362dd38.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media2 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/c33fe331-4851-41f6-97c7-e2f6eab63619.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media3 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/68424de7-60a2-4e05-b8de-7c0fe7b58217.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media4 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/cd1a97a0-2020-4713-9dbc-faa6d1043e0b.png',
+      width: 734,
+      height: 145,
+      pending: false,
+    },
+  });
+
+  const media5 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/9e6b75bf-c4b2-4025-b198-56d21a90103c.png',
+      width: 734,
+      height: 145,
+      pending: false,
+    },
+  });
+
+  const media6 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'VIDEO',
+      url: 'https://cdn.raven.cmp27.space/tweets/9c62e434-909f-489f-88d8-b93481eb7cb2.mkv',
+      width: 0,
+      height: 0,
+      pending: false,
+    },
+  });
+
+  const media7 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'VIDEO',
+      url: 'https://cdn.raven.cmp27.space/tweets/66d768fb-0b71-4082-94e7-79b8d1cfb27c.mkv',
+      width: 0,
+      height: 0,
+      pending: false,
+    },
+  });
+
   let tsHashtag = await getHashtag('typescript');
   const nestHashtag = await getHashtag('nestjs');
   const authHashtag = await getHashtag('auth');
@@ -259,6 +337,7 @@ async function main() {
         'Just deployed my first app with #nestjs. The developer experience is amazing compared to Express. #typescript @OmarHassan what do you think?',
       hasHashtags: true,
       hasMentions: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [
           { hashtagId: nestHashtag.id, startPosition: 32 },
@@ -267,6 +346,12 @@ async function main() {
       },
       tweetMentions: {
         create: [{ userId: 1, startPosition: 110 }],
+      },
+      tweetMedia: {
+        create: [
+          { mediaId: media4.id, order: 0 },
+          { mediaId: media5.id, order: 1 },
+        ],
       },
     },
   });
@@ -312,6 +397,10 @@ async function main() {
       userId: 8,
       content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
       replyToTweetId: anasTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media6.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -336,6 +425,13 @@ async function main() {
       },
       tweetMentions: {
         create: [{ userId: 3, startPosition: 90 }],
+      },
+      tweetMedia: {
+        create: [
+          { mediaId: media1.id, order: 0 },
+          { mediaId: media2.id, order: 1 },
+          { mediaId: media3.id, order: 2 },
+        ],
       },
     },
   });
@@ -408,6 +504,7 @@ async function main() {
         'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design #typescript @ZakiDev',
       hasHashtags: true,
       hasMentions: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [
           { hashtagId: uiuxHashtag.id, startPosition: 21 },
@@ -417,6 +514,9 @@ async function main() {
       },
       tweetMentions: {
         create: [{ userId: 9, startPosition: 101 }],
+      },
+      tweetMedia: {
+        create: [{ mediaId: media6.id, order: 0 }],
       },
     },
   });
@@ -440,8 +540,12 @@ async function main() {
       userId: 11,
       content: 'AI is changing everything. Excited for the future! #ai @YoussefTech self-promo 😏',
       hasHashtags: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [{ hashtagId: aiHashtag.id, startPosition: 51 }],
+      },
+      tweetMedia: {
+        create: [{ mediaId: media7.id, order: 0 }],
       },
     },
   });
@@ -456,6 +560,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 17 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -476,6 +584,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 4, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -504,6 +616,10 @@ async function main() {
       userId: 11,
       content: 'Egyptian street food hits different. Always. 🇪🇬',
       quotedTweetId: laylaTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -516,6 +632,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 6, startPosition: 42 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -589,6 +709,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media3.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 

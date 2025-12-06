@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -122,6 +123,7 @@ model Tweet {
   retweetCount   Int            @default(0) @map("retweet_count")
   replyCount     Int            @default(0) @map("reply_count")
   isDeleted      Boolean        @default(false) @map("is_deleted")
+  class          String?        @db.VarChar(50)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   likes          Like[]
@@ -139,6 +141,7 @@ model Tweet {
   @@index([replyToTweetId], map: "tweets_reply_to_tweet_id_idx")
   @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
   @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "tweets_cursor_idx")
   @@map("tweets")
 }
 

@@ -1,4 +1,12 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -19,6 +27,7 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 
 @Injectable()
 export class UsersService {
@@ -28,7 +37,10 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
-    @InjectQueue('email') private emailQueue: Queue,
+    @Inject(forwardRef(() => ContentParsingService))
+    private readonly contentParsingService: ContentParsingService,
+    @InjectQueue('email')
+    private emailQueue: Queue,
   ) {}
 
   async findByEmail(email: string) {
@@ -208,13 +220,41 @@ export class UsersService {
       const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
       const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
 
-      // Update database
-      const profile = await this.usersRepository.updateProfile(
-        userId,
-        data,
-        finalAvatarUrl,
-        finalBannerUrl,
-      );
+      // Update database with profile and bio entities
+      const profile = await this.prisma.$transaction(async (tx) => {
+        let mentions, hashtags;
+        if (data.bio) {
+          ({ mentions, hashtags } = await this.contentParsingService.parseContentForBio(
+            data.bio,
+            tx,
+          ));
+        }
+
+        const bioEntities = {
+          mentions:
+            mentions?.map((m) => ({
+              username: m.username,
+              startPosition: m.startPosition,
+            })) ?? null,
+          hashtags:
+            hashtags?.map((h) => ({
+              hashtag: h.keyword,
+              startPosition: h.startPosition,
+            })) ?? null,
+        };
+
+        const profile = await this.usersRepository.updateProfile(
+          userId,
+          data,
+          finalAvatarUrl,
+          finalBannerUrl,
+          bioEntities,
+          tx,
+        );
+
+        return profile;
+      });
+
       this.logger.log(`Profile updated for user ID: ${user.id}`);
 
       // Delete old files from S3 AFTER successful DB update
@@ -518,7 +558,18 @@ export class UsersService {
       );
     }
 
-    // Check if already muted
+    const isBlocked = await this.usersRepository.isBlocked(userId, mutedId);
+    if (isBlocked) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Check if already muted or blocked
     const isAlreadyMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (isAlreadyMuted) {
       throw new HttpException(
@@ -527,17 +578,6 @@ export class UsersService {
           code: USERS_ERROR_CODES.ALREADY_MUTED,
         },
         HttpStatus.CONFLICT,
-      );
-    }
-
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
       );
     }
 
@@ -560,20 +600,6 @@ export class UsersService {
     }
 
     const mutedId = mutedUser.id;
-
-    // Check if user is blocked (either direction)
-    const youBlockedUser = await this.usersRepository.isBlocked(userId, mutedId);
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-
-    if (youBlockedUser || userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
 
     const isMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (!isMuted) {
