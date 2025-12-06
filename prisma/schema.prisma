@@ -42,6 +42,7 @@ model User {
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
   sessions                 Session[]
+  interests                String[]                  @default([])
 
   @@map("users")
 }

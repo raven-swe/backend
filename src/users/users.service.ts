@@ -856,6 +856,12 @@ export class UsersService {
     return this.usersRepository.updateBirthDate(userId, birthDate);
   }
 
+  async updateInterests(userId: bigint, interests: string[]) {
+    await this.usersRepository.updateInterests(userId, interests);
+
+    return { message: 'Interests updated successfully.' };
+  }
+
   async getUserSSOs(userId: bigint) {
     return this.usersRepository.getUserSSOs(userId);
   }

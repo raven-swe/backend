@@ -1,5 +1,14 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import {
+  USERS_ERROR_CODES,
+  USERS_ERROR_MESSAGES,
+  INTEREST_CODES,
+  INTEREST_NAMES,
+  InterestCode,
+  MIN_INTERESTS_REQUIRED,
+  INTERESTS_ERROR_CODES,
+  INTERESTS_ERROR_MESSAGES,
+} from 'src/users/constants';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
@@ -7,6 +16,8 @@ import {
   VerifyEmailUpdateDto,
   ResendEmailUpdateOtp,
   UpdateUsernameDto,
+  UpdateInterestsDto,
+  Interest,
 } from 'src/users/dtos';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from 'src/users/users.service';
@@ -304,5 +315,60 @@ export class SettingsService {
     }));
 
     return { items, pagination };
+  }
+
+  async getInterests(userId: bigint): Promise<Interest[]> {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const userInterests = user.interests || [];
+
+    return INTEREST_CODES.map((code) => ({
+      code: code,
+      name: INTEREST_NAMES[code],
+      isSelected: userInterests.includes(code),
+    }));
+  }
+
+  async updateInterests(userId: bigint, updateInterestsDto: UpdateInterestsDto) {
+    const { interests } = updateInterestsDto;
+
+    if (interests.length < MIN_INTERESTS_REQUIRED) {
+      throw new BadRequestException(
+        createValidationError('interests', {
+          [INTERESTS_ERROR_CODES.MIN_INTERESTS_REQUIRED]:
+            INTERESTS_ERROR_MESSAGES.MIN_INTERESTS_REQUIRED,
+        }),
+      );
+    }
+
+    const invalidInterests = interests.filter(
+      (interest) => !INTEREST_CODES.includes(interest as InterestCode),
+    );
+
+    if (invalidInterests.length > 0) {
+      throw new BadRequestException(
+        createValidationError('interests', {
+          [INTERESTS_ERROR_CODES.INVALID_INTEREST]: `Invalid interests: ${invalidInterests.join(', ')}`,
+        }),
+      );
+    }
+
+    // remove duplicates for safety
+    const uniqueInterests = [...new Set(interests)];
+    await this.usersService.updateInterests(userId, uniqueInterests);
+
+    this.logger.log(`Updated interests for user ${userId}`);
+
+    return { message: 'Interests updated successfully.' };
   }
 }
