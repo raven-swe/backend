@@ -535,6 +535,28 @@ async function main() {
     ],
   });
 
+  await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "followers_count" = sub.count
+  FROM (
+    SELECT "followed_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "followed_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
+
+  await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "following_count" = sub.count
+  FROM (
+    SELECT "follower_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "follower_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
+
   await prisma.block.createMany({
     data: [
       { userId: 3, blockedId: 5 },

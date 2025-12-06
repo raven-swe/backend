@@ -172,12 +172,6 @@ export class UsersRepository {
       where: whereClause,
       include: {
         profile: true,
-        _count: {
-          select: {
-            following: true,
-            followers: true,
-          },
-        },
       },
     });
 
@@ -232,8 +226,8 @@ export class UsersRepository {
           follower: false,
           muted: false,
         },
-        followingCount: user._count.following,
-        followersCount: user._count.followers,
+        followingCount: user.followingCount,
+        followersCount: user.followersCount,
         mutualsCount: null,
         mutualNames: null,
       };
@@ -264,8 +258,8 @@ export class UsersRepository {
       websiteUrl: user.profile?.websiteUrl || null,
       joinedAt: user.createdAt,
       relationship,
-      followingCount: user._count.following,
-      followersCount: user._count.followers,
+      followingCount: user.followingCount,
+      followersCount: user.followersCount,
       mutualsCount: mutualsCount && !isMyProfile ? mutualsCount : null,
       mutualNames: mutualNames && !isMyProfile ? mutualNames : null,
       email: isMyProfile ? user.email : undefined,
@@ -406,26 +400,38 @@ export class UsersRepository {
       },
     });
   }
+
   async followUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.follow.create({
-      data: {
-        followerId,
-        followedId,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.follow.create({
+        data: { followerId, followedId },
+      }),
+      this.prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { increment: 1 } },
+      }),
+      this.prisma.user.update({
+        where: { id: followedId },
+        data: { followersCount: { increment: 1 } },
+      }),
+    ]);
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.follow.delete({
-      where: {
-        followerId_followedId: {
-          followerId,
-          followedId,
-        },
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.follow.delete({
+        where: { followerId_followedId: { followerId, followedId } },
+      }),
+      this.prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { decrement: 1 } },
+      }),
+      this.prisma.user.update({
+        where: { id: followedId },
+        data: { followersCount: { decrement: 1 } },
+      }),
+    ]);
   }
-
   async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
     const follows = await this.prisma.follow.findMany({
       where: { followerId: userId },

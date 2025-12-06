@@ -18,6 +18,8 @@ model User {
   createdAt                DateTime                  @default(now()) @map("created_at")
   languageCode             LanguageCode              @default(EN) @map("language_code")
   deletedAt                DateTime?                 @map("deleted_at")
+  followersCount           Int                       @default(0) @map("followers_count")
+  followingCount           Int                       @default(0) @map("following_count")
   blockedBy                Block[]                   @relation("blocks_blocked_idTousers")
   blockedUsers             Block[]                   @relation("blocks_user_idTousers")
   conversationParticipants ConversationParticipant[]
@@ -42,6 +44,8 @@ model User {
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
 
+  @@index([username], map: "users_username_idx")
+  @@index([followersCount], map: "users_followers_count_idx")
   @@map("users")
 }
 
