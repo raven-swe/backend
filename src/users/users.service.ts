@@ -449,7 +449,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
           code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 
@@ -523,7 +523,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.NOT_BLOCKED,
           code: USERS_ERROR_CODES.NOT_BLOCKED,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 
@@ -608,7 +608,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.NOT_MUTED,
           code: USERS_ERROR_CODES.NOT_MUTED,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 

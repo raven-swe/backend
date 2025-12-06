@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -8,21 +9,41 @@ export class ConversationsRepository {
   async getUserConversations(
     userId: bigint,
     limit: number,
-    prevCursor: { conversationId: string } | undefined,
+    prevCursor: { conversationId: string; lastMessageCreatedAt: string } | undefined,
   ) {
+    const visibleMessageFilter = {
+      OR: [
+        { userId, isDeletedSender: false },
+        { NOT: { userId }, isDeletedReceiver: false },
+      ],
+    };
+
+    const baseWhere: Prisma.ConversationWhereInput = {
+      conversationParticipants: { some: { userId } },
+      messages: { some: visibleMessageFilter },
+      lastMessageId: { not: null },
+    };
+
+    if (prevCursor) {
+      const cursorDate = new Date(prevCursor.lastMessageCreatedAt);
+      const cursorConvId = BigInt(prevCursor.conversationId);
+
+      baseWhere.AND = [
+        {
+          OR: [
+            { lastMessage: { createdAt: { lt: cursorDate } } },
+            {
+              AND: [{ lastMessage: { createdAt: cursorDate } }, { id: { lte: cursorConvId } }],
+            },
+          ],
+        },
+      ];
+    }
+
     const conversations = await this.prisma.conversation.findMany({
-      where: {
-        conversationParticipants: {
-          some: { userId },
-        },
-      },
+      where: baseWhere,
       take: limit,
-      cursor: prevCursor ? { id: BigInt(prevCursor.conversationId) } : undefined,
-      orderBy: {
-        lastMessage: {
-          createdAt: 'desc',
-        },
-      },
+      orderBy: [{ lastMessage: { createdAt: 'desc' } }, { id: 'desc' }],
       select: {
         id: true,
         creatorId: true,
@@ -46,30 +67,13 @@ export class ConversationsRepository {
           },
         },
         messages: {
-          where: {
-            OR: [
-              {
-                userId,
-                isDeletedSender: false,
-              },
-              {
-                NOT: { userId },
-                isDeletedReceiver: false,
-              },
-            ],
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
+          where: visibleMessageFilter,
+          orderBy: { createdAt: 'desc' },
           take: 1,
           select: {
             content: true,
             createdAt: true,
-            user: {
-              select: {
-                username: true,
-              },
-            },
+            user: { select: { username: true } },
           },
         },
       },

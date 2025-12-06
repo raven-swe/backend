@@ -22,14 +22,37 @@ export class ConversationsService {
     let decoded:
       | {
           conversationId: string;
+          lastMessageCreatedAt: string;
         }
       | undefined;
     if (cursor) {
       try {
-        decoded = decodeCompositeCursor<{ conversationId: string }>(cursor);
+        decoded = decodeCompositeCursor<{ conversationId: string; lastMessageCreatedAt: string }>(
+          cursor,
+        );
       } catch {
         throw new HttpException(
           { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (
+        !decoded ||
+        !decoded.conversationId ||
+        !decoded.lastMessageCreatedAt ||
+        decoded.lastMessageCreatedAt.trim() === ''
+      ) {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const parsed = new Date(decoded.lastMessageCreatedAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new HttpException(
+          { message: 'Invalid cursor date', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -47,53 +70,44 @@ export class ConversationsService {
     const blockedUserIds = new Set(blockedUsers.map((block) => block.blockedId.toString()));
     const blockedByUserIds = new Set(blockedBy.map((block) => block.userId.toString()));
 
-    const conversationsWithBlockStatus = userConversations
-      .filter((conversation) => {
-        return conversation.lastMessageId !== null;
-      })
-      .filter((conversation) => {
-        const otherParticipant = conversation.conversationParticipants.find(
-          (participant) => participant.userId !== userId,
-        );
-        return otherParticipant !== undefined;
-      })
-      .map((conversation) => {
-        const otherParticipant = conversation.conversationParticipants.find(
-          (participant) => participant.userId !== userId,
-        )!;
+    const conversationsWithBlockStatus = userConversations.map((conversation) => {
+      const otherParticipant = conversation.conversationParticipants.find(
+        (participant) => participant.userId !== userId,
+      )!;
 
-        const currentUserParticipant = conversation.conversationParticipants.find(
-          (participant) => participant.userId === userId,
-        )!;
+      const currentUserParticipant = conversation.conversationParticipants.find(
+        (participant) => participant.userId === userId,
+      )!;
 
-        const otherParticipantId = otherParticipant.userId.toString();
+      const otherParticipantId = otherParticipant.userId.toString();
 
-        const isBlockedByMe = blockedUserIds.has(otherParticipantId);
-        const isBlockingMe = blockedByUserIds.has(otherParticipantId);
+      const isBlockedByMe = blockedUserIds.has(otherParticipantId);
+      const isBlockingMe = blockedByUserIds.has(otherParticipantId);
 
-        return {
-          id: conversation.id.toString(),
-          isMuted: currentUserParticipant.notificationsMuted,
-          participant: {
-            username: otherParticipant.user.username,
-            displayName: otherParticipant.user.profile?.displayName ?? '',
-            avatarUrl: otherParticipant.user.profile?.avatarUrl,
-          },
-          lastMessage: conversation.lastMessage
-            ? {
-                content: conversation.lastMessage.content,
-                senderUsername: conversation.lastMessage.user.username,
-                sentAt: conversation.lastMessage.createdAt,
-                seen: conversation.lastMessageId === currentUserParticipant.lastSeenMessageId,
-              }
-            : null,
-          isBlocking: isBlockedByMe,
-          isBlockedBy: isBlockingMe,
-        };
-      });
+      return {
+        id: conversation.id.toString(),
+        isMuted: currentUserParticipant.notificationsMuted,
+        participant: {
+          username: otherParticipant.user.username,
+          displayName: otherParticipant.user.profile?.displayName ?? '',
+          avatarUrl: otherParticipant.user.profile?.avatarUrl,
+        },
+        lastMessage: conversation.lastMessage
+          ? {
+              content: conversation.lastMessage.content,
+              senderUsername: conversation.lastMessage.user.username,
+              sentAt: conversation.lastMessage.createdAt,
+              seen: conversation.lastMessageId === currentUserParticipant.lastSeenMessageId,
+            }
+          : null,
+        isBlocking: isBlockedByMe,
+        isBlockedBy: isBlockingMe,
+      };
+    });
 
     const pagination = paginateComposite(conversationsWithBlockStatus, limit, cursor, (item) => ({
-      conversationId: item.id.toString(),
+      conversationId: item.id,
+      lastMessageCreatedAt: item.lastMessage!.sentAt.toISOString(),
     }));
 
     const itemsDto = plainToInstance(ConversationDto, conversationsWithBlockStatus);
