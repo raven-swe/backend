@@ -8,11 +8,13 @@ import { BullModule } from '@nestjs/bullmq';
 import { NotificationsListeners } from './notifications.listeners';
 import { NotificationProcessor } from './notifications.processor';
 import { DevicesModule } from 'src/devices/devices.module';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
   imports: [
     TweetsModule,
     SseModule,
+    UsersModule,
     DevicesModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],

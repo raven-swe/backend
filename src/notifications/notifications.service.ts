@@ -8,6 +8,7 @@ import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/co
 import { SseEventsService } from 'src/sse/sse-events.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { UsersRepository } from 'src/users/users.repository';
 
 @Injectable()
 export class NotificationsService {
@@ -15,6 +16,7 @@ export class NotificationsService {
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
     private readonly sseEvents: SseEventsService,
+    private readonly usersRepository: UsersRepository,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
   async trigger(options: NotificationTriggerOptions) {
@@ -22,6 +24,13 @@ export class NotificationsService {
       `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
     );
     if (options.actorId === options.receiverId) return;
+    const isBlocking = await this.usersRepository.isBlocked(options.receiverId, options.actorId);
+    if (isBlocking) {
+      this.logger.log(
+        `Not creating notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId} because the receiver has blocked the actor`,
+      );
+      return;
+    }
 
     const existing = await this.notificationsRepository.findExisting(options);
     if (existing) {
