@@ -972,6 +972,28 @@ export class UsersRepository {
     });
   }
 
+  async updateInterests(userId: bigint, interests: string[]) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { interests },
+    });
+  }
+
   private hashStringDeterministic(str: string) {
     const hash = crypto.createHash('sha256');
     hash.update(str);
