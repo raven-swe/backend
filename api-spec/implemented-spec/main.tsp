@@ -1804,7 +1804,7 @@ namespace Conversations {
   op getUnseenCounts(): DataResponse<{
     count: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
-  
+
   @delete
   @route("/{conversationId}/messages/{messageId}")
   @summary("Soft-delete a message by IDs")
@@ -1819,7 +1819,6 @@ namespace Conversations {
     | ForbiddenResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
-
 }
 
 @tag("Devices")
@@ -1839,7 +1838,7 @@ namespace Devices {
     | InternalServerErrorResponse;
 
   @put
-  @route("toggle-push")
+  @route("push")
   @summary("Enable or disable push notifications for the device")
   op togglePushNotifications(
     @body body: {
@@ -1851,9 +1850,6 @@ namespace Devices {
     | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
-}
-
-
 }
 
 @tag("Search")

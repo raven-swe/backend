@@ -26,7 +26,7 @@ export class DevicesController {
     return { message: 'Device registered successfully for push notifications.' };
   }
 
-  @Put('toggle-push')
+  @Put('push')
   async togglePushNotifications(
     @User() user: RequestUser,
     @Body() deviceDto: ToggleNotificationsDto,

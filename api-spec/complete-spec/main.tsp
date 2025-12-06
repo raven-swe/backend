@@ -2216,7 +2216,7 @@ namespace Devices {
     | InternalServerErrorResponse;
 
   @put
-  @route("toggle-push")
+  @route("push")
   @summary("Enable or disable push notifications for the device")
   op togglePushNotifications(
     @body body: {
