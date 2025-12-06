@@ -409,7 +409,7 @@ alias NotificationsListResponse = DataResponseWithPagination<Notification[]>;
 
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
 alias MessageListResponse = DataResponseWithPagination<{
-  participant: UserMetadata;
+  participant: UserMetadataWithLastSeen;
   messages: Message[];
 }>;
 alias ConversationResponse = DataResponse<Conversation>;
@@ -599,6 +599,14 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
+}
+
+@doc("Metadata for user with the last seen message id for the other user ")
+model UserMetadataWithLastSeen {
+  ...UserMetadata;
+
+  @doc("The ID of the last message seen from the other user in a conversation")
+  otherParticipantLastSeenMessageId: string | null;
 }
 
 @doc("Author metadata for tweets with relationship status")
