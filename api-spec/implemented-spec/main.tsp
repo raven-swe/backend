@@ -1863,34 +1863,6 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
-  @get
-  @route("/hashtags/top")
-  op getTopHashtags(
-    @doc("The search query")
-    @query
-    query: string,
-  ):
-    | DataResponse<TopHashtags>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @summary("Get all users matching the search query - returns paginated user results")
-  @get
-  @route("/users")
-  op searchUsers(
-    @doc("Search query (username or display name)")
-    @query
-    query: string,
-
-    ...CursorPaginationParameters,
-  ):
-    | DataResponseWithPagination<AllMatchingUsers>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
   @get
   @route("/tweets")
