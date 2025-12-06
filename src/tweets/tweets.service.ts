@@ -190,6 +190,14 @@ export class TweetsService {
       referencedTweetPromise,
     ]);
 
+    await this.domainEvents.emitTweetCreated({
+      tweetId: tweet.id,
+      authorId: userId,
+      replyToTweetId: tweet.replyToTweetId,
+      quoteToTweetId: tweet.quotedTweetId,
+      mentionedUserIds: mentions.map((m) => m.userId),
+    });
+
     return this.formatTweetDto(
       tweet,
       mentions,
