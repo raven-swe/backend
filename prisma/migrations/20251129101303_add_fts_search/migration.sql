@@ -73,7 +73,7 @@ BEFORE INSERT ON tweets FOR EACH ROW
 EXECUTE FUNCTION tweets_search_document_trigger();
 
 -- Trigger for username/display name updates
-CREATE OR REPLACE FUNCTION update_tweets_search_document_on_user_change()
+CREATE OR REPLACE FUNCTION update_tweets_search_document_on_profile_change()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE tweets
@@ -88,6 +88,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION update_tweets_search_document_on_user_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE tweets
+    SET search_document = build_tweet_search_document(
+        id,
+        content,
+        user_id,
+        reply_to_tweet_id
+    )
+    WHERE user_id = NEW.id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER users_search_document_update
 AFTER UPDATE ON users FOR EACH ROW
 WHEN (OLD.username IS DISTINCT FROM NEW.username)
@@ -96,7 +111,7 @@ EXECUTE FUNCTION update_tweets_search_document_on_user_change();
 CREATE TRIGGER profiles_search_document_update
 AFTER UPDATE ON profiles FOR EACH ROW
 WHEN (OLD.display_name IS DISTINCT FROM NEW.display_name)
-EXECUTE FUNCTION update_tweets_search_document_on_user_change();
+EXECUTE FUNCTION update_tweets_search_document_on_profile_change();
 
 ANALYZE "tweets";
 ANALYZE "users";
