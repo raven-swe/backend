@@ -54,14 +54,30 @@ export class MessagesService {
     let decoded:
       | {
           messageId: string;
+          createdAt: string;
         }
       | undefined;
     if (cursor) {
       try {
-        decoded = decodeCompositeCursor<{ messageId: string }>(cursor);
+        decoded = decodeCompositeCursor<{ messageId: string; createdAt: string }>(cursor);
       } catch {
         throw new HttpException(
           { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!decoded || !decoded.messageId || !decoded.createdAt || decoded.createdAt.trim() === '') {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const parsed = new Date(decoded.createdAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new HttpException(
+          { message: 'Invalid cursor date', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -87,6 +103,7 @@ export class MessagesService {
 
     const pagination = paginateComposite(formattedMessages, limit, cursor, (item) => ({
       messageId: item.id,
+      createdAt: item.createdAt.toISOString(),
     }));
 
     const participant = plainToInstance(ParticipantDto, {
