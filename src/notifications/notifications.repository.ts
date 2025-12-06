@@ -5,6 +5,7 @@ import { NotificationCursor } from 'src/common/interfaces';
 import { tweetInclude, TweetsRepository } from 'src/tweets/tweets.repository';
 import { Prisma } from '@prisma/client';
 import { NotificationResponseDto } from './dtos/notification-response.dto';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 export const notificationSelect = (userId: bigint) =>
   ({
@@ -25,7 +26,7 @@ export const notificationSelect = (userId: bigint) =>
       },
     },
     tweet: {
-      include: tweetInclude(userId),
+      include: { ...tweetInclude(userId), quotedTweet: { include: tweetInclude(userId) } },
     },
   }) satisfies Prisma.NotificationSelect;
 
@@ -50,7 +51,7 @@ export class NotificationsRepository {
           {
             username: n.actor.username,
             displayName: n.actor.profile?.displayName,
-            avatarUrl: n.actor.profile?.avatarUrl || null,
+            avatarUrl: n.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
           },
         ],
       },

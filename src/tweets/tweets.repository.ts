@@ -14,6 +14,7 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorDto } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 export const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -142,7 +143,10 @@ export class TweetsRepository {
         id: tweet.user.id.toString(),
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl,
+        avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        isBlocked: tweet.user.blockedBy.length > 0,
+        isFollowing: tweet.user.followers.length > 0,
+        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
