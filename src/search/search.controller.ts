@@ -7,12 +7,23 @@ import { SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
 import { ParseBooleanPipe } from 'src/common/pipes/parse-boolean.pipe';
 import { TrendingService } from 'src/trending/trending.service';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
+import { SearchUsernameQueryDto } from './dtos';
 @Controller('search')
 export class SearchController {
   constructor(
     private readonly searchService: SearchService,
     private readonly trendingService: TrendingService,
   ) {}
+  @Get('users/suggestions')
+  @UseGuards(JwtAuthGuard)
+  async getTopUsers(
+    @User() user: RequestUser,
+    @Query() searchUsernameQueryDto: SearchUsernameQueryDto,
+  ) {
+    const userId = BigInt(user.id);
+    return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
+  }
+
   @Get('tweets')
   @UseGuards(JwtAuthGuard)
   async searchTweets(

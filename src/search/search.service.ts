@@ -26,6 +26,38 @@ export class SearchService {
     private readonly usersService: UsersService,
     private readonly tweetsService: TweetsService,
   ) {}
+  async getMatchingUsers(userId: bigint, username: string) {
+    const users = await this.usersService.getMatchingUsers(userId, username);
+    if (!users || users.length === 0) {
+      return { users: [] };
+    }
+
+    const userIds = users.map((u) => u.id);
+    const followRelations = await this.usersService.getUserFollowRelations(userId, userIds);
+
+    const followingSet = new Set<bigint>();
+    const followerSet = new Set<bigint>();
+
+    for (const relation of followRelations) {
+      if (relation.followerId === userId) {
+        followingSet.add(relation.followedId);
+      }
+      if (relation.followedId === userId) {
+        followerSet.add(relation.followerId);
+      }
+    }
+
+    const usersData = users.map((user) => ({
+      username: user.username,
+      displayName: user.profile?.displayName || '',
+      avatarUrl: user.profile?.avatarUrl,
+      isFollowing: followingSet.has(user.id),
+      isFollower: followerSet.has(user.id),
+    }));
+
+    return { users: usersData };
+  }
+
   async searchTweets(
     currentUserId: bigint,
     searchTweetsQueryDto: SearchTweetsQueryDto,
@@ -158,7 +190,6 @@ export class SearchService {
     let decodedCursor: UserSearchCursor | undefined;
     try {
       decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;
-      console.log({ decodedCursor });
     } catch {
       throw new HttpException(
         {
@@ -179,14 +210,11 @@ export class SearchService {
     );
 
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
-      console.log({ user });
       return {
         rankingScore: BigInt(user.rankingScore),
         id: user.id.toString(),
       };
     });
-
-    console.log({ items });
 
     // Get users relationships
     const userIds = items.map((user) => BigInt(user.id));
