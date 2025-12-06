@@ -730,6 +730,10 @@ async function main() {
       userId: 8,
       content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
       replyToTweetId: anasTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media6.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -889,6 +893,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 17 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -909,6 +917,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 4, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -937,6 +949,10 @@ async function main() {
       userId: 11,
       content: 'Egyptian street food hits different. Always. 🇪🇬',
       quotedTweetId: laylaTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -949,6 +965,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 6, startPosition: 42 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -1022,6 +1042,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media3.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 

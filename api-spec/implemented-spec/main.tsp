@@ -333,6 +333,20 @@ enum Gender {
   Female,
 }
 
+enum InterestCode {
+  CULTURE,
+  FINANCE,
+  MEDICAL,
+  POLITICS,
+  SPORTS,
+  TECH,
+  ENTERTAINMENT,
+  GENERAL,
+  FOOD,
+  LEARNING,
+  TRAVEL,
+}
+
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -375,6 +389,17 @@ model Country {
 
   @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
   name: string;
+}
+
+model Interest {
+  @doc("Interest code identifier (e.g., 'TECH', 'SPORTS')")
+  code: InterestCode;
+
+  @doc("Display name of the interest (e.g., 'Tech', 'Sports')")
+  name: string;
+
+  @doc("Indicates whether the user has selected this interest")
+  isSelected: boolean;
 }
 
 @doc("Entity mention in bio")
@@ -422,7 +447,15 @@ model UserProfile {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -502,7 +535,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")
@@ -1287,6 +1320,28 @@ namespace Me {
     @summary("Get all supported countries(for country selection dropdowns)")
     op getSupportedCountries(
     ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+
+    @get
+    @route("/interests")
+    @summary("Get all available interests with user selection status")
+    @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
+    op getInterests(
+    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/interests")
+    @summary("Update the authenticated user's interests")
+    @doc("Replaces the user's entire interest list. The user must select at least one interest. Duplicates are automatically removed.")
+    op updateInterests(
+      @body body: {
+        @doc("Array of interest codes the user wants to select")
+        interests: InterestCode[];
+      },
+    ):
+      | MessageResponse<"Interests updated successfully.">
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")

@@ -1,6 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
-import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
 import {
   PeopleSearchFilter,
   SearchTab,
@@ -14,10 +13,10 @@ import {
   prepareSearchQuery,
 } from './utils/search-query.util';
 import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
-import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
-import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
 import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
+import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
+import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 
 @Injectable()
 export class SearchService {
@@ -27,7 +26,6 @@ export class SearchService {
     private readonly usersService: UsersService,
     private readonly tweetsService: TweetsService,
   ) {}
-
   async searchTweets(
     currentUserId: bigint,
     searchTweetsQueryDto: SearchTweetsQueryDto,
