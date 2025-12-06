@@ -61,7 +61,6 @@ export class TimelineService {
       await this.timelineCacheMiss(userId, decoded);
       timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
     }
-    // const validTweets = timeline.filter((tweet) => tweet !== undefined);
 
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
       createdAt: tweet.createdAt,
@@ -697,6 +696,7 @@ export class TimelineService {
     this.logger.debug(`Timeline cache miss for user ID: ${userId}, fetching from DB`);
 
     // Get the complete timeline from database
+    // TODO can be optimized to fetch only needed tweets and author ids IMPORTANT
     const tweets = await this.tweetsRepository.getTimelineForUser(userId, decodedCursor, undefined);
 
     if (!tweets || tweets.length === 0) {

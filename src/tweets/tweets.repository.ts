@@ -897,8 +897,8 @@ export class TweetsRepository {
     const interactionsMap = new Map();
     for (const row of results) {
       interactionsMap.set(BigInt(row.tweet_id), {
-        liked: row.is_liked,
-        retweeted: row.is_retweeted,
+        isLiked: row.is_liked == true,
+        isRetweeted: row.is_retweeted,
       });
     }
     return interactionsMap;
