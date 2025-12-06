@@ -18,4 +18,8 @@ export class AppLogger implements LoggerService {
   log(message: string, meta?: Record<string, unknown>) {
     this.logger.info(message, meta);
   }
+
+  debug(message: string, meta?: Record<string, unknown>) {
+    this.logger.debug(message, meta);
+  }
 }
