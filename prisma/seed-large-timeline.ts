@@ -10,10 +10,17 @@ const NUM_TWEETS_PER_AUTHOR = 100; // Each author will create many tweets
 const PERCENT_OF_AUTHORS_TO_FOLLOW = 0.5; // Our test user will follow 50% of all authors
 
 async function main() {
+  await prisma.retweet.deleteMany();
+  await prisma.like.deleteMany();
+  await prisma.tweetHashtag.deleteMany();
+  await prisma.tweetMention.deleteMany();
+  await prisma.tweetMedia.deleteMany();
+
+  await prisma.tweet.deleteMany();
+
   await prisma.follow.deleteMany();
   await prisma.mute.deleteMany();
   await prisma.block.deleteMany();
-  await prisma.tweet.deleteMany();
   await prisma.profile.deleteMany();
   await prisma.user.deleteMany();
 
