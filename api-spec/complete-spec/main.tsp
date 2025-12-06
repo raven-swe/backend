@@ -209,6 +209,17 @@ model Country {
   name: string;
 }
 
+model Interest {
+  @doc("Interest code identifier (e.g., 'TECH', 'SPORTS')")
+  code: InterestCode;
+
+  @doc("Display name of the interest (e.g., 'Tech', 'Sports')")
+  name: string;
+
+  @doc("Indicates whether the user has selected this interest")
+  isSelected: boolean;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -253,13 +264,16 @@ model MediaEntity {
   ...MediaItem;
 }
 
-@doc("Preview of a hashtag with its usage statistics")
+@doc("Preview of a hashtag/ keyword with its usage statistics")
 model HashtagPreview {
-  @doc("The hashtag text (without #)")
+  @doc("The hashtag text (without #)/ The keyword")
   hashtag: string;
 
-  @doc("Number of tweets using this hashtag")
+  @doc("Number of tweets using this hashtag/ keyword")
   tweetsCount: integer;
+
+  @doc("The category this tweet is trending in (e.g., 'news', 'sports', 'entertainment', or 'general')")
+  category: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -357,6 +371,7 @@ model TweetAuthor {
 
   @doc("True if the current user has muted this author")
   isMuted: boolean;
+
 }
 
 model UserMetadataWithFollowInfo {
@@ -426,9 +441,17 @@ model UserProfile {
   @doc("The number of mutual followers shared with the authenticated user")
   mutualsCount: int64 | null;
 
-  @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
+  @doc("Mutual users of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -446,7 +469,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Request body for updating profile")
@@ -459,6 +482,9 @@ model UpdateProfileRequest {
   @doc("The user's bio (max 160 characters).")
   @maxLength(160)
   bio?: string | null;
+
+  @doc("The user's bio entities (hashtags, mentions).")
+  bioEntities?: BioEntities | null;
 
   @doc("User's location")
   @maxLength(100)
@@ -664,9 +690,6 @@ model TweetWithThread extends Tweet {
 
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
-  @doc("Show all types of notifications.")
-  all,
-
   @doc("Show only conversational notifications like replies, mentions, and quotes.")
   mentions,
 }
@@ -679,7 +702,19 @@ model NotificationActorSummary {
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
-  totalActorCount: int32;
+  totalCount: int32;
+}
+
+@doc("Encapsulates the content payload of the notification.")
+model NotificationTweetSummary {
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
+
+  @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
+  totalCount: int32;
+
+  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
+  subjectIds: string[];
 }
 
 @doc("Represents a single notification item for a user.")
@@ -693,18 +728,14 @@ model Notification {
   @doc("Summary of the user(s) who triggered this notification.")
   actorSummary: NotificationActorSummary;
 
-  @doc("The primary, new tweet(s) that are the subject of this notification.\ne.g., the new reply, the new quote, or the set of tweets that were liked.")
-  @minItems(0)
-  primaryTweets?: Tweet[];
-
-  @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
-  parentTweet?: Tweet;
+  @doc("Summary of the tweet(s) involved in this notification.")
+  tweetSummary: NotificationTweetSummary;
 
   @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   latestEventAt: utcDateTime;
 
-  @doc("Indicates whether the notification has been read.")
-  isRead: boolean;
+  @doc("Indicates whether the notification has been seen.")
+  isSeen: boolean;
 }
 
 enum NotificationType {
@@ -814,12 +845,6 @@ model TopSuggestedUsers {
   users: UserMetadataWithFollowInfo[];
 }
 
-model SuggestedUsersForSearchResults {
-  @doc("The top 10 matching users after searching")
-  @maxItems(10)
-  topUsers: UserMetadataWithFollowInfo[];
-}
-
 model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
   users: UserMetadataWithFollowInfo[];
@@ -829,6 +854,35 @@ model TopHashtags {
   @doc("Top 3 relevant hashtags for the search query")
   @maxItems(3)
   hashtags: string[];
+}
+
+enum SearchTab {
+  TOP: "top",
+  LATEST: "latest",
+  MEDIA: "media",
+}
+
+enum PeopleSearchFilter {
+  Anyone: "anyone",
+  Following: "following",
+}
+
+model SearchTweetsParameters {
+  @doc("The search query")
+  @query
+  query: string;
+
+  @doc("Tab type: top (default) | latest | media ")
+  @query
+  tab?: SearchTab;
+
+  @doc("Show tweets from anyone (default) or only from people you follow")
+  @query
+  peopleFilter?: PeopleSearchFilter;
+
+  @doc("Exclude tweets from muted and blocked users")
+  @query
+  excludeMutedAndBlocked?: boolean;
 }
 
 model RegisterStartBody {
@@ -883,6 +937,20 @@ enum LanguageCode {
 enum Gender {
   Male,
   Female,
+}
+
+enum InterestCode {
+  CULTURE,
+  FINANCE,
+  MEDICAL,
+  POLITICS,
+  SPORTS,
+  TECH,
+  ENTERTAINMENT,
+  GENERAL,
+  FOOD,
+  LEARNING,
+  TRAVEL,
 }
 
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -1238,7 +1306,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1613,6 +1681,28 @@ namespace Me {
     @summary("Get all supported countries(for country selection dropdowns)")
     op getSupportedCountries(
     ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+
+    @get
+    @route("/interests")
+    @summary("Get all available interests with user selection status")
+    @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
+    op getInterests(
+    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/interests")
+    @summary("Update the authenticated user's interests")
+    @doc("Replaces the user's entire interest list. The user must select at least one interest. Duplicates are automatically removed.")
+    op updateInterests(
+      @body body: {
+        @doc("Array of interest codes the user wants to select")
+        interests: InterestCode[];
+      },
+    ):
+      | MessageResponse<"Interests updated successfully.">
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
@@ -1706,8 +1796,8 @@ namespace Notifications {
     ...CursorPaginationParameters,
 
     @query
-    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
-    filter?: NotificationFilter = NotificationFilter.all,
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
   ):
     | NotificationsListResponse
     | BadRequestResponse
@@ -1723,14 +1813,14 @@ namespace Notifications {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/mark-all-seen")
+  @route("/seen")
   @doc("Mark all notifications as seen")
   op markAllNotificationsAsSeen(): DataResponse<{
     updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/{notificationId}/mark-seen")
+  @route("/{notificationId}/seen")
   @doc("Mark a specific notification as seen by its ID")
   op markNotificationAsSeen(@path notificationId: string):
     | DataResponse<{
@@ -1991,32 +2081,6 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 10 users matching the current query (while searching/ mentioning users(suggested mentions))")
-  @get
-  @route("/users")
-  op searchUsers(
-    @doc("The search query")
-    @query
-    query: string,
-  ):
-    | DataResponse<TopSuggestedUsers>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @summary("Get top 10 featured users for the People tab")
-  @get
-  @route("/users/top")
-  op getTopUsers(
-    @doc("The search query")
-    @query
-    query: string,
-  ):
-    | DataResponse<SuggestedUsersForSearchResults>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
   @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
   @route("/hashtags/top")
@@ -2030,11 +2094,11 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
-  @summary("Get all matching users with pagination for the People tab")
+  @summary("Get all users matching the search query - returns paginated user results")
   @get
-  @route("/users/all")
-  op getAllUsers(
-    @doc("The search query")
+  @route("/users")
+  op searchUsers(
+    @doc("Search query (username or display name)")
     @query
     query: string,
 
@@ -2048,14 +2112,8 @@ namespace Search {
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
   @get
   @route("/tweets")
-  op searchTweets(
-    @doc("The search query")
-    @query
-    query: string,
-
-    ...CursorPaginationParameters,
-  ):
-    | DataResponseWithPagination<Tweet[]>
+  op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -2067,60 +2125,42 @@ namespace Search {
 namespace Explore {
   @get
   @route("/for-you")
-  @summary("Get trending hashtags and tweets")
-  @doc("Returns a mix of trending topics, hashtags and tweets personalized for the user")
-  op getExploreForYou(...CursorPaginationParameters): DataResponse<{
-    @doc("Trending hashtags for the user (6-10 items)")
-    @minItems(6)
-    @maxItems(10)
-    trendingHashtags: HashtagPreview[];
+  @summary("Get a list of tweets grouped by categories, only which the user is interested in")
+  @doc("Returns a list of tweets grouped by categories as key-value pairs")
+  op getExploreForYou(): DataResponse<{
+    @doc("Array of categories with their associated tweets")
+    categories: {
+      @doc("The category name")
+      category: string;
 
-    @doc("Personalized tweets with pagination")
-    tweets: Tweet[];
-
-    @doc("Pagination info for tweets")
-    pagination: CursorPagination;
+      @doc("Array of tweets associated with this category")
+      tweets: Tweet[];
+    }[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/trending")
   @summary("Get trending hashtags/keywords across all categories")
-  @doc("Returns top trending hashtags globally, ordered by trending score")
-  op getTrendingHashtags(): DataResponse<{
-    @doc("Trending news hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending hashtags/keywords globally, ordered by trending score")
+  op getTrendingHashtags(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/news")
   @summary("Get trending keywords/hashtags in the News category")
   @doc("Returns top trending news-related keywords (max 30)")
-  op getNewsExplore(): DataResponse<{
-    @doc("Trending news keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getNewsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
-  @doc("Returns top trending sports-related hashtags (max 30)")
-  op getSportsExplore(): DataResponse<{
-    @doc("Trending sports keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending sports-related keywords (max 30)")
+  op getSportsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
-  @doc("Returns top trending entertainment-related hashtags (max 30)")
-  op getEntertainmentExplore(): DataResponse<{
-    @doc("Trending entertainment keywords/hashtags (max 30 items)")
-    @maxItems(30)
-    trendingHashtags: HashtagPreview[];
-  }> | UnauthorizedResponse | InternalServerErrorResponse;
+  @doc("Returns top trending entertainment-related keywords (max 30)")
+  op getEntertainmentExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")

@@ -333,6 +333,20 @@ enum Gender {
   Female,
 }
 
+enum InterestCode {
+  CULTURE,
+  FINANCE,
+  MEDICAL,
+  POLITICS,
+  SPORTS,
+  TECH,
+  ENTERTAINMENT,
+  GENERAL,
+  FOOD,
+  LEARNING,
+  TRAVEL,
+}
+
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -344,6 +358,7 @@ alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+alias NotificationsListResponse = DataResponseWithPagination<Notification[]>;
 
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
 alias MessageListResponse = DataResponseWithPagination<{
@@ -375,6 +390,17 @@ model Country {
 
   @doc("Full country name (e.g., 'United States of America', 'Egypt', 'United Kingdom of Great Britain and Northern Ireland')")
   name: string;
+}
+
+model Interest {
+  @doc("Interest code identifier (e.g., 'TECH', 'SPORTS')")
+  code: InterestCode;
+
+  @doc("Display name of the interest (e.g., 'Tech', 'Sports')")
+  name: string;
+
+  @doc("Indicates whether the user has selected this interest")
+  isSelected: boolean;
 }
 
 @doc("Entity mention in bio")
@@ -422,7 +448,15 @@ model UserProfile {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: MutualUsers[] | null;
+}
+
+model MutualUsers {
+  @doc("Mutual user display name")
+  displayName: string;
+
+  @doc("Mutual user avatar url")
+  avatarUrl: string;
 }
 
 @doc("Compact user(followers/following) lists")
@@ -502,7 +536,7 @@ model UserPreview {
 
   @doc("Display names of up to 3 mutual followers shown before clicking 'View all mutuals'")
   @maxItems(3)
-  mutualNames: string[] | null;
+  mutualUsers: string[] | null;
 }
 
 @doc("Metadata for user sent in suggestions/tweets/search results/etc.")
@@ -781,6 +815,104 @@ model TweetWithReplyTo extends Tweet {
   replyToTweet: CompactTweet | null;
 }
 
+@doc("Defines the filter categories for the notifications list.")
+enum NotificationFilter {
+  @doc("Show only conversational notifications like replies, mentions, and quotes.")
+  mentions,
+}
+
+@doc("Summarizes the users (actors) who triggered a notification.")
+model NotificationActorSummary {
+  @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
+  @maxItems(3)
+  previewActors: UserMetadata[];
+
+  @doc("The total count of all users (e.g., for '...and 4 others').")
+  @minValue(1)
+  totalCount: int32;
+}
+
+@doc("Encapsulates the content payload of the notification.")
+model NotificationTweetSummary {
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
+
+  @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
+  totalCount: int32;
+
+  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
+  subjectIds: string[];
+}
+
+@doc("Represents a single notification item for a user.")
+model Notification {
+  @doc("Unique ID for the notification event.")
+  id: string;
+
+  @doc("The specific action that triggered this notification.")
+  type: NotificationType;
+
+  @doc("Summary of the user(s) who triggered this notification.")
+  actorSummary: NotificationActorSummary;
+
+  @doc("Summary of the tweet(s) involved in this notification.")
+  tweetSummary: NotificationTweetSummary;
+
+  @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  latestEventAt: utcDateTime;
+
+  @doc("Indicates whether the notification has been seen.")
+  isSeen: boolean;
+}
+enum NotificationType {
+  FOLLOW: "FOLLOW",
+  LIKE: "LIKE",
+  REPLY: "REPLY",
+  QUOTE: "QUOTE",
+  RETWEET: "RETWEET",
+  TWEET: "TWEET",
+  MENTION: "MENTION",
+}
+
+model AllMatchingUsers {
+  @doc("Paginated list of all matching users (default 20 per page)")
+  users: UserMetadataWithFollowInfo[];
+}
+
+model TopHashtags {
+  @doc("Top 3 relevant hashtags for the search query")
+  @maxItems(3)
+  hashtags: string[];
+}
+
+enum SearchTab {
+  TOP: "top",
+  LATEST: "latest",
+  MEDIA: "media",
+}
+
+enum PeopleSearchFilter {
+  Anyone: "anyone",
+  Following: "following",
+}
+
+model SearchTweetsParameters {
+  @doc("The search query")
+  @query
+  query: string;
+
+  @doc("Tab type: top (default) | latest | media ")
+  @query
+  tab?: SearchTab;
+
+  @doc("Show tweets from anyone (default) or only from people you follow")
+  @query
+  peopleFilter?: PeopleSearchFilter;
+
+  @doc("Exclude tweets from muted and blocked users")
+  @query
+  excludeMutedAndBlocked?: boolean;
+}
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1259,6 +1391,28 @@ namespace Me {
     @summary("Get all supported countries(for country selection dropdowns)")
     op getSupportedCountries(
     ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+
+    @get
+    @route("/interests")
+    @summary("Get all available interests with user selection status")
+    @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
+    op getInterests(
+    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/interests")
+    @summary("Update the authenticated user's interests")
+    @doc("Replaces the user's entire interest list. The user must select at least one interest. Duplicates are automatically removed.")
+    op updateInterests(
+      @body body: {
+        @doc("Array of interest codes the user wants to select")
+        interests: InterestCode[];
+      },
+    ):
+      | MessageResponse<"Interests updated successfully.">
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
@@ -1412,7 +1566,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1529,6 +1683,52 @@ namespace Timeline {
   op getFollowingFeed(
     ...CursorPaginationParameters,
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Notifications")
+@route("/notifications")
+@useAuth(BearerAuth)
+namespace Notifications {
+  @get
+  op listUserNotifications(
+    ...CursorPaginationParameters,
+
+    @query
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
+  ):
+    | NotificationsListResponse
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/count")
+  @doc("Get the count of unseen notifications")
+  op getNotificationsCount(): DataResponse<{
+    unseenCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/seen")
+  @doc("Mark all notifications as seen")
+  op markAllNotificationsAsSeen(): DataResponse<{
+    updatedCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/{notificationId}/seen")
+  @doc("Mark a specific notification as seen by its ID")
+  op markNotificationAsSeen(@path notificationId: string):
+    | DataResponse<{
+        updatedCount: integer;
+      }>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Media")
@@ -1773,5 +1973,18 @@ namespace Conversations {
     | UnauthorizedResponse
     | ForbiddenResponse
     | NotFoundResponse
+    | InternalServerErrorResponse;
+}
+@tag("Search")
+@route("/search")
+@useAuth(BearerAuth)
+namespace Search {
+  @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @get
+  @route("/tweets")
+  op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
+    | DataResponseWithPagination<TweetWithReplyTo[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
     | InternalServerErrorResponse;
 }

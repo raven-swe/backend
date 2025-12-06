@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -40,6 +41,7 @@ model User {
   userDevices              UserDevice[]
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
+  interests                String[]                  @default([])
 
   @@map("users")
 }
@@ -122,6 +124,7 @@ model Tweet {
   retweetCount   Int            @default(0) @map("retweet_count")
   replyCount     Int            @default(0) @map("reply_count")
   isDeleted      Boolean        @default(false) @map("is_deleted")
+  class          String?        @db.VarChar(50)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   likes          Like[]
@@ -141,6 +144,7 @@ model Tweet {
   @@index([replyToTweetId], map: "tweets_reply_to_tweet_id_idx")
   @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
   @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "tweets_cursor_idx")
   @@map("tweets")
 }
 
@@ -221,7 +225,7 @@ model TrendingKeyword {
 model TweetHashtag {
   tweetId       BigInt          @map("tweet_id")
   hashtagId     BigInt          @map("hashtag_id")
-  startPosition Int     @map("starting_index")
+  startPosition Int             @map("starting_index")
   hashtag       TrendingKeyword @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet         Tweet           @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -289,19 +293,36 @@ model ConversationParticipant {
 }
 
 model Notification {
-  id         BigInt           @id @default(autoincrement())
-  actorId    BigInt           @map("actor_id")
-  receiverId BigInt           @map("receiver_id")
-  type       NotificationType
-  tweetId    BigInt?          @map("tweet_id")
-  seen       Boolean          @default(false)
-  createdAt  DateTime         @default(now()) @map("created_at")
-  actor      User             @relation("notifications_actor_idTousers", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  receiver   User             @relation("notifications_receiver_idTousers", fields: [receiverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet      Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            BigInt           @id @default(autoincrement())
+  actorId       BigInt           @map("actor_id")
+  receiverId    BigInt           @map("receiver_id")
+  type          NotificationType
+  tweetId       BigInt?          @map("tweet_id")
+  dedupeKey     String?          @unique @map("dedupe_key") @db.VarChar(255)
+  isAggregated  Boolean          @default(false) @map("is_aggregated")
+  seen          Boolean          @default(false)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  openedAt      DateTime?        @map("opened_at")
+  latestEventAt DateTime         @default(now()) @map("latest_event_at")
+  actor         User             @relation("notifications_actor_idTousers", fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receiver      User             @relation("notifications_receiver_idTousers", fields: [receiverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet         Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([receiverId, createdAt])
   @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             BigInt                     @id @default(autoincrement())
+  notificationId BigInt                     @map("notification_id")
+  deviceId       BigInt                     @map("device_id")
+  fcmMessageId   String?                    @map("fcm_message_id")
+  status         NotificationDeliveryStatus // queued|sent|failed|invalid_token
+  responseBody   Json?
+  attemptedAt    DateTime                   @default(now()) @map("attempted_at")
+
+  @@index([notificationId])
+  @@map("notification_deliveries")
 }
 
 model Media {
@@ -363,4 +384,11 @@ enum Categories {
   NEWS
   SPORTS
   ENTERTAINMENT
+}
+
+enum NotificationDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  INVALID_TOKEN
 }
