@@ -1304,15 +1304,7 @@ export class UsersRepository {
           GREATEST(
             similarity(LOWER(u.username), ${query}),
             COALESCE(similarity(LOWER(p.display_name), ${query}), 0)
-          ) as sim_score,
-          EXISTS (
-            SELECT 1 FROM follows f
-            WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
-          ),
-          EXISTS (
-            SELECT 1 FROM follows f
-            WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
-          )
+          ) as sim_score
         FROM 
           users u
         LEFT JOIN profiles p ON u.id = p.user_id
@@ -1349,8 +1341,6 @@ export class UsersRepository {
       }[]
     >(sqlQuery);
 
-    console.log({ results });
-
     return results.map((row) => ({
       id: row.id.toString(),
       username: row.username,
@@ -1370,22 +1360,29 @@ export class UsersRepository {
     peopleFilter: PeopleSearchFilter,
     cursor: UserSearchCursor | undefined,
   ) {
-    const cursorCondition = cursor
-      ? Prisma.sql`
-      AND (
-        sim_score < ${cursor.simScore}
-        OR (
-          sim_score = ${cursor.simScore}
-          AND created_at < ${cursor.createdAt}::timestamp
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+    // Convert sim_score to integer (multiply by 1,000,000 to preserve 6 decimal places)
+    const cursorSimScoreInt = cursor ? Math.round(cursor.simScore * 1000000) : null;
+
+    const cursorCondition =
+      cursor && cursorTime !== null && cursorId !== null && cursorSimScoreInt !== null
+        ? Prisma.sql`
+        AND (
+          ROUND(sim_score * 1000000) < ${cursorSimScoreInt}
+          OR (
+            ROUND(sim_score * 1000000) = ${cursorSimScoreInt}
+            AND (
+              EXTRACT(EPOCH FROM created_at) * 1000 < ${cursorTime}
+              OR (
+                EXTRACT(EPOCH FROM created_at) * 1000 = ${cursorTime}
+                AND id <= ${cursorId}
+              )
+            )
+          )
         )
-        OR (
-          sim_score = ${cursor.simScore}
-          AND created_at = ${cursor.createdAt}::timestamp
-          AND id < ${BigInt(cursor.id)}
-        )
-      )
-    `
-      : Prisma.empty;
+      `
+        : Prisma.empty;
 
     const mutedAndBlockedCondition = excludeMutedAndBlocked
       ? Prisma.sql`

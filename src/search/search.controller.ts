@@ -49,7 +49,7 @@ export class SearchController {
     @Query('excludeMutedAndBlocked', ParseBooleanPipe) excludeMutedAndBlocked?: boolean,
   ) {
     const currentUserId = BigInt(user.id);
-    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const parsedLimit = limit ? parseInt(limit, 10) : 200;
     searchUsersQueryDto.excludeMutedAndBlocked = excludeMutedAndBlocked;
     return this.searchService.searchUsers(currentUserId, searchUsersQueryDto, parsedLimit, cursor);
   }

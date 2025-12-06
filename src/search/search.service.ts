@@ -155,10 +155,10 @@ export class SearchService {
     }
 
     const cleanedQuery = prepareSearchQuery(rawQuery);
-    console.log({ cleanedQuery });
     let decodedCursor: UserSearchCursor | undefined;
     try {
       decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;
+      console.log({ decodedCursor });
     } catch {
       throw new HttpException(
         {
@@ -178,18 +178,18 @@ export class SearchService {
       peopleFilter,
     );
 
-    // Get users relationships
-    const userIds = items.map((user) => BigInt(user.id));
-    const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
-
     const pagination = paginateComposite(items, limit, prevCursor, (user) => {
       console.log({ user });
       return {
-        createdAt: user.createdAt,
-        id: user.id.toString(),
         simScore: user.simScore,
+        createdAt: user.createdAt.toISOString(),
+        id: user.id.toString(),
       };
     });
+
+    // Get users relationships
+    const userIds = items.map((user) => BigInt(user.id));
+    const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
 
     // Map items with relationships
     const mappedUsers = mapToUserSearchResultDto(
