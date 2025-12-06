@@ -218,6 +218,17 @@ model Country {
   name: string;
 }
 
+model Interest {
+  @doc("Interest code identifier (e.g., 'TECH', 'SPORTS')")
+  code: InterestCode;
+
+  @doc("Display name of the interest (e.g., 'Tech', 'Sports')")
+  name: string;
+
+  @doc("Indicates whether the user has selected this interest")
+  isSelected: boolean;
+}
+
 @doc("Entity mention in bio")
 model MentionEntity {
   @doc("The username of the mentioned user")
@@ -677,9 +688,6 @@ model TweetWithoutQuotedTweet {
 
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
-  @doc("Show all types of notifications.")
-  all,
-
   @doc("Show only conversational notifications like replies, mentions, and quotes.")
   mentions,
 }
@@ -692,7 +700,19 @@ model NotificationActorSummary {
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
-  totalActorCount: int32;
+  totalCount: int32;
+}
+
+@doc("Encapsulates the content payload of the notification.")
+model NotificationTweetSummary {
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
+
+  @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
+  totalCount: int32;
+
+  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
+  subjectIds: string[];
 }
 
 @doc("Represents a single notification item for a user.")
@@ -706,18 +726,14 @@ model Notification {
   @doc("Summary of the user(s) who triggered this notification.")
   actorSummary: NotificationActorSummary;
 
-  @doc("The primary, new tweet(s) that are the subject of this notification.\ne.g., the new reply, the new quote, or the set of tweets that were liked.")
-  @minItems(0)
-  primaryTweets?: Tweet[];
-
-  @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
-  parentTweet?: Tweet;
+  @doc("Summary of the tweet(s) involved in this notification.")
+  tweetSummary: NotificationTweetSummary;
 
   @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   latestEventAt: utcDateTime;
 
-  @doc("Indicates whether the notification has been read.")
-  isRead: boolean;
+  @doc("Indicates whether the notification has been seen.")
+  isSeen: boolean;
 }
 
 enum NotificationType {
@@ -919,6 +935,20 @@ enum LanguageCode {
 enum Gender {
   Male,
   Female,
+}
+
+enum InterestCode {
+  CULTURE,
+  FINANCE,
+  MEDICAL,
+  POLITICS,
+  SPORTS,
+  TECH,
+  ENTERTAINMENT,
+  GENERAL,
+  FOOD,
+  LEARNING,
+  TRAVEL,
 }
 
 alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
@@ -1274,7 +1304,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1649,6 +1679,28 @@ namespace Me {
     @summary("Get all supported countries(for country selection dropdowns)")
     op getSupportedCountries(
     ): DataResponse<Country[]> | InternalServerErrorResponse | UnauthorizedResponse;
+
+    @get
+    @route("/interests")
+    @summary("Get all available interests with user selection status")
+    @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
+    op getInterests(
+    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+
+    @put
+    @route("/interests")
+    @summary("Update the authenticated user's interests")
+    @doc("Replaces the user's entire interest list. The user must select at least one interest. Duplicates are automatically removed.")
+    op updateInterests(
+      @body body: {
+        @doc("Array of interest codes the user wants to select")
+        interests: InterestCode[];
+      },
+    ):
+      | MessageResponse<"Interests updated successfully.">
+      | ValidationErrorResponse
+      | UnauthorizedResponse
+      | InternalServerErrorResponse;
   }
 
   @route("/blocks")
@@ -1742,8 +1794,8 @@ namespace Notifications {
     ...CursorPaginationParameters,
 
     @query
-    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
-    filter?: NotificationFilter = NotificationFilter.all,
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
   ):
     | NotificationsListResponse
     | BadRequestResponse
@@ -1759,14 +1811,14 @@ namespace Notifications {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/mark-all-seen")
+  @route("/seen")
   @doc("Mark all notifications as seen")
   op markAllNotificationsAsSeen(): DataResponse<{
     updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/{notificationId}/mark-seen")
+  @route("/{notificationId}/seen")
   @doc("Mark a specific notification as seen by its ID")
   op markNotificationAsSeen(@path notificationId: string):
     | DataResponse<{
