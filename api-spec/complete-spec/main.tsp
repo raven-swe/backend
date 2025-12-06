@@ -679,9 +679,6 @@ model TweetWithoutQuotedTweet {
 
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
-  @doc("Show all types of notifications.")
-  all,
-
   @doc("Show only conversational notifications like replies, mentions, and quotes.")
   mentions,
 }
@@ -694,7 +691,19 @@ model NotificationActorSummary {
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
-  totalActorCount: int32;
+  totalCount: int32;
+}
+
+@doc("Encapsulates the content payload of the notification.")
+model NotificationTweetSummary {
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
+
+  @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
+  totalCount: int32;
+
+  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
+  subjectIds: string[];
 }
 
 @doc("Represents a single notification item for a user.")
@@ -708,18 +717,14 @@ model Notification {
   @doc("Summary of the user(s) who triggered this notification.")
   actorSummary: NotificationActorSummary;
 
-  @doc("The primary, new tweet(s) that are the subject of this notification.\ne.g., the new reply, the new quote, or the set of tweets that were liked.")
-  @minItems(0)
-  primaryTweets?: Tweet[];
-
-  @doc("The secondary, contextual tweet.\ne.g., your original tweet that was replied to or quoted.")
-  parentTweet?: Tweet;
+  @doc("Summary of the tweet(s) involved in this notification.")
+  tweetSummary: NotificationTweetSummary;
 
   @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
   latestEventAt: utcDateTime;
 
-  @doc("Indicates whether the notification has been read.")
-  isRead: boolean;
+  @doc("Indicates whether the notification has been seen.")
+  isSeen: boolean;
 }
 
 enum NotificationType {
@@ -1780,8 +1785,8 @@ namespace Notifications {
     ...CursorPaginationParameters,
 
     @query
-    @doc("Filters the notifications by a specific category. Defaults to 'all'.")
-    filter?: NotificationFilter = NotificationFilter.all,
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
   ):
     | NotificationsListResponse
     | BadRequestResponse
@@ -1797,14 +1802,14 @@ namespace Notifications {
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/mark-all-seen")
+  @route("/seen")
   @doc("Mark all notifications as seen")
   op markAllNotificationsAsSeen(): DataResponse<{
     updatedCount: integer;
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @patch
-  @route("/{notificationId}/mark-seen")
+  @route("/{notificationId}/seen")
   @doc("Mark a specific notification as seen by its ID")
   op markNotificationAsSeen(@path notificationId: string):
     | DataResponse<{
