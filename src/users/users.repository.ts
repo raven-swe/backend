@@ -582,16 +582,6 @@ export class UsersRepository {
           ],
         },
       });
-
-      // Remove mute relationships in both directions
-      await tx.mute.deleteMany({
-        where: {
-          OR: [
-            { userId: userId, mutedId: blockedId },
-            { userId: blockedId, mutedId: userId },
-          ],
-        },
-      });
     });
   }
 
@@ -659,7 +649,7 @@ export class UsersRepository {
         },
       },
     });
-    return !!mute || (await this.isBlocked(userId, mutedId));
+    return !!mute;
   }
 
   async getUserBlocks(userId: bigint) {
