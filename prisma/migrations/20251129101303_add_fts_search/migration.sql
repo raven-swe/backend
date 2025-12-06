@@ -105,8 +105,8 @@ ANALYZE "profiles";
 CREATE INDEX IF NOT EXISTS tweets_search_document_idx ON "tweets" USING GIN (search_document);
 
 -- Trigram indexes for user search
-CREATE INDEX IF NOT EXISTS users_username_trgm_idx ON "users" USING GIN (username gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS profiles_display_name_trgm_idx ON "profiles" USING GIN (display_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS users_username_trgm_idx ON "users" USING GIN (LOWER(username) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS profiles_display_name_trgm_idx ON "profiles" USING GIN (LOWER(display_name) gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS tweets_created_at ON "tweets" (created_at DESC) WHERE is_deleted = false;
 CREATE INDEX IF NOT EXISTS tweets_with_media ON "tweets" (created_at DESC) WHERE has_media = true AND is_deleted = false;

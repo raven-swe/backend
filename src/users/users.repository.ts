@@ -2,7 +2,11 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import {
+  USER_SEARCH_RANKING_WEIGHTS,
+  USERS_ERROR_CODES,
+  USERS_ERROR_MESSAGES,
+} from 'src/users/constants';
 import { UpdateProfileDto, UserProfileResponseDto, UserRelationshipDto } from './dtos';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -1289,6 +1293,7 @@ export class UsersRepository {
         peopleFilter,
         decodedCursor,
       );
+    const rankingScoreSql = this.buildUsersRankingScore(query);
 
     const sqlQuery = Prisma.sql`
       WITH ranked_users AS (
@@ -1301,10 +1306,21 @@ export class UsersRepository {
           p.banner_url,
           p.bio,
           p.bio_entities,
-          GREATEST(
-            similarity(LOWER(u.username), ${query}),
-            COALESCE(similarity(LOWER(p.display_name), ${query}), 0)
-          ) as sim_score
+          (
+            SIMILARITY(LOWER(u.username), ${query}) +
+            COALESCE(SIMILARITY(LOWER(p.display_name), ${query}), 0)
+          ) as sim_score,
+          (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers_count,
+          EXISTS (
+            SELECT 1 
+            FROM follows f 
+            WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+          ) AS i_follow,
+          EXISTS (
+            SELECT 1 
+            FROM follows f 
+            WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
+          ) AS follows_me
         FROM 
           users u
         LEFT JOIN profiles p ON u.id = p.user_id
@@ -1317,12 +1333,11 @@ export class UsersRepository {
           ${mutedAndBlockedCondition}
           ${peopleFilterCondition}
       )
-      SELECT * FROM ranked_users
+      SELECT *, ${rankingScoreSql} FROM ranked_users
       WHERE 1=1
       ${cursorCondition}
       ORDER BY 
-        sim_score DESC,
-        created_at DESC,
+        ranking_score DESC,
         id DESC
       LIMIT ${limit};
     `;
@@ -1415,6 +1430,23 @@ export class UsersRepository {
       mutedAndBlockedCondition,
       peopleFilterCondition,
     };
+  }
+
+  /**
+   * Builds the ranking score SQL snippet for user search.
+   * Score = sim_score * sim_weight + followers_count * followers_weight + i_follow_weight + follows_me_weight
+   */
+  private buildUsersRankingScore(query: string) {
+    return Prisma.sql`
+    (
+      (
+        SIMILARITY(LOWER(username), ${query}) + 
+        COALESCE(SIMILARITY(LOWER(display_name), ${query}), 0)
+      ) * (${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY})::bigint +
+      (LEAST(followers_count, ${USER_SEARCH_RANKING_WEIGHTS.MAX_FOLLOWERS_COUNT}) * (${USER_SEARCH_RANKING_WEIGHTS.FOLLOWERS})::bigint) +
+      (CASE WHEN i_follow THEN ${USER_SEARCH_RANKING_WEIGHTS.I_FOLLOW}::bigint ELSE 0 END) +
+      (CASE WHEN follows_me THEN ${USER_SEARCH_RANKING_WEIGHTS.FOLLOWS_ME}::bigint ELSE 0 END)
+    ) as ranking_score`;
   }
 
   async getUsersRelationshipsMap(
