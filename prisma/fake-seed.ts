@@ -33,12 +33,6 @@ function generateUsername(base: string, i: number) {
 /* ------------ MAIN SEED ----------------- */
 
 async function main() {
-  console.log('--- Seeding 50K SEARCH users safely ---');
-  console.time('seed');
-
-  /* -------- SAFE CLEANUP -------- */
-  console.log('Soft deleting previous seeded users...');
-
   await prisma.follow.deleteMany({
     where: { followerUser: { email: { endsWith: SEED_DOMAIN } } },
   });
@@ -59,8 +53,6 @@ async function main() {
     where: { email: { endsWith: SEED_DOMAIN } },
     data: { deletedAt: new Date() },
   });
-
-  console.log('✅ Cleanup finished');
 
   /* -------- CREATE SEARCHER USER -------- */
   const passwordHash = await bcrypt.hash('search123', 10);
@@ -83,10 +75,6 @@ async function main() {
     },
   });
 
-  console.log('✅ Search user ready');
-
-  /* -------- GENERATE USERS -------- */
-  // Large name pool
   const baseNames = Array.from({ length: 200 }, () => faker.person.firstName().toLowerCase());
 
   const newUsers = [];
@@ -103,7 +91,6 @@ async function main() {
   }
 
   /* -------- INSERT USERS IN BATCHES -------- */
-  console.log('Creating users in batches...');
   const batchSize = 1000;
   for (let i = 0; i < newUsers.length; i += batchSize) {
     await prisma.user.createMany({
@@ -121,7 +108,6 @@ async function main() {
   });
 
   /* -------- CREATE PROFILES -------- */
-  console.log('Creating profiles...');
   for (let i = 0; i < users.length; i += batchSize) {
     const batch = users.slice(i, i + batchSize);
     await prisma.profile.createMany({
@@ -137,7 +123,6 @@ async function main() {
   }
 
   /* -------- CREATE RELATIONSHIPS -------- */
-  console.log('Creating follow, mute, and block relationships...');
   const followCount = Math.floor(NUM_USERS * FOLLOW_PERCENT);
   const muteCount = Math.floor(NUM_USERS * MUTE_PERCENT);
   const blockCount = Math.floor(NUM_USERS * BLOCK_PERCENT);
@@ -167,27 +152,12 @@ async function main() {
       })),
   });
 
-  console.log(`
-✅ Seed completed:
-
-Total users: ${users.length}
-Followed: ${followCount}
-Muted: ${muteCount}
-Blocked: ${blockCount}
-
-Login credentials:
-Email: searcher${SEED_DOMAIN}
-Password: search123
-`);
-
-  console.timeEnd('seed');
+  /* ------------ RUNNER ---------------- */
+  main()
+    .then(() => prisma.$disconnect())
+    .catch(async (e) => {
+      console.error('SEED FAILED:', e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
 }
-
-/* ------------ RUNNER ---------------- */
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (e) => {
-    console.error('SEED FAILED:', e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });

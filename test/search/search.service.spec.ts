@@ -4,7 +4,6 @@ import { UsersService } from 'src/users/users.service';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { SearchService } from 'src/search/search.service';
 import { SearchTab } from 'src/search/dtos';
-import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from 'src/search/constants';
 import * as SearchUtils from 'src/search/utils/search-query.util';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 
