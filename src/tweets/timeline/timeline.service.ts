@@ -12,6 +12,7 @@ import { TweetDto, CompactAuthorDto } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
   LIKE_COUNT_CACHE_TTL,
+  REPLIES_COUNT_CACHE_TTL,
   RETWEET_COUNT_CACHE_TTL,
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
@@ -129,7 +130,7 @@ export class TimelineService {
 
     this.logger.debug(`Hydrating dynamic data for timeline tweets for user ID: ${userId}`);
     const { likeCounts, retweetCounts, replyCounts, userTweetInteractions } =
-      await this.getAndBackfillTweetDynamicData(tweets, userId, missingTweetIds);
+      await this.getAndBackfillTweetDynamicData(tweets, userId);
 
     // second pass to hydrate quote tweets ( only static tweet and author, no need for anything else)
     this.logger.debug(`Hydrating quoted tweets for timeline tweets for user ID: ${userId}`);
@@ -246,24 +247,21 @@ export class TimelineService {
         hydrationResults[i + 1],
       ];
 
-      if (tweetErr || authorErr) {
-        if (tweetErr) missingTweetIds.push(tweetIds[i / 2]);
-        if (authorErr) missingAuthorIds.add(authorIds[i / 2]); // to be hydrated from DB
-        if (tweetErr && authorErr) continue;
-      }
+      const tweetId = tweetIds[i / 2];
+      const authorId = authorIds[i / 2];
 
-      if (tweetData && typeof tweetData === 'string') {
+      if (tweetErr || tweetData === null) {
+        missingTweetIds.push(tweetId);
+      } else if (typeof tweetData === 'string') {
         const tweet: CachedStaticTweet = JSON.parse(tweetData) as CachedStaticTweet;
-        tweetsMap.set(tweetIds[i / 2].toString(), tweet);
-      } else {
-        missingTweetIds.push(tweetIds[i / 2]);
+        tweetsMap.set(tweetId.toString(), tweet);
       }
 
-      if (authorData && typeof authorData === 'string') {
+      if (authorErr || authorData === null) {
+        missingAuthorIds.add(authorId);
+      } else if (typeof authorData === 'string') {
         const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
-        authorsMap.set(authorIds[i / 2].toString(), authorDto);
-      } else {
-        missingAuthorIds.add(authorIds[i / 2]);
+        authorsMap.set(authorId.toString(), authorDto);
       }
     }
 
@@ -334,16 +332,15 @@ export class TimelineService {
 
   /**
    *
-   * @param tweets The fetched tweets, we use the counts from those to backfill the counter cache if expired
+   * @param tweets
    * @param userId
-   * @param missingTweetIds The tweet ids we backfilled from the database, for these we have to explicitly check the counts, and backfill from db if expired
    * @returns A DynamicDataFromCache object, having the counters for a tweet, and if the user liked/retweeted it
    */
   async getAndBackfillTweetDynamicData(
     tweets: Map<string, CachedStaticTweet>,
     userId: bigint,
-    missingTweetIds: bigint[],
   ): Promise<DynamicDataFromCache> {
+    const tweetIds = Array.from(tweets.keys()).map((idStr) => BigInt(idStr));
     const likeCountsMap = new Map<bigint, number>();
     const retweetCountsMap = new Map<bigint, number>();
     const replyCountsMap = new Map<bigint, number>();
@@ -351,11 +348,10 @@ export class TimelineService {
     const missingLikeCounts = new Array<bigint>();
     const missingRetweetCounts = new Array<bigint>();
     const missingReplyCounts = new Array<bigint>();
-    const missingUserInteractionsMap = new Map<bigint, { liked: boolean; retweeted: boolean }>();
 
     const dynamicDataPipeline = this.redisClient.pipeline();
 
-    for (const tweetId of missingTweetIds) {
+    for (const tweetId of tweetIds) {
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
         'EX',
@@ -369,21 +365,7 @@ export class TimelineService {
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
-      );
-    }
-
-    const tweetIds = Array.from(tweets.keys()).map((idStr) => BigInt(idStr));
-    for (const tweetId of tweetIds) {
-      dynamicDataPipeline.call(
-        'CF.EXISTS',
-        REDIS_TIMELINE_KEYS.getUserInteractionsKey(userId),
-        REDIS_TIMELINE_KEYS.getUserInteractionsLikeItem(tweetId),
-      );
-      dynamicDataPipeline.call(
-        'CF.EXISTS',
-        REDIS_TIMELINE_KEYS.getUserInteractionsKey(userId),
-        REDIS_TIMELINE_KEYS.getUserInteractionsRetweetItem(tweetId),
+        REPLIES_COUNT_CACHE_TTL,
       );
     }
 
@@ -395,36 +377,35 @@ export class TimelineService {
         likeCounts: likeCountsMap,
         retweetCounts: retweetCountsMap,
         replyCounts: replyCountsMap,
-        userTweetInteractions: new Map<bigint, { liked: boolean; retweeted: boolean }>(),
+        userTweetInteractions: new Map<bigint, { isLiked: boolean; isRetweeted: boolean }>(),
       };
     }
 
     // process counts
-    for (let i = 0; i < missingTweetIds.length; i++) {
+    for (let i = 0; i < tweetIds.length; i++) {
       const [[likeErr, likeData], [retweetErr, retweetData], [replyErr, replyData]] = [
         dynamicDataResults[i * 3],
         dynamicDataResults[i * 3 + 1],
         dynamicDataResults[i * 3 + 2],
       ];
 
-      const tweetId = missingTweetIds[i];
+      const tweetId = tweetIds[i];
 
-      if (likeErr || retweetErr || replyErr) {
-        if (likeErr) missingLikeCounts.push(tweetId);
-        if (retweetErr) missingRetweetCounts.push(tweetId);
-        if (replyErr) missingReplyCounts.push(tweetId);
-        if (likeErr && retweetErr) continue;
-      }
-
-      if (likeData !== null) {
+      if (likeErr || likeData === null) {
+        missingLikeCounts.push(tweetId);
+      } else {
         likeCountsMap.set(tweetId, Number(likeData));
       }
 
-      if (retweetData !== null) {
+      if (retweetErr || retweetData === null) {
+        missingRetweetCounts.push(tweetId);
+      } else {
         retweetCountsMap.set(tweetId, Number(retweetData));
       }
 
-      if (replyData !== null) {
+      if (replyErr || replyData === null) {
+        missingReplyCounts.push(tweetId);
+      } else {
         replyCountsMap.set(tweetId, Number(replyData));
       }
     }
@@ -433,63 +414,25 @@ export class TimelineService {
       `Hydrated dynamic counts for ${likeCountsMap.size} likes, ${retweetCountsMap.size} retweets, and ${replyCountsMap.size} replies from cache for user ID: ${userId}, and missing counts - ${missingLikeCounts.length} likes, ${missingRetweetCounts.length} retweets, ${missingReplyCounts.length} replies`,
     );
 
-    // interactions (they all miss now, I might keep it likes this actually as it's fast enough)
-    const interactionsOffset = missingTweetIds.length * 3;
-    for (let i = interactionsOffset; i < tweetIds.length; i += 2) {
-      const [[likeErr, likeData], [retweetErr, retweetData]] = [
-        dynamicDataResults[i],
-        dynamicDataResults[i + 1],
-      ];
+    // backfill the caches for the counts we got from DB
+    const missingCounts = new Set([
+      ...missingLikeCounts,
+      ...missingRetweetCounts,
+      ...missingReplyCounts,
+    ]);
 
-      const tweetId = tweetIds[(i - interactionsOffset) / 2];
-
-      if (likeErr || likeData == 1) {
-        // if not found OR "probably yes"
-        const existing = missingUserInteractionsMap.get(tweetId) || {
-          liked: false,
-          retweeted: false,
-        };
-        missingUserInteractionsMap.set(tweetId, { ...existing, liked: true });
-      }
-
-      if (retweetErr || retweetData == 1) {
-        // if not found OR "probably yes"
-        const existing = missingUserInteractionsMap.get(tweetId) || {
-          liked: false,
-          retweeted: false,
-        };
-        missingUserInteractionsMap.set(tweetId, { ...existing, retweeted: true });
-      }
-    }
-    const missingInteractionLikes = new Array<bigint>();
-    const missingInteractionRetweets = new Array<bigint>();
-    for (const [tweetId, interaction] of missingUserInteractionsMap.entries()) {
-      if (interaction.liked) {
-        missingInteractionLikes.push(tweetId);
-      }
-      if (interaction.retweeted) {
-        missingInteractionRetweets.push(tweetId);
-      }
-    }
-
-    const { likeCounts, retweetCounts, replyCounts, userTweetInteractions }: DynamicDataFromCache =
-      await this.tweetsRepository.getTweetDynamicDataForUser(
-        missingLikeCounts,
-        missingRetweetCounts,
-        missingReplyCounts,
-        missingInteractionLikes,
-        missingInteractionRetweets,
-        userId,
+    if (missingCounts.size > 0) {
+      await this.backfillDynamicDataToCache(
+        Array.from(missingCounts),
+        likeCountsMap,
+        retweetCountsMap,
+        replyCountsMap,
       );
+    }
 
-    // backfill the caches for the counts we got from DB (interactions are handled by the cuckoo filter, no need to backfill)
-    await this.backfillDynamicDataToCache(
-      likeCounts,
-      retweetCounts,
-      replyCounts,
-      likeCountsMap,
-      retweetCountsMap,
-      replyCountsMap,
+    const userTweetInteractions = await this.tweetsRepository.getUserTweetInteractions(
+      userId,
+      tweetIds,
     );
 
     return {
@@ -501,53 +444,47 @@ export class TimelineService {
   }
 
   /**
-   * This backfills multiple dynamic data entries to cache at once, from likeCounts, retweetCounts, replyCounts maps
-   * It also updates the complete maps with these counts, having the complete data (either already cached or after backfill)
-   * @param likeCounts
-   * @param retweetCounts
-   * @param replyCounts
+   * This gets the missing counts from DB
+   * @param missingCounts
    * @param likeCountsMap
    * @param retweetCountsMap
    * @param replyCountsMap
+   * @param tweets
    * @returns void
    */
   async backfillDynamicDataToCache(
-    likeCounts: Map<bigint, number>,
-    retweetCounts: Map<bigint, number>,
-    replyCounts: Map<bigint, number>,
+    missingCounts: bigint[],
     likeCountsMap: Map<bigint, number>,
     retweetCountsMap: Map<bigint, number>,
     replyCountsMap: Map<bigint, number>,
   ): Promise<void> {
     const backfillPipeline = this.redisClient.pipeline();
 
-    for (const [tweetId, count] of likeCounts.entries()) {
-      likeCountsMap.set(tweetId, count);
+    const missingCountsFromDB = await this.tweetsRepository.getTweetCounts(missingCounts);
+
+    for (const [tweetId, counts] of missingCountsFromDB.entries()) {
+      likeCountsMap.set(BigInt(tweetId), counts.likeCounts);
       backfillPipeline.set(
-        REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
-        count.toString(),
+        REDIS_TIMELINE_KEYS.getTweetLikesCountKey(BigInt(tweetId)),
+        counts.likeCounts.toString(),
         'EX',
         LIKE_COUNT_CACHE_TTL,
       );
-    }
 
-    for (const [tweetId, count] of retweetCounts.entries()) {
-      retweetCountsMap.set(tweetId, count);
+      retweetCountsMap.set(BigInt(tweetId), counts.retweetCounts);
       backfillPipeline.set(
-        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
-        count.toString(),
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(BigInt(tweetId)),
+        counts.retweetCounts.toString(),
         'EX',
         RETWEET_COUNT_CACHE_TTL,
       );
-    }
 
-    for (const [tweetId, count] of replyCounts.entries()) {
-      replyCountsMap.set(tweetId, count);
+      replyCountsMap.set(BigInt(tweetId), counts.replyCounts);
       backfillPipeline.set(
-        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
-        count.toString(),
+        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(BigInt(tweetId)),
+        counts.replyCounts.toString(),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
+        REPLIES_COUNT_CACHE_TTL,
       );
     }
 
@@ -650,16 +587,11 @@ export class TimelineService {
       const [authorErr, authorData] = authorsHydrationResults[i];
       const authorId = authorIds[i];
 
-      if (authorErr) {
+      if (authorErr || authorData === null) {
         missingAuthorIds.add(authorId);
-        continue;
-      }
-
-      if (authorData && typeof authorData === 'string') {
+      } else if (typeof authorData === 'string') {
         const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
         authorMap.set(authorId.toString(), authorDto);
-      } else {
-        missingAuthorIds.add(authorId);
       }
     }
 
@@ -718,8 +650,8 @@ export class TimelineService {
 
       const userInteractions = dynamicData.userTweetInteractions.get(BigInt(tweetIdStr));
 
-      const isLiked = userInteractions ? userInteractions.liked : false;
-      const isRetweeted = userInteractions ? userInteractions.retweeted : false;
+      const isLiked = userInteractions?.isLiked ?? false;
+      const isRetweeted = userInteractions?.isRetweeted ?? false;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { authorId, ...tweetWithoutAuthorId } = tweet; // remove authorId from tweet

@@ -12,7 +12,6 @@ import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorDto } from './dtos/compact-author.dto';
-import { DynamicDataFromCache } from './timeline/interfaces/DynamicDataFromCache.interface';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
@@ -834,79 +833,75 @@ export class TweetsRepository {
     }));
   }
 
-  async getTweetDynamicDataForUser(
-    missingLikeCounts: Array<bigint>,
-    missingRetweetCounts: Array<bigint>,
-    missingReplyCounts: Array<bigint>,
-    missingInteractionLikes: Array<bigint>,
-    missingInteractionRetweets: Array<bigint>,
-    userId: bigint,
-  ): Promise<DynamicDataFromCache> {
-    const likeCounts = new Map<bigint, number>();
-    const retweetCounts = new Map<bigint, number>();
-    const replyCounts = new Map<bigint, number>();
-    const userTweetInteractions = new Map<bigint, { liked: boolean; retweeted: boolean }>();
+  async getTweetCounts(
+    tweetIds: bigint[],
+  ): Promise<Map<string, { likeCounts: number; retweetCounts: number; replyCounts: number }>> {
+    if (tweetIds.length === 0) {
+      return new Map();
+    }
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        likeCount: true,
+        retweetCount: true,
+        replyCount: true,
+      },
+    });
 
-    // all can be done in one query
+    const countsMap = new Map<
+      string,
+      { likeCounts: number; retweetCounts: number; replyCounts: number }
+    >();
+    tweets.forEach((tweet) => {
+      countsMap.set(tweet.id.toString(), {
+        likeCounts: tweet.likeCount,
+        retweetCounts: tweet.retweetCount,
+        replyCounts: tweet.replyCount,
+      });
+    });
+
+    return countsMap;
+  }
+
+  async getUserTweetInteractions(
+    userId: bigint,
+    tweetIds: bigint[],
+  ): Promise<Map<bigint, { isLiked: boolean; isRetweeted: boolean }>> {
+    if (tweetIds.length === 0) {
+      return new Map();
+    }
+
     const results = await this.prisma.$queryRaw<
       Array<{
         tweet_id: bigint;
-        like_count: number;
-        retweet_count: number;
-        reply_count: number;
         is_liked: boolean;
         is_retweeted: boolean;
       }>
     >`
-      SELECT 
-        t.id AS tweet_id,
-        t.like_count,
-        t.retweet_count,
-        t.reply_count,
-        EXISTS (
-          SELECT 1 FROM likes l WHERE l.tweet_id = t.id AND l.user_id = ${userId}
-        ) AS is_liked,
-        EXISTS (
-          SELECT 1 FROM retweets r WHERE r.tweet_id = t.id AND r.user_id = ${userId}
-        ) AS is_retweeted
-      FROM tweets t
-      WHERE t.id = ANY(${[
-        ...new Set([
-          ...missingLikeCounts,
-          ...missingRetweetCounts,
-          ...missingInteractionLikes,
-          ...missingInteractionRetweets,
-        ]),
-      ]}::bigint[])
-    `;
+    SELECT 
+      t.id AS tweet_id,
+      EXISTS (
+        SELECT 1 FROM likes l WHERE l.tweet_id = t.id AND l.user_id = ${userId}
+      ) AS is_liked,
+      EXISTS (
+        SELECT 1 FROM retweets r WHERE r.tweet_id = t.id AND r.user_id = ${userId}
+      ) AS is_retweeted
+    FROM tweets t
+    WHERE t.id = ANY(${tweetIds}::bigint[]) AND t.is_deleted = false
+  `;
 
+    const interactionsMap = new Map();
     for (const row of results) {
-      const tweetId = row.tweet_id;
-
-      if (missingLikeCounts.includes(tweetId)) {
-        likeCounts.set(tweetId, Number(row.like_count));
-      }
-
-      if (missingRetweetCounts.includes(tweetId)) {
-        retweetCounts.set(tweetId, Number(row.retweet_count));
-      }
-
-      if (missingReplyCounts.includes(tweetId)) {
-        replyCounts.set(tweetId, Number(row.reply_count));
-      }
-
-      if (
-        missingInteractionLikes.includes(tweetId) ||
-        missingInteractionRetweets.includes(tweetId)
-      ) {
-        userTweetInteractions.set(tweetId, {
-          liked: row.is_liked,
-          retweeted: row.is_retweeted,
-        });
-      }
+      interactionsMap.set(BigInt(row.tweet_id), {
+        liked: row.is_liked,
+        retweeted: row.is_retweeted,
+      });
     }
-
-    return { likeCounts, retweetCounts, replyCounts, userTweetInteractions };
+    return interactionsMap;
   }
 
   async getTweetsByQuery(
