@@ -26,6 +26,7 @@ describe('MessagesService', () => {
           provide: ConversationsRepository,
           useValue: {
             getConversation: jest.fn(),
+            getConversationParticipants: jest.fn(),
           },
         },
         {
@@ -87,6 +88,10 @@ describe('MessagesService', () => {
         mediaUrl: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
+        reactionSender: null,
+        reactionSenderAt: null,
+        reactionReceiver: null,
+        reactionReceiverAt: null,
       },
       {
         id: BigInt(2),
@@ -98,11 +103,37 @@ describe('MessagesService', () => {
         mediaUrl: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
+        reactionSender: null,
+        reactionSenderAt: null,
+        reactionReceiver: null,
+        reactionReceiverAt: null,
       },
     ];
 
     it('should successfully retrieve messages for a valid conversation', async () => {
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(3),
+            username: 'tasneem',
+            profile: {
+              displayName: 'Tasneem',
+              avatarUrl: 'https://example.com/tasneem.jpg',
+            },
+          },
+        },
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: {
+              displayName: 'Layla',
+              avatarUrl: 'https://example.com/layla.jpg',
+            },
+          },
+        },
+      ] as any);
       messagesRepository.getMessages.mockResolvedValue(mockMessages);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
@@ -120,18 +151,20 @@ describe('MessagesService', () => {
         avatarUrl: 'https://example.com/tasneem.jpg',
       });
       expect(result.items.messages).toHaveLength(2);
-      expect(result.items.messages[0]).toEqual({
+      expect(result.items.messages[0]).toMatchObject({
         id: '1',
         content: 'Hello!',
         createdAt: mockMessages[0].createdAt,
         isMine: false,
       });
-      expect(result.items.messages[1]).toEqual({
+      expect(result.items.messages[0].reactions).toBeDefined();
+      expect(result.items.messages[1]).toMatchObject({
         id: '2',
         content: 'Hi there!',
         createdAt: mockMessages[1].createdAt,
         isMine: true,
       });
+      expect(result.items.messages[1].reactions).toBeDefined();
     });
 
     it('should handle participant with no display name', async () => {
@@ -150,6 +183,28 @@ describe('MessagesService', () => {
       };
 
       conversationsRepository.getConversation.mockResolvedValue(conversationWithoutProfile as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(3),
+            username: 'tasneem',
+            profile: {
+              displayName: '',
+              avatarUrl: null,
+            },
+          },
+        },
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: {
+              displayName: 'Layla',
+              avatarUrl: 'https://example.com/layla.jpg',
+            },
+          },
+        },
+      ] as any);
       messagesRepository.getMessages.mockResolvedValue(mockMessages);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
@@ -166,6 +221,28 @@ describe('MessagesService', () => {
       ).toString('base64');
 
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(3),
+            username: 'tasneem',
+            profile: {
+              displayName: 'Tasneem',
+              avatarUrl: 'https://example.com/tasneem.jpg',
+            },
+          },
+        },
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: {
+              displayName: 'Layla',
+              avatarUrl: 'https://example.com/layla.jpg',
+            },
+          },
+        },
+      ] as any);
       messagesRepository.getMessages.mockResolvedValue([mockMessages[0]]);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, cursor);
@@ -261,9 +338,35 @@ describe('MessagesService', () => {
         mediaUrl: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
+        reactionSender: null,
+        reactionSenderAt: null,
+        reactionReceiver: null,
+        reactionReceiverAt: null,
       }));
 
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
+      conversationsRepository.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(3),
+            username: 'tasneem',
+            profile: {
+              displayName: 'Tasneem',
+              avatarUrl: 'https://example.com/tasneem.jpg',
+            },
+          },
+        },
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: {
+              displayName: 'Layla',
+              avatarUrl: 'https://example.com/layla.jpg',
+            },
+          },
+        },
+      ] as any);
       messagesRepository.getMessages.mockResolvedValue(manyMessages);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
