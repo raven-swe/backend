@@ -40,7 +40,7 @@ describe('TweetsService', () => {
     getTimelineForUser: jest.fn(),
     getFeedSkeletonSQL: jest.fn(),
     hydrateTweetsInList: jest.fn(),
-    mapToTweetDto: jest.fn(),
+    mapToDetailedTweetDto: jest.fn(),
     getDetailedTweetById: jest.fn(),
     getTweetLikers: jest.fn(),
     getTweetRetweeters: jest.fn(),
@@ -1046,7 +1046,7 @@ describe('TweetsService', () => {
         mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToTweetDto
+        mockTweetsRepository.mapToDetailedTweetDto
           .mockReturnValueOnce(tweetDtos[0])
           .mockReturnValueOnce(tweetDtos[1]);
 
@@ -1067,7 +1067,7 @@ describe('TweetsService', () => {
         mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+        mockTweetsRepository.mapToDetailedTweetDto.mockReturnValue(tweetDtos[0]);
 
         const result = await service.getUserPosts(username, authUserId, limit, undefined);
 
@@ -1103,7 +1103,7 @@ describe('TweetsService', () => {
         mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToTweetDto.mockReturnValue(tweetDtos[0]);
+        mockTweetsRepository.mapToDetailedTweetDto.mockReturnValue(tweetDtos[0]);
 
         const result = await service.getUserPosts(username, authUserId, limit, undefined);
 
