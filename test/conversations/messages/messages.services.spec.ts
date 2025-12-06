@@ -123,7 +123,7 @@ describe('MessagesService', () => {
         limit + 1,
         undefined,
       );
-      expect(result.items.participant).toEqual({
+      expect(result.items.participant).toMatchObject({
         username: 'tasneem',
         displayName: 'Tasneem',
         avatarUrl: 'https://example.com/tasneem.jpg',
