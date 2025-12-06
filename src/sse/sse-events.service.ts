@@ -47,11 +47,17 @@ export class SseEventsService {
   async publishNewNotification(
     recieverId: bigint,
     notification: NotificationResponseDto,
+    updatedCount: number,
   ): Promise<void> {
     this.logger.log(`Publishing notification to user ${recieverId}`);
     await this.publisher.publishToUser(recieverId.toString(), {
       event: 'notifications.new',
       data: notification,
+    });
+
+    await this.publisher.publishToUser(recieverId.toString(), {
+      event: 'notifications.count_update',
+      data: { count: updatedCount },
     });
   }
 

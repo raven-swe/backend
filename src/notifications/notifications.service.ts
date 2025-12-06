@@ -41,6 +41,7 @@ export class NotificationsService {
     }
 
     const notification = await this.notificationsRepository.createNotification(options);
+    const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
 
     this.logger.log(
       `Created new notification with id ${notification.id} of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
@@ -48,7 +49,7 @@ export class NotificationsService {
 
     const dto = this.notificationsRepository.mapToNotificationDto(notification);
 
-    await this.sseEvents.publishNewNotification(options.receiverId, dto);
+    await this.sseEvents.publishNewNotification(options.receiverId, dto, count);
 
     this.logger.log(
       `Finished publishing new notification with id ${notification.id} to user ${options.receiverId}`,
