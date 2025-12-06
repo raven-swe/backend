@@ -143,7 +143,9 @@ export class ContentParsingService {
       this.logger.log(`Generated summary for tweet content`);
       return summary.trim();
     } catch (error) {
-      this.logger.error(`Failed to generate tweet summary: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to generate tweet summary: ${errorMessage}`, errorStack);
       throw new Error('Failed to generate tweet summary');
     }
   }
