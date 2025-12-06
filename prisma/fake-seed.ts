@@ -151,13 +151,12 @@ async function main() {
         blockedId: u.id,
       })),
   });
-
-  /* ------------ RUNNER ---------------- */
-  main()
-    .then(() => prisma.$disconnect())
-    .catch(async (e) => {
-      console.error('SEED FAILED:', e);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
 }
+/* ------------ RUNNER ---------------- */
+main()
+  .then(() => prisma.$disconnect())
+  .catch(async (e) => {
+    console.error('SEED FAILED:', e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
