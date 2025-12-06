@@ -106,4 +106,10 @@ export class TweetsController {
     const userId = BigInt(user.id);
     return await this.tweetsService.getTweetReplies(tweetId, userId, parsedLimit, cursor);
   }
+
+  @Get(':id/summary')
+  @UseGuards(JwtAuthGuard)
+  async getTweetSummary(@Param('id', ParseBigIntPipe) tweetId: bigint) {
+    return await this.tweetsService.getTweetSummary(tweetId);
+  }
 }

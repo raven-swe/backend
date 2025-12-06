@@ -43,6 +43,10 @@ export class RedisService {
     return this.redis.get(key);
   }
 
+  async getex(key: string, ttlSeconds: number): Promise<string | null> {
+    return this.redis.getex(key, 'EX', ttlSeconds);
+  }
+
   async del(key: string): Promise<number> {
     return this.redis.del(key);
   }
