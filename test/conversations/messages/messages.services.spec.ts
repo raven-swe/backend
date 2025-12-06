@@ -112,28 +112,6 @@ describe('MessagesService', () => {
 
     it('should successfully retrieve messages for a valid conversation', async () => {
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
-      conversationsRepository.getConversationParticipants.mockResolvedValue([
-        {
-          user: {
-            id: BigInt(3),
-            username: 'tasneem',
-            profile: {
-              displayName: 'Tasneem',
-              avatarUrl: 'https://example.com/tasneem.jpg',
-            },
-          },
-        },
-        {
-          user: {
-            id: BigInt(6),
-            username: 'layla',
-            profile: {
-              displayName: 'Layla',
-              avatarUrl: 'https://example.com/layla.jpg',
-            },
-          },
-        },
-      ] as any);
       messagesRepository.getMessages.mockResolvedValue(mockMessages);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
@@ -167,82 +145,12 @@ describe('MessagesService', () => {
       expect(result.items.messages[1].reactions).toBeDefined();
     });
 
-    it('should handle participant with no display name', async () => {
-      const conversationWithoutProfile = {
-        ...mockConversation,
-        conversationParticipants: [
-          mockConversation.conversationParticipants[0],
-          {
-            ...mockConversation.conversationParticipants[1],
-            user: {
-              ...mockConversation.conversationParticipants[1].user,
-              profile: null,
-            },
-          },
-        ],
-      };
-
-      conversationsRepository.getConversation.mockResolvedValue(conversationWithoutProfile as any);
-      conversationsRepository.getConversationParticipants.mockResolvedValue([
-        {
-          user: {
-            id: BigInt(3),
-            username: 'tasneem',
-            profile: {
-              displayName: '',
-              avatarUrl: null,
-            },
-          },
-        },
-        {
-          user: {
-            id: BigInt(6),
-            username: 'layla',
-            profile: {
-              displayName: 'Layla',
-              avatarUrl: 'https://example.com/layla.jpg',
-            },
-          },
-        },
-      ] as any);
-      messagesRepository.getMessages.mockResolvedValue(mockMessages);
-
-      const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
-
-      expect(result.items.participant).toEqual({
-        username: 'tasneem',
-        displayName: '',
-      });
-    });
-
     it('should handle cursor-based pagination', async () => {
       const cursor = Buffer.from(
         JSON.stringify({ messageId: '5', createdAt: '2024-01-01T00:00:00.000Z' }),
       ).toString('base64');
 
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
-      conversationsRepository.getConversationParticipants.mockResolvedValue([
-        {
-          user: {
-            id: BigInt(3),
-            username: 'tasneem',
-            profile: {
-              displayName: 'Tasneem',
-              avatarUrl: 'https://example.com/tasneem.jpg',
-            },
-          },
-        },
-        {
-          user: {
-            id: BigInt(6),
-            username: 'layla',
-            profile: {
-              displayName: 'Layla',
-              avatarUrl: 'https://example.com/layla.jpg',
-            },
-          },
-        },
-      ] as any);
       messagesRepository.getMessages.mockResolvedValue([mockMessages[0]]);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, cursor);
@@ -345,28 +253,6 @@ describe('MessagesService', () => {
       }));
 
       conversationsRepository.getConversation.mockResolvedValue(mockConversation as any);
-      conversationsRepository.getConversationParticipants.mockResolvedValue([
-        {
-          user: {
-            id: BigInt(3),
-            username: 'tasneem',
-            profile: {
-              displayName: 'Tasneem',
-              avatarUrl: 'https://example.com/tasneem.jpg',
-            },
-          },
-        },
-        {
-          user: {
-            id: BigInt(6),
-            username: 'layla',
-            profile: {
-              displayName: 'Layla',
-              avatarUrl: 'https://example.com/layla.jpg',
-            },
-          },
-        },
-      ] as any);
       messagesRepository.getMessages.mockResolvedValue(manyMessages);
 
       const result = await service.getMessagesInConversation(userId, conversationId, limit, '');
