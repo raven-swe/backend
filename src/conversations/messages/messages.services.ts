@@ -112,12 +112,13 @@ export class MessagesService {
       createdAt: item.createdAt.toISOString(),
     }));
 
-    const participants =
-      await this.conversationsRepository.getConversationParticipants(conversationId);
-
     const formattedMessagesWithReacts = formattedMessages.map((message) => {
-      const sender = participants.find((participant) => participant.user.id === message.userId);
-      const receiver = participants.find((participant) => participant.user.id !== message.userId);
+      const sender = conversation.conversationParticipants.find(
+        (participant) => participant.userId === message.userId,
+      );
+      const receiver = conversation.conversationParticipants.find(
+        (participant) => participant.userId !== message.userId,
+      );
       return {
         id: message.id,
         content: message.content,
@@ -145,7 +146,7 @@ export class MessagesService {
     const participant = plainToInstance(ParticipantDto, {
       username: otherParticipant.user.username,
       displayName: otherParticipant.user.profile?.displayName ?? '',
-      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString(),
+      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString() || null,
       avatarUrl: otherParticipant.user.profile?.avatarUrl,
     });
 
