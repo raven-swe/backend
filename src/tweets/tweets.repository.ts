@@ -240,9 +240,7 @@ export class TweetsRepository {
     });
   }
 
-  private mapToDetailedTweetDto(
-    tweet: DetailedTweetWithIncludes,
-  ): TweetDto & { replyToTweet?: TweetDto } {
+  mapToDetailedTweetDto(tweet: DetailedTweetWithIncludes): TweetDto & { replyToTweet?: TweetDto } {
     const baseTweet = this.mapToTweetDto(tweet);
 
     return {
@@ -684,6 +682,9 @@ export class TweetsRepository {
       include: {
         ...tweetInclude(authUserId),
         quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+        replyToTweet: {
           include: tweetInclude(authUserId),
         },
       },
