@@ -44,6 +44,10 @@ export class MessagesRepository {
         content: true,
         createdAt: true,
         userId: true,
+        reactionSender: true,
+        reactionReceiver: true,
+        reactionReceiverAt: true,
+        reactionSenderAt: true,
       },
     });
   }

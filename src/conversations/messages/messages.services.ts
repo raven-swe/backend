@@ -9,6 +9,7 @@ import {
 } from '../constants/conversation-constants';
 import { MessagesRepository } from './messages.repository';
 import { ParticipantDto, MessageDto } from './dtos';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 @Injectable()
 export class MessagesService {
@@ -96,15 +97,50 @@ export class MessagesService {
 
     const formattedMessages = messages.map((message) => ({
       id: message.id.toString(),
+      userId: message.userId,
       content: message.content,
       createdAt: message.createdAt,
       isMine: message.userId === userId,
+      reactionSender: message.reactionSender,
+      reactionReceiver: message.reactionReceiver,
+      reactionSenderAt: message.reactionSenderAt,
+      reactionReceiverAt: message.reactionReceiverAt,
     }));
 
     const pagination = paginateComposite(formattedMessages, limit, cursor, (item) => ({
       messageId: item.id,
       createdAt: item.createdAt.toISOString(),
     }));
+
+    const participants =
+      await this.conversationsRepository.getConversationParticipants(conversationId);
+
+    const formattedMessagesWithReacts = formattedMessages.map((message) => {
+      const sender = participants.find((participant) => participant.user.id === message.userId);
+      const receiver = participants.find((participant) => participant.user.id !== message.userId);
+      return {
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        isMine: message.userId === userId,
+        reactions: {
+          sender: {
+            username: sender!.user.username,
+            displayName: sender!.user.profile!.displayName,
+            avatarUrl: sender!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            reaction: message.reactionSender,
+            reactedAt: message.reactionSenderAt,
+          },
+          reciever: {
+            username: receiver!.user.username,
+            displayName: receiver!.user.profile!.displayName,
+            avatarUrl: receiver!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            reaction: message.reactionReceiver,
+            reactedAt: message.reactionReceiverAt,
+          },
+        },
+      };
+    });
 
     const participant = plainToInstance(ParticipantDto, {
       username: otherParticipant.user.username,
@@ -113,7 +149,7 @@ export class MessagesService {
       avatarUrl: otherParticipant.user.profile?.avatarUrl,
     });
 
-    const messagesDto = plainToInstance(MessageDto, formattedMessages);
+    const messagesDto = plainToInstance(MessageDto, formattedMessagesWithReacts);
 
     return { items: { participant, messages: messagesDto }, pagination };
   }

@@ -413,7 +413,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  @SubscribeMessage('reaction')
+  @SubscribeMessage('send_reaction')
   @UsePipes(new ValidationPipe({ transform: true }))
   async reactToMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: ReactionDto) {
     const data = client.data as {
@@ -494,6 +494,6 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     };
 
-    this.server.to(conversationId).emit('reaction', socketPayload);
+    this.server.to(conversationId).emit('reaction_received', socketPayload);
   }
 }
