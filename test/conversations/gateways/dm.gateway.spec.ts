@@ -685,7 +685,7 @@ describe('DmGateway', () => {
         payload.conversationId,
       );
       expect(mockServer.to).toHaveBeenCalledWith(payload.conversationId);
-      expect(mockServer.emit).toHaveBeenCalledWith('reaction', {
+      expect(mockServer.emit).toHaveBeenCalledWith('reaction_received', {
         conversationId: payload.conversationId,
         messageId: payload.messageId,
         reactions: {
