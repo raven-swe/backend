@@ -41,6 +41,7 @@ model User {
   userDevices              UserDevice[]
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
+  interests                String[]                  @default([])
 
   @@map("users")
 }
@@ -122,6 +123,7 @@ model Tweet {
   retweetCount   Int            @default(0) @map("retweet_count")
   replyCount     Int            @default(0) @map("reply_count")
   isDeleted      Boolean        @default(false) @map("is_deleted")
+  class          String?        @db.VarChar(50)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   likes          Like[]

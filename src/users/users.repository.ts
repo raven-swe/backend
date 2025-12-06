@@ -582,16 +582,6 @@ export class UsersRepository {
           ],
         },
       });
-
-      // Remove mute relationships in both directions
-      await tx.mute.deleteMany({
-        where: {
-          OR: [
-            { userId: userId, mutedId: blockedId },
-            { userId: blockedId, mutedId: userId },
-          ],
-        },
-      });
     });
   }
 
@@ -659,7 +649,7 @@ export class UsersRepository {
         },
       },
     });
-    return !!mute || (await this.isBlocked(userId, mutedId));
+    return !!mute;
   }
 
   async getUserBlocks(userId: bigint) {
@@ -979,6 +969,28 @@ export class UsersRepository {
     await this.prisma.user.update({
       where: { id: userId },
       data: { languageCode: language === 'AR' ? 'AR' : 'EN' },
+    });
+  }
+
+  async updateInterests(userId: bigint, interests: string[]) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user)
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { interests },
     });
   }
 
