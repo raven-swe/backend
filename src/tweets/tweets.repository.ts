@@ -97,14 +97,19 @@ export class TweetsRepository {
     userId: bigint,
     cursor: FeedCursor | undefined,
     limit: number | undefined,
-  ) {
+  ): Promise<
+    Array<{
+      id: bigint;
+      authorId: bigint;
+      createdAt: Date;
+      type: 'T' | 'R';
+      retweeterId: bigint | null;
+    }>
+  > {
     // get followed users
     const followedUnMutedUserIds = await this.prisma.follow.findMany({
       where: {
         followerId: userId,
-        followedUser: {
-          mutedBy: { none: { userId } },
-        },
       },
       select: { followedId: true },
     });
@@ -113,26 +118,59 @@ export class TweetsRepository {
     // The timeline consists of tweets from followed users plus the user's own tweets.
     const timelineUserIds = [...followedUserIds, userId];
 
-    const tweets = await this.prisma.tweet.findMany({
-      where: {
-        userId: { in: timelineUserIds },
-        isDeleted: false,
-        replyToTweetId: null,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        ...tweetInclude(userId),
-        quotedTweet: {
-          include: tweetInclude(userId),
-        },
-      },
-      cursor: cursor ? { createdAt: new Date(cursor.createdAt), id: BigInt(cursor.id) } : undefined, // id as a tiebreaker
-      take: limit || TIMELINE_MAX_SIZE,
-    });
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
 
-    return tweets.map((tweet) => this.mapToTweetDto(tweet));
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM created_at) * 1000, -- timestamp
+          id
+        ) < (${cursorTime}, ${cursorId})
+      `
+        : Prisma.sql``;
+
+    const timeline = await this.prisma.$queryRaw<
+      Array<{
+        id: bigint;
+        authorId: bigint;
+        createdAt: Date;
+        type: 'T' | 'R';
+        retweeterId: bigint | null;
+      }>
+    >`
+    SELECT * FROM (
+      SELECT 
+        id,
+        user_id as "authorId",
+        created_at as "createdAt",
+        'T'::text as type,
+        NULL::bigint as "retweeterId"
+      FROM tweets
+      WHERE user_id = ANY(${timelineUserIds}::bigint[])
+        AND is_deleted = false
+        AND reply_to_tweet_id IS NULL
+      
+      UNION ALL -- no duplicates will happen due to different columns, duplicates are handled in application layer
+      
+      SELECT 
+        r.tweet_id as id,
+        t.user_id as "authorId",
+        r.created_at as "createdAt",
+        'R'::text as type,
+        r.user_id as "retweeterId"
+      FROM retweets r
+      INNER JOIN tweets t ON r.tweet_id = t.id
+      WHERE r.user_id = ANY(${timelineUserIds}::bigint[])
+        AND t.is_deleted = false
+    ) AS combined_timeline
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "createdAt" DESC, id DESC
+    LIMIT ${limit || TIMELINE_MAX_SIZE}
+  `;
+
+    return timeline;
   }
 
   mapToTweetDto(tweet: TweetWithIncludes): TweetDto {

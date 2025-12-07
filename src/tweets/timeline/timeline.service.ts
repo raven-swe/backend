@@ -91,6 +91,7 @@ export class TimelineService {
 
   //FOR RETWEET ADD AN ACTION :R OR :T AFTER THE TWEETID IN THE TIMELINE SET MEMBER STRING TO INDICATE RETWEET OR REPLY,
   //filter to keep latest id only before passing keys to hydrate
+  //keep the action with the tweet map to know to add retweeter/reposter at the end
 
   async timelineCacheHit(
     userId: bigint,
@@ -105,16 +106,26 @@ export class TimelineService {
       return [];
     }
 
-    const items = await this.getIdsFromTimelineSet(userId, decodedCursor, limit);
-    if (!items || items.length === 0) {
+    const timelineObjects = await this.getIdsFromTimelineSet(userId, decodedCursor, limit);
+    if (!timelineObjects || timelineObjects.length === 0) {
       return [];
     }
+    const tempTimelineSet = new Set<string>();
+    const uniqueTimelineObjects = timelineObjects.reduce<string[]>((acc, item) => {
+      const tweetId = item.split(':')[1];
+      if (tempTimelineSet.has(tweetId)) return acc;
+
+      tempTimelineSet.add(tweetId);
+      acc.push(item);
+      return acc;
+    }, []);
 
     this.logger.debug(
-      `Hydrating static data for ${items.length} timeline items for user ID: ${userId}`,
+      `Hydrating static data for ${uniqueTimelineObjects.length} timeline timelineObjects for user ID: ${userId}`,
     );
+
     const { tweets, authors, missingTweetIds, missingAuthorIds } =
-      await this.hydrateStaticData(items);
+      await this.hydrateStaticData(uniqueTimelineObjects);
 
     this.logger.debug(
       `Backfilling ${missingTweetIds.length} tweets and ${missingAuthorIds.size} authors from DB for user ID: ${userId}`,
@@ -157,7 +168,7 @@ export class TimelineService {
     }
 
     // final assembly
-    return this.assembleTimelineTweets(items, tweets, authors, {
+    return this.assembleTimelineTweets(uniqueTimelineObjects, tweets, authors, {
       likeCounts,
       retweetCounts,
       replyCounts,
@@ -699,10 +710,13 @@ export class TimelineService {
     this.logger.debug(`Timeline cache miss for user ID: ${userId}, fetching from DB`);
 
     // Get the complete timeline from database
-    // TODO can be optimized to fetch only needed tweets and author ids IMPORTANT
-    const tweets = await this.tweetsRepository.getTimelineForUser(userId, decodedCursor, undefined);
+    const timelineInfo = await this.tweetsRepository.getTimelineForUser(
+      userId,
+      decodedCursor,
+      undefined, // to fill timeline cache
+    );
 
-    if (!tweets || tweets.length === 0) {
+    if (!timelineInfo || timelineInfo.length === 0) {
       // Set empty placeholder to avoid repeated DB hits
       await this.redisClient.setex(
         REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(userId),
@@ -714,29 +728,21 @@ export class TimelineService {
     }
 
     this.logger.debug(
-      `Fetched ${tweets.length} tweets from DB for user ID: ${userId}, populating cache`,
+      `Fetched ${timelineInfo.length} timeline items (tweets/retweets) from DB for user ID: ${userId}, populating cache`,
     );
 
     // Populate timeline cache with scored set (using createdAt as score)
     const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(userId);
     const timelinePipeline = this.redisClient.pipeline();
 
-    const tweetAuthors = new Set<bigint>();
-    const tweetIds = new Array<bigint>();
-
-    for (const tweet of tweets) {
-      const score = tweet.createdAt.getTime();
-      const member = `${tweet.author.id}:${tweet.id}`;
-      timelinePipeline.zadd(timelineKey, score, member);
-
-      tweetIds.push(BigInt(tweet.id));
-      tweetAuthors.add(BigInt(tweet.author.id));
-
-      // Handle quoted tweets
-      if (tweet.quotedTweet) {
-        tweetIds.push(BigInt(tweet.quotedTweet.id));
-        tweetAuthors.add(BigInt(tweet.quotedTweet.author.id));
-      }
+    for (const item of timelineInfo) {
+      const score = item.createdAt.getTime();
+      const timelineMember = REDIS_TIMELINE_KEYS.getTimelineItemKey(
+        item.authorId.toString(),
+        item.id.toString(),
+        item.type,
+      );
+      timelinePipeline.zadd(timelineKey, score, timelineMember);
     }
 
     // Set timeline TTL

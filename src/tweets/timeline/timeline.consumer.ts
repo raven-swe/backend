@@ -60,10 +60,7 @@ export class TimelineConsumer extends WorkerHost {
         return; // though this never happens, at least the author timeline key exists
       }
       const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
-      const compositeId =
-        actionType === 'T'
-          ? REDIS_TIMELINE_KEYS.getTimelineItemTweetKey(authorId, tweetId)
-          : REDIS_TIMELINE_KEYS.getTimelineItemRetweetKey(authorId, tweetId);
+      const compositeId = REDIS_TIMELINE_KEYS.getTimelineItemKey(authorId, tweetId, actionType);
 
       const writePipeline = this.redisClient.pipeline();
       for (const key of existingKeys) {
