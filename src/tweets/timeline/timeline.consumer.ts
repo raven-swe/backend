@@ -3,9 +3,16 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
-import { TweetFanoutJob } from './interfaces/TweetFanoutJob.interface';
+import { RetweetFanoutJob, TweetFanoutJob } from './interfaces/TweetFanoutJob.interface';
 import { TIMELINE_MAX_SIZE } from '../timeline/constants/timeline.constants';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+
+function isRetweetFanoutJob(
+  actionType: 'T' | 'R',
+  job: TweetFanoutJob | RetweetFanoutJob,
+): job is RetweetFanoutJob {
+  return actionType === 'R' && (job as RetweetFanoutJob).retweeterId !== undefined;
+}
 
 @Processor('timeline-following')
 export class TimelineConsumer extends WorkerHost {
@@ -26,7 +33,7 @@ export class TimelineConsumer extends WorkerHost {
         await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>, 'T');
         break;
       case 'fanout-retweet':
-        await this.fanoutTweetToTimelines(job as Job<TweetFanoutJob>, 'R');
+        await this.fanoutTweetToTimelines(job as Job<RetweetFanoutJob>, 'R');
         break;
       default:
         this.logger.warn(`Unknown job name: ${job.name} with id ${job.id}`);
@@ -38,9 +45,10 @@ export class TimelineConsumer extends WorkerHost {
   async fanoutTweetToTimelines(job: Job<TweetFanoutJob>, actionType: 'T' | 'R'): Promise<void> {
     try {
       const { tweetId, authorId, timestamp } = job.data;
-      this.logger.log(
-        `Processing timeline-following fanout job ${job.id} for tweet ${tweetId} by author ${authorId}`,
+      this.logger.debug(
+        `Processing timeline-following fanout job ${job.id} for tweet ${tweetId} by author ${authorId}, ${actionType === 'R' ? `retweeter ${(<RetweetFanoutJob>job.data).retweeterId}` : ''}`,
       );
+
       const followerIds: string[] = (await this.usersService.getFollowersIds(BigInt(authorId))).map(
         (id) => id.toString(),
       );
@@ -60,7 +68,13 @@ export class TimelineConsumer extends WorkerHost {
         return; // though this never happens, at least the author timeline key exists
       }
       const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
-      const compositeId = REDIS_TIMELINE_KEYS.getTimelineItemKey(authorId, tweetId, actionType);
+      const compositeId = isRetweetFanoutJob(actionType, job.data)
+        ? REDIS_TIMELINE_KEYS.getTimelineRetweetItem(
+            BigInt(authorId),
+            BigInt(tweetId),
+            BigInt(job.data.retweeterId),
+          )
+        : REDIS_TIMELINE_KEYS.getTimelineTweetItem(BigInt(authorId), BigInt(tweetId));
 
       const writePipeline = this.redisClient.pipeline();
       for (const key of existingKeys) {

@@ -125,7 +125,7 @@ export class TweetsRepository {
       cursor && cursorTime !== null
         ? Prisma.sql`
         AND (
-          EXTRACT(EPOCH FROM created_at) * 1000, -- timestamp
+          EXTRACT(EPOCH FROM "createdAt") * 1000, -- timestamp
           id
         ) < (${cursorTime}, ${cursorId})
       `

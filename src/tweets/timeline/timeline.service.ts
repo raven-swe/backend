@@ -58,8 +58,17 @@ export class TimelineService {
     if (timelineKeyExists) {
       timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
     } else {
-      await this.timelineCacheMiss(userId, decoded);
-      timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      // empty placeholder avoids the query on a cache miss, this gets removed on fanout of any new tweet/retweet
+      if (
+        await this.redisClient.exists(
+          REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(userId),
+        )
+      ) {
+        timeline = [];
+      } else {
+        await this.timelineCacheMiss(userId, decoded);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      }
     }
 
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
@@ -111,6 +120,7 @@ export class TimelineService {
       return [];
     }
     const tempTimelineSet = new Set<string>();
+    // keeps the latest action only per tweet id
     const uniqueTimelineObjects = timelineObjects.reduce<string[]>((acc, item) => {
       const tweetId = item.split(':')[1];
       if (tempTimelineSet.has(tweetId)) return acc;
@@ -226,22 +236,34 @@ export class TimelineService {
     const hydrationPipeline = this.redisClient.pipeline();
 
     for (const item of items) {
-      const [authorIdStr, tweetIdStr] = item.split(':');
+      const [authorIdStr, tweetIdStr, actionType, retweeterId] = item.split(':');
+
       tweetIds.push(BigInt(tweetIdStr));
       hydrationPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetStaticDataKey(BigInt(tweetIdStr)),
         'EX',
         TWEET_STATIC_DATA_CACHE_TTL,
       );
+
       authorIds.push(BigInt(authorIdStr));
       hydrationPipeline.getex(
         REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(authorIdStr)),
         'EX',
         AUTHOR_COMPACT_DATA_CACHE_TTL,
       );
+      // retweeter is a normal author to the cache
+      if (actionType === 'R' && retweeterId) {
+        authorIds.push(BigInt(retweeterId));
+        hydrationPipeline.getex(
+          REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(retweeterId)),
+          'EX',
+          AUTHOR_COMPACT_DATA_CACHE_TTL,
+        );
+      }
     }
 
     const hydrationResults = await hydrationPipeline.exec();
+    console.log(hydrationResults);
 
     if (hydrationResults === null) {
       // the case that triggers a null return NEVER happens, but for type safety
@@ -649,9 +671,10 @@ export class TimelineService {
     const timelineTweets = new Array<TweetDto>();
 
     for (const item of items) {
-      const [authorIdStr, tweetIdStr] = item.split(':');
+      const [authorIdStr, tweetIdStr, actionType] = item.split(':');
       const tweet = tweets.get(tweetIdStr);
       const author = authors.get(authorIdStr);
+      const retweeterId = actionType === 'R' ? item.split(':')[3] : null;
 
       if (!tweet || !author) {
         continue; // never happens
@@ -676,6 +699,7 @@ export class TimelineService {
         replyCount,
         isLiked,
         isRetweeted,
+        repostedBy: retweeterId ? authors.get(retweeterId) : undefined,
       };
 
       timelineTweets.push(tweetDto);
@@ -737,11 +761,9 @@ export class TimelineService {
 
     for (const item of timelineInfo) {
       const score = item.createdAt.getTime();
-      const timelineMember = REDIS_TIMELINE_KEYS.getTimelineItemKey(
-        item.authorId.toString(),
-        item.id.toString(),
-        item.type,
-      );
+      const timelineMember = item.retweeterId
+        ? REDIS_TIMELINE_KEYS.getTimelineRetweetItem(item.authorId, item.id, item.retweeterId)
+        : REDIS_TIMELINE_KEYS.getTimelineTweetItem(item.authorId, item.id);
       timelinePipeline.zadd(timelineKey, score, timelineMember);
     }
 

@@ -21,7 +21,7 @@ import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { CompactAuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
+import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
 @Injectable()
@@ -415,10 +415,11 @@ export class TweetsService {
     this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
 
     //dispatch retweet fanout job
-    const fanoutJob: TweetFanoutJob = {
+    const fanoutJob: RetweetFanoutJob = {
       tweetId: tweetId.toString(),
       authorId: tweet.userId.toString(),
       timestamp: Date.now(),
+      retweeterId: userId.toString(),
     };
 
     await this.timelineFollowingQueue.add('fanout-retweet', fanoutJob, {

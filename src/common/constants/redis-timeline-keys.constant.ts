@@ -5,8 +5,10 @@ export const REDIS_TIMELINE_KEYS = {
     return `timeline:${userId}`;
   },
 
-  getTimelineItemKey: (authorId: string, tweetId: string, type: 'T' | 'R'): string =>
-    `${authorId}:${tweetId}:${type}`,
+  getTimelineTweetItem: (authorId: bigint, tweetId: bigint): string => `${authorId}:${tweetId}:T`,
+
+  getTimelineRetweetItem: (authorId: bigint, tweetId: bigint, retweeterId: bigint): string =>
+    `${authorId}:${tweetId}:R:${retweeterId}`,
 
   getUserTimelineEmptyPlaceholderKey: (userId: bigint): string => `timeline:${userId}:empty`,
 
