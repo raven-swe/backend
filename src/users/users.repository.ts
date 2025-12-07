@@ -1331,6 +1331,19 @@ export class UsersRepository {
   }
 
   async toggleUserNotifications(userId: bigint, followedId: bigint, enable: boolean) {
+    if (enable) {
+      const isBlocked = await this.areUsersBlocked(userId, followedId);
+      if (isBlocked) {
+        throw new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER,
+          },
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
     return await this.prisma.follow.upsert({
       where: {
         followerId_followedId: { followerId: userId, followedId: followedId },
