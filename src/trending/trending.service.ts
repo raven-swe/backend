@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TrendingRepository } from './trending.repository';
 import { Prisma } from '@prisma/client';
 import { PlainHashtag } from 'src/tweets/interfaces';
+import { applyModelResults } from 'src/common/utils/compute-new-trend-scores.util';
+import { UpdateTrendScoresDto } from './dtos';
 
 @Injectable()
 export class TrendingService {
@@ -18,5 +20,10 @@ export class TrendingService {
     tx: Prisma.TransactionClient,
   ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
     return await this.TrendingRepository.createOrIncrementHashtags(hashtags, tx);
+  }
+
+  async updateTrendScores(data: UpdateTrendScoresDto): Promise<{ message: string }> {
+    await applyModelResults(data);
+    return { message: 'Trend scores updated successfully' };
   }
 }
