@@ -524,19 +524,13 @@ export class AuthService {
   private generateRefreshTokenWithExpiry(expiryInDays: number) {
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const expiresAt = new Date();
-    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
     expiresAt.setDate(expiresAt.getDate() + expiryInDays);
     return { refreshToken, hashedRefreshToken, expiresAt };
   }
 
-  private hashStringDeterministic(str: string) {
-    const hash = crypto.createHash('sha256');
-    hash.update(str);
-    return hash.digest('hex');
-  }
-
   async refreshAccessToken(refreshToken: string) {
-    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
     const oldToken = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
 
     if (!oldToken) {
@@ -565,14 +559,14 @@ export class AuthService {
   }
 
   async logout(userId: bigint, refreshToken: string, fcmToken?: string) {
-    const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
+    const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
     const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
     if (token) {
       await this.prisma.$transaction(async (tx) => {
         await this.refreshTokensService.deleteTokensById(token.id, tx);
         this.logger.log(`Refresh token with ID: ${token.id} deleted during logout`);
 
-        await this.sessionService.deleteSessionById(token.sessionId!, tx);
+        await this.sessionService.deleteSessionById(token.sessionId, tx);
         this.logger.log(`Session with ID: ${token.sessionId} deleted during logout`);
         if (fcmToken) {
           await this.devicesService.unassignDeviceFromUser(fcmToken, tx);

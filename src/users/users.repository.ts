@@ -10,19 +10,22 @@ import {
   UserProfileResponseDto,
   UserRelationshipDto,
 } from './dtos';
-import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 
 @Injectable()
 export class UsersRepository {
   private readonly logger = new Logger(UsersRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly refreshTokensService: RefreshTokensService,
+  ) {}
 
   async findByEmail(email: string) {
     return await this.prisma.user.findUnique({ where: { email } });
@@ -683,6 +686,11 @@ export class UsersRepository {
             createdAt: 'asc',
           },
         },
+        sessions: {
+          orderBy: {
+            lastSeenAt: 'asc',
+          },
+        },
         country: {
           select: {
             name: true,
@@ -727,7 +735,7 @@ export class UsersRepository {
       username: user.username,
       email: user.email,
       accountCreationDate: user.createdAt,
-      accountCreationIp: user.userDevices[0].ipAddress, // workaround as we currently don't store the original ip address of a user
+      accountCreationIp: user.userDevices[0]?.ipAddress || user.sessions[0]?.ipAddress || '0.0.0.0', // workaround as we currently don't store the original ip address of a user
       country: user.country?.name || null,
       languages: [user.languageCode],
       gender: user.gender,
@@ -994,23 +1002,6 @@ export class UsersRepository {
     });
   }
 
-  private hashStringDeterministic(str: string) {
-    const hash = crypto.createHash('sha256');
-    hash.update(str);
-    return hash.digest('hex');
-  }
-
-  private async getTokenByHash(hash: string) {
-    return await this.prisma.refreshToken.findUnique({
-      where: {
-        tokenHash: hash,
-      },
-      include: {
-        userDevice: true,
-      },
-    });
-  }
-
   async getSessions(userId: bigint, refreshToken: string) {
     const user = await this.prisma.user.findUnique({
       where: {
@@ -1027,32 +1018,29 @@ export class UsersRepository {
         HttpStatus.NOT_FOUND,
       );
 
-    let currentDeviceId: bigint | null = null;
+    let currentSessionId: bigint | null = null;
 
     try {
-      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-      const token = await this.getTokenByHash(hashedRefreshToken);
+      const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
+      const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
       if (token && token.expiresAt >= new Date()) {
-        currentDeviceId = token.deviceId;
+        currentSessionId = token.sessionId;
       }
     } catch {
-      this.logger.warn('Failed to identify current device from refresh token');
+      this.logger.warn('Failed to identify current session from refresh token');
     }
 
-    const userSessions = await this.prisma.userDevice.findMany({
-      where: { userId: userId },
-      orderBy: { lastUsedAt: 'desc' },
+    const userSessions = await this.prisma.session.findMany({
+      where: { userId },
+      orderBy: { lastSeenAt: 'desc' },
     });
 
-    const filteredSessions = userSessions.map((session) => {
-      return {
-        id: session.id.toString(),
-        deviceType: session.deviceType,
-        lastActive: session.lastUsedAt,
-        isCurrent: currentDeviceId ? session.id === currentDeviceId : false,
-      };
-    });
-
+    const filteredSessions = userSessions.map((session) => ({
+      id: session.id.toString(),
+      deviceType: session.userAgent,
+      lastActive: session.lastSeenAt,
+      isCurrent: currentSessionId ? session.id === currentSessionId : false,
+    }));
     this.logger.log(`Getting sessions for ${user.username}`);
 
     return filteredSessions;
@@ -1064,7 +1052,7 @@ export class UsersRepository {
         id: userId,
       },
       include: {
-        userDevices: {
+        sessions: {
           select: {
             id: true,
           },
@@ -1081,19 +1069,19 @@ export class UsersRepository {
         HttpStatus.NOT_FOUND,
       );
 
-    let currentDeviceId: bigint | null = null;
+    let currentSessionId: bigint | null = null;
 
     try {
-      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-      const token = await this.getTokenByHash(hashedRefreshToken);
+      const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
+      const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
       if (token && token.expiresAt >= new Date()) {
-        currentDeviceId = token.deviceId;
+        currentSessionId = token.sessionId;
       }
     } catch {
-      this.logger.warn('Failed to identify current device from refresh token');
+      this.logger.warn('Failed to identify current session from refresh token');
     }
 
-    if (currentDeviceId === sessionId)
+    if (currentSessionId === sessionId)
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.CANNOT_DELETE_CURRENT_SESSION,
@@ -1101,7 +1089,7 @@ export class UsersRepository {
         },
         HttpStatus.FORBIDDEN,
       );
-    const sessionToBeDeleted = user.userDevices.find((device) => device.id === sessionId);
+    const sessionToBeDeleted = user.sessions.find((session) => session.id === sessionId);
 
     if (!sessionToBeDeleted)
       throw new HttpException(
@@ -1113,10 +1101,10 @@ export class UsersRepository {
       );
 
     await this.prisma.refreshToken.deleteMany({
-      where: { deviceId: sessionToBeDeleted.id },
+      where: { sessionId: sessionToBeDeleted.id },
     });
 
-    await this.prisma.userDevice.delete({
+    await this.prisma.session.delete({
       where: { id: sessionToBeDeleted.id },
     });
 
