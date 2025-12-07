@@ -13,7 +13,6 @@ import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
 import { PeopleSearchFilter } from 'src/search/dtos';
-import { ro } from '@faker-js/faker';
 const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
