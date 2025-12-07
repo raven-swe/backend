@@ -2102,34 +2102,3 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }
-
-@tag("Devices")
-@route("/devices")
-@useAuth(BearerAuth)
-namespace Devices {
-  @post
-  @summary("Register a device for push notifications")
-  op registerDevice(
-    @body body: {
-      fcmToken: string;
-    },
-  ):
-    | MessageCreatedResponse<"Device registered successfully for push notifications.">
-    | ValidationErrorResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-
-  @put
-  @route("toggle-push")
-  @summary("Enable or disable push notifications for the device")
-  op togglePushNotifications(
-    @body body: {
-      fcmToken: string;
-      enable: boolean;
-    },
-  ):
-    | MessageResponse<"Push notifications enabled/disabled successfully.">
-    | ValidationErrorResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
-}
