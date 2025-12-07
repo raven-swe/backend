@@ -357,7 +357,6 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
-
 }
 
 @doc("Author metadata for tweets with relationship status")
@@ -384,12 +383,11 @@ model UserMetadataWithFollowInfo {
   isFollowing: boolean | null;
 }
 
-model UserMetadataWithFollowing{
+model UserMetadataWithFollowing {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean;
-
 }
 
 @doc("User metadata with biography information")
@@ -845,6 +843,14 @@ model TopSuggestedUsers {
 model AllMatchingUsers {
   @doc("Paginated list of all matching users (default 20 per page)")
   users: UserMetadataWithFollowInfo[];
+}
+
+model SearchUser {
+  ...UserMetadata;
+  bio: string | null;
+  bioEntities: BioEntities | null;
+  bannerUrl: string | null;
+  relationship: UserRelationship;
 }
 
 model TopHashtags {
@@ -2146,7 +2152,7 @@ namespace Search {
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<AllMatchingUsers>
+    | DataResponseWithPagination<SearchUser>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
