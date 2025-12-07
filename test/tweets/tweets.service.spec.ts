@@ -10,6 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
@@ -76,6 +77,13 @@ describe('TweetsService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitTweetCreated: jest.fn(),
+    emitTweetLiked: jest.fn(),
+    emitTweetRetweeted: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -105,6 +113,8 @@ describe('TweetsService', () => {
           useValue: {
             add: jest.fn(),
           },
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     }).compile();
@@ -1712,6 +1722,7 @@ describe('TweetsService', () => {
               add: jest.fn(),
             },
           },
+          { provide: DomainEventsService, useValue: mockDomainEventsService },
         ],
       }).compile();
 

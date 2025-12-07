@@ -67,7 +67,9 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
     const userConnections = this.connections.get(userId);
     if (!userConnections) return;
 
-    const eventName = (event as Record<string, string>)['event'] || '';
+    const rawEventName = (event as Record<string, string | number>)['event'];
+    const eventName = rawEventName ? String(rawEventName) : '';
+
     const eventTopic = eventName.split('.')[0];
 
     userConnections.forEach((connection) => {

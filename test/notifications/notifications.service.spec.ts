@@ -1,9 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { NotificationsService } from 'src/notifications/notifications.service';
-import { NotificationsRepository } from 'src/notifications/notifications.repository';
-import { TweetsRepository } from 'src/tweets/tweets.repository';
+import {
+  NotificationsRepository,
+  NotificationWithDetails,
+} from 'src/notifications/notifications.repository';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
+import { SseEventsService } from 'src/sse/sse-events.service';
+import { UsersRepository } from 'src/users/users.repository';
+import { getQueueToken } from '@nestjs/bullmq';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -15,10 +20,18 @@ describe('NotificationsService', () => {
     markAsSeen: jest.fn(),
     getUnseenCount: jest.fn(),
     getNotifications: jest.fn(),
+    mapToNotificationDto: jest.fn(),
   };
 
-  const mockTweetsRepository: jest.Mocked<Partial<TweetsRepository>> = {
-    mapToTweetDto: jest.fn(),
+  const mockSseEventsService: jest.Mocked<Partial<SseEventsService>> = {
+    publishNewNotification: jest.fn(),
+    publishNotificationSeen: jest.fn(),
+  };
+  const mockUsersRepository: jest.Mocked<Partial<UsersRepository>> = {
+    isBlocked: jest.fn(),
+  };
+  const mockNotificationsQueue = {
+    add: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -27,7 +40,9 @@ describe('NotificationsService', () => {
       providers: [
         NotificationsService,
         { provide: NotificationsRepository, useValue: mockNotificationsRepository },
-        { provide: TweetsRepository, useValue: mockTweetsRepository },
+        { provide: SseEventsService, useValue: mockSseEventsService },
+        { provide: UsersRepository, useValue: mockUsersRepository },
+        { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
       ],
     }).compile();
 
@@ -40,7 +55,7 @@ describe('NotificationsService', () => {
 
   describe('trigger', () => {
     it('should create a notification if none exists and actorId != receiverId', async () => {
-      const mockNotification = { actorId: '1', receiverId: '2', type: 'LIKE' };
+      const mockNotification = { id: 10n, actorId: 1n, receiverId: 2n, type: 'LIKE' };
       (mockNotificationsRepository.findExisting as jest.Mock).mockResolvedValue(null);
       (mockNotificationsRepository.createNotification as jest.Mock).mockResolvedValue(
         mockNotification,
@@ -177,12 +192,36 @@ describe('NotificationsService', () => {
     };
 
     beforeEach(() => {
-      (mockTweetsRepository.mapToTweetDto as jest.Mock).mockImplementation(
-        (tweet: { id: bigint; content: string; userId: bigint }) => ({
-          id: tweet.id.toString(),
-          content: tweet.content,
-          userId: tweet.userId.toString(),
-        }),
+      (mockNotificationsRepository.mapToNotificationDto as jest.Mock).mockImplementation(
+        (notification: NotificationWithDetails) => {
+          return {
+            id: notification.id.toString(),
+            type: notification.type,
+            actorSummary: {
+              totalCount: 1,
+              previewActors: [
+                {
+                  username: notification.actor.username,
+                  displayName: notification.actor.profile?.displayName,
+                  avatarUrl: notification.actor.profile?.avatarUrl,
+                },
+              ],
+            },
+            tweetSummary:
+              notification.type === 'FOLLOW'
+                ? { totalCount: 0, subjectIds: [], primaryTweet: null }
+                : {
+                    totalCount: 1,
+                    subjectIds: [notification.tweet?.id.toString()],
+                    primaryTweet: {
+                      id: notification.tweet?.id.toString(),
+                      content: notification.tweet?.content,
+                      userId: notification.tweet?.userId.toString(),
+                    },
+                  },
+            isSeen: notification.seen,
+          };
+        },
       );
     });
 
@@ -348,7 +387,7 @@ describe('NotificationsService', () => {
         subjectIds: [],
         primaryTweet: null,
       });
-      expect(mockTweetsRepository.mapToTweetDto).not.toHaveBeenCalled();
+      // expect(mockTweetsRepository.mapToTweetDto).not.toHaveBeenCalled();
     });
 
     it('should handle empty notifications list', async () => {
@@ -385,16 +424,6 @@ describe('NotificationsService', () => {
         avatarUrl: null,
         isFollowing: true,
       });
-    });
-
-    it('should properly map tweet when present', async () => {
-      (mockNotificationsRepository.getNotifications as jest.Mock).mockResolvedValue([
-        mockNotification,
-      ]);
-
-      await service.getNotifications(userId);
-
-      expect(mockTweetsRepository.mapToTweetDto).toHaveBeenCalledWith(mockNotification.tweet);
     });
   });
 });
