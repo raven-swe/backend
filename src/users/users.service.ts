@@ -1032,7 +1032,8 @@ export class UsersService {
    */
   async getFollowersIds(userId: bigint): Promise<bigint[]> {
     return await this.usersRepository.getFollowersUnPaginated(userId);
-    
+  }
+
   async enableUserNotifications(userId: bigint, username: string) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { TweetsController } from './tweets.controller';
+import { TimelineController } from './timeline/timeline.controller';
+import { TimelineService } from './timeline/timeline.service';
 import { TweetsRepository } from './tweets.repository';
 import { UsersModule } from 'src/users/users.module';
 import { ProfileTweetsController } from './profile-tweets.controller';
@@ -19,7 +21,7 @@ import { BullModule } from '@nestjs/bullmq';
       name: 'timeline-following',
     }),
   ],
-  providers: [TweetsService, TweetsRepository],
+  providers: [TweetsService, TweetsRepository, TimelineService],
   controllers: [TweetsController, TimelineController, ProfileTweetsController],
   exports: [TweetsService, TweetsRepository],
 })
