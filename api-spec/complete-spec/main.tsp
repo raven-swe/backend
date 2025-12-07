@@ -358,8 +358,6 @@ model UserMetadata {
   @doc("URL to the user's avatar image")
   avatarUrl: string;
 
-  @doc("Is the user followed by the current logged-in user")
-  isFollowing?: boolean;
 }
 
 @doc("Author metadata for tweets with relationship status")
@@ -372,6 +370,8 @@ model TweetAuthor {
   @doc("True if the current user has muted this author")
   isMuted: boolean;
 
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
 }
 
 model UserMetadataWithFollowInfo {
@@ -379,6 +379,17 @@ model UserMetadataWithFollowInfo {
 
   @doc("Is the user following the current logged-in user")
   isFollower: boolean | null;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean | null;
+}
+
+model UserMetadataWithFollowing{
+  ...UserMetadata;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean;
+
 }
 
 @doc("User metadata with biography information")
@@ -684,7 +695,7 @@ enum NotificationFilter {
 model NotificationActorSummary {
   @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
   @maxItems(3)
-  previewActors: UserMetadata[];
+  previewActors: UserMetadataWithFollowing[];
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
