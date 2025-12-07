@@ -11,7 +11,7 @@ import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { CachedStaticTweet } from './interfaces/cached-static-tweet';
-import { CompactAuthorDto } from './dtos/compact-author.dto';
+import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
@@ -177,7 +177,6 @@ export class TweetsRepository {
     return {
       id: tweet.id.toString(),
       author: {
-        id: tweet.user.id.toString(),
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl,
@@ -842,7 +841,7 @@ export class TweetsRepository {
     }));
   }
 
-  async getCompactAuthorsByIds(authorIds: Set<bigint>): Promise<CompactAuthorDto[]> {
+  async getCompactAuthorsByIds(authorIds: Set<bigint>): Promise<CompactAuthorWithId[]> {
     if (authorIds.size === 0) {
       return [];
     }

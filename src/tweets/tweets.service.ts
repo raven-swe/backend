@@ -227,7 +227,6 @@ export class TweetsService {
     return {
       id: tweet.id.toString(),
       author: {
-        id: compactAuthorDto.id,
         username: compactAuthorDto.username,
         displayName: compactAuthorDto.displayName,
         avatarUrl: compactAuthorDto.avatarUrl,

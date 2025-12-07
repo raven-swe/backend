@@ -8,7 +8,7 @@ import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants';
-import { TweetDto, CompactAuthorDto } from '../dtos';
+import { TweetDto, CompactAuthorWithId } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
   LIKE_COUNT_CACHE_TTL,
@@ -229,7 +229,7 @@ export class TimelineService {
     const tweetIds = new Array<bigint>();
     const authorIds = new Array<bigint>();
     const tweetsMap = new Map<string, CachedStaticTweet>();
-    const authorsMap = new Map<string, CompactAuthorDto>();
+    const authorsMap = new Map<string, CompactAuthorWithId>();
     const missingTweetIds = new Array<bigint>();
     const missingAuthorIds = new Set<bigint>();
 
@@ -302,7 +302,7 @@ export class TimelineService {
       if (authorErr || authorData === null) {
         missingAuthorIds.add(itemInfo.authorId);
       } else if (typeof authorData === 'string') {
-        const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
+        const authorDto: CompactAuthorWithId = JSON.parse(authorData) as CompactAuthorWithId;
         authorsMap.set(itemInfo.authorId.toString(), authorDto);
       }
 
@@ -312,7 +312,9 @@ export class TimelineService {
         if (retweeterErr || retweeterData === null) {
           missingAuthorIds.add(itemInfo.retweeterId);
         } else if (typeof retweeterData === 'string') {
-          const retweeterDto: CompactAuthorDto = JSON.parse(retweeterData) as CompactAuthorDto;
+          const retweeterDto: CompactAuthorWithId = JSON.parse(
+            retweeterData,
+          ) as CompactAuthorWithId;
           authorsMap.set(itemInfo.retweeterId.toString(), retweeterDto);
         }
       }
@@ -341,7 +343,7 @@ export class TimelineService {
     missingAuthorIds: Set<bigint>,
   ): Promise<{
     tweets: CachedStaticTweet[];
-    authors: CompactAuthorDto[];
+    authors: CompactAuthorWithId[];
   }> {
     if (missingTweetIds.length === 0 && missingAuthorIds.size === 0) {
       return {
@@ -550,10 +552,10 @@ export class TimelineService {
    */
   async hydrateStaticQuoteData(quoteTweetIds: string[]): Promise<{
     tweets: Map<string, CachedStaticTweet>;
-    authors: Map<string, CompactAuthorDto>;
+    authors: Map<string, CompactAuthorWithId>;
   }> {
     const tweetsMap = new Map<string, CachedStaticTweet>();
-    const authorMap = new Map<string, CompactAuthorDto>();
+    const authorMap = new Map<string, CompactAuthorWithId>();
     const authorIds = new Array<bigint>();
     const missingTweetIds = new Array<bigint>();
 
@@ -643,7 +645,7 @@ export class TimelineService {
       if (authorErr || authorData === null) {
         missingAuthorIds.add(authorId);
       } else if (typeof authorData === 'string') {
-        const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
+        const authorDto: CompactAuthorWithId = JSON.parse(authorData) as CompactAuthorWithId;
         authorMap.set(authorId.toString(), authorDto);
       }
     }
@@ -683,7 +685,7 @@ export class TimelineService {
   assembleTimelineTweets(
     items: string[],
     tweets: Map<string, CachedStaticTweet>,
-    authors: Map<string, CompactAuthorDto>,
+    authors: Map<string, CompactAuthorWithId>,
     dynamicData: DynamicDataFromCache,
   ): TweetDto[] {
     const timelineTweets = new Array<TweetDto>();
@@ -693,6 +695,7 @@ export class TimelineService {
       const tweet = tweets.get(tweetIdStr);
       const author = authors.get(authorIdStr);
       const retweeterId = actionType === 'R' ? item.split(':')[3] : null;
+      const retweeter = retweeterId ? authors.get(retweeterId) : undefined;
 
       if (!tweet || !author) {
         continue; // never happens
@@ -707,17 +710,25 @@ export class TimelineService {
       const isLiked = userInteractions?.isLiked ?? false;
       const isRetweeted = userInteractions?.isRetweeted ?? false;
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      /* eslint-disable @typescript-eslint/no-unused-vars */
       const { authorId, ...tweetWithoutAuthorId } = tweet; // remove authorId from tweet
+      const { id, ...authorWithoutId } = author; // remove id from author dto
+      /* eslint-enable @typescript-eslint/no-unused-vars */
+
       const tweetDto: TweetDto = {
         ...tweetWithoutAuthorId,
-        author,
+        author: authorWithoutId,
         likeCount,
         retweetCount,
         replyCount,
         isLiked,
         isRetweeted,
-        repostedBy: retweeterId ? authors.get(retweeterId) : undefined,
+        repostedBy: retweeter
+          ? {
+              username: retweeter.username,
+              displayName: retweeter.displayName,
+            }
+          : undefined,
       };
 
       timelineTweets.push(tweetDto);
