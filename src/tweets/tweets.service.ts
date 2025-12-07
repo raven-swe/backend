@@ -25,6 +25,7 @@ import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/c
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
 
 @Injectable()
 export class TweetsService {
@@ -34,6 +35,7 @@ export class TweetsService {
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
+    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
   ) {}
@@ -104,6 +106,32 @@ export class TweetsService {
       mediaIds,
     );
 
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
+
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
+
+    // If this tweet is a reply, set the rootTweetId to the referenced tweet's rootTweetId (if it exists)
+    // otherwise set it to the referenced tweet's ID
+    let rootTweetId: bigint | null = null;
+    if (createTweetDto.replyToTweetId && referencedTweet) {
+      rootTweetId = referencedTweet.rootTweetId
+        ? BigInt(referencedTweet.rootTweetId)
+        : BigInt(createTweetDto.replyToTweetId);
+    }
+
     const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
       const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
         createTweetDto.content,
@@ -117,6 +145,7 @@ export class TweetsService {
           ? BigInt(createTweetDto.replyToTweetId)
           : null,
         quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
+        rootTweetId,
         Mentions: mentions.map((mention) => ({
           userId: mention.userId,
           startPosition: mention.startPosition,
@@ -149,23 +178,6 @@ export class TweetsService {
 
       return { tweet, mentions, hashtags };
     });
-
-    const mediaObjectsPromise =
-      mediaIds.length > 0
-        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
-        : Promise.resolve([]);
-    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
-    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
-    const referencedTweetPromise = referencedTweetId
-      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
-      : Promise.resolve(undefined);
-    // I know this probably confilcts with "nested replies"
-
-    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
-      mediaObjectsPromise,
-      authorDtoPromise,
-      referencedTweetPromise,
-    ]);
 
     return this.formatTweetDto(
       tweet,
@@ -243,8 +255,11 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
-      
+      rootTweetId: createTweetDto.replyToTweetId
+        ? (referencedTweet?.rootTweetId ?? createTweetDto.replyToTweetId)
+        : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
+      replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
   }
 

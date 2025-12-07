@@ -185,6 +185,7 @@ export class TweetsRepository {
         content: tweetData.content,
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
+        rootTweetId: tweetData.rootTweetId ?? null,
         hasMentions: tweetData.Mentions.length > 0,
         hasHashtags: tweetData.Hashtags.length > 0,
         tweetMentions: {

@@ -361,6 +361,7 @@ async function main() {
       userId: 2,
       content: 'Totally agree! The module system keeps everything so clean. @anasbrahim',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 4, startPosition: 60 }],
@@ -373,6 +374,7 @@ async function main() {
       userId: 1,
       content: 'How are you handling authentication? Passport.js strategies? #auth',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
         create: [{ hashtagId: authHashtag.id, startPosition: 61 }],
@@ -385,6 +387,7 @@ async function main() {
       userId: 4,
       content: 'Yep, using passport-jwt. It integrated surprisingly easily. Thanks @OmarHassan!',
       replyToTweetId: omarHReply1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 1, startPosition: 66 }],
@@ -397,6 +400,7 @@ async function main() {
       userId: 8,
       content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       tweetMedia: {
         create: [{ mediaId: media6.id, order: 0 }],
       },
@@ -441,6 +445,7 @@ async function main() {
       userId: 3,
       content: 'Omg where is this?? Looks incredible! @Layla tag me next time!',
       replyToTweetId: laylaTweet1.id,
+      rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 6, startPosition: 38 }],
@@ -453,6 +458,7 @@ async function main() {
       userId: 12,
       content: 'Koshary is life! Adding to my list. 😍',
       replyToTweetId: laylaTweet1.id,
+      rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
     },
   });
 
@@ -490,6 +496,7 @@ async function main() {
       userId: 11,
       content: 'ISP woes unite us all. Time for Starlink? 🚀',
       replyToTweetId: karimTweet1.id,
+      rootTweetId: karimTweet1.rootTweetId || karimTweet1.id,
     },
   });
 
@@ -526,6 +533,7 @@ async function main() {
       userId: 9,
       content: 'Figma all the way, but user testing is overrated sometimes. @FatmaDesign',
       replyToTweetId: fatmaTweet1.id,
+      rootTweetId: fatmaTweet1.rootTweetId || fatmaTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 12, startPosition: 60 }],

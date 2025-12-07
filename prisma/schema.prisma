@@ -136,8 +136,9 @@ model Tweet {
   quotedTweet    Tweet?         @relation("tweets_quoted_tweet_idTotweets", fields: [quotedTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quotes         Tweet[]        @relation("tweets_quoted_tweet_idTotweets")
   replyToTweet   Tweet?         @relation("tweets_reply_to_tweet_idTotweets", fields: [replyToTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  rootTweet      Tweet?         @relation("tweets_root_tweet_idTotweets", fields: [rootTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies        Tweet[]        @relation("tweets_reply_to_tweet_idTotweets")
+  rootTweet      Tweet?         @relation("tweets_root_tweet_idTotweets", fields: [rootTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  threadTweets    Tweet[]       @relation("tweets_root_tweet_idTotweets")
   user           User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([rootTweetId], map: "tweets_root_tweet_id_idx")
