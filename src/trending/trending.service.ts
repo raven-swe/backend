@@ -25,6 +25,10 @@ export class TrendingService {
   }
 
   async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
     const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
     return hashtags;
   }

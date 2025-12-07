@@ -371,7 +371,6 @@ model TweetAuthor {
 
   @doc("True if the current user has muted this author")
   isMuted: boolean;
-
 }
 
 model UserMetadataWithFollowInfo {
@@ -1675,8 +1674,11 @@ namespace Me {
     @route("/interests")
     @summary("Get all available interests with user selection status")
     @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
-    op getInterests(
-    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+    op getInterests():
+      | DataResponse<Interest[]>
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
 
     @put
     @route("/interests")
@@ -2083,6 +2085,21 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @summary("Get suggested users from following/follower list, used in mentions")
+  @get
+  @route("/users/suggestions")
+  op getUserSuggestions(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Get all users matching the search query - returns paginated user results")
   @get
   @route("/users")
@@ -2099,6 +2116,7 @@ namespace Search {
     | InternalServerErrorResponse;
 
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @doc("Supports searching by a normal text or hashtags")
   @get
   @route("/tweets")
   op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
@@ -2131,25 +2149,29 @@ namespace Explore {
   @route("/trending")
   @summary("Get trending hashtags/keywords across all categories")
   @doc("Returns top trending hashtags/keywords globally, ordered by trending score")
-  op getTrendingHashtags(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getTrendingHashtags(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/news")
   @summary("Get trending keywords/hashtags in the News category")
   @doc("Returns top trending news-related keywords (max 30)")
-  op getNewsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getNewsExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
   @doc("Returns top trending sports-related keywords (max 30)")
-  op getSportsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getSportsExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
   @doc("Returns top trending entertainment-related keywords (max 30)")
-  op getEntertainmentExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getEntertainmentExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")

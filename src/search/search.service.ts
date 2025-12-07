@@ -27,6 +27,10 @@ export class SearchService {
     private readonly tweetsService: TweetsService,
   ) {}
   async getMatchingUsers(userId: bigint, username: string) {
+    if (!username || username.trim() === '') {
+      return { users: [] };
+    }
+
     const users = await this.usersService.getMatchingUsers(userId, username);
     if (!users || users.length === 0) {
       return { users: [] };

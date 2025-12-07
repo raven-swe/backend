@@ -1279,6 +1279,7 @@ export class UsersRepository {
 
     return !!(block1 || block2);
   }
+
   async getMatchingUsers(userId: bigint, username: string) {
     return await this.prisma.user.findMany({
       where: {

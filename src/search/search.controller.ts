@@ -7,7 +7,7 @@ import { SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
 import { ParseBooleanPipe } from 'src/common/pipes/parse-boolean.pipe';
 import { TrendingService } from 'src/trending/trending.service';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
-import { SearchUsernameQueryDto } from './dtos';
+import { QueryDto } from './dtos/query.dto';
 @Controller('search')
 export class SearchController {
   constructor(
@@ -16,12 +16,9 @@ export class SearchController {
   ) {}
   @Get('users/suggestions')
   @UseGuards(JwtAuthGuard)
-  async getTopUsers(
-    @User() user: RequestUser,
-    @Query() searchUsernameQueryDto: SearchUsernameQueryDto,
-  ) {
+  async getTopUsers(@User() user: RequestUser, @Query() queryDto: QueryDto) {
     const userId = BigInt(user.id);
-    return this.searchService.getMatchingUsers(userId, searchUsernameQueryDto.query);
+    return this.searchService.getMatchingUsers(userId, queryDto.query);
   }
 
   @Get('tweets')
@@ -46,8 +43,8 @@ export class SearchController {
 
   @Get('hashtags/top')
   @UseGuards(JwtAuthGuard)
-  async getTopHashtags(@Query('query') query: string) {
-    return this.trendingService.getTrendingHashtags(query, 3);
+  async getTopHashtags(@Query() queryDto: QueryDto) {
+    return this.trendingService.getTrendingHashtags(queryDto.query, 3);
   }
 
   @Get('users')
