@@ -13,7 +13,7 @@ import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 
-export const authorSelect = () =>
+export const authorSelect = (currentUserId: bigint) =>
   ({
     username: true,
     profile: {
@@ -22,6 +22,11 @@ export const authorSelect = () =>
         avatarUrl: true,
       },
     },
+    followers: { where: { followerId: currentUserId } },
+    following: { where: { followedId: currentUserId } },
+    blockedBy: { where: { userId: currentUserId } },
+    mutedBy: { where: { userId: currentUserId } },
+    blockedUsers: { where: { blockedId: currentUserId } },
   }) satisfies Prisma.UserSelect;
 
 export type RawAuthor = Prisma.UserGetPayload<{
@@ -31,7 +36,7 @@ export type RawAuthor = Prisma.UserGetPayload<{
 const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
-      select: authorSelect(),
+      select: authorSelect(currentUserId),
     },
     _count: {
       select: {
@@ -140,6 +145,13 @@ export class TweetsRepository {
       username: user.username,
       displayName: user.profile?.displayName ?? '',
       avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        following: user.followers.length > 0,
+        follower: user.following.length > 0,
+        blocking: user.blockedBy.length > 0,
+        muted: user.mutedBy.length > 0,
+        blockedBy: user.blockedUsers.length > 0,
+      },
     };
   }
 
@@ -576,6 +588,7 @@ export class TweetsRepository {
           following: { where: { followedId: currentUserId } },
           blockedBy: { where: { userId: currentUserId } },
           mutedBy: { where: { userId: currentUserId } },
+          blockedUsers: { where: { blockedId: currentUserId } },
         },
       },
     } as const;
@@ -617,6 +630,7 @@ export class TweetsRepository {
           follower: user.following.length > 0,
           blocking: user.blockedBy.length > 0,
           muted: user.mutedBy.length > 0,
+          blocked: user.blockedUsers.length > 0,
         },
       });
 

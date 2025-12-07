@@ -1351,6 +1351,13 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
+      },
     };
   }
 
