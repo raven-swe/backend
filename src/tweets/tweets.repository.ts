@@ -14,7 +14,7 @@ import { PeopleSearchFilter } from 'src/search/dtos';
 import { MAX_TWEET_DEPTH } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 
-const tweetInclude = (currentUserId: bigint) =>
+export const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
       select: {

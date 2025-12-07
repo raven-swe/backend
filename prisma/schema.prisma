@@ -309,7 +309,7 @@ model Notification {
   receiver      User             @relation("notifications_receiver_idTousers", fields: [receiverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet         Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([receiverId, createdAt])
+  @@index([receiverId, latestEventAt(sort: Desc), id(sort: Desc)])
   @@map("notifications")
 }
 
