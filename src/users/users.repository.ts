@@ -1585,4 +1585,93 @@ export class UsersRepository {
       },
     });
   }
+
+  async getOnboardingFollowSuggestions(userId: bigint, userNameSuggestions: number) {
+    const sqlQuery = Prisma.sql`
+    WITH mutual_suggestions AS (
+      SELECT 
+        u.id,
+        u.username,
+        p.display_name,
+        p.avatar_url,
+        COUNT(f_my_friends.followed_id) as mutual_count,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${userId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${userId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${userId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${userId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM follows f_my_friends               -- Matches @map("follows")
+      JOIN follows f_candidates               -- Matches @map("follows")
+        ON f_my_friends.followed_id = f_candidates.follower_id -- Matches @map("followed_id") and @map("follower_id")
+      JOIN users u 
+        ON f_candidates.followed_id = u.id
+      JOIN profiles p 
+        ON u.id = p.user_id
+      WHERE f_my_friends.follower_id = ${userId} 
+      AND u.id != ${userId}
+      AND NOT EXISTS (
+        SELECT 1 FROM mutes m 
+        WHERE m.user_id = ${userId} AND m.muted_id = u.id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM blocks b 
+        WHERE (b.user_id = ${userId} AND b.blocked_id = u.id)
+        OR (b.user_id = u.id AND b.blocked_id = ${userId})
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM follows f 
+        WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+      )
+      GROUP BY u.id, u.username, p.display_name, p.avatar_url
+      ORDER BY mutual_count DESC
+      LIMIT ${userNameSuggestions}
+    )
+    SELECT id, username, display_name, avatar_url, mutual_count, is_blocking, is_blocked_by, is_following, is_follower, is_muted
+    FROM mutual_suggestions;
+`;
+    const results = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+        mutual_count: number;
+        is_blocking: boolean | number;
+        is_blocked_by: boolean | number;
+        is_following: boolean | number;
+        is_follower: boolean | number;
+        is_muted: boolean | number;
+      }[]
+    >(sqlQuery);
+
+    return results.map((row) => ({
+      id: row.id.toString(),
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      mutualFollowersCount: Number(row.mutual_count),
+      relationship: {
+        blocking: Boolean(row.is_blocking),
+        blockedBy: Boolean(row.is_blocked_by),
+        following: Boolean(row.is_following),
+        follower: Boolean(row.is_follower),
+        muted: Boolean(row.is_muted),
+      },
+    }));
+  }
 }
