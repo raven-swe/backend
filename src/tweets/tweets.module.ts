@@ -13,6 +13,6 @@ import { MediaModule } from 'src/media/media.module';
   imports: [UsersModule, TrendingModule, ContentParsingModule, MediaModule, TrendingModule],
   providers: [TweetsService, TweetsRepository],
   controllers: [TweetsController, TimelineController, ProfileTweetsController],
-  exports: [TweetsService],
+  exports: [TweetsService, TweetsRepository],
 })
 export class TweetsModule {}

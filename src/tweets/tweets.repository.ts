@@ -12,7 +12,7 @@ import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
-const tweetInclude = (currentUserId: bigint) =>
+export const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
       select: {
