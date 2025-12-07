@@ -177,11 +177,13 @@ describe('NotificationsService', () => {
     };
 
     beforeEach(() => {
-      (mockTweetsRepository.mapToTweetDto as jest.Mock).mockImplementation((tweet) => ({
-        id: tweet.id.toString(),
-        content: tweet.content,
-        userId: tweet.userId.toString(),
-      }));
+      (mockTweetsRepository.mapToTweetDto as jest.Mock).mockImplementation(
+        (tweet: { id: bigint; content: string; userId: bigint }) => ({
+          id: tweet.id.toString(),
+          content: tweet.content,
+          userId: tweet.userId.toString(),
+        }),
+      );
     });
 
     it('should work correctly with no cursor or limit', async () => {
