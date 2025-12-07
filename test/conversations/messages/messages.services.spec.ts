@@ -7,6 +7,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { MessagesService } from 'src/conversations/messages/messages.services';
 import { ConversationsRepository } from 'src/conversations/conversations.repository';
 import { MessagesRepository } from 'src/conversations/messages/messages.repository';
+import { MediaRepository } from 'src/media/media.repository';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
 import {
   CONVERSATIONS_ERROR_CODES,
@@ -17,6 +18,8 @@ describe('MessagesService', () => {
   let service: MessagesService;
   let conversationsRepository: jest.Mocked<ConversationsRepository>;
   let messagesRepository: jest.Mocked<MessagesRepository>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let mediaRepository: jest.Mocked<MediaRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -37,12 +40,20 @@ describe('MessagesService', () => {
             createMessage: jest.fn(),
           },
         },
+        {
+          provide: MediaRepository,
+          useValue: {
+            findByIdAndUserId: jest.fn(),
+            markMediaAsNotPending: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<MessagesService>(MessagesService);
     conversationsRepository = module.get(ConversationsRepository);
     messagesRepository = module.get(MessagesRepository);
+    mediaRepository = module.get(MediaRepository);
 
     jest.clearAllMocks();
   });
@@ -86,6 +97,8 @@ describe('MessagesService', () => {
         messageEntities: null,
         createdAt: new Date('2024-01-01T10:00:00Z'),
         mediaUrl: null,
+        mediaId: null,
+        media: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
         reactionSender: null,
@@ -101,6 +114,8 @@ describe('MessagesService', () => {
         messageEntities: null,
         createdAt: new Date('2024-01-01T10:01:00Z'),
         mediaUrl: null,
+        mediaId: null,
+        media: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
         reactionSender: null,
@@ -134,6 +149,11 @@ describe('MessagesService', () => {
         content: 'Hello!',
         createdAt: mockMessages[0].createdAt,
         isMine: false,
+        mediaUrl: null,
+        type: null,
+        altText: null,
+        width: null,
+        height: null,
       });
       expect(result.items.messages[0].reactions).toBeDefined();
       expect(result.items.messages[1]).toMatchObject({
@@ -141,6 +161,11 @@ describe('MessagesService', () => {
         content: 'Hi there!',
         createdAt: mockMessages[1].createdAt,
         isMine: true,
+        mediaUrl: null,
+        type: null,
+        altText: null,
+        width: null,
+        height: null,
       });
       expect(result.items.messages[1].reactions).toBeDefined();
     });
@@ -244,6 +269,8 @@ describe('MessagesService', () => {
         messageEntities: null,
         createdAt: new Date(`2024-01-01T10:${i.toString().padStart(2, '0')}:00Z`),
         mediaUrl: null,
+        mediaId: null,
+        media: null,
         isDeletedSender: false,
         isDeletedReceiver: false,
         reactionSender: null,
@@ -359,6 +386,8 @@ describe('MessagesService', () => {
       messageEntities: null,
       createdAt: new Date('2024-01-01T10:00:00Z'),
       mediaUrl: null,
+      mediaId: null,
+      media: null,
       isDeletedSender: false,
       isDeletedReceiver: false,
       reactionSender: null,
@@ -377,6 +406,8 @@ describe('MessagesService', () => {
         BigInt(2),
         BigInt(6),
         'Hello world!',
+        undefined,
+        undefined,
       );
       expect(messagesRepository.updateLastSeenMessage).toHaveBeenCalledWith(
         BigInt(2),
@@ -393,7 +424,13 @@ describe('MessagesService', () => {
 
       const result = await service.createMessage('2', '6', '');
 
-      expect(messagesRepository.createMessage).toHaveBeenCalledWith(BigInt(2), BigInt(6), '');
+      expect(messagesRepository.createMessage).toHaveBeenCalledWith(
+        BigInt(2),
+        BigInt(6),
+        '',
+        undefined,
+        undefined,
+      );
       expect(result).toEqual({ message: emptyMessage });
     });
 
@@ -448,7 +485,13 @@ describe('MessagesService', () => {
 
       const result = await service.createMessage('2', '6', longBody);
 
-      expect(messagesRepository.createMessage).toHaveBeenCalledWith(BigInt(2), BigInt(6), longBody);
+      expect(messagesRepository.createMessage).toHaveBeenCalledWith(
+        BigInt(2),
+        BigInt(6),
+        longBody,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual({ message: longMessage });
     });
 

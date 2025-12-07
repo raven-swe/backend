@@ -264,14 +264,16 @@ describe('DmGateway', () => {
     });
 
     it('should emit error when assertParticipant returns unknown error', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'UNKNOWN_ERROR' });
+      conversationsService.assertParticipant.mockResolvedValue({
+        error: 'INVALID_CONVERSATION_ID',
+      });
 
       await gateway.markSeen(mockSocket, payload);
 
       expect(mockSocket.emit).toHaveBeenCalledWith('error', {
         type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
-        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
       });
       expect(messagesService.updateLastSeen).not.toHaveBeenCalled();
     });
@@ -322,6 +324,8 @@ describe('DmGateway', () => {
       messageEntities: null,
       createdAt: new Date('2024-01-01T10:00:00Z'),
       mediaUrl: null,
+      mediaId: null,
+      media: null,
       isDeletedSender: false,
       isDeletedReceiver: false,
       reactionSender: null,
@@ -351,7 +355,12 @@ describe('DmGateway', () => {
       await gateway.sendMessage(mockSocket, payload);
 
       expect(conversationsService.assertParticipant).toHaveBeenCalledWith('6', '2');
-      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', 'Hello, how are you?');
+      expect(messagesService.createMessage).toHaveBeenCalledWith(
+        '2',
+        '6',
+        'Hello, how are you?',
+        undefined,
+      );
       expect(mockSocket.join).toHaveBeenCalledWith('2');
       expect(mockServer.to).toHaveBeenCalledWith('2');
       expect(mockServer.emit).toHaveBeenCalledWith('message_received', {
@@ -366,6 +375,11 @@ describe('DmGateway', () => {
           clientMessageId: 'client-msg-123',
           body: 'Hello, how are you?',
           createdAt: expect.any(Date) as Date,
+          mediaUrl: null,
+          type: null,
+          altText: null,
+          width: null,
+          height: null,
         },
       });
       expect(sseEvents.publishNewMessagePreview).toHaveBeenCalled();
@@ -436,7 +450,7 @@ describe('DmGateway', () => {
 
       await gateway.sendMessage(mockSocket, emptyPayload);
 
-      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', '');
+      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', '', undefined);
     });
   });
 
@@ -454,6 +468,8 @@ describe('DmGateway', () => {
           messageEntities: null,
           createdAt: new Date(),
           mediaUrl: null,
+          mediaId: null,
+          media: null,
           isDeletedSender: false,
           isDeletedReceiver: false,
           reactionSender: null,
