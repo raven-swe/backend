@@ -1,0 +1,16 @@
+meta {
+  name: update-scores
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/trending/update-scores
+  body: json
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
