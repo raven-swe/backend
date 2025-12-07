@@ -1025,4 +1025,54 @@ export class UsersService {
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
+
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersIds(userId: bigint): Promise<bigint[]> {
+    return await this.usersRepository.getFollowersUnPaginated(userId);
+  }
+
+  async enableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, true);
+
+    this.logger.log(`User ID: ${userId} enabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications enabled for user successfully',
+    };
+  }
+
+  async disableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, false);
+
+    this.logger.log(`User ID: ${userId} disabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications disabled for user successfully',
+    };
+  }
 }

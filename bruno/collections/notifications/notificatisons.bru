@@ -1,17 +1,17 @@
 meta {
-  name: mark-as-seen
+  name: notificatisons
   type: http
-  seq: 3
+  seq: 4
 }
 
-patch {
-  url: http://localhost:3000/notifications/:notificationId/seen
+get {
+  url: http://localhost:3000/notifications?filter=mentions
   body: none
   auth: bearer
 }
 
-params:path {
-  notificationId: 29
+params:query {
+  filter: mentions
 }
 
 auth:bearer {

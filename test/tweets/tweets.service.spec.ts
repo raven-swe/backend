@@ -12,8 +12,8 @@ import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
 
 import { MediaType } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
-const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -100,6 +100,12 @@ describe('TweetsService', () => {
           provide: MediaRepository,
           useValue: mockMediaRepository,
         },
+        {
+          provide: getQueueToken('timeline-following'),
+          useValue: {
+            add: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -161,9 +167,7 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -247,9 +251,7 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -1111,29 +1113,6 @@ describe('TweetsService', () => {
       });
     });
   });
-  describe('getTimeline', () => {
-    const userId = BigInt(1);
-    const validCursor = encodeCursor(BigInt(50).toString());
-    const limit = 10;
-
-    it('should successfully fetch and paginate timeline', async () => {
-      const decodedCursorId = BigInt(50).toString();
-      const rawTweets = [{ id: BigInt(100) }, { id: BigInt(99) }];
-
-      mockTweetsRepository.getTimelineForUser.mockResolvedValue(rawTweets);
-
-      const result = await service.getTimeline(userId, validCursor, limit);
-
-      expect(mockTweetsRepository.getTimelineForUser).toHaveBeenCalledWith(
-        userId,
-        decodedCursorId,
-        limit + 1,
-      );
-      expect(result.items).toEqual(rawTweets);
-      expect(result.pagination.cursor).toBe(validCursor);
-      expect(result.pagination.hasNextPage).toBe(false);
-    });
-  });
 
   describe('getTweet', () => {
     const tweetId = BigInt(1);
@@ -1727,6 +1706,12 @@ describe('TweetsService', () => {
           { provide: ContentParsingService, useValue: mockContentParsingService },
           { provide: MediaRepository, useValue: mockMediaRepository },
           { provide: PrismaService, useValue: mockPrismaService },
+          {
+            provide: getQueueToken('timeline-following'),
+            useValue: {
+              add: jest.fn(),
+            },
+          },
         ],
       }).compile();
 
