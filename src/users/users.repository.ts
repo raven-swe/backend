@@ -1585,4 +1585,19 @@ export class UsersRepository {
       },
     });
   }
+
+  async findByUsernameWithDisplayname(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+  }
 }

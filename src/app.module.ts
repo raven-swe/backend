@@ -30,14 +30,15 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
-import { SessionsModule } from './sessions/sessions.module';
 import { TimelineModule } from './tweets/timeline/timeline.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { SseModule } from './sse/sse.module';
 import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -82,6 +83,10 @@ import { EventsModule } from './events/events.module';
     NotificationsModule,
     TweetAnalyzeModule,
     EventsModule,
+    SessionsModule,
+    NotificationsModule,
+    EventsModule,
+    FirebaseModule,
   ],
   controllers: [HealthController],
   providers: [

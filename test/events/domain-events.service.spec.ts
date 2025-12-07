@@ -5,11 +5,8 @@ import {
   DOMAIN_EVENT_NAMES,
   TweetCreatedEvent,
   TweetLikedEvent,
-  TweetQuotedEvent,
-  TweetRepliedEvent,
   TweetRetweetedEvent,
   UserFollowedEvent,
-  UserMentionedEvent,
 } from 'src/events/interfaces/event.interface';
 
 describe('DomainEventsService', () => {
@@ -32,7 +29,7 @@ describe('DomainEventsService', () => {
 
   describe('notifications events', () => {
     it('should emit TweetLikedEvent', async () => {
-      const payload: TweetLikedEvent = { tweetId: '1', actorId: '2', receiverId: '3' };
+      const payload: TweetLikedEvent = { tweetId: 1n, actorId: 2n, receiverId: 3n };
       await domainEventsService.emitTweetLiked(payload);
       expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
         DOMAIN_EVENT_NAMES.Tweet_Liked,
@@ -41,7 +38,7 @@ describe('DomainEventsService', () => {
     });
 
     it('should emit UserFollowedEvent', async () => {
-      const payload: UserFollowedEvent = { actorId: '1', receiverId: '2' };
+      const payload: UserFollowedEvent = { actorId: 1n, receiverId: 2n };
       await domainEventsService.emitUserFollowed(payload);
       expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
         DOMAIN_EVENT_NAMES.User_Followed,
@@ -49,24 +46,8 @@ describe('DomainEventsService', () => {
       );
     });
 
-    it('should emit TweetRepliedEvent', async () => {
-      const payload: TweetRepliedEvent = { tweetId: '1', actorId: '3', receiverId: '4' };
-      await domainEventsService.emitTweetReplied(payload);
-      expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
-        DOMAIN_EVENT_NAMES.Tweet_Replied,
-        payload,
-      );
-    });
-    it('should emit TweetQuotedEvent', async () => {
-      const payload: TweetQuotedEvent = { tweetId: '1', actorId: '3', receiverId: '4' };
-      await domainEventsService.emitTweetQuoted(payload);
-      expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
-        DOMAIN_EVENT_NAMES.Tweet_Quoted,
-        payload,
-      );
-    });
     it('should emit TweetRetweetedEvent', async () => {
-      const payload: TweetRetweetedEvent = { tweetId: '1', actorId: '3', receiverId: '4' };
+      const payload: TweetRetweetedEvent = { tweetId: 1n, actorId: 3n, receiverId: 4n };
       await domainEventsService.emitTweetRetweeted(payload);
       expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
         DOMAIN_EVENT_NAMES.Tweet_Retweeted,
@@ -74,18 +55,16 @@ describe('DomainEventsService', () => {
       );
     });
     it('should emit TweetCreatedEvent', async () => {
-      const payload: TweetCreatedEvent = { tweetId: '1', actorId: '3', receiverId: '4' };
+      const payload: TweetCreatedEvent = {
+        tweetId: 1n,
+        authorId: 3n,
+        replyToTweetId: null,
+        quoteToTweetId: null,
+        mentionedUserIds: [],
+      };
       await domainEventsService.emitTweetCreated(payload);
       expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
         DOMAIN_EVENT_NAMES.Tweet_Created,
-        payload,
-      );
-    });
-    it('should emit UserMentionedEvent', async () => {
-      const payload: UserMentionedEvent = { tweetId: '1', actorId: '3', receiverId: '4' };
-      await domainEventsService.emitUserMentioned(payload);
-      expect(mockEventEmitter.emitAsync).toHaveBeenCalledWith(
-        DOMAIN_EVENT_NAMES.User_Mentioned,
         payload,
       );
     });

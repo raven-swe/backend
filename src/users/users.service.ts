@@ -30,6 +30,7 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class UsersService {
@@ -43,6 +44,7 @@ export class UsersService {
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
     private emailQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async findByEmail(email: string) {
@@ -424,6 +426,11 @@ export class UsersService {
     }
 
     await this.usersRepository.followUser(followerId, followedId);
+
+    await this.domainEvents.emitUserFollowed({
+      actorId: followerId,
+      receiverId: followedId,
+    });
 
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
     return { message: 'User followed successfully.' };
