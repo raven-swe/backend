@@ -12,9 +12,6 @@ ALTER TABLE "public"."refresh_tokens" DROP CONSTRAINT "refresh_tokens_session_id
 -- AlterTable
 ALTER TABLE "refresh_tokens" ALTER COLUMN "session_id" SET NOT NULL;
 
--- AlterTable
-ALTER TABLE "tweets" DROP COLUMN "search_document";
-
 -- CreateIndex
 CREATE UNIQUE INDEX "refresh_tokens_session_id_key" ON "refresh_tokens"("session_id");
 
