@@ -1311,7 +1311,6 @@ export class UsersRepository {
     }
 
     return {
-      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,

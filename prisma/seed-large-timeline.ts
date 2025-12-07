@@ -49,6 +49,24 @@ async function main() {
     },
   });
 
+  const omar = await prisma.user.create({
+    data: {
+      username: 'notnowomar',
+      email: 'whatever@test.com',
+      passwordHash,
+      birthdate: new Date('1990-01-01'),
+      profile: { create: { displayName: 'omar' } },
+    },
+  });
+
+  //test follows omar
+  await prisma.follow.create({
+    data: {
+      followerId: testUser.id,
+      followedId: omar.id,
+    },
+  });
+
   // 3. Generate a large number of "author" users
   const authorsToCreate = [];
   for (let i = 0; i < NUM_AUTHORS; i++) {
@@ -61,7 +79,9 @@ async function main() {
   }
   await prisma.user.createMany({ data: authorsToCreate, skipDuplicates: true });
 
-  const allAuthors = await prisma.user.findMany({ where: { id: { not: testUser.id } } });
+  const allAuthors = await prisma.user.findMany({
+    where: { id: { notIn: [testUser.id, omar.id] } },
+  });
 
   // Create profiles for all authors
   await prisma.profile.createMany({
