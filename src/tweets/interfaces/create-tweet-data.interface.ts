@@ -3,7 +3,7 @@ import { Mention } from './mention.interface';
 
 export interface CreateTweetData {
   userId: bigint;
-  content: string;
+  content?: string;
 
   Mentions: Mention[];
   Hashtags: Hashtag[];

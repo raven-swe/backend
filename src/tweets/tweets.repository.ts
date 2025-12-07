@@ -178,7 +178,7 @@ export class TweetsRepository {
     return prismaClient.tweet.create({
       data: {
         userId: tweetData.userId,
-        content: tweetData.content,
+        content: tweetData.content ?? '',
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
         hasMentions: tweetData.Mentions.length > 0,

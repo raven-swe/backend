@@ -1,8 +1,10 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateTweetDto {
+  @IsOptional()
   @IsString()
-  content: string;
+  @MaxLength(280)
+  content?: string;
 
   @IsOptional()
   @IsArray()

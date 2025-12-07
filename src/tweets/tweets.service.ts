@@ -99,13 +99,13 @@ export class TweetsService {
     const { tweet, mentions, hashtags, tweetId, authorId } = await this.prisma.$transaction(
       async (tx) => {
         const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
-          createTweetDto.content,
+          trimContent,
           tx,
         );
 
         const tweetData: CreateTweetData = {
           userId,
-          content: createTweetDto.content,
+          content: trimContent,
           replyToTweetId: createTweetDto.replyToTweetId
             ? BigInt(createTweetDto.replyToTweetId)
             : null,
