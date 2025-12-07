@@ -5,6 +5,7 @@ import type { RequestUser } from '../common/interfaces';
 import { generateUsernames } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { ONBOARDING_CONSTANTS } from './constants';
 
 @Controller('onboarding')
 export class OnboardingController {
@@ -31,10 +32,21 @@ export class OnboardingController {
       displayName,
       existingUser.email,
       typed,
-      3,
+      ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
       false,
     );
 
+    return { suggestions };
+  }
+
+  @Get('follow-suggestions')
+  @UseGuards(JwtAuthGuard)
+  async getFollowSuggestions(@User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    const suggestions = await this.usersRepository.getOnboardingFollowSuggestions(
+      userId,
+      ONBOARDING_CONSTANTS.FOLLOW_SUGGESTIONS_COUNT,
+    );
     return { suggestions };
   }
 }
