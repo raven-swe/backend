@@ -15,6 +15,7 @@ import { BullModule } from '@nestjs/bullmq';
     TrendingModule,
     ContentParsingModule,
     MediaModule,
+    TrendingModule,
     BullModule.registerQueue({
       name: 'timeline-following',
     }),

@@ -4,7 +4,6 @@ import { UsersService } from 'src/users/users.service';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { SearchService } from 'src/search/search.service';
 import { SearchTab } from 'src/search/dtos';
-import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from 'src/search/constants';
 import * as SearchUtils from 'src/search/utils/search-query.util';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 
@@ -67,7 +66,7 @@ describe('SearchService', () => {
   });
 
   describe('searchTweets', () => {
-    it('should throw BAD_REQUEST for empty query', async () => {
+    it('should return empty array for empty query', async () => {
       const queryDto = {
         query: '',
         tab: SearchTab.Top,
@@ -75,18 +74,13 @@ describe('SearchService', () => {
         excludeMutedAndBlocked: false,
       };
 
-      await expect(service.searchTweets(currentUserId, queryDto, limit)).rejects.toThrow(
-        new HttpException(
-          {
-            message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
-            code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
-      );
+      const result = await service.searchTweets(currentUserId, queryDto, limit);
+
+      expect(result.items).toEqual([]);
+      expect(result.pagination).toBeDefined();
     });
 
-    it('should throw BAD_REQUEST for whitespace-only query', async () => {
+    it('should return empty array for whitespace-only query', async () => {
       const queryDto = {
         query: '   ',
         tab: SearchTab.Top,
@@ -94,15 +88,10 @@ describe('SearchService', () => {
         excludeMutedAndBlocked: false,
       };
 
-      await expect(service.searchTweets(currentUserId, queryDto, limit)).rejects.toThrow(
-        new HttpException(
-          {
-            message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
-            code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
-      );
+      const result = await service.searchTweets(currentUserId, queryDto, limit);
+
+      expect(result.items).toEqual([]);
+      expect(result.pagination).toBeDefined();
     });
 
     it('should clean the search query before processing', async () => {

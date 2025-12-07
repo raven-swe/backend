@@ -1,17 +1,17 @@
 meta {
-  name: get-top-users
+  name: search-users
   type: http
-  seq: 1
+  seq: 4
 }
 
 get {
-  url: http://localhost:3000/search/users?query=
+  url: http://localhost:3000/search/users?query=oma
   body: none
   auth: bearer
 }
 
 params:query {
-  query: 
+  query: oma
 }
 
 auth:bearer {

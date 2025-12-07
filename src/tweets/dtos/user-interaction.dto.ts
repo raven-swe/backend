@@ -1,4 +1,3 @@
-import { Exclude } from 'class-transformer';
 import { BioDto } from 'src/users/dtos';
 
 export class UserInteractionDto {

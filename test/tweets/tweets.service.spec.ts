@@ -10,10 +10,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
-
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
+
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -76,6 +77,10 @@ describe('TweetsService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockTrendingService = {
+    getHashtagId: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,6 +104,10 @@ describe('TweetsService', () => {
         {
           provide: MediaRepository,
           useValue: mockMediaRepository,
+        },
+        {
+          provide: TrendingService,
+          useValue: mockTrendingService,
         },
         {
           provide: getQueueToken('timeline-following'),
@@ -1673,17 +1682,6 @@ describe('TweetsService', () => {
   });
 
   describe('TweetsService - Query Methods', () => {
-    let service: TweetsService;
-
-    const mockTweetsRepository = {
-      getTweetsByQuery: jest.fn(),
-    };
-
-    const mockUsersRepository = {};
-    const mockContentParsingService = {};
-    const mockMediaRepository = {};
-    const mockPrismaService = {};
-
     const mockTweets = [
       {
         id: BigInt(1),
@@ -1696,28 +1694,6 @@ describe('TweetsService', () => {
         createdAt: new Date('2024-01-02'),
       },
     ];
-
-    beforeEach(async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          TweetsService,
-          { provide: TweetsRepository, useValue: mockTweetsRepository },
-          { provide: UsersRepository, useValue: mockUsersRepository },
-          { provide: ContentParsingService, useValue: mockContentParsingService },
-          { provide: MediaRepository, useValue: mockMediaRepository },
-          { provide: PrismaService, useValue: mockPrismaService },
-          {
-            provide: getQueueToken('timeline-following'),
-            useValue: {
-              add: jest.fn(),
-            },
-          },
-        ],
-      }).compile();
-
-      service = module.get<TweetsService>(TweetsService);
-      jest.clearAllMocks();
-    });
 
     describe('getTopTweetsByQuery', () => {
       it('should call getTweetsByQuery with hasMedia=false', async () => {

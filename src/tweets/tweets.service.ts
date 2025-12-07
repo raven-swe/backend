@@ -23,6 +23,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
 
 @Injectable()
 export class TweetsService {
@@ -32,6 +33,7 @@ export class TweetsService {
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
+    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
@@ -784,6 +786,36 @@ export class TweetsService {
       limit + 1,
       decodedCursor,
     );
+  }
+
+  async getTweetsByHashtag(
+    hashtag: string,
+    currentUserId: bigint,
+    limit: number,
+    hasMedia: boolean = false,
+    prevCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    // Get hashtag record
+    const hashtagRecord = await this.trendingService.getHashtagId(hashtag);
+    if (!hashtagRecord) {
+      return [];
+    }
+
+    // Get tweet ids from tweet hashtags table
+    const tweetIds = await this.tweetsRepository.getTweetIdsLinkedToHashtag(
+      hashtagRecord.id,
+      currentUserId,
+      limit + 1,
+      hasMedia,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      prevCursor,
+    );
+
+    // Get full tweets data
+    return await this.tweetsRepository.getTweetsWithReferencesByIds(currentUserId, tweetIds);
   }
 
   async getUserMediaTweets(

@@ -560,7 +560,6 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
-
 }
 
 @doc("Author metadata for tweets with relationship status")
@@ -587,12 +586,11 @@ model UserMetadataWithFollowInfo {
   isFollowing: boolean;
 }
 
-model UserMetadataWithFollowing{
+model UserMetadataWithFollowing {
   ...UserMetadata;
 
   @doc("Is the user followed by the current logged-in user")
   isFollowing: boolean;
-
 }
 
 @doc("User metadata with biography information")
@@ -919,6 +917,15 @@ model SearchTweetsParameters {
   @query
   excludeMutedAndBlocked?: boolean;
 }
+
+model SearchUser {
+  ...UserMetadata;
+  bio: string | null;
+  bioEntities: BioEntities | null;
+  bannerUrl: string | null;
+  relationship: UserRelationship;
+}
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1403,8 +1410,11 @@ namespace Me {
     @route("/interests")
     @summary("Get all available interests with user selection status")
     @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
-    op getInterests(
-    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+    op getInterests():
+      | DataResponse<Interest[]>
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
 
     @put
     @route("/interests")
@@ -2035,7 +2045,51 @@ namespace Devices {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
+  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @get
+  @route("/hashtags/top")
+  op getTopHashtags(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopHashtags>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get suggested users from following/follower list, used in mentions")
+  @get
+  @route("/users/suggestions")
+  op getUserSuggestions(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get all users matching the search query - returns paginated user results")
+  @get
+  @route("/users")
+  op searchUsers(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<SearchUser>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @doc("Supports searching by a normal text or hashtags")
   @get
   @route("/tweets")
   op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
