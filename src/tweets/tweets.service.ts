@@ -25,7 +25,6 @@ import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/c
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
 import { PeopleSearchFilter } from 'src/search/dtos';
-import { TrendingService } from 'src/trending/trending.service';
 import { ThreadViewResponseDto } from './dtos/thread-view-response.dto';
 import { DeletedTweet } from './types';
 
@@ -37,7 +36,6 @@ export class TweetsService {
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
-    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
   ) {}
@@ -544,7 +542,7 @@ export class TweetsService {
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto | null> {
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
