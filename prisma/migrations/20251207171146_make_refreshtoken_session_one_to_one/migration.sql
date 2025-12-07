@@ -9,9 +9,6 @@
 -- DropForeignKey
 ALTER TABLE "public"."refresh_tokens" DROP CONSTRAINT "refresh_tokens_session_id_fkey";
 
--- DropIndex
-DROP INDEX "public"."tweets_search_document_idx";
-
 -- AlterTable
 ALTER TABLE "refresh_tokens" ALTER COLUMN "session_id" SET NOT NULL;
 
