@@ -1,0 +1,24 @@
+meta {
+  name: mark-as-seen
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:3000/notifications/:notificationId/mark-seen
+  body: none
+  auth: bearer
+}
+
+params:path {
+  notificationId: 1
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

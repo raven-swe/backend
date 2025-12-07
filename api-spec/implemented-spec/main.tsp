@@ -366,6 +366,7 @@ alias UnblockUserResponse = MessageResponse<"user unblocked successfully">;
 alias MuteUserResponse = MessageResponse<"user muted successfully">;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
 alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
+alias NotificationsListResponse = DataResponseWithPagination<Notification[]>;
 
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
 alias MessageListResponse = DataResponseWithPagination<{
@@ -809,6 +810,65 @@ model TweetWithoutQuotedTweet {
 model TweetWithReplyTo extends Tweet {
   @doc("The tweet that this tweet is replying to.")
   replyToTweet: CompactTweet | null;
+}
+
+@doc("Defines the filter categories for the notifications list.")
+enum NotificationFilter {
+  @doc("Show only conversational notifications like replies, mentions, and quotes.")
+  mentions,
+}
+
+@doc("Summarizes the users (actors) who triggered a notification.")
+model NotificationActorSummary {
+  @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
+  @maxItems(3)
+  previewActors: UserMetadata[];
+
+  @doc("The total count of all users (e.g., for '...and 4 others').")
+  @minValue(1)
+  totalCount: int32;
+}
+
+@doc("Encapsulates the content payload of the notification.")
+model NotificationTweetSummary {
+  @doc("The actual tweet object to display as preview.")
+  primaryTweet: Tweet;
+
+  @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
+  totalCount: int32;
+
+  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
+  subjectIds: string[];
+}
+
+@doc("Represents a single notification item for a user.")
+model Notification {
+  @doc("Unique ID for the notification event.")
+  id: string;
+
+  @doc("The specific action that triggered this notification.")
+  type: NotificationType;
+
+  @doc("Summary of the user(s) who triggered this notification.")
+  actorSummary: NotificationActorSummary;
+
+  @doc("Summary of the tweet(s) involved in this notification.")
+  tweetSummary: NotificationTweetSummary;
+
+  @doc("Timestamp of the *latest* event in this aggregation. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  latestEventAt: utcDateTime;
+
+  @doc("Indicates whether the notification has been seen.")
+  isSeen: boolean;
+}
+enum NotificationType {
+  FOLLOW: "FOLLOW",
+  LIKE: "LIKE",
+  REPLY: "REPLY",
+  QUOTE: "QUOTE",
+  RETWEET: "RETWEET",
+  TWEET: "TWEET",
+  MENTION: "MENTION",
 }
 
 model AllMatchingUsers {
@@ -1504,7 +1564,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1621,6 +1681,52 @@ namespace Timeline {
   op getFollowingFeed(
     ...CursorPaginationParameters,
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+}
+
+@tag("Notifications")
+@route("/notifications")
+@useAuth(BearerAuth)
+namespace Notifications {
+  @get
+  op listUserNotifications(
+    ...CursorPaginationParameters,
+
+    @query
+    @doc("Filters the notifications by a specific category.")
+    filter?: NotificationFilter,
+  ):
+    | NotificationsListResponse
+    | BadRequestResponse
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @get
+  @route("/count")
+  @doc("Get the count of unseen notifications")
+  op getNotificationsCount(): DataResponse<{
+    unseenCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/seen")
+  @doc("Mark all notifications as seen")
+  op markAllNotificationsAsSeen(): DataResponse<{
+    updatedCount: integer;
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @patch
+  @route("/{notificationId}/seen")
+  @doc("Mark a specific notification as seen by its ID")
+  op markNotificationAsSeen(@path notificationId: string):
+    | DataResponse<{
+        updatedCount: integer;
+      }>
+    | UnauthorizedResponse
+    | NotFoundResponse
+    | ValidationErrorResponse
+    | BadRequestResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Media")
