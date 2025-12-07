@@ -12,6 +12,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { OnboardingController } from './onboarding.controller';
+import { SessionsModule } from 'src/sessions/sessions.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OnboardingController } from './onboarding.controller';
     RecaptchaModule,
     RefreshTokensModule,
     DevicesModule,
+    SessionsModule,
     BullModule.registerQueue({
       name: 'email',
     }),

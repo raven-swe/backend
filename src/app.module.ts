@@ -30,6 +30,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
+import { SessionsModule } from './sessions/sessions.module';
 import { TimelineModule } from './tweets/timeline/timeline.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
@@ -77,6 +78,7 @@ import { EventsModule } from './events/events.module';
     ContentParsingModule,
     TimelineModule,
     LoggerModule,
+    SessionsModule,
     NotificationsModule,
     TweetAnalyzeModule,
     EventsModule,
