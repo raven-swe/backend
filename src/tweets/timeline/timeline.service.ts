@@ -233,24 +233,32 @@ export class TimelineService {
     const missingTweetIds = new Array<bigint>();
     const missingAuthorIds = new Set<bigint>();
 
+    // needed because some tweets can be retweets, so redis can return either [tweetErr, tweetData] and [authorErr, authorData] for tweets, an additional [retweeterErr, retweeterData] in case of retweet
+    const itemStructure = Array<{ tweetId: bigint; authorId: bigint; retweeterId?: bigint }>();
+
     const hydrationPipeline = this.redisClient.pipeline();
 
     for (const item of items) {
-      const [authorIdStr, tweetIdStr, actionType, retweeterId] = item.split(':');
+      const [authorId, tweetId, actionType, retweeterId] = item.split(':');
 
-      tweetIds.push(BigInt(tweetIdStr));
+      tweetIds.push(BigInt(tweetId));
       hydrationPipeline.getex(
-        REDIS_TIMELINE_KEYS.getTweetStaticDataKey(BigInt(tweetIdStr)),
+        REDIS_TIMELINE_KEYS.getTweetStaticDataKey(BigInt(tweetId)),
         'EX',
         TWEET_STATIC_DATA_CACHE_TTL,
       );
 
-      authorIds.push(BigInt(authorIdStr));
+      authorIds.push(BigInt(authorId));
       hydrationPipeline.getex(
-        REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(authorIdStr)),
+        REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(authorId)),
         'EX',
         AUTHOR_COMPACT_DATA_CACHE_TTL,
       );
+
+      const itemInfo: { tweetId: bigint; authorId: bigint; retweeterId?: bigint } = {
+        tweetId: BigInt(tweetId),
+        authorId: BigInt(authorId),
+      };
       // retweeter is a normal author to the cache
       if (actionType === 'R' && retweeterId) {
         authorIds.push(BigInt(retweeterId));
@@ -259,11 +267,13 @@ export class TimelineService {
           'EX',
           AUTHOR_COMPACT_DATA_CACHE_TTL,
         );
+        itemInfo.retweeterId = BigInt(retweeterId);
       }
+
+      itemStructure.push(itemInfo);
     }
 
     const hydrationResults = await hydrationPipeline.exec();
-    console.log(hydrationResults);
 
     if (hydrationResults === null) {
       // the case that triggers a null return NEVER happens, but for type safety
@@ -276,27 +286,35 @@ export class TimelineService {
     }
 
     // hydration returns a [error, result] tuple for each command, so each pair of those is a tweet and author
-    for (let i = 0; i < hydrationResults.length; i += 2) {
-      const [[tweetErr, tweetData], [authorErr, authorData]] = [
-        hydrationResults[i],
-        hydrationResults[i + 1],
-      ];
-
-      const tweetId = tweetIds[i / 2];
-      const authorId = authorIds[i / 2];
-
+    let resultIndex = 0;
+    for (const itemInfo of itemStructure) {
+      // tweet is always present
+      const [tweetErr, tweetData] = hydrationResults[resultIndex++];
       if (tweetErr || tweetData === null) {
-        missingTweetIds.push(tweetId);
+        missingTweetIds.push(itemInfo.tweetId);
       } else if (typeof tweetData === 'string') {
         const tweet: CachedStaticTweet = JSON.parse(tweetData) as CachedStaticTweet;
-        tweetsMap.set(tweetId.toString(), tweet);
+        tweetsMap.set(itemInfo.tweetId.toString(), tweet);
       }
 
+      // author is always present
+      const [authorErr, authorData] = hydrationResults[resultIndex++];
       if (authorErr || authorData === null) {
-        missingAuthorIds.add(authorId);
+        missingAuthorIds.add(itemInfo.authorId);
       } else if (typeof authorData === 'string') {
         const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
-        authorsMap.set(authorId.toString(), authorDto);
+        authorsMap.set(itemInfo.authorId.toString(), authorDto);
+      }
+
+      // retweeter author if present
+      if (itemInfo.retweeterId) {
+        const [retweeterErr, retweeterData] = hydrationResults[resultIndex++];
+        if (retweeterErr || retweeterData === null) {
+          missingAuthorIds.add(itemInfo.retweeterId);
+        } else if (typeof retweeterData === 'string') {
+          const retweeterDto: CompactAuthorDto = JSON.parse(retweeterData) as CompactAuthorDto;
+          authorsMap.set(itemInfo.retweeterId.toString(), retweeterDto);
+        }
       }
     }
 
