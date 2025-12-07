@@ -6,6 +6,26 @@
   - Made the column `session_id` on table `refresh_tokens` required. This step will fail if there are existing NULL values in that column.
 
 */
+
+-- SAFETY: Wrap in a transaction
+BEGIN;
+
+DELETE FROM refresh_tokens WHERE session_id IS NULL;
+
+WITH ranked AS (
+  SELECT id,
+         session_id,
+         ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at DESC) AS rn
+  FROM refresh_tokens
+  WHERE session_id IS NOT NULL
+)
+DELETE FROM refresh_tokens rt
+USING ranked r
+WHERE rt.id = r.id AND r.rn > 1;
+
+COMMIT;
+
+
 -- DropForeignKey
 ALTER TABLE "public"."refresh_tokens" DROP CONSTRAINT "refresh_tokens_session_id_fkey";
 
