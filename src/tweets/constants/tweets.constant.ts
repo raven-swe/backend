@@ -23,3 +23,5 @@ export const TWEETS_ERROR_MESSAGES = {
   TWEET_FORBIDDEN_DELETION: 'You do not have permission to delete this tweet.',
   INVALID_CURSOR: 'The provided cursor is invalid.',
 };
+
+export const MAX_TWEET_DEPTH = 5; // Maximum depth for thread views (4 parents + 1 for hasMore check)

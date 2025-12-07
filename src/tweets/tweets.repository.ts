@@ -11,6 +11,8 @@ import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { MAX_TWEET_DEPTH } from './constants';
+import { DeletedTweet, TweetOrDeleted } from './types';
 
 const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -421,13 +423,105 @@ export class TweetsRepository {
         quotedTweet: {
           include: tweetInclude(currentUserId),
         },
-        replyToTweet: {
-          include: tweetInclude(currentUserId),
-        },
       },
     });
 
     return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
+  }
+
+  /**
+   * Get a tweet by ID, returning a deleted marker if the tweet is deleted
+   * Used for root tweets and quoted tweets
+   */
+  async getTweetOrDeleted(tweetId: bigint, currentUserId: bigint): Promise<TweetOrDeleted | null> {
+    const tweetCheck = await this.prisma.tweet.findUnique({
+      where: { id: tweetId },
+      select: { id: true, isDeleted: true },
+    });
+
+    if (!tweetCheck) {
+      return null;
+    }
+
+    if (tweetCheck.isDeleted) {
+      return { isDeleted: true };
+    }
+
+    // Fetch full tweet data if not deleted
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    return tweet ? this.mapToTweetDto(tweet) : null;
+  }
+
+  /**
+   * Get all parent tweets of a given tweet using recursive CTE (max depth is 4)
+   *
+   * @param replyToTweetId - ID of the direct parent tweet of the tweet to get parents for
+   * @param currentUserId - ID of the current user (for context)
+   *
+   * @returns an array of parent tweets (excluding the root tweet)
+   */
+  async getParentTweets(replyToTweetId: bigint, currentUserId: bigint) {
+    // Get all parent Ids with recursive CTE
+    const parentIds = await this.prisma.$queryRaw<
+      { id: bigint; depth: number; is_deleted: boolean }[]
+    >`
+      WITH RECURSIVE parent_tweets AS (
+        -- base case: direct parent
+        SELECT id, reply_to_tweet_id, root_tweet_id, is_deleted, 1 AS depth
+        FROM tweets
+        WHERE id = ${replyToTweetId}
+
+        UNION ALL
+
+        -- recursive case: find parent of the current tweet
+        SELECT t.id, t.reply_to_tweet_id, t.root_tweet_id, t.is_deleted, pt.depth + 1
+        FROM tweets t
+        INNER JOIN parent_tweets pt ON t.id = pt.reply_to_tweet_id
+        WHERE pt.depth < ${MAX_TWEET_DEPTH} 
+        AND pt.reply_to_tweet_id IS NOT NULL
+      )
+    SELECT id, depth, is_deleted
+    FROM parent_tweets
+    ORDER BY depth DESC
+  `;
+
+    if (parentIds.length === 0) {
+      return [];
+    }
+
+    const deletedIds = new Set(parentIds.filter((row) => row.is_deleted).map((row) => row.id));
+    const activeIds = parentIds.filter((row) => !row.is_deleted).map((row) => row.id);
+
+    // Hydrate non-deleted tweets
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: activeIds },
+        isDeleted: false,
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    // Map tweet id to dto
+    const tweetMap = new Map<bigint, TweetDto>();
+    tweets.forEach((tweet) => {
+      tweetMap.set(tweet.id, this.mapToTweetDto(tweet));
+    });
+
+    const result = parentIds.map((row) => {
+      if (deletedIds.has(row.id)) {
+        return { isDeleted: true } as DeletedTweet;
+      }
+      return tweetMap.get(row.id)!;
+    });
+    return result;
   }
 
   async getReferencedTweet(tweetId: bigint, currentUserId: bigint): Promise<TweetDto | null> {

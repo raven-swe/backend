@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
+import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
@@ -26,6 +26,8 @@ import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { TrendingService } from 'src/trending/trending.service';
+import { ThreadViewResponseDto } from './dtos/thread-view-response.dto';
+import { DeletedTweet } from './types';
 
 @Injectable()
 export class TweetsService {
@@ -542,7 +544,7 @@ export class TweetsService {
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto | null> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
@@ -554,7 +556,39 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-    return tweet;
+
+    let rootTweet: TweetDto | DeletedTweet | null = null;
+    let parentTweets: (TweetDto | DeletedTweet)[] = [];
+    let hasMoreParents = false;
+
+    // If this is a reply, fetch the root tweet
+    if (tweet?.rootTweetId) {
+      rootTweet = await this.tweetsRepository.getTweetOrDeleted(
+        BigInt(tweet.rootTweetId),
+        currentUserId,
+      );
+    }
+
+    // Fetch parent tweets (intermediate tweets between root and this tweet)
+    if (tweet.replyToTweetId) {
+      parentTweets = await this.tweetsRepository.getParentTweets(
+        BigInt(tweet.replyToTweetId),
+        currentUserId,
+      );
+    }
+
+    if (parentTweets.length >= MAX_TWEET_DEPTH) {
+      // If we fetched MAX_TWEET_DEPTH tweets, there is more
+      parentTweets = parentTweets.slice(1);
+      hasMoreParents = true;
+    }
+
+    return {
+      ...tweet,
+      rootTweet,
+      parentTweets,
+      hasMoreParents,
+    };
   }
 
   async getTweetQuotes(
