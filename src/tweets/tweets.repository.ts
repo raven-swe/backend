@@ -15,7 +15,7 @@ import { CompactAuthorDto } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
-const tweetInclude = (currentUserId: bigint) =>
+export const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
       select: {
@@ -231,15 +231,27 @@ export class TweetsRepository {
   }
 
   async deleteTweet(tweetId: bigint) {
-    await this.prisma.tweet.update({
-      where: { id: tweetId },
-      data: { isDeleted: true }, //:))
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tweet.update({
+        where: { id: tweetId },
+        data: { isDeleted: true },
+      });
+
+      await tx.retweet.deleteMany({
+        where: {
+          tweetId,
+        },
+      });
+
+      await tx.like.deleteMany({
+        where: {
+          tweetId,
+        },
+      });
     });
   }
 
-  private mapToDetailedTweetDto(
-    tweet: DetailedTweetWithIncludes,
-  ): TweetDto & { replyToTweet?: TweetDto } {
+  mapToDetailedTweetDto(tweet: DetailedTweetWithIncludes): TweetDto & { replyToTweet?: TweetDto } {
     const baseTweet = this.mapToTweetDto(tweet);
 
     return {
@@ -655,15 +667,16 @@ export class TweetsRepository {
     return await this.prisma.$queryRaw<Array<FeedSkeleton>>`
     SELECT * FROM (
       -- 1. Tweets (Applied dynamic filter here)
-      SELECT id, "created_at", 'tweet' as type 
+      SELECT id, "created_at", "is_deleted", 'tweet' as type 
       FROM "tweets"
       WHERE "user_id" = ${targetUserId} 
+      AND is_deleted = false
       ${replyFilter}
       
       UNION ALL
       
       -- 2. Reposts (Always included in both tabs usually)
-      SELECT "tweet_id" as id, "created_at", 'repost' as type 
+      SELECT "tweet_id" as id, "created_at", false as "is_deleted", 'repost' as type 
       FROM "retweets"
       WHERE "user_id" = ${targetUserId}
     ) AS feed
@@ -681,6 +694,9 @@ export class TweetsRepository {
       include: {
         ...tweetInclude(authUserId),
         quotedTweet: {
+          include: tweetInclude(authUserId),
+        },
+        replyToTweet: {
           include: tweetInclude(authUserId),
         },
       },
