@@ -16,6 +16,11 @@ export class MessageDto {
   content: string;
   createdAt: Date;
   isMine: boolean;
+  mediaUrl: string | null;
+  type: string | null;
+  altText: string | null;
+  width: number | null;
+  height: number | null;
   reactions: MessageReactionsDto;
 }
 

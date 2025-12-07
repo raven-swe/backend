@@ -138,6 +138,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       conversationId: bigint;
       userId: bigint;
       content: string;
+      mediaUrl: string | null;
     },
     sender: WsUser,
   ) {
@@ -163,6 +164,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
         bodySnippet: message.content.slice(0, 80),
         createdAt: message.createdAt,
+        hasMedia: !!message.mediaUrl,
       });
 
       if (userId !== message.userId) {
@@ -268,20 +270,34 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const result = await this.messagesService.createMessage(conversationId, user.id, payload.body);
+    const result = await this.messagesService.createMessage(
+      conversationId,
+      user.id,
+      payload.body,
+      payload.mediaId,
+    );
 
     if ('error' in result) {
       this.logger.error(
         `Message creation failed - User: ${user.id}, Conversation: ${conversationId}, Error: ${result.error}`,
       );
-      const errorCode: string =
-        result.error === 'INVALID_CONVERSATION_ID'
-          ? CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID
-          : CONVERSATIONS_ERROR_CODES.MESSAGE_CREATION_FAILED;
-      const errorMessage: string =
-        result.error === 'INVALID_CONVERSATION_ID'
-          ? CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID
-          : CONVERSATIONS_ERROR_MESSAGES.MESSAGE_CREATION_FAILED;
+      let errorCode: string;
+      let errorMessage: string;
+
+      switch (result.error) {
+        case 'INVALID_CONVERSATION_ID':
+          errorCode = CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID;
+          break;
+        case 'INVALID_MEDIA':
+          errorCode = CONVERSATIONS_ERROR_CODES.INVALID_MEDIA;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.INVALID_MEDIA;
+          break;
+        default:
+          errorCode = CONVERSATIONS_ERROR_CODES.MESSAGE_CREATION_FAILED;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.MESSAGE_CREATION_FAILED;
+          break;
+      }
 
       return client.emit('error', {
         type: 'error',
@@ -318,6 +334,11 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
         clientMessageId: payload.clientMessageId,
         body: message.content,
         createdAt: message.createdAt,
+        mediaUrl: message.mediaUrl,
+        type: message.media?.type || null,
+        height: message.media?.height || null,
+        width: message.media?.width || null,
+        altText: message.media?.altText || null,
       },
     });
 

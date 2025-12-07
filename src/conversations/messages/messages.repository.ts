@@ -48,6 +48,16 @@ export class MessagesRepository {
         reactionReceiver: true,
         reactionReceiverAt: true,
         reactionSenderAt: true,
+        mediaUrl: true,
+        mediaId: true,
+        media: {
+          select: {
+            type: true,
+            width: true,
+            height: true,
+            altText: true,
+          },
+        },
       },
     });
   }
@@ -101,23 +111,45 @@ export class MessagesRepository {
     };
   }
 
-  async createMessage(conversationId: bigint, senderId: bigint, body: string) {
-    const message = await this.prisma.message.create({
-      data: {
-        userId: senderId,
-        conversationId,
-        content: body,
-      },
+  async createMessage(
+    conversationId: bigint,
+    senderId: bigint,
+    body: string,
+    mediaUrl?: string,
+    mediaId?: bigint,
+  ) {
+    const message = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          userId: senderId,
+          conversationId,
+          content: body,
+          mediaUrl,
+          mediaId,
+        },
+        include: {
+          media: {
+            select: {
+              type: true,
+              width: true,
+              height: true,
+              altText: true,
+            },
+          },
+        },
+      });
+
+      await tx.conversation.update({
+        where: {
+          id: conversationId,
+        },
+        data: {
+          lastMessageId: message.id,
+        },
+      });
+      return message;
     });
 
-    await this.prisma.conversation.update({
-      where: {
-        id: conversationId,
-      },
-      data: {
-        lastMessageId: message.id,
-      },
-    });
     return message;
   }
 

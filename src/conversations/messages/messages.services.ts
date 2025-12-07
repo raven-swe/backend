@@ -10,12 +10,14 @@ import {
 import { MessagesRepository } from './messages.repository';
 import { ParticipantDto, MessageDto } from './dtos';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { MediaRepository } from 'src/media/media.repository';
 
 @Injectable()
 export class MessagesService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly messagesRepository: MessagesRepository,
+    private readonly mediaRepository: MediaRepository,
   ) {}
 
   async checkConversationEligibility(userId: bigint, conversationId: bigint) {
@@ -105,6 +107,11 @@ export class MessagesService {
       reactionReceiver: message.reactionReceiver,
       reactionSenderAt: message.reactionSenderAt,
       reactionReceiverAt: message.reactionReceiverAt,
+      mediaUrl: message.mediaUrl,
+      type: message.media?.type,
+      altText: message.media?.altText,
+      width: message.media?.width,
+      height: message.media?.height,
     }));
 
     const pagination = paginateComposite(formattedMessages, limit, cursor, (item) => ({
@@ -124,6 +131,11 @@ export class MessagesService {
         content: message.content,
         createdAt: message.createdAt,
         isMine: message.userId === userId,
+        mediaUrl: message.mediaUrl,
+        type: message.type || null,
+        altText: message.altText || null,
+        width: message.width || null,
+        height: message.height || null,
         reactions: {
           sender: {
             username: sender!.user.username,
@@ -186,7 +198,7 @@ export class MessagesService {
     };
   }
 
-  async createMessage(conversationId: string, senderId: string, body: string) {
+  async createMessage(conversationId: string, senderId: string, body: string, mediaId?: string) {
     let userIdBigInt: bigint;
     let conversationIdBigInt: bigint;
 
@@ -197,14 +209,38 @@ export class MessagesService {
       return { error: 'INVALID_CONVERSATION_ID' };
     }
 
+    let mediaIdBigInt: bigint | undefined;
+    let mediaUrl: string | undefined;
+    if (mediaId) {
+      try {
+        mediaIdBigInt = BigInt(mediaId);
+      } catch {
+        return { error: 'INVALID_MEDIA' };
+      }
+
+      const media = await this.mediaRepository.findByIdAndUserId(mediaIdBigInt, userIdBigInt);
+
+      if (!media) {
+        return { error: 'INVALID_MEDIA' };
+      }
+
+      mediaUrl = media.url;
+    }
+
     const message = await this.messagesRepository.createMessage(
       conversationIdBigInt,
       userIdBigInt,
       body,
+      mediaUrl,
+      mediaIdBigInt,
     );
 
     if (!message) {
       return { error: 'MESSAGE_CREATION_FAILED' };
+    }
+
+    if (mediaIdBigInt) {
+      await this.mediaRepository.markMediaAsNotPending([mediaIdBigInt]);
     }
 
     await this.messagesRepository.updateLastSeenMessage(
