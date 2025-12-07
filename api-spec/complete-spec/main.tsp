@@ -357,6 +357,7 @@ model UserMetadata {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string;
+
 }
 
 @doc("Author metadata for tweets with relationship status")
@@ -366,22 +367,29 @@ model TweetAuthor {
   @doc("True if the current user has blocked this author")
   isBlocked: boolean;
 
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
-
   @doc("True if the current user has muted this author")
   isMuted: boolean;
 
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
 }
 
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
-  @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
-
   @doc("Is the user following the current logged-in user")
   isFollower: boolean | null;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean | null;
+}
+
+model UserMetadataWithFollowing{
+  ...UserMetadata;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean;
+
 }
 
 @doc("User metadata with biography information")
@@ -687,7 +695,7 @@ enum NotificationFilter {
 model NotificationActorSummary {
   @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
   @maxItems(3)
-  previewActors: UserMetadata[];
+  previewActors: UserMetadataWithFollowing[];
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
@@ -899,6 +907,14 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model MessageCreatedResponse<TMessage extends string> {
+  ...CreatedResponse;
+  ...Body<{
+    success: true;
+    message?: TMessage; // optional message field on success
+  }>;
+}
+
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
@@ -1056,6 +1072,7 @@ namespace Auth {
     @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
+      fcmToken?: string;
     },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
@@ -1295,7 +1312,7 @@ namespace Users {
   @get
   @route("/{username}/replies")
   op getUserReplies(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<TweetWithReplyTo[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1376,6 +1393,24 @@ namespace Users {
         | InternalServerErrorResponse;
     }
   }
+
+  @summary("enable notifications for a user, follows the user if not followed")
+  @post
+  @route("{username}/notify")
+  op enableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications enabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("disable notifications for a user, follows the user if not followed")
+  @delete
+  @route("{username}/notify")
+  op disableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications disabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Me")
@@ -2224,6 +2259,37 @@ namespace Media {
         message: string;
       }>
     | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @put
+  @route("push")
+  @summary("Enable or disable push notifications for the device")
+  op togglePushNotifications(
+    @body body: {
+      fcmToken: string;
+      enable: boolean;
+    },
+  ):
+    | MessageResponse<"Push notifications enabled/disabled successfully.">
+    | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }

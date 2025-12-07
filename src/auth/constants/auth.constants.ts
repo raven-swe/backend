@@ -35,6 +35,7 @@ export const AUTH_ERROR_MESSAGES = {
     'The GitHub authorization token is invalid or expired. Please try logging in again.',
   INVALID_GOOGLE_AUTHORIZATION_TOKEN:
     'The Google authorization token is invalid or expired. Please try logging in again.',
+  MISSING_DEVICE_ID: 'DeviceId and FCM token are required for mobile login',
 } as const;
 
 export const REDIS_KEYS = {

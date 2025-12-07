@@ -1,5 +1,6 @@
 export interface Device {
   userId: bigint;
-  ipAddress: string;
-  deviceType: string;
+  fcmToken: string;
+  ipAddress?: string;
+  deviceType?: string;
 }

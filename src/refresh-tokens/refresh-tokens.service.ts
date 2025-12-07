@@ -3,6 +3,7 @@ import { RefreshTokensRepository } from './refresh-tokens.repository';
 import { RefreshToken } from './interfaces';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class RefreshTokensService {
@@ -13,10 +14,28 @@ export class RefreshTokensService {
     private readonly prisma: PrismaService,
   ) {}
 
+  hashStringDeterministic(str: string): string {
+    const hash = crypto.createHash('sha256');
+    hash.update(str);
+    return hash.digest('hex');
+  }
+
   // service methods that take tx as a parameter for transactions are ones that will be used in a transaction by *another service*
   async createRefreshToken(refreshToken: RefreshToken, tx: Prisma.TransactionClient = this.prisma) {
     const token = await this.refreshTokensRepository.createRefreshToken(refreshToken, tx);
     this.logger.log('Refresh token created successfully for user ID: ' + refreshToken.userId);
     return token;
+  }
+
+  async getTokenByHash(hash: string) {
+    return await this.refreshTokensRepository.getTokenByHash(hash);
+  }
+
+  async updateTokenHash(tokenId: bigint, newHash: string, expiresAt: Date) {
+    return await this.refreshTokensRepository.updateTokenHash(tokenId, newHash, expiresAt);
+  }
+
+  async deleteTokensById(tokenId: bigint, tx: Prisma.TransactionClient = this.prisma) {
+    return await this.refreshTokensRepository.deleteTokensById(tokenId, tx);
   }
 }
