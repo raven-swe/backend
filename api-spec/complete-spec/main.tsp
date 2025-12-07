@@ -2137,7 +2137,9 @@ namespace Search {
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<UserMetadataWithFollowInfo[]>
+    | DataResponseWithPagination<{
+        users: UserMetadataWithFollowInfo[];
+      }>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -2152,7 +2154,9 @@ namespace Search {
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<SearchUser>
+    | DataResponseWithPagination<{
+        users: SearchUser[];
+      }>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

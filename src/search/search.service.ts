@@ -233,6 +233,6 @@ export class SearchService {
     );
 
     this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
-    return { items: mappedUsers, pagination };
+    return { users: mappedUsers, pagination };
   }
 }
