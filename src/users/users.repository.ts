@@ -15,7 +15,7 @@ import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
-import { AuthorDto } from 'src/tweets/dtos';
+import { CompactAuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
 
 @Injectable()
@@ -1265,6 +1265,7 @@ export class UsersRepository {
 
     return !!(block1 || block2);
   }
+
   async getMatchingUsers(userId: bigint, username: string) {
     return await this.prisma.user.findMany({
       where: {
@@ -1302,11 +1303,12 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         username: true,
+        id: true,
         profile: {
           select: {
             displayName: true,
@@ -1321,13 +1323,29 @@ export class UsersRepository {
     }
 
     return {
+      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      isBlocked: false,
-      isFollowing: false,
-      isMuted: false,
     };
+  }
+
+  async getFollowersUnPaginated(userId: bigint): Promise<bigint[]> {
+    return this.prisma.follow
+      .findMany({
+        where: { followedId: userId },
+        select: { followerId: true },
+      })
+      .then((followers) => followers.map((follow) => follow.followerId));
+  }
+
+  async getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+    return this.prisma.mute
+      .findMany({
+        where: { mutedId },
+        select: { userId: true },
+      })
+      .then((mutings) => mutings.map((mute) => mute.userId));
   }
 
   async toggleUserNotifications(userId: bigint, followedId: bigint, enable: boolean) {

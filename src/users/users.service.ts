@@ -1026,6 +1026,14 @@ export class UsersService {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersIds(userId: bigint): Promise<bigint[]> {
+    return await this.usersRepository.getFollowersUnPaginated(userId);
+  }
+
   async enableUserNotifications(userId: bigint, username: string) {
     const requestedUser = await this.usersRepository.findByUsername(username);
 
