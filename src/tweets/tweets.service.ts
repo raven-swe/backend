@@ -19,7 +19,11 @@ import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { CompactAuthorDto, TweetDto } from './dtos';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
@@ -30,9 +34,11 @@ export class TweetsService {
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
+    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
-    private readonly prisma: PrismaService,
     private readonly domainEvents: DomainEventsService,
+    private readonly prisma: PrismaService,
+    @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
   ) {}
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
@@ -45,8 +51,9 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const trimContent = createTweetDto.content?.trim() ?? '';
 
-    if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
+    if (!trimContent && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_PAYLOAD,
@@ -55,6 +62,9 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    createTweetDto.content = trimContent;
+
     if (createTweetDto.media && createTweetDto.media.length > 4) {
       throw new HttpException(
         {
@@ -88,51 +98,55 @@ export class TweetsService {
       mediaIds,
     );
 
-    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
-      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
-        createTweetDto.content,
-        tx,
-      );
-
-      const tweetData: CreateTweetData = {
-        userId,
-        content: createTweetDto.content,
-        replyToTweetId: createTweetDto.replyToTweetId
-          ? BigInt(createTweetDto.replyToTweetId)
-          : null,
-        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
-        Mentions: mentions.map((mention) => ({
-          userId: mention.userId,
-          startPosition: mention.startPosition,
-        })),
-        Hashtags: hashtags.map((hashtag) => ({
-          hashtagId: hashtag.hashtagId,
-          startPosition: hashtag.startPosition,
-        })),
-        hasMedia: mediaIds.length > 0,
-      };
-
-      if (createTweetDto.replyToTweetId) {
-        await this.tweetsRepository.updateTweetReplyCount(
-          BigInt(createTweetDto.replyToTweetId),
-          true,
+    const { tweet, mentions, hashtags, tweetId, authorId } = await this.prisma.$transaction(
+      async (tx) => {
+        const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+          trimContent,
           tx,
         );
-      }
 
-      if (createTweetDto.quoteToTweetId) {
-        await this.tweetsRepository.updateTweetRetweetCount(
-          BigInt(createTweetDto.quoteToTweetId),
-          true,
-          tx,
-        );
-      }
-      const tweet = await this.tweetsRepository.create(tweetData, tx);
-      await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
-      await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
+        const tweetData: CreateTweetData = {
+          userId,
+          content: trimContent,
+          replyToTweetId: createTweetDto.replyToTweetId
+            ? BigInt(createTweetDto.replyToTweetId)
+            : null,
+          quotedTweetId: createTweetDto.quoteToTweetId
+            ? BigInt(createTweetDto.quoteToTweetId)
+            : null,
+          Mentions: mentions.map((mention) => ({
+            userId: mention.userId,
+            startPosition: mention.startPosition,
+          })),
+          Hashtags: hashtags.map((hashtag) => ({
+            hashtagId: hashtag.hashtagId,
+            startPosition: hashtag.startPosition,
+          })),
+          hasMedia: mediaIds.length > 0,
+        };
 
-      return { tweet, mentions, hashtags };
-    });
+        if (createTweetDto.replyToTweetId) {
+          await this.tweetsRepository.updateTweetReplyCount(
+            BigInt(createTweetDto.replyToTweetId),
+            true,
+            tx,
+          );
+        }
+
+        if (createTweetDto.quoteToTweetId) {
+          await this.tweetsRepository.updateTweetRetweetCount(
+            BigInt(createTweetDto.quoteToTweetId),
+            true,
+            tx,
+          );
+        }
+        const tweet = await this.tweetsRepository.create(tweetData, tx);
+        await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+        await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
+
+        return { tweet, mentions, hashtags, tweetId: tweet.id, authorId: tweet.userId };
+      },
+    );
 
     await this.domainEvents.emitTweetCreated({
       tweetId: tweet.id,
@@ -152,6 +166,27 @@ export class TweetsService {
       ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
       : Promise.resolve(undefined);
     // I know this probably confilcts with "nested replies"
+
+    // dispatch fanout job
+    if (!createTweetDto.replyToTweetId) {
+      const fanoutJob: TweetFanoutJob = {
+        tweetId: tweetId.toString(),
+        authorId: authorId.toString(),
+        timestamp: Date.now(),
+      };
+
+      await this.timelineFollowingQueue.add('fanout', fanoutJob, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      });
+
+      this.logger.log(
+        `Dispathced fanout on write job for tweet ID: ${tweetId} by user ID: ${userId}`,
+      );
+    }
 
     const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
       mediaObjectsPromise,
@@ -787,6 +822,36 @@ export class TweetsService {
       limit + 1,
       decodedCursor,
     );
+  }
+
+  async getTweetsByHashtag(
+    hashtag: string,
+    currentUserId: bigint,
+    limit: number,
+    hasMedia: boolean = false,
+    prevCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    // Get hashtag record
+    const hashtagRecord = await this.trendingService.getHashtagId(hashtag);
+    if (!hashtagRecord) {
+      return [];
+    }
+
+    // Get tweet ids from tweet hashtags table
+    const tweetIds = await this.tweetsRepository.getTweetIdsLinkedToHashtag(
+      hashtagRecord.id,
+      currentUserId,
+      limit + 1,
+      hasMedia,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      prevCursor,
+    );
+
+    // Get full tweets data
+    return await this.tweetsRepository.getTweetsWithReferencesByIds(currentUserId, tweetIds);
   }
 
   async getUserMediaTweets(

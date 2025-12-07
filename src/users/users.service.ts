@@ -13,7 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -27,6 +27,8 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
@@ -1031,6 +1033,31 @@ export class UsersService {
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
   }
 
   /**

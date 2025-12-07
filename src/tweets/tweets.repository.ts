@@ -184,7 +184,7 @@ export class TweetsRepository {
     return prismaClient.tweet.create({
       data: {
         userId: tweetData.userId,
-        content: tweetData.content,
+        content: tweetData.content ?? '',
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
         hasMentions: tweetData.Mentions.length > 0,
@@ -928,13 +928,11 @@ export class TweetsRepository {
     return interactionsMap;
   }
 
-  async getTweetsByQuery(
+  private buildTweetFilters(
     currentUserId: bigint,
-    query: string,
     hasMedia: boolean = false,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
-    limit: number,
     cursor?: TweetRelationsCursor,
   ) {
     const cursorCondition = cursor
@@ -949,7 +947,6 @@ export class TweetsRepository {
       `
       : Prisma.empty;
 
-    // Exclude tweets from muted and blocked users if the flag is set
     const mutedAndBlockedCondition = excludeMutedAndBlocked
       ? Prisma.sql`
         AND NOT EXISTS (
@@ -976,12 +973,34 @@ export class TweetsRepository {
       `
         : Prisma.empty;
 
+    const mediaCondition = hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty;
+
+    return {
+      cursorCondition,
+      mutedAndBlockedCondition,
+      peopleFilterCondition,
+      mediaCondition,
+    };
+  }
+
+  async getTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    limit: number,
+    cursor?: TweetRelationsCursor,
+  ) {
+    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter, cursor);
+
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
     FROM tweets t
     WHERE t.search_document @@ to_tsquery('simple', ${query})
       AND t.is_deleted = false
-      ${hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty}
+      ${mediaCondition}
       ${cursorCondition}
       ${mutedAndBlockedCondition}
       ${peopleFilterCondition}
@@ -1018,6 +1037,72 @@ export class TweetsRepository {
     const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
     const orderedTweets = tweetIds
       .map((row) => tweetMap.get(row.id.toString()))
+      .filter((tweet) => tweet !== undefined);
+
+    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
+  }
+
+  async getTweetIdsLinkedToHashtag(
+    hashtagId: bigint,
+    currentUserId: bigint,
+    limit: number,
+    hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    prevCursor?: TweetRelationsCursor,
+  ): Promise<bigint[]> {
+    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildTweetFilters(
+        currentUserId,
+        hasMedia,
+        excludeMutedAndBlocked,
+        peopleFilter,
+        prevCursor,
+      );
+
+    const tweetHashtags = await this.prisma.$queryRaw<
+      { id: bigint; created_at: Date }[]
+    >(Prisma.sql`
+      SELECT t.id, t.created_at
+      FROM tweets t
+      JOIN tweet_hashtags th ON t.id = th.tweet_id
+      WHERE th.hashtag_id = ${hashtagId}
+        AND t.is_deleted = false
+        ${mediaCondition}
+        ${cursorCondition}
+        ${mutedAndBlockedCondition}
+        ${peopleFilterCondition}
+      ORDER BY t.created_at DESC, t.id DESC
+      LIMIT ${limit}
+    `);
+
+    const tweetIds = tweetHashtags.map((row) => row.id);
+    return tweetIds;
+  }
+
+  async getTweetsWithReferencesByIds(
+    currentUserId: bigint,
+    tweetIds: bigint[],
+  ): Promise<TweetDto[]> {
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+    });
+
+    // Maintain the order from the hashtag query
+    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
+    const orderedTweets = tweetIds
+      .map((id) => tweetMap.get(id.toString()))
       .filter((tweet) => tweet !== undefined);
 
     return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));

@@ -15,6 +15,8 @@ import { DomainEventsService } from 'src/events/domain-events.service';
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TrendingService } from 'src/trending/trending.service';
+
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -84,6 +86,9 @@ describe('TweetsService', () => {
     emitTweetLiked: jest.fn(),
     emitTweetRetweeted: jest.fn(),
   };
+  const mockTrendingService = {
+    getHashtagId: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -108,6 +113,10 @@ describe('TweetsService', () => {
         {
           provide: MediaRepository,
           useValue: mockMediaRepository,
+        },
+        {
+          provide: TrendingService,
+          useValue: mockTrendingService,
         },
         {
           provide: getQueueToken('timeline-following'),
@@ -1713,17 +1722,6 @@ describe('TweetsService', () => {
   });
 
   describe('TweetsService - Query Methods', () => {
-    let service: TweetsService;
-
-    const mockTweetsRepository = {
-      getTweetsByQuery: jest.fn(),
-    };
-
-    const mockUsersRepository = {};
-    const mockContentParsingService = {};
-    const mockMediaRepository = {};
-    const mockPrismaService = {};
-
     const mockTweets = [
       {
         id: BigInt(1),
@@ -1746,6 +1744,7 @@ describe('TweetsService', () => {
           { provide: ContentParsingService, useValue: mockContentParsingService },
           { provide: MediaRepository, useValue: mockMediaRepository },
           { provide: PrismaService, useValue: mockPrismaService },
+          { provide: TrendingService, useValue: mockTrendingService },
           {
             provide: getQueueToken('timeline-following'),
             useValue: {

@@ -1,11 +1,20 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
-import { SEARCH_ERROR_CODES, SEARCH_ERROR_MESSAGES } from './constants';
-import { SearchTab, SearchTweetsQueryDto } from './dtos/search-tweets-query.dto';
+import {
+  PeopleSearchFilter,
+  SearchTab,
+  SearchTweetsQueryDto,
+} from './dtos/search-tweets-query.dto';
 import { GetTweetResponseDto } from 'src/tweets/dtos';
 import { TweetsService } from 'src/tweets/tweets.service';
-import { prepareSearchQuery } from './utils/search-query.util';
-import { TweetRelationsCursor } from 'src/common/types/cursors';
+import {
+  extractHashtag,
+  isSingleHashtagQuery,
+  prepareSearchQuery,
+} from './utils/search-query.util';
+import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
+import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
+import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 
@@ -17,17 +26,14 @@ export class SearchService {
     private readonly usersService: UsersService,
     private readonly tweetsService: TweetsService,
   ) {}
-
   async getMatchingUsers(userId: bigint, username: string) {
+    if (!username || username.trim() === '') {
+      return { users: [] };
+    }
+
     const users = await this.usersService.getMatchingUsers(userId, username);
     if (!users || users.length === 0) {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.NO_MATCHING_USERS,
-          code: SEARCH_ERROR_CODES.NO_MATCHING_USERS,
-        },
-        HttpStatus.NOT_FOUND,
-      );
+      return { users: [] };
     }
 
     const userIds = users.map((u) => u.id);
@@ -64,75 +70,33 @@ export class SearchService {
   ) {
     const { query, tab, peopleFilter, excludeMutedAndBlocked } = searchTweetsQueryDto;
 
-    if (!query || query.trim() === '') {
-      throw new HttpException(
-        {
-          message: SEARCH_ERROR_MESSAGES.EMPTY_SEARCH_QUERY,
-          code: SEARCH_ERROR_CODES.EMPTY_SEARCH_QUERY,
+    const rawQuery = decodeURIComponent(query);
+
+    if (!rawQuery || rawQuery.trim() === '') {
+      return {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
         },
-        HttpStatus.BAD_REQUEST,
-      );
+      };
     }
 
-    const cleanedQuery = prepareSearchQuery(query);
+    const isHashtagSearch = isSingleHashtagQuery(rawQuery);
+    const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
+    const decodedCursor = this.decodeCursor(prevCursor);
 
-    let decodedCursor: TweetRelationsCursor | undefined;
-    if (prevCursor) {
-      try {
-        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
-      } catch {
-        throw new HttpException(
-          {
-            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
-            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    let items: GetTweetResponseDto[] = [];
-    switch (tab) {
-      case SearchTab.Top:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      case SearchTab.Latest:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      case SearchTab.Media:
-        items = await this.tweetsService.getTweetsWithMediaByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-        break;
-      default:
-        items = await this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
-    }
+    const items = await this.fetchTweetsByTab(
+      tab,
+      isHashtagSearch,
+      cleanedQuery,
+      currentUserId,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
 
     const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
       return {
@@ -144,5 +108,131 @@ export class SearchService {
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
     return { items, pagination };
+  }
+
+  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
+    if (!prevCursor) return undefined;
+
+    try {
+      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+    } catch {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  private async fetchTweetsByTab(
+    tab: SearchTab | undefined,
+    isHashtagSearch: boolean,
+    cleanedQuery: string,
+    currentUserId: bigint,
+    limit: number,
+    decodedCursor: TweetRelationsCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ): Promise<GetTweetResponseDto[]> {
+    const withMedia = tab === SearchTab.Media;
+
+    if (isHashtagSearch) {
+      return this.tweetsService.getTweetsByHashtag(
+        cleanedQuery,
+        currentUserId,
+        limit,
+        withMedia,
+        decodedCursor,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    }
+
+    return withMedia
+      ? this.tweetsService.getTweetsWithMediaByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
+        )
+      : this.tweetsService.getTopTweetsByQuery(
+          currentUserId,
+          cleanedQuery,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+          peopleFilter,
+        );
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    searchUsersQueryDto: SearchUsersQueryDto,
+    limit: number,
+    prevCursor?: string,
+  ) {
+    const { query, peopleFilter, excludeMutedAndBlocked } = searchUsersQueryDto;
+
+    const rawQuery = decodeURIComponent(query);
+
+    if (!rawQuery || rawQuery.trim() === '') {
+      return {
+        items: [],
+        pagination: {
+          cursor: null,
+          nextCursor: null,
+          hasNextPage: false,
+        },
+      };
+    }
+
+    const cleanedQuery = prepareSearchQuery(rawQuery);
+    let decodedCursor: UserSearchCursor | undefined;
+    try {
+      decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;
+    } catch {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const items = await this.usersService.searchUsers(
+      currentUserId,
+      cleanedQuery,
+      limit + 1,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+
+    const pagination = paginateComposite(items, limit, prevCursor, (user) => {
+      return {
+        rankingScore: BigInt(user.rankingScore),
+        id: user.id.toString(),
+      };
+    });
+
+    // Get users relationships
+    const userIds = items.map((user) => BigInt(user.id));
+    const relationships = await this.usersService.getUsersRelationshipsMap(currentUserId, userIds);
+
+    // Map items with relationships
+    const mappedUsers = mapToUserSearchResultDto(
+      items.map((user) => ({
+        ...user,
+        relationship: relationships.get(BigInt(user.id)),
+      })),
+    );
+
+    this.logger.log(`Fetched ${items.length} top users for query: ${query}`);
+    return { users: mappedUsers, pagination };
   }
 }
