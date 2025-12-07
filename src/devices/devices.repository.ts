@@ -45,7 +45,7 @@ export class DevicesRepository {
   }
 
   async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
-    await tx.userDevice.update({
+    const device = await tx.userDevice.update({
       where: {
         fcmToken: fcmToken,
       },
@@ -53,18 +53,6 @@ export class DevicesRepository {
         userId: null,
         pushEnabled: false,
       },
-    });
-    return device;
-  }
-
-  async togglePushNotifications(
-    fcmToken: string,
-    pushEnabled: boolean,
-    tx: Prisma.TransactionClient = this.prisma,
-  ) {
-    const device = await tx.userDevice.update({
-      where: { fcmToken },
-      data: { pushEnabled },
     });
     return device;
   }

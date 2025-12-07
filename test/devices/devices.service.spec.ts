@@ -126,7 +126,7 @@ describe('DevicesService', () => {
       expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
     });
-   });
+  });
 
   describe('toggleDeviceNotifications', () => {
     it('should correctly call the repository to toggle push notifications', async () => {

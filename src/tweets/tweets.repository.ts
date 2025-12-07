@@ -136,7 +136,10 @@ export class TweetsRepository {
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
 
-  mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+  mapToTweetDto(
+    tweet: TweetWithIncludes,
+    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
+  ): TweetDto {
     return {
       id: tweet.id.toString(),
       author: {
@@ -144,9 +147,6 @@ export class TweetsRepository {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-        isBlocked: tweet.user.blockedBy.length > 0,
-        isFollowing: tweet.user.followers.length > 0,
-        isMuted: tweet.user.mutedBy.length > 0,
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -175,6 +175,8 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
+      isRepost: context.isRepost ?? false,
+      repostedBy: context.repostedBy ?? undefined,
     };
   }
 
@@ -821,6 +823,8 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+      isRepost: false,
+      repostedBy: undefined,
     }));
   }
 

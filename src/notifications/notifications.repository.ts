@@ -23,6 +23,9 @@ export const notificationSelect = (userId: bigint) =>
             displayName: true,
           },
         },
+        followers: {
+          where: { followerId: userId },
+        },
       },
     },
     tweet: {
@@ -52,6 +55,7 @@ export class NotificationsRepository {
             username: n.actor.username,
             displayName: n.actor.profile?.displayName,
             avatarUrl: n.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+            isFollowing: n.actor.followers.length > 0,
           },
         ],
       },

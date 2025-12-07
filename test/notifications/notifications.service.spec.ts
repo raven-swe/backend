@@ -204,6 +204,7 @@ describe('NotificationsService', () => {
                   username: notification.actor.username,
                   displayName: notification.actor.profile?.displayName,
                   avatarUrl: notification.actor.profile?.avatarUrl,
+                  isFollowing: notification.actor.followers.length > 0,
                 },
               ],
             },
@@ -417,6 +418,8 @@ describe('NotificationsService', () => {
       ]);
 
       const result = await service.getNotifications(userId);
+
+      console.log(result.items[0].actorSummary.previewActors);
 
       expect(result.items[0].actorSummary.previewActors[0]).toEqual({
         username: 'testuser',
