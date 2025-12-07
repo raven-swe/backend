@@ -49,8 +49,9 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const trimContent = createTweetDto.content?.trim() ?? '';
 
-    if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
+    if (!trimContent && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_PAYLOAD,
@@ -59,6 +60,9 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    createTweetDto.content = trimContent;
+
     if (createTweetDto.media && createTweetDto.media.length > 4) {
       throw new HttpException(
         {
