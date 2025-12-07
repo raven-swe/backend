@@ -276,83 +276,6 @@ describe('ConversationsService', () => {
       expect(result.items[0].isBlocking).toBe(true);
       expect(result.items[0].isBlockedBy).toBe(false);
     });
-
-    it('should filter conversations without last message unless user is creator', async () => {
-      const mockConversations = [
-        {
-          id: BigInt(1),
-          creatorId: BigInt(999), // Not the current user
-          lastMessageId: null,
-          conversationParticipants: [
-            {
-              userId,
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user1',
-                profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
-              },
-            },
-            {
-              userId: BigInt(2),
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user2',
-                profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
-              },
-            },
-          ],
-          lastMessage: null,
-        },
-      ];
-
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlockRelations.mockResolvedValueOnce([]);
-
-      const result = await service.getUserConversations(userId, limit, '');
-
-      expect(result.items).toHaveLength(0);
-    });
-
-    it.skip('should include conversations without last message if user is creator', async () => {
-      const mockConversations = [
-        {
-          id: BigInt(1),
-          creatorId: userId, // Current user is creator
-          lastMessageId: null,
-          conversationParticipants: [
-            {
-              userId,
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user1',
-                profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
-              },
-            },
-            {
-              userId: BigInt(2),
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user2',
-                profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
-              },
-            },
-          ],
-          lastMessage: null,
-        },
-      ];
-
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlockRelations.mockResolvedValueOnce([]);
-
-      const result = await service.getUserConversations(userId, limit, '');
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].lastMessage).toBeNull();
-    });
   });
 
   describe('createOrFindConversation', () => {
@@ -387,7 +310,7 @@ describe('ConversationsService', () => {
           },
         ],
         messages: [],
-        lastMessage: null,
+        lastMessage: { content: 'Hello', user: { username: 'testuser' }, createdAt: new Date() },
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);

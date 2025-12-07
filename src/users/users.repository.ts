@@ -3,13 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
-import {
-  BioEntitiesDto,
-  MutualUserDto,
-  UpdateProfileDto,
-  UserProfileResponseDto,
-  UserRelationshipDto,
-} from './dtos';
+import { BioEntitiesDto, MutualUserDto, UpdateProfileDto, UserProfileResponseDto } from './dtos';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
@@ -17,7 +11,6 @@ import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
-import { authorSelect } from 'src/tweets/tweets.repository';
 import { UserRelationshipDto } from './dtos/relationship-dto';
 
 @Injectable()

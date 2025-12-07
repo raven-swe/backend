@@ -1,4 +1,4 @@
-import { UserRelationshipDto } from 'src/users/dtos';
+import { UserRelationshipDto } from 'src/users/dtos/relationship-dto';
 
 export class AuthorDto {
   username: string;
