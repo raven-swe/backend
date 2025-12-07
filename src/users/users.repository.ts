@@ -1265,6 +1265,7 @@ export class UsersRepository {
 
     return !!(block1 || block2);
   }
+
   async getMatchingUsers(userId: bigint, username: string) {
     return await this.prisma.user.findMany({
       where: {
@@ -1329,7 +1330,7 @@ export class UsersRepository {
     };
   }
 
-  getFollowersUnPaginated(userId: bigint): Promise<bigint[]> {
+  async getFollowersUnPaginated(userId: bigint): Promise<bigint[]> {
     return this.prisma.follow
       .findMany({
         where: { followedId: userId },
@@ -1338,7 +1339,7 @@ export class UsersRepository {
       .then((followers) => followers.map((follow) => follow.followerId));
   }
 
-  getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+  async getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
     return this.prisma.mute
       .findMany({
         where: { mutedId },
