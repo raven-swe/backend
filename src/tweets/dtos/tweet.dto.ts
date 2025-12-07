@@ -22,4 +22,8 @@ export class TweetDto {
   quoteToTweetId: string | null;
 
   quotedTweet?: TweetDto;
+
+  repostedBy?: Retweeter;
 }
+
+type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;
