@@ -480,7 +480,7 @@ export class TweetsRepository {
    *
    * @returns an array of parent tweets (excluding the root tweet)
    */
-  async getParentTweets(replyToTweetId: bigint, currentUserId: bigint) {
+  async getParentTweets(replyToTweetId: bigint, currentUserId: bigint, rootTweetId: bigint | null) {
     // Get all parent Ids with recursive CTE
     const parentIds = await this.prisma.$queryRaw<
       { id: bigint; depth: number; is_deleted: boolean }[]
@@ -490,7 +490,8 @@ export class TweetsRepository {
         SELECT id, reply_to_tweet_id, root_tweet_id, is_deleted, 1 AS depth
         FROM tweets
         WHERE id = ${replyToTweetId}
-
+        ${rootTweetId ? Prisma.sql`AND id != ${rootTweetId}` : Prisma.empty}
+      
         UNION ALL
 
         -- recursive case: find parent of the current tweet
@@ -499,6 +500,7 @@ export class TweetsRepository {
         INNER JOIN parent_tweets pt ON t.id = pt.reply_to_tweet_id
         WHERE pt.depth < ${MAX_TWEET_DEPTH} 
         AND pt.reply_to_tweet_id IS NOT NULL
+        ${rootTweetId ? Prisma.sql`AND t.id != ${rootTweetId}` : Prisma.empty}
       )
     SELECT id, depth, is_deleted
     FROM parent_tweets

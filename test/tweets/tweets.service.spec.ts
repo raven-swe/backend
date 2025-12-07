@@ -1274,6 +1274,7 @@ describe('TweetsService', () => {
       expect(mockTweetsRepository.getParentTweets).toHaveBeenCalledWith(
         BigInt(replyToTweetId),
         currentUserId,
+        BigInt(rootTweetId),
       );
     });
 

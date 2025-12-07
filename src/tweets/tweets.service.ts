@@ -572,11 +572,12 @@ export class TweetsService {
       parentTweets = await this.tweetsRepository.getParentTweets(
         BigInt(tweet.replyToTweetId),
         currentUserId,
+        tweet.rootTweetId ? BigInt(tweet.rootTweetId) : null,
       );
     }
 
     if (parentTweets.length >= MAX_TWEET_DEPTH) {
-      // If we fetched MAX_TWEET_DEPTH tweets, there is more
+      // Remove the oldest tweet to maintain the depth limit
       parentTweets = parentTweets.slice(1);
       hasMoreParents = true;
     }
