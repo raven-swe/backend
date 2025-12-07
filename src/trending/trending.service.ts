@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TrendingRepository } from './trending.repository';
 import { Prisma } from '@prisma/client';
 import { PlainHashtag } from 'src/tweets/interfaces';
+import { applyModelResults } from 'src/common/utils/compute-new-trend-scores.util';
+import { UpdateTrendScoresDto } from './dtos';
 
 @Injectable()
 export class TrendingService {
@@ -31,5 +33,10 @@ export class TrendingService {
 
     const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
     return hashtags;
+  }
+
+  async updateTrendScores(data: UpdateTrendScoresDto): Promise<{ message: string }> {
+    await applyModelResults(data);
+    return { message: 'Trend scores updated successfully' };
   }
 }

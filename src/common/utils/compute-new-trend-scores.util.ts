@@ -12,11 +12,11 @@ const RETENTION_HOURS = 24;
 const IGNORING_THRESHOLD = 0.05;
 
 export async function applyModelResults(
-  data: { trendingKeywords: ModelItem[]; batch_meta: { total_tweets: number } },
+  data: { trending_keywords: ModelItem[]; batch_meta: { total_tweets: number } },
   now = new Date(),
 ) {
   const BATCH = 200;
-  const items = data.trendingKeywords;
+  const items = data.trending_keywords;
 
   await prisma.trendingKeyword.updateMany({
     data: {
