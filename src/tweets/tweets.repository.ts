@@ -15,7 +15,7 @@ import { CompactAuthorDto } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 
-const tweetInclude = (currentUserId: bigint) =>
+export const tweetInclude = (currentUserId: bigint) =>
   ({
     user: {
       select: {

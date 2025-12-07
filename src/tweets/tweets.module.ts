@@ -20,7 +20,7 @@ import { BullModule } from '@nestjs/bullmq';
     }),
   ],
   providers: [TweetsService, TweetsRepository],
-  controllers: [TweetsController, ProfileTweetsController],
+  controllers: [TweetsController, TimelineController, ProfileTweetsController],
   exports: [TweetsService, TweetsRepository],
 })
 export class TweetsModule {}
