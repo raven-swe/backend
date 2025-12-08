@@ -235,6 +235,71 @@ export class MediaService {
     return { ...items, message: 'Media uploaded successfully.' };
   }
 
+  async uploadGif(
+    currentUserId: bigint,
+    tenorId: string,
+    folder: MediaFolder,
+    altText?: string,
+  ): Promise<{ url: string; id: string }> {
+    const tenorApiKey = process.env.RAVEN_TENOR_KEY;
+    if (!tenorApiKey) {
+      this.logger.error('Tenor API key is not configured');
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+          code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    const tenorUrl = `https://tenor.googleapis.com/v2/posts?key=${tenorApiKey}&ids=${tenorId}&client_key=my_app`;
+    this.logger.log(`Fetching GIF from Tenor with ID: ${tenorId}`);
+
+    const tenorResponse = await fetch(tenorUrl);
+
+    if (!tenorResponse.ok) {
+      throw new Error(`Tenor API request failed: ${tenorResponse.statusText}`);
+    }
+
+    const tenorData = await tenorResponse.json() as TenorApiResponse;
+
+    if ((tenorData && !tenorData.results) || tenorData.results.length === 0) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_NOT_FOUND,
+          code: MEDIA_CODES.GIF_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const gifData = tenorData.results[0];
+
+    // Get the GIF URL and dimensions from the response
+    const gifUrl = gifData.media_formats.gif.url;
+    const [width, height] = gifData.media_formats.gif.dims;
+
+    this.logger.log(`GIF URL from Tenor: ${gifUrl}`);
+
+    // Save metadata to database
+    const mediaDto: MediaDto = {
+      userId,
+      url: gifUrl,
+      type: MediaType.GIF,
+      width,
+      height,
+      altText: altText || gifData.content_description,
+      pending: true,
+    };
+
+    const savedMedia = await this.mediaRepository.saveMedia(mediaDto);
+
+    this.logger.log(`GIF metadata saved with ID: ${savedMedia.id}`);
+
+    return { url: gifUrl, id: savedMedia.id.toString() };
+  }
+
   /**
    * Cleanup pending media that has exceeded the threshold time.
    * Runs weekly to delete orphaned media from failed tweet creations.

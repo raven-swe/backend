@@ -15,6 +15,8 @@ export const MEDIA_CODES = {
   MEDIA_NOT_FOUND: 'MEDIA_NOT_FOUND',
   INVALID_URL: 'INVALID_URL',
   UNAUTHORIZED_DELETE: 'UNAUTHORIZED_DELETE',
+  GIF_UPLOAD_FAILED: 'GIF_UPLOAD_FAILED',
+  GIF_NOT_FOUND: 'GIF_NOT_FOUND',
 } as const;
 
 export const MEDIA_MESSAGES = {
@@ -25,4 +27,6 @@ export const MEDIA_MESSAGES = {
   UNAUTHORIZED_DELETE: 'Unauthorized attempt to delete media.',
   ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
   ALLOWED_VIDEO_TYPES: 'Only video files are allowed (mp4, mkv, webm, mov).',
+  GIF_UPLOAD_FAILED: 'Failed to upload GIF from Tenor.',
+  GIF_NOT_FOUND: 'GIF not found on Tenor with the provided ID.',
 } as const;
