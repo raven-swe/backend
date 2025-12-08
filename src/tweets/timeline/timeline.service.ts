@@ -67,7 +67,7 @@ export class TimelineService {
         timeline = [];
       } else {
         await this.timelineCacheMiss(userId, decoded);
-        timeline = await this.timelineCacheHit(userId, decoded, limit);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
       }
     }
 
@@ -117,7 +117,7 @@ export class TimelineService {
 
     const validTweets: TweetDto[] = [];
     let currentCursor = decodedCursor;
-    const batchSize = limit * 2 + 1;
+    const batchSize = limit * 2;
     const maxAttempts = 5;
     let attempts = 0;
 
