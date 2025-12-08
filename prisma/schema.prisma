@@ -343,6 +343,7 @@ model Notification {
   dedupeKey     String?          @unique @map("dedupe_key") @db.VarChar(255)
   isAggregated  Boolean          @default(false) @map("is_aggregated")
   seen          Boolean          @default(false)
+  payload       Json?            @db.JsonB
   createdAt     DateTime         @default(now()) @map("created_at")
   openedAt      DateTime?        @map("opened_at")
   latestEventAt DateTime         @default(now()) @map("latest_event_at")
@@ -351,6 +352,7 @@ model Notification {
   tweet         Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([receiverId, latestEventAt(sort: Desc), id(sort: Desc)])
+  @@index([receiverId, dedupeKey, seen])
   @@map("notifications")
 }
 
