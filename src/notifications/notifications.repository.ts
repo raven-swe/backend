@@ -14,6 +14,7 @@ export const notificationSelect = (userId: bigint) =>
     createdAt: true,
     latestEventAt: true,
     seen: true,
+    payload: true,
     actor: {
       select: {
         username: true,
@@ -69,8 +70,28 @@ export class NotificationsRepository {
     };
   }
 
-  async deleteByOptions(options: NotificationTriggerOptions) {
-    return await this.prisma.notification.deleteMany({ where: options });
+  async findOpenNotification(receiverId: bigint, dedupeKey: string) {
+    return await this.prisma.notification.findFirst({
+      where: { receiverId, dedupeKey, seen: false },
+      select: notificationSelect(receiverId),
+    });
+  }
+
+  async updtateNotificationByIdAggregation(
+    id: bigint,
+    options: NotificationTriggerOptions,
+    payload: Prisma.JsonObject,
+  ) {
+    return await this.prisma.notification.update({
+      where: { id },
+      data: {
+        actorId: options.actorId,
+        latestEventAt: new Date(),
+        isAggregated: true,
+        payload,
+      },
+      select: notificationSelect(options.receiverId),
+    });
   }
 
   async findByIdForPush(notificationId: bigint) {
@@ -101,9 +122,13 @@ export class NotificationsRepository {
     });
   }
 
-  async createNotification(data: NotificationTriggerOptions): Promise<NotificationWithDetails> {
+  async createNotification(
+    data: NotificationTriggerOptions,
+    payload: Prisma.JsonObject,
+    dedupeKey: string,
+  ): Promise<NotificationWithDetails> {
     return await this.prisma.notification.create({
-      data,
+      data: { ...data, payload, dedupeKey },
       select: notificationSelect(data.receiverId),
     });
   }
