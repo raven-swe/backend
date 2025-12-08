@@ -9,9 +9,20 @@ import { SseEventsService } from 'src/sse/sse-events.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { UsersRepository } from 'src/users/users.repository';
+import { NotificationPayloadDto } from './dtos/notification-payload.dto';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
+  private generateDedupeKey(options: NotificationTriggerOptions): string {
+    switch (options.type) {
+      case 'FOLLOW':
+        return `${options.type}:USER:${options.receiverId}`;
+      default:
+        return `${options.type}:TWEET:${options.tweetId}`;
+    }
+  }
   private readonly logger = new Logger(NotificationsService.name);
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
@@ -41,7 +52,74 @@ export class NotificationsService {
       return existing;
     }
 
-    const notification = await this.notificationsRepository.createNotification(options);
+    const dedubeKey = this.generateDedupeKey(options);
+
+    let notification = null;
+
+    if (dedubeKey) {
+      notification = await this.notificationsRepository.findOpenNotification(
+        options.receiverId,
+        dedubeKey,
+      );
+    }
+
+    if (notification) {
+      const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
+        count: 1,
+        actors: [],
+      };
+      const previousActor = {
+        username: notification.actor.username,
+        displayName: notification.actor.profile?.displayName || null,
+        avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        ifFollowing: notification.actor.followers.length > 0,
+      };
+
+      const actorsMap = new Map<
+        string,
+        {
+          username: string;
+          displayName: string | null;
+          avatarUrl: string | null;
+          ifFollowing: boolean;
+        }
+      >();
+
+      if (currentPayload.actors) {
+        currentPayload.actors.forEach((a) => actorsMap.set(a.username, a));
+      }
+
+      actorsMap.set(previousActor.username, previousActor);
+      const subjectIds = new Set(currentPayload.subjectIds || []);
+      if (options.tweetId) {
+        subjectIds.add(options.tweetId.toString());
+      }
+
+      const payload: Prisma.JsonObject = {
+        count: (currentPayload.count || 0) + 1,
+        actors: Array.from(actorsMap.values()),
+        subjectIds: Array.from(subjectIds),
+      };
+
+      notification = await this.notificationsRepository.updtateNotificationByIdAggregation(
+        notification.id,
+        options,
+        payload,
+      );
+    } else {
+      const payload: Prisma.JsonObject = {
+        count: 1,
+        actors: [],
+        subjectIds: options.tweetId ? [options.tweetId.toString()] : [],
+      };
+
+      notification = await this.notificationsRepository.createNotification(
+        options,
+        payload,
+        dedubeKey,
+      );
+    }
+
     const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
 
     this.logger.log(
@@ -63,7 +141,6 @@ export class NotificationsService {
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
-        jobId: `notification:push:${notification.id}`,
       },
     );
     this.logger.log(
