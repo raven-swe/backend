@@ -19,6 +19,13 @@ export class NotificationsService {
     private readonly usersRepository: UsersRepository,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
+  async undo(options: NotificationTriggerOptions) {
+    this.logger.log(
+      `Deleting notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
+    );
+    if (options.actorId === options.receiverId) return;
+    return await this.notificationsRepository.deleteByOptions(options);
+  }
   async trigger(options: NotificationTriggerOptions) {
     this.logger.log(
       `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,

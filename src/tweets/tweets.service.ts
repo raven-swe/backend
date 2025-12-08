@@ -432,7 +432,7 @@ export class TweetsService {
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    await this.checkIfTweetExists(tweetId);
+    const tweet = await this.checkIfTweetExists(tweetId);
 
     // Tweet already not liked by user
     const hasLiked = await this.tweetsRepository.hasUserLikedTweet(userId, tweetId);
@@ -453,7 +453,14 @@ export class TweetsService {
       COUNT_CACHE_TTL,
     );
 
-    this.logger.debug(`User ${userId} unliked tweet ${tweetId} successfully`);
+    this.logger.log(`User ${userId} unliked tweet ${tweetId} successfully`);
+
+    await this.domainEvents.emitTweetUnliked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
+
     return { message: 'Tweet unliked successfully' };
   }
 
@@ -566,6 +573,12 @@ export class TweetsService {
       REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
       COUNT_CACHE_TTL,
     );
+
+    await this.domainEvents.emitTweetUnretweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
 
     return { message: 'Tweet unretweeted successfully' };
   }
