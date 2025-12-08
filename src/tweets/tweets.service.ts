@@ -459,6 +459,22 @@ export class TweetsService {
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
     this.logger.log(`User ${userId} unretweeted tweet ${tweetId} successfully`);
 
+    //dispatch retweet purge job
+    const purgeJob: RetweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+      retweeterId: userId.toString(),
+    };
+
+    await this.timelineFollowingQueue.add('purge-retweet', purgeJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
     return { message: 'Tweet unretweeted successfully' };
   }
   async getUserPosts(

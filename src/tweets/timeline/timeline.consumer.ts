@@ -35,6 +35,9 @@ export class TimelineConsumer extends WorkerHost {
       case 'fanout-retweet':
         await this.fanoutTweetToTimelines(job as Job<RetweetFanoutJob>, 'R');
         break;
+      case 'purge-retweet':
+        await this.purgeRetweetFromTimelines(job as Job<RetweetFanoutJob>);
+        break;
       default:
         this.logger.warn(`Unknown job name: ${job.name} with id ${job.id}`);
         await job.remove();
@@ -88,6 +91,39 @@ export class TimelineConsumer extends WorkerHost {
       await writePipeline.exec();
     } catch (error) {
       this.logger.error(`Error processing timeline-following fanout job ${job.id}`, error);
+      throw error; // for retry
+    }
+  }
+
+  async purgeRetweetFromTimelines(job: Job<RetweetFanoutJob>): Promise<void> {
+    try {
+      const { tweetId, authorId, retweeterId } = job.data;
+      this.logger.debug(
+        `Processing timeline-following purge retweet job ${job.id} for tweet ${tweetId} by author ${authorId} retweeter ${retweeterId}`,
+      );
+
+      const followerIds: string[] = (await this.usersService.getFollowersIds(BigInt(authorId))).map(
+        (id) => id.toString(),
+      );
+      followerIds.unshift(authorId.toString());
+
+      const timelineKeys = followerIds.map((id) =>
+        REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(id)),
+      );
+      const compositeId = REDIS_TIMELINE_KEYS.getTimelineRetweetItem(
+        BigInt(authorId),
+        BigInt(tweetId),
+        BigInt(retweeterId),
+      );
+
+      const deletePipeline = this.redisClient.pipeline();
+      for (const key of timelineKeys) {
+        deletePipeline.zrem(key, compositeId);
+      }
+
+      await deletePipeline.exec();
+    } catch (error) {
+      this.logger.error(`Error processing timeline-following purge retweet job ${job.id}`, error);
       throw error; // for retry
     }
   }
