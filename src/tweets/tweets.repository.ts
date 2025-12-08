@@ -1084,4 +1084,55 @@ export class TweetsRepository {
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
   }
+
+  /**
+   * Filters author IDs to return only those that the user follows and hasn't muted, acc is still active
+   * @param userId The user checking their timeline
+   * @param authorIds Array of author IDs to validate
+   * @returns Array of valid author IDs (followed, not muted, not deleted)
+   */
+  async filterValidAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+    const validFollows = await this.prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        followedId: { in: authorIds },
+        // Check that user hasn't muted this author
+        followedUser: {
+          mutedBy: {
+            none: {
+              userId: userId,
+            },
+          },
+          deletedAt: null,
+        },
+      },
+      select: {
+        followedId: true,
+      },
+    });
+
+    return validFollows.map((f) => f.followedId);
+  }
+
+  /**
+   * Filters tweet IDs to return only those not deleted
+   * @param tweetIds Array of tweet IDs to validate
+   * @returns Array of valid tweet IDs
+   */
+  async filterValidTweets(tweetIds: bigint[]): Promise<bigint[]> {
+    const validTweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+        isDeleted: false,
+        user: {
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return validTweets.map((t) => t.id);
+  }
 }
