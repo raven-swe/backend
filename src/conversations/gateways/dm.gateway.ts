@@ -6,6 +6,7 @@ import {
   OnGatewayConnection,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
 import { UseGuards, UsePipes, ValidationPipe, UseFilters, Logger } from '@nestjs/common';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
@@ -176,7 +177,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('mark_seen')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async markSeen(@ConnectedSocket() client: Socket, @MessageBody() payload: MarkSeenDto) {
     const data = client.data as {
       user: WsUser;
@@ -242,7 +252,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('send_message')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async sendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: SendMessageDto) {
     const data = client.data as {
       user: WsUser;
@@ -346,7 +365,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('typing_start')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async typingStart(@ConnectedSocket() client: Socket, @MessageBody() payload: TypingIndicatorDto) {
     const data = client.data as {
       user: WsUser;
@@ -396,7 +424,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('typing_stop')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async typingStop(@ConnectedSocket() client: Socket, @MessageBody() payload: TypingIndicatorDto) {
     const data = client.data as {
       user: WsUser;
@@ -435,7 +472,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('send_reaction')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async reactToMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: ReactionDto) {
     const data = client.data as {
       user: WsUser;
