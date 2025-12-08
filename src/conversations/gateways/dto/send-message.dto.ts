@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Length, Matches, ValidateIf } from 'class-validator';
 
 export class SendMessageDto {
   @IsString()
@@ -12,7 +12,8 @@ export class SendMessageDto {
   @IsString()
   clientMessageId: string;
 
-  @IsNotEmpty()
+  @ValidateIf((o: SendMessageDto) => !o.mediaId)
+  @IsNotEmpty({ message: 'Message body is required when no media is provided' })
   @IsString()
   @Length(1, 5000, {
     message: 'Message body must be between 1 and 5000 characters',
