@@ -144,7 +144,7 @@ export class MessagesService {
             reaction: message.reactionSender,
             reactedAt: message.reactionSenderAt,
           },
-          reciever: {
+          receiver: {
             username: receiver!.user.username,
             displayName: receiver!.user.profile!.displayName,
             avatarUrl: receiver!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
