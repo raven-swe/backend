@@ -258,7 +258,14 @@ export class TweetsService {
       );
     }
 
-    await this.tweetsRepository.deleteTweet(tweetId);
+    const tweet = await this.tweetsRepository.deleteTweet(tweetId);
+    await this.domainEvents.emitTweetDeleted({
+      tweetId: tweet.id,
+      authorId: tweet.userId,
+      replyToTweetId: tweet.replyToTweetId,
+      quoteToTweetId: tweet.quotedTweetId,
+      mentionedUserIds: tweet.tweetMentions.map((m) => m.userId),
+    });
     this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
 
     await this.invalidateTweetCache(tweetId);

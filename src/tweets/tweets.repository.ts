@@ -301,10 +301,19 @@ export class TweetsRepository {
   }
 
   async deleteTweet(tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tweet.update({
+    const tweet = await this.prisma.$transaction(async (tx) => {
+      const tweet = await tx.tweet.update({
         where: { id: tweetId },
         data: { isDeleted: true },
+        select: {
+          id: true,
+          userId: true,
+          replyToTweetId: true,
+          quotedTweetId: true,
+          tweetMentions: {
+            select: { userId: true },
+          },
+        },
       });
 
       await tx.retweet.deleteMany({
@@ -318,7 +327,10 @@ export class TweetsRepository {
           tweetId,
         },
       });
+
+      return tweet;
     });
+    return tweet;
   }
 
   mapToDetailedTweetDto(tweet: DetailedTweetWithIncludes): TweetDto & { replyToTweet?: TweetDto } {
