@@ -1,8 +1,16 @@
-import { Controller, UseGuards, Get, HttpException, HttpStatus, Query } from '@nestjs/common';
+import {
+  Controller,
+  UseGuards,
+  Get,
+  HttpException,
+  HttpStatus,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from './guards/';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from '../common/interfaces';
-import { generateUsernames } from 'src/common/utils';
+import { createValidationError, generateUsernames } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { ONBOARDING_CONSTANTS } from './constants';
@@ -45,15 +53,9 @@ export class OnboardingController {
     let suggestionLimit: number = ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT;
 
     if (limit) {
-      const parsedLimit = parseInt(limit, 10);
+      let parsedLimit: number = parseInt(limit, 10);
       if (isNaN(parsedLimit) || parsedLimit <= 0) {
-        throw new HttpException(
-          {
-            message: 'Limit must be a positive number.',
-            code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
+        parsedLimit = ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT;
       }
       suggestionLimit = Math.min(parsedLimit, ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT);
     }
