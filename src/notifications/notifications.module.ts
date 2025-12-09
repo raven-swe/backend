@@ -25,5 +25,6 @@ import { UsersModule } from 'src/users/users.module';
     NotificationsListeners,
     NotificationProcessor,
   ],
+  exports: [NotificationsService, NotificationsRepository],
 })
 export class NotificationsModule {}
