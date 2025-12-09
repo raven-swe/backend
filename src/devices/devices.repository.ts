@@ -45,7 +45,7 @@ export class DevicesRepository {
   }
 
   async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
-    await tx.userDevice.update({
+    const device = await tx.userDevice.update({
       where: {
         fcmToken: fcmToken,
       },
@@ -54,6 +54,7 @@ export class DevicesRepository {
         pushEnabled: false,
       },
     });
+    return device;
   }
 
   async togglePushNotifications(
@@ -66,5 +67,18 @@ export class DevicesRepository {
       data: { pushEnabled },
     });
     return device;
+  }
+
+  async getUserDevices(userId: bigint) {
+    return await this.prisma.userDevice.findMany({
+      where: { userId: userId, fcmToken: { not: null }, pushEnabled: true },
+    });
+  }
+
+  async deleteDevicesByTokens(fcmTokens: string[]) {
+    const deletedDevices = await this.prisma.userDevice.deleteMany({
+      where: { fcmToken: { in: fcmTokens } },
+    });
+    return deletedDevices;
   }
 }

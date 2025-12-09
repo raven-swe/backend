@@ -24,6 +24,7 @@ import { Queue } from 'bullmq';
 import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { TrendingService } from 'src/trending/trending.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class TweetsService {
@@ -35,6 +36,7 @@ export class TweetsService {
     private readonly contentParsingService: ContentParsingService,
     private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
+    private readonly domainEvents: DomainEventsService,
     private readonly prisma: PrismaService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
   ) {}
@@ -145,6 +147,14 @@ export class TweetsService {
         return { tweet, mentions, hashtags, tweetId: tweet.id, authorId: tweet.userId };
       },
     );
+
+    await this.domainEvents.emitTweetCreated({
+      tweetId: tweet.id,
+      authorId: userId,
+      replyToTweetId: tweet.replyToTweetId,
+      quoteToTweetId: tweet.quotedTweetId,
+      mentionedUserIds: mentions.map((m) => m.userId),
+    });
 
     const mediaObjectsPromise =
       mediaIds.length > 0
@@ -260,6 +270,7 @@ export class TweetsService {
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
+      isRepost: false,
     };
   }
 
@@ -364,6 +375,12 @@ export class TweetsService {
     await this.tweetsRepository.likeTweet(userId, tweetId);
     this.logger.log(`User ${userId} liked tweet ${tweetId} successfully`);
 
+    await this.domainEvents.emitTweetLiked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
+
     return { message: 'Tweet liked successfully' };
   }
 
@@ -419,6 +436,12 @@ export class TweetsService {
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
     this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+
+    await this.domainEvents.emitTweetRetweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
 
     return { message: 'Tweet retweeted successfully' };
   }
@@ -478,7 +501,7 @@ export class TweetsService {
     prevCursor: string | undefined,
     includeReplies: boolean,
   ) {
-    const requestedUser = await this.usersRepository.findByUsername(username);
+    const requestedUser = await this.usersRepository.findByUsernameWithDisplayname(username);
 
     if (!requestedUser) {
       throw new HttpException(
@@ -526,7 +549,7 @@ export class TweetsService {
     const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
 
     const items = feedItems
-      .map((item) => {
+      .map((item): TweetDto | null => {
         const tweetData = tweetsMap.get(item.id.toString());
 
         if (!tweetData) return null; // Should technically never happen
@@ -534,10 +557,17 @@ export class TweetsService {
         return {
           ...tweetData,
           isRepost: item.type === 'repost',
+          repostedBy:
+            item.type === 'repost'
+              ? {
+                  username: requestedUser?.username || '',
+                  displayName: requestedUser.profile?.displayName || '',
+                }
+              : undefined,
           createdAt: item.created_at,
         };
       })
-      .filter(Boolean); // Remove any nulls
+      .filter(Boolean);
 
     return { items, pagination };
   }
@@ -685,7 +715,9 @@ export class TweetsService {
 
     this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 
-    return { items, pagination };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const safeItems = items.map(({ userId, ...rest }) => rest);
+    return { items: safeItems, pagination };
   }
 
   async checkIfTweetExists(tweetId: bigint) {

@@ -14,6 +14,7 @@ import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { NewUser } from 'src/users/interfaces';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -115,6 +116,11 @@ describe('UsersService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitUserFollowed: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
@@ -127,6 +133,7 @@ describe('UsersService', () => {
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: MediaService, useValue: mockMediaService },
         { provide: ContentParsingService, useValue: mockContentParsingService },
+        { provide: DomainEventsService, useValue: mockDomainEventsService },
       ],
     }).compile();
 

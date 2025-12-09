@@ -1347,6 +1347,7 @@ export class UsersRepository {
         peopleFilter,
         decodedCursor,
       );
+
     const rankingScoreSql = this.buildUsersRankingScore();
 
     const sqlQuery = Prisma.sql`
@@ -1384,6 +1385,7 @@ export class UsersRepository {
     JOIN profiles p ON matched_user.user_id = p.user_id
     LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
     LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
+    WHERE 1 = 1
       ${mutedAndBlockedCondition}
       ${peopleFilterCondition}
     ),
@@ -1673,5 +1675,19 @@ export class UsersRepository {
         isFollower: Boolean(row.is_follower),
       },
     }));
+    
+  async findByUsernameWithDisplayname(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
   }
 }
