@@ -5,7 +5,7 @@ import { UpdateTrendScoresDto } from './dtos';
 @Controller('trending')
 export class TrendingController {
   constructor(private readonly trendingService: TrendingService) {}
-
+  // For testing purposes only
   @Post('update-scores')
   async updateTrendScores(@Body() updateTrendScoresDto: UpdateTrendScoresDto) {
     return this.trendingService.updateTrendScores(updateTrendScoresDto);

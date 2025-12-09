@@ -2,9 +2,10 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { TweetAnalyzeRepository } from './tweet-analyze.repository';
-import { ClassificationRequest, ClassificationResponse, ClassifiedTweet } from './interfaces';
+import { ModelApiRequest, ModelApiResponse, ClassifiedTweet } from './interfaces';
 import { firstValueFrom } from 'rxjs';
 import { RedisService } from 'src/redis/redis.service';
+import { TrendingService } from 'src/trending/trending.service';
 
 @Injectable()
 export class TweetAnalyzeService implements OnModuleInit {
@@ -21,6 +22,7 @@ export class TweetAnalyzeService implements OnModuleInit {
     private readonly httpService: HttpService,
     private readonly repository: TweetAnalyzeRepository,
     private readonly redisService: RedisService,
+    private readonly trendingService: TrendingService,
   ) {
     this.classifyEnabled = this.configService.get<string>('CLASSIFY_TWEETS') === 'true';
     this.intervalMinutes = parseInt(
@@ -175,31 +177,39 @@ export class TweetAnalyzeService implements OnModuleInit {
   }
 
   private async processBatch(tweets: Array<{ id: bigint; content: string }>): Promise<void> {
-    const requestPayload: ClassificationRequest = {
+    const requestPayload: ModelApiRequest = {
       tweets: tweets.map((tweet) => ({
         id: tweet.id.toString(),
         content: tweet.content,
       })),
     };
 
-    this.logger.debug(
-      `Sending ${tweets.length} tweets to classification API: ${this.classificationApiUrl}`,
-    );
+    this.logger.debug(`Sending ${tweets.length} tweets to Model API: ${this.classificationApiUrl}`);
 
     const response = await firstValueFrom(
-      this.httpService.post<ClassificationResponse>(this.classificationApiUrl, requestPayload),
+      this.httpService.post<ModelApiResponse>(this.classificationApiUrl, requestPayload),
     );
 
-    const classifiedTweets = response.data.tweets_detail;
+    const { batch_meta, trending_keywords, tweets_detail } = response.data;
 
-    if (!classifiedTweets || classifiedTweets.length === 0) {
-      this.logger.warn('Classification API returned no results');
+    if (!tweets_detail || tweets_detail.length === 0) {
+      this.logger.warn('Model API returned no tweet results');
       return;
     }
 
-    this.logger.log(`Received ${classifiedTweets.length} classified tweets from API`);
+    this.logger.log(
+      `Received ${tweets_detail.length} classified tweets and ${trending_keywords?.length || 0} trending keywords`,
+    );
 
-    await this.updateTweetClassifications(classifiedTweets);
+    await this.updateTweetClassifications(tweets_detail);
+
+    if (trending_keywords && trending_keywords.length > 0) {
+      await this.trendingService.updateTrendScores({
+        batch_meta,
+        trending_keywords,
+      });
+      this.logger.log('Updated trending scores');
+    }
   }
 
   private async updateTweetClassifications(
