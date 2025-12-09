@@ -15,6 +15,7 @@ import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { NewUser } from 'src/users/interfaces';
 import { RedisService } from 'src/redis/redis.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -116,6 +117,11 @@ describe('UsersService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitUserFollowed: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
@@ -133,6 +139,7 @@ describe('UsersService', () => {
           useValue: { del: jest.fn(), safeIncr: jest.fn(), safeDecr: jest.fn() },
         },
         { provide: getQueueToken('timeline-following'), useValue: { add: jest.fn() } },
+        { provide: DomainEventsService, useValue: mockDomainEventsService },
       ],
     }).compile();
 

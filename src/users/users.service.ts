@@ -13,7 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -27,10 +27,13 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class UsersService {
@@ -46,6 +49,7 @@ export class UsersService {
     @InjectQueue('email')
     private emailQueue: Queue,
     @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async findByEmail(email: string) {
@@ -450,6 +454,11 @@ export class UsersService {
         type: 'exponential',
         delay: 1000,
       },
+    });
+
+    await this.domainEvents.emitUserFollowed({
+      actorId: followerId,
+      receiverId: followedId,
     });
 
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
@@ -1051,6 +1060,31 @@ export class UsersService {
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
   }
 
   /**

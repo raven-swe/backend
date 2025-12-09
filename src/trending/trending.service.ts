@@ -19,4 +19,17 @@ export class TrendingService {
   ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
     return await this.TrendingRepository.createOrIncrementHashtags(hashtags, tx);
   }
+
+  async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
+    return await this.TrendingRepository.getHashtagId(hashtag);
+  }
+
+  async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
+    const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
+    return hashtags;
+  }
 }

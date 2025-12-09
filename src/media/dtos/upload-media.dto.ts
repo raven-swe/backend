@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { MediaFolder } from '../enums';
 
 export class UploadMedia {
@@ -7,5 +7,6 @@ export class UploadMedia {
 
   @IsString()
   @IsOptional()
+  @MaxLength(300)
   altText?: string;
 }
