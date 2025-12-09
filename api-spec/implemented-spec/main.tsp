@@ -562,6 +562,23 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Model for follow suggestions")
+model FollowSuggestionData {
+  ...UserMetadata;
+
+  @doc("The user's biography with structured entities")
+  bio: string | null;
+
+  @doc("Structured entities found in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+
+  @doc("Relationship information for the suggested user")
+  relationship: {
+    @doc("True if this user is following the current user")
+    isFollower: boolean;
+  };
+}
+
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
@@ -1932,6 +1949,30 @@ namespace Onboarding {
     typed?: string,
   ): DataResponse<{
     suggestions: string[];
+  }> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/follow-suggestions")
+  @summary("Get follow suggestions for the authenticated user")
+  @doc("""
+    
+    **Suggestion Algorithm:**
+    - Prioritizes users with mutual followers (friends of friends)
+    - Secondary sorting by follower count (popularity)
+    - Excludes blocked, muted, and already-followed users
+    
+    **Parameters:**
+    - `limit` (optional): Number of suggestions to return (max 15, default 15)
+    
+    **Not Paginated:** This endpoint returns a fixed set of suggestions and does not support cursor-based pagination.
+    Use this during onboarding flow to help new users discover accounts to follow.
+    """)
+  op getFollowSuggestions(
+    @query
+    @doc("Maximum number of suggestions to return. Capped at 15. Defaults to 15 if not provided.")
+    limit?: int32,
+  ): DataResponse<{
+    suggestions: FollowSuggestionData[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 @tag("Conversations")
