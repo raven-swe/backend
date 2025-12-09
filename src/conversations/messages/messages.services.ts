@@ -319,6 +319,6 @@ export class MessagesService {
       return { error: 'REACTION_CREATION_FAILED' };
     }
 
-    return { reactionDb, sender, receiver };
+    return { reactionDb, sender, receiver, message };
   }
 }

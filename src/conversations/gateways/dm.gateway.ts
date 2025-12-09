@@ -26,6 +26,7 @@ import { MarkSeenDto } from './dto/mark-seen.dto';
 import { TypingIndicatorDto } from './dto/typing-indicator.dto';
 import { ReactionDto } from './dto/react-message.dto';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @WebSocketGateway({
   namespace: '/ws/dm',
@@ -41,6 +42,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
     private readonly sseEvents: SseEventsService,
+    private readonly domainEventsService: DomainEventsService,
   ) {
     this.logger.log('DmGateway initialized');
   }
@@ -342,6 +344,19 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(`User ${user.id} joined room: ${conversationId}`);
     }
 
+    const otherParticipant = await this.conversationsService.getOtherParticipant(
+      BigInt(conversationId),
+      BigInt(user.id),
+    );
+
+    await this.domainEventsService.emitMessageCreated({
+      actorId: BigInt(user.id),
+      receiverId: BigInt(otherParticipant!.userId),
+      conversationId: BigInt(conversationId),
+      messagePreview: message.content.slice(0, 100),
+      hasMedia: !!message.mediaUrl,
+    });
+
     this.server.to(conversationId).emit('message_received', {
       conversationId,
       message: {
@@ -539,7 +554,18 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    const { reactionDb, sender, receiver } = reactionState;
+    const { reactionDb, sender, receiver, message } = reactionState;
+
+    await this.domainEventsService.emitReactionSent({
+      actorId: sender!.user.id,
+      receiverId: receiver!.user.id,
+      conversationId: BigInt(conversationId),
+      reaction:
+        sender!.user.username === user.username
+          ? reactionDb.reactionSender
+          : reactionDb.reactionReceiver,
+      messagePreview: message.content.slice(0, 100),
+    });
 
     const socketPayload = {
       conversationId,
