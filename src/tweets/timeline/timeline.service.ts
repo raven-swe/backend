@@ -132,6 +132,7 @@ export class TimelineService {
         this.tweetsRepository.filterValidAuthors(userId, Array.from(authorIds)),
         this.tweetsRepository.filterValidTweets(Array.from(tweetIds)),
       ]);
+      validAuthorIds.unshift(userId);
 
       validAuthorIds.unshift(userId);
 
