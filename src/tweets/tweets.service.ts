@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
+import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES, TWEET_SUMMARY_CACHE_TTL } from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
 import { UsersRepository } from 'src/users/users.repository';
+import { RedisService } from 'src/redis/redis.service';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
@@ -38,6 +39,7 @@ export class TweetsService {
     private readonly mediaRepository: MediaRepository,
     private readonly domainEvents: DomainEventsService,
     private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
   ) {}
 
@@ -903,6 +905,54 @@ export class TweetsService {
     return {
       items: tweets.slice(0, limit),
       pagination,
+    };
+  }
+
+  async getTweetSummary(tweetId: bigint) {
+    const tweet = await this.checkIfTweetExists(tweetId);
+
+    if (tweet.isDeleted) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!tweet.content || tweet.content.length === 0) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.EMPTY_TWEET_CONTENT,
+          code: TWEETS_ERROR_CODES.EMPTY_TWEET_CONTENT,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check Redis cache first
+    const cacheKey = `tweet:summary:${tweetId.toString()}`;
+    const cachedSummary = await this.redisService.getex(cacheKey, TWEET_SUMMARY_CACHE_TTL);
+
+    if (cachedSummary) {
+      this.logger.log(`Returning cached summary for tweet ${tweetId}`);
+      return {
+        id: tweet.id.toString(),
+        summary: cachedSummary,
+      };
+    }
+
+    // Generate new summary if not cached
+    const summary = await this.contentParsingService.generateTweetSummary(tweet.content);
+
+    // Cache the summary with TTL
+    await this.redisService.set(cacheKey, summary, TWEET_SUMMARY_CACHE_TTL);
+    this.logger.log(`Cached summary for tweet ${tweetId} with TTL ${TWEET_SUMMARY_CACHE_TTL}s`);
+
+    return {
+      id: tweet.id.toString(),
+      summary,
     };
   }
 }
