@@ -26,5 +26,5 @@ export const TWEETS_ERROR_MESSAGES = {
   INVALID_CURSOR: 'The provided cursor is invalid.',
 };
 
-// Cache TTL in seconds for tweet summaries (24 hours)
-export const TWEET_SUMMARY_CACHE_TTL = 24 * 60 * 60;
+// Cache TTL in seconds for tweet summaries (72 hours)
+export const TWEET_SUMMARY_CACHE_TTL = 72 * 60 * 60;
