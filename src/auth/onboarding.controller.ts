@@ -41,11 +41,27 @@ export class OnboardingController {
 
   @Get('follow-suggestions')
   @UseGuards(JwtAuthGuard)
-  async getFollowSuggestions(@User() user: RequestUser) {
+  async getFollowSuggestions(@User() user: RequestUser, @Query('limit') limit?: string) {
+    let suggestionLimit: number = ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT;
+
+    if (limit) {
+      const parsedLimit = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit <= 0) {
+        throw new HttpException(
+          {
+            message: 'Limit must be a positive number.',
+            code: USERS_ERROR_CODES.INVALID_REQUEST_COMBINATION,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      suggestionLimit = Math.min(parsedLimit, ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT);
+    }
+
     const userId = BigInt(user.id);
     const suggestions = await this.usersRepository.getOnboardingFollowSuggestions(
       userId,
-      ONBOARDING_CONSTANTS.FOLLOW_SUGGESTIONS_COUNT,
+      suggestionLimit,
     );
     return { suggestions };
   }
