@@ -20,7 +20,7 @@ export class ReactionDto {
 
   @IsString()
   @Length(1, 16)
-  @Matches(new RegExp(`^${emojiPattern}$`, 'u'), {
+  @Matches(new RegExp(`^(${emojiPattern})+$`), {
     message: 'Reaction must be a valid emoji',
   })
   reaction: string;
