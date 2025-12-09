@@ -16,7 +16,6 @@ import { DomainEventsService } from 'src/events/domain-events.service';
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
-import { RedisService } from 'src/redis/redis.service';
 import { TrendingService } from 'src/trending/trending.service';
 
 const encodeCompositeCursor = (cursorObject: object): string => {
