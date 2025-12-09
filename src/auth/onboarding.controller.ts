@@ -1,16 +1,8 @@
-import {
-  Controller,
-  UseGuards,
-  Get,
-  HttpException,
-  HttpStatus,
-  Query,
-  BadRequestException,
-} from '@nestjs/common';
+import { Controller, UseGuards, Get, HttpException, HttpStatus, Query } from '@nestjs/common';
 import { JwtAuthGuard } from './guards/';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from '../common/interfaces';
-import { createValidationError, generateUsernames } from 'src/common/utils';
+import { generateUsernames } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { ONBOARDING_CONSTANTS } from './constants';
