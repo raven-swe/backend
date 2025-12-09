@@ -376,14 +376,6 @@ model UserMetadataWithLastSeen {
   otherParticipantLastSeenMessageId: string | null;
 }
 
-@doc("Metadata for user with the last seen message id for the other user ")
-model UserMetadataWithLastSeen {
-  ...UserMetadata;
-
-  @doc("The ID of the last message seen from the other user in a conversation")
-  otherParticipantLastSeenMessageId: string | null;
-}
-
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
