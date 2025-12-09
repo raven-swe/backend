@@ -14,6 +14,7 @@ import { CreateTweetDto } from 'src/tweets/dtos';
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { RedisService } from 'src/redis/redis.service';
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -104,6 +105,15 @@ describe('TweetsService', () => {
           provide: getQueueToken('timeline-following'),
           useValue: {
             add: jest.fn(),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            getClient: jest.fn(),
+            del: jest.fn(),
+            safeIncr: jest.fn(),
+            safeDecr: jest.fn(),
           },
         },
       ],
@@ -1707,6 +1717,15 @@ describe('TweetsService', () => {
             provide: getQueueToken('timeline-following'),
             useValue: {
               add: jest.fn(),
+            },
+          },
+          {
+            provide: RedisService,
+            useValue: {
+              getClient: jest.fn(),
+              del: jest.fn(),
+              safeIncr: jest.fn(),
+              safeDecr: jest.fn(),
             },
           },
         ],
