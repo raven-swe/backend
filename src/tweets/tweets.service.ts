@@ -23,10 +23,13 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { RedisService } from 'src/redis/redis.service';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 
 @Injectable()
 export class TweetsService {
   private readonly logger = new Logger(TweetsService.name);
+  private readonly redisClient;
 
   constructor(
     private readonly tweetsRepository: TweetsRepository,
@@ -34,8 +37,11 @@ export class TweetsService {
     private readonly contentParsingService: ContentParsingService,
     private readonly mediaRepository: MediaRepository,
     private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
-  ) {}
+  ) {
+    this.redisClient = this.redisService.getClient();
+  }
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
@@ -212,6 +218,8 @@ export class TweetsService {
 
     await this.tweetsRepository.deleteTweet(tweetId);
     this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
+
+    await this.invalidateTweetCache(tweetId);
     return { message: 'Tweet deleted successfully' };
   }
 
@@ -867,5 +875,14 @@ export class TweetsService {
       items: tweets.slice(0, limit),
       pagination,
     };
+  }
+
+  async invalidateTweetCache(tweetId: bigint) {
+    const deletionPipeline = this.redisClient.pipeline();
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetStaticDataKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId));
+    await deletionPipeline.exec();
   }
 }

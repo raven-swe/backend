@@ -28,6 +28,8 @@ import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces'
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { RedisService } from 'src/redis/redis.service';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 
 @Injectable()
 export class UsersService {
@@ -37,6 +39,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    private readonly redisService: RedisService,
     @Inject(forwardRef(() => ContentParsingService))
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
@@ -283,6 +286,10 @@ export class UsersService {
           .catch((err) => this.logger.warn('Failed to delete old avatar', err));
       }
 
+      // invalidates cache pessimistically
+      this.logger.debug(`Invalidating cache for user ID: ${user.id} after profile update`);
+      await this.invalidateUserCache(user.id);
+
       return {
         message: 'Profile updated successfully',
         ...profile,
@@ -343,6 +350,11 @@ export class UsersService {
 
   async updateUsernameById(userId: bigint, newUsername: string) {
     await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    this.logger.debug(
+      `Username updated for user ID: ${userId} to ${newUsername}, invalidating cache`,
+    );
+    await this.invalidateUserCache(userId);
 
     return { message: 'Username updated successfully.' };
   }
@@ -921,7 +933,6 @@ export class UsersService {
     return { message: 'Session terminated successfully.' };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
     const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
@@ -934,7 +945,6 @@ export class UsersService {
     return { message: 'Banner uploaded successfully', bannerUrl };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
     const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
@@ -1074,5 +1084,9 @@ export class UsersService {
     return {
       message: 'Notifications disabled for user successfully',
     };
+  }
+
+  async invalidateUserCache(userId: bigint) {
+    await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
   }
 }
