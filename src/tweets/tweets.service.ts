@@ -1,6 +1,11 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES, TWEET_SUMMARY_CACHE_TTL } from './constants';
+import {
+  MAX_TWEET_DEPTH,
+  TWEETS_ERROR_CODES,
+  TWEETS_ERROR_MESSAGES,
+  TWEET_SUMMARY_CACHE_TTL,
+} from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
@@ -26,6 +31,8 @@ import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fa
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { COUNT_CACHE_TTL } from './timeline/constants';
+import { ThreadViewResponseDto } from './dtos/thread-view-response.dto';
+import { DeletedTweet } from './types';
 import { TrendingService } from 'src/trending/trending.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
@@ -58,8 +65,8 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const trimContent = createTweetDto.content?.trim() ?? '';
 
+    const trimContent = createTweetDto.content?.trim() ?? '';
     if (!trimContent && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
@@ -105,6 +112,32 @@ export class TweetsService {
       mediaIds,
     );
 
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
+
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
+
+    // If this tweet is a reply, set the rootTweetId to the referenced tweet's rootTweetId (if it exists)
+    // otherwise set it to the referenced tweet's ID
+    let rootTweetId: bigint | null = null;
+    if (createTweetDto.replyToTweetId && referencedTweet) {
+      rootTweetId = referencedTweet.rootTweetId
+        ? BigInt(referencedTweet.rootTweetId)
+        : BigInt(createTweetDto.replyToTweetId);
+    }
+
     const { tweet, mentions, hashtags, tweetId, authorId } = await this.prisma.$transaction(
       async (tx) => {
         const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
@@ -121,6 +154,7 @@ export class TweetsService {
           quotedTweetId: createTweetDto.quoteToTweetId
             ? BigInt(createTweetDto.quoteToTweetId)
             : null,
+          rootTweetId,
           Mentions: mentions.map((mention) => ({
             userId: mention.userId,
             startPosition: mention.startPosition,
@@ -163,18 +197,7 @@ export class TweetsService {
       mentionedUserIds: mentions.map((m) => m.userId),
     });
 
-    const mediaObjectsPromise =
-      mediaIds.length > 0
-        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
-        : Promise.resolve([]);
-    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
-    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
-    const referencedTweetPromise = referencedTweetId
-      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
-      : Promise.resolve(undefined);
-    // I know this probably confilcts with "nested replies"
-
-    // dispatch tweet fanout job
+    // dispatch fanout job
     if (!createTweetDto.replyToTweetId) {
       const fanoutJob: TweetFanoutJob = {
         tweetId: tweetId.toString(),
@@ -194,12 +217,6 @@ export class TweetsService {
         `Dispathced fanout on write job for tweet ID: ${tweetId} by user ID: ${userId}`,
       );
     }
-
-    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
-      mediaObjectsPromise,
-      authorDtoPromise,
-      referencedTweetPromise,
-    ]);
 
     if (createTweetDto.replyToTweetId) {
       await this.redisService.safeIncr(
@@ -291,6 +308,9 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      rootTweetId: createTweetDto.replyToTweetId
+        ? (referencedTweet?.rootTweetId ?? createTweetDto.replyToTweetId)
+        : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
@@ -645,7 +665,7 @@ export class TweetsService {
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
@@ -657,7 +677,40 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-    return tweet;
+
+    let rootTweet: TweetDto | DeletedTweet | null = null;
+    let parentTweets: (TweetDto | DeletedTweet)[] = [];
+    let hasMoreParents = false;
+
+    // If this is a reply, fetch the root tweet
+    if (tweet?.rootTweetId) {
+      rootTweet = await this.tweetsRepository.getTweetOrDeleted(
+        BigInt(tweet.rootTweetId),
+        currentUserId,
+      );
+    }
+
+    // Fetch parent tweets (intermediate tweets between root and this tweet)
+    if (tweet.replyToTweetId) {
+      parentTweets = await this.tweetsRepository.getParentTweets(
+        BigInt(tweet.replyToTweetId),
+        currentUserId,
+        tweet.rootTweetId ? BigInt(tweet.rootTweetId) : null,
+      );
+    }
+
+    if (parentTweets.length >= MAX_TWEET_DEPTH) {
+      // Remove the oldest tweet to maintain the depth limit
+      parentTweets = parentTweets.slice(1);
+      hasMoreParents = true;
+    }
+
+    return {
+      ...tweet,
+      rootTweet,
+      parentTweets,
+      hasMoreParents,
+    };
   }
 
   async getTweetQuotes(

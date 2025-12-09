@@ -1,7 +1,8 @@
 import { TweetEntitiesDto } from './tweet-entitites.dto';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
-import { CompactAuthorDto } from './compact-author.dto';
 import { DeletedTweet } from '../types';
+import { CompactAuthorDto } from './compact-author.dto';
+
 export class TweetDto {
   id: string;
   author: CompactAuthorDto;
@@ -20,6 +21,7 @@ export class TweetDto {
 
   replyToTweetId: string | null;
   quoteToTweetId: string | null;
+  rootTweetId: string | null;
 
   quotedTweet?: TweetDto | DeletedTweet;
 

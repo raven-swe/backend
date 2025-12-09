@@ -59,6 +59,8 @@ describe('TweetsService', () => {
     getMediaTweetsForUser: jest.fn(),
     validateReferences: jest.fn(),
     getTweetsByQuery: jest.fn(),
+    getParentTweets: jest.fn(),
+    getTweetOrDeleted: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -179,6 +181,7 @@ describe('TweetsService', () => {
       hasMentions: false,
       replyToTweetId: null,
       quotedTweetId: null,
+      rootTweetId: null,
       likeCount: 0,
       retweetCount: 0,
       replyCount: 0,
@@ -257,6 +260,7 @@ describe('TweetsService', () => {
           content: 'Hello world!',
           replyToTweetId: null,
           quotedTweetId: null,
+          rootTweetId: null,
           Mentions: [
             {
               userId: BigInt(2),
@@ -1193,20 +1197,100 @@ describe('TweetsService', () => {
       ],
       replyToTweetId: '2',
       quoteToTweetId: null,
+      rootTweetId: null,
+      parentTweets: [],
+      rootTweet: null,
     };
 
     it('should return detailed tweet when found', async () => {
       // Arrange
       mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue([]);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(null);
 
       // Act
       const result = await service.getTweet(tweetId, currentUserId);
 
       // Assert
-      expect(result).toEqual(mockDetailedTweet);
+      expect(result).toEqual({
+        ...mockDetailedTweet,
+        rootTweet: null,
+        parentTweets: [],
+        hasMoreParents: false,
+      });
       expect(mockTweetsRepository.getDetailedTweetById).toHaveBeenCalledWith(
         tweetId,
         currentUserId,
+      );
+    });
+
+    it('should fetch root tweet and parent tweets for a reply', async () => {
+      // Arrange
+      const tweetId = BigInt(100);
+      const currentUserId = BigInt(1);
+      const rootTweetId = '50';
+      const replyToTweetId = '75';
+
+      const mockAuthorDto = {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      };
+
+      const mockDetailedTweet = {
+        id: '100',
+        author: mockAuthorDto,
+        content: 'Reply tweet',
+        createdAt: new Date('2024-01-01'),
+        replyCount: 0,
+        retweetCount: 0,
+        likeCount: 0,
+        isLiked: false,
+        isRetweeted: false,
+        entities: {
+          mentions: [],
+          hashtags: [],
+        },
+        media: [],
+        replyToTweetId,
+        quoteToTweetId: null,
+        rootTweetId,
+        quotedTweet: undefined,
+      };
+
+      const mockRootTweet = {
+        id: rootTweetId,
+        content: 'Root tweet',
+        author: mockAuthorDto,
+      };
+
+      const mockParentTweets = [
+        {
+          id: replyToTweetId,
+          content: 'Parent tweet',
+          author: mockAuthorDto,
+        },
+      ];
+
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(mockRootTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue(mockParentTweets);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result.rootTweet).toEqual(mockRootTweet);
+      expect(result.parentTweets).toEqual(mockParentTweets);
+      expect(result.hasMoreParents).toBe(false);
+      expect(mockTweetsRepository.getTweetOrDeleted).toHaveBeenCalledWith(
+        BigInt(rootTweetId),
+        currentUserId,
+      );
+      expect(mockTweetsRepository.getParentTweets).toHaveBeenCalledWith(
+        BigInt(replyToTweetId),
+        currentUserId,
+        BigInt(rootTweetId),
       );
     });
 
@@ -1224,6 +1308,56 @@ describe('TweetsService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
+    });
+
+    it('should handle deleted parent tweets in thread', async () => {
+      // Arrange
+      const tweetId = BigInt(100);
+      const currentUserId = BigInt(1);
+      const replyToTweetId = '75';
+
+      const mockAuthorDto = {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      };
+
+      const mockDetailedTweet = {
+        id: '100',
+        author: mockAuthorDto,
+        content: 'Reply tweet',
+        createdAt: new Date('2024-01-01'),
+        replyCount: 0,
+        retweetCount: 0,
+        likeCount: 0,
+        isLiked: false,
+        isRetweeted: false,
+        entities: {
+          mentions: [],
+          hashtags: [],
+        },
+        media: [],
+        replyToTweetId,
+        quoteToTweetId: null,
+        rootTweetId: null,
+        quotedTweet: undefined,
+      };
+
+      const mockDeletedParent = {
+        id: replyToTweetId,
+        isDeleted: true,
+      };
+
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue([mockDeletedParent]);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(null);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result.parentTweets).toEqual([mockDeletedParent]);
+      expect(result.rootTweet).toBeNull();
     });
   });
 
