@@ -22,79 +22,79 @@ class TweetProcessor:
         self.kw_model = KeyBERT(model=KEYWORD_MODEL)
 
     def merge_similar_keywords(self, tracker):
-        keyword_list = []
-        for kw, topic_data in tracker.items():
-            if kw.startswith('#'):
-                continue
+        # keyword_list = []
+        # for kw, topic_data in tracker.items():
+        #     if kw.startswith('#'):
+        #         continue
             
-            total_score = sum(t["score"] for t in topic_data.values())
-            all_tweet_ids = set()
-            for t in topic_data.values():
-                all_tweet_ids.update(t["tweet_ids"])
+        #     total_score = sum(t["score"] for t in topic_data.values())
+        #     all_tweet_ids = set()
+        #     for t in topic_data.values():
+        #         all_tweet_ids.update(t["tweet_ids"])
             
-            keyword_list.append({
-                "keyword": kw,
-                "total_score": total_score,
-                "topics": topic_data,
-                "all_tweet_ids": all_tweet_ids
-            })
+        #     keyword_list.append({
+        #         "keyword": kw,
+        #         "total_score": total_score,
+        #         "topics": topic_data,
+        #         "all_tweet_ids": all_tweet_ids
+        #     })
         
-        def extract_tokens(kw):
-            return {w.lower() for w in kw.split() if len(w) > 3}
+        # def extract_tokens(kw):
+        #     return {w.lower() for w in kw.split() if len(w) > 3}
 
-        tokens_map = {item["keyword"]: extract_tokens(item["keyword"]) for item in keyword_list}
+        # tokens_map = {item["keyword"]: extract_tokens(item["keyword"]) for item in keyword_list}
 
-        token_groups = defaultdict(list)
-        for item in keyword_list:
-            kw = item["keyword"]
-            sig_tokens = tokens_map[kw]
-            for tok in sig_tokens:
-                token_groups[tok].append(item)
+        # token_groups = defaultdict(list)
+        # for item in keyword_list:
+        #     kw = item["keyword"]
+        #     sig_tokens = tokens_map[kw]
+        #     for tok in sig_tokens:
+        #         token_groups[tok].append(item)
 
-        final_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "tweet_ids": set()}))
-        used = set()
+        # final_tracker = defaultdict(lambda: defaultdict(lambda: {"score": 0.0, "tweet_ids": set()}))
+        # used = set()
 
-        for token, group in token_groups.items():
-            if len(group) == 1:
-                item = group[0]
-                kw = item["keyword"]
-                for topic, stats in item["topics"].items():
-                    final_tracker[kw][topic]["score"] += stats["score"]
-                    final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
-                continue
+        # for token, group in token_groups.items():
+        #     if len(group) == 1:
+        #         item = group[0]
+        #         kw = item["keyword"]
+        #         for topic, stats in item["topics"].items():
+        #             final_tracker[kw][topic]["score"] += stats["score"]
+        #             final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
+        #         continue
 
-            total_scores = [g["total_score"] for g in group]
-            max_score = max(total_scores)
-            min_score = min(total_scores)
+        #     total_scores = [g["total_score"] for g in group]
+        #     max_score = max(total_scores)
+        #     min_score = min(total_scores)
 
-            balanced = (max_score / max(1, min_score)) < 2
+        #     balanced = (max_score / max(1, min_score)) < 2
 
-            if balanced:
-                parent_kw = token
-            else:
-                parent_kw = max(group, key=lambda x: x["total_score"])["keyword"]
+        #     if balanced:
+        #         parent_kw = token
+        #     else:
+        #         parent_kw = max(group, key=lambda x: x["total_score"])["keyword"]
 
-            for item in group:
-                for topic, stats in item["topics"].items():
-                    final_tracker[parent_kw][topic]["score"] += stats["score"]
-                    final_tracker[parent_kw][topic]["tweet_ids"].update(stats["tweet_ids"])
+        #     for item in group:
+        #         for topic, stats in item["topics"].items():
+        #             final_tracker[parent_kw][topic]["score"] += stats["score"]
+        #             final_tracker[parent_kw][topic]["tweet_ids"].update(stats["tweet_ids"])
 
-                used.add(item["keyword"])
+        #         used.add(item["keyword"])
 
-        for item in keyword_list:
-            if item["keyword"] not in used:
-                kw = item["keyword"]
-                for topic, stats in item["topics"].items():
-                    final_tracker[kw][topic]["score"] += stats["score"]
-                    final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
+        # for item in keyword_list:
+        #     if item["keyword"] not in used:
+        #         kw = item["keyword"]
+        #         for topic, stats in item["topics"].items():
+        #             final_tracker[kw][topic]["score"] += stats["score"]
+        #             final_tracker[kw][topic]["tweet_ids"].update(stats["tweet_ids"])
 
-        for kw, topic_data in tracker.items():
-            if kw.startswith('#'):
-                for topic, stats in topic_data.items():
-                    final_tracker[kw][topic]["score"] = stats["score"]
-                    final_tracker[kw][topic]["tweet_ids"] = stats["tweet_ids"]
+        # for kw, topic_data in tracker.items():
+        #     if kw.startswith('#'):
+        #         for topic, stats in topic_data.items():
+        #             final_tracker[kw][topic]["score"] = stats["score"]
+        #             final_tracker[kw][topic]["tweet_ids"] = stats["tweet_ids"]
 
-        return final_tracker
+        return tracker
 
     def process_tweets(self, tweets):
         processed_tweets = []
@@ -144,7 +144,7 @@ class TweetProcessor:
 
                 keywords_raw = self.kw_model.extract_keywords(
                     text, 
-                    keyphrase_ngram_range=(1, 2), 
+                    keyphrase_ngram_range=(1, 1), 
                     stop_words='english', 
                     top_n=TOP_X_KEYWORDS,
                     use_mmr=True,
@@ -194,7 +194,8 @@ class TweetProcessor:
             for topic, stats in topic_data.items():
                 topics_list.append({
                     "topic": topic,
-                    "trend_score": round(stats["score"], 4)
+                    "trend_score": round(stats["score"], 4),
+                    "occurence_in_category": len(stats["tweet_ids"])
                 })
             
             topics_list.sort(key=lambda x: x["trend_score"], reverse=True)
@@ -204,7 +205,6 @@ class TweetProcessor:
             keyword_obj = {
                 "keyword": kw,
                 "general_trend_score": round(general_trend_score, 4),
-                "occurrence_count": len(all_tweet_ids),
                 "top_related_topics": top_relevant_topics
             }
             

@@ -4,8 +4,8 @@ KEYWORD_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 TOP_X_KEYWORDS = 2
 TOP_TREND_LIMIT = 15
-TOP_K_SUBTOPICS = 3
-MIN_SCORE = 0.8
+TOP_K_SUBTOPICS = 1
+MIN_SCORE = 0.85
 
 CUSTOM_IGNORE_LIST = [
     'day', 'today', 'yesterday', 'tomorrow', 'week', 'year', 'month', 'time', 'finally',

@@ -29,11 +29,11 @@ class TweetRequest(BaseModel):
 class TopicInfo(BaseModel):
     topic: str = Field(..., description="Topic category")
     trend_score: float = Field(..., description="Trend score for this topic")
+    occurence_in_category: int = Field(..., description="Number of unique tweets in this topic category")
 
 class TrendingKeyword(BaseModel):
     keyword: str = Field(..., description="The trending keyword or hashtag")
     general_trend_score: float = Field(..., description="Overall trend score across all topics")
-    occurrence_count: int = Field(..., description="Number of unique tweets containing this keyword")
     top_related_topics: List[TopicInfo] = Field(..., description="Top related topics for this keyword")
 
 class BatchMeta(BaseModel):
