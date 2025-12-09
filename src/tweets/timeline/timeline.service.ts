@@ -730,7 +730,7 @@ export class TimelineService {
       tweetAuthors.add(BigInt(tweet.author.id));
 
       // Handle quoted tweets
-      if (tweet.quotedTweet) {
+      if (tweet.quotedTweet instanceof TweetDto) {
         tweetIds.push(BigInt(tweet.quotedTweet.id));
         tweetAuthors.add(BigInt(tweet.quotedTweet.author.id));
       }

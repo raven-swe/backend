@@ -142,6 +142,15 @@ export class TweetsRepository {
     tweet: TweetWithIncludes,
     context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
   ): TweetDto {
+    let quotedTweet: TweetDto | DeletedTweet | undefined;
+    if (tweet.quotedTweet) {
+      if ('isDeleted' in tweet.quotedTweet && tweet.quotedTweet.isDeleted) {
+        quotedTweet = { isDeleted: true } as DeletedTweet;
+      } else if ('isDeleted' in tweet.quotedTweet && !tweet.quotedTweet.isDeleted) {
+        quotedTweet = this.mapToTweetDto(tweet.quotedTweet);
+      }
+    }
+
     return {
       id: tweet.id.toString(),
       author: {
@@ -177,7 +186,7 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       rootTweetId: tweet.rootTweetId?.toString() ?? null,
-      quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
+      quotedTweet,
       isRepost: context.isRepost ?? false,
       repostedBy: context.repostedBy ?? undefined,
     };
@@ -437,13 +446,38 @@ export class TweetsRepository {
       where: { id: tweetId, isDeleted: false },
       include: {
         ...tweetInclude(currentUserId),
-        quotedTweet: {
-          include: tweetInclude(currentUserId),
-        },
       },
     });
 
-    return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
+    if (!tweet) {
+      return null;
+    }
+
+    // Manually fetch quoted tweet to handle deleted state
+    let quotedTweetForMapping: BaseTweetWithIncludes | { isDeleted: true } | null = null;
+
+    if (tweet.quotedTweetId) {
+      const quotedTweetCheck = await this.prisma.tweet.findUnique({
+        where: { id: tweet.quotedTweetId },
+        select: { id: true, isDeleted: true },
+      });
+
+      if (quotedTweetCheck && quotedTweetCheck.isDeleted) {
+        quotedTweetForMapping = { isDeleted: true };
+      } else if (quotedTweetCheck && !quotedTweetCheck.isDeleted) {
+        quotedTweetForMapping = await this.prisma.tweet.findUnique({
+          where: { id: tweet.quotedTweetId },
+          include: tweetInclude(currentUserId),
+        });
+      }
+    }
+
+    const tweetWithQuoted = {
+      ...tweet,
+      quotedTweet: quotedTweetForMapping,
+    } as DetailedTweetWithIncludes;
+
+    return this.mapToDetailedTweetDto(tweetWithQuoted);
   }
 
   /**
@@ -921,6 +955,7 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+      rootTweetId: tweet.rootTweetId?.toString() ?? null,
       isRepost: false,
       repostedBy: undefined,
     }));
