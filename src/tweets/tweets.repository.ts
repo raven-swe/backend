@@ -251,12 +251,18 @@ export class TweetsRepository {
     });
   }
 
-  async checkExistingTweet(tweetId: bigint): Promise<boolean> {
+  async checkExistingTweet(tweetId: bigint): Promise<{
+    exists: boolean;
+    replyToTweetId: bigint | null;
+  }> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
-      select: { id: true },
+      select: { id: true, replyToTweetId: true },
     });
-    return !!tweet;
+    return {
+      exists: !!tweet,
+      replyToTweetId: tweet ? tweet.replyToTweetId : null,
+    };
   }
 
   async checkTweetOwnership(tweetId: bigint, userId: bigint): Promise<boolean> {

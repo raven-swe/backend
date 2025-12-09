@@ -25,6 +25,7 @@ import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/TweetFan
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { COUNT_CACHE_TTL } from './timeline/constants';
 
 @Injectable()
 export class TweetsService {
@@ -184,6 +185,13 @@ export class TweetsService {
       referencedTweetPromise,
     ]);
 
+    if (createTweetDto.replyToTweetId) {
+      await this.redisService.safeIncr(
+        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
+
     return this.formatTweetDto(
       tweet,
       mentions,
@@ -196,7 +204,8 @@ export class TweetsService {
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
-    if (!(await this.tweetsRepository.checkExistingTweet(tweetId))) {
+    const { exists, replyToTweetId } = await this.tweetsRepository.checkExistingTweet(tweetId);
+    if (!exists) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
@@ -220,6 +229,13 @@ export class TweetsService {
     this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
 
     await this.invalidateTweetCache(tweetId);
+
+    if (replyToTweetId) {
+      await this.redisService.safeDecr(
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(replyToTweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
     return { message: 'Tweet deleted successfully' };
   }
 
@@ -363,7 +379,12 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.likeTweet(userId, tweetId);
-    this.logger.log(`User ${userId} liked tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} liked tweet ${tweetId} successfully`);
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     return { message: 'Tweet liked successfully' };
   }
@@ -385,7 +406,12 @@ export class TweetsService {
 
     await this.tweetsRepository.unlikeTweet(userId, tweetId);
 
-    this.logger.log(`User ${userId} unliked tweet ${tweetId} successfully`);
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
+
+    this.logger.debug(`User ${userId} unliked tweet ${tweetId} successfully`);
     return { message: 'Tweet unliked successfully' };
   }
 
@@ -419,7 +445,7 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} retweeted tweet ${tweetId} successfully`);
 
     //dispatch retweet fanout job
     const fanoutJob: RetweetFanoutJob = {
@@ -436,6 +462,11 @@ export class TweetsService {
         delay: 1000,
       },
     });
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     return { message: 'Tweet retweeted successfully' };
   }
@@ -465,7 +496,7 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} unretweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} unretweeted tweet ${tweetId} successfully`);
 
     //dispatch retweet purge job
     const purgeJob: RetweetFanoutJob = {
@@ -482,6 +513,11 @@ export class TweetsService {
         delay: 1000,
       },
     });
+
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     return { message: 'Tweet unretweeted successfully' };
   }

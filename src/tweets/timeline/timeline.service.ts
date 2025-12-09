@@ -11,9 +11,7 @@ import {
 import { TweetDto, CompactAuthorWithId } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
-  LIKE_COUNT_CACHE_TTL,
-  REPLIES_COUNT_CACHE_TTL,
-  RETWEET_COUNT_CACHE_TTL,
+  COUNT_CACHE_TTL,
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
 } from './constants';
@@ -459,17 +457,17 @@ export class TimelineService {
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
         'EX',
-        LIKE_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
         'EX',
-        REPLIES_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
     }
 
@@ -572,7 +570,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetLikesCountKey(BigInt(tweetId)),
         counts.likeCounts.toString(),
         'EX',
-        LIKE_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
 
       retweetCountsMap.set(BigInt(tweetId), counts.retweetCounts);
@@ -580,7 +578,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(BigInt(tweetId)),
         counts.retweetCounts.toString(),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
 
       replyCountsMap.set(BigInt(tweetId), counts.replyCounts);
@@ -588,7 +586,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(BigInt(tweetId)),
         counts.replyCounts.toString(),
         'EX',
-        REPLIES_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
     }
 
