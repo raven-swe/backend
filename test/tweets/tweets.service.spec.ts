@@ -234,7 +234,6 @@ describe('TweetsService', () => {
         quoteToTweetId: null,
         quotedTweet: undefined,
         replyToTweet: undefined,
-        isRepost: false,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -1077,33 +1076,6 @@ describe('TweetsService', () => {
 
         expect(result.items).toEqual([]);
         expect(result.pagination.hasNextPage).toBe(false);
-      });
-
-      it('should set isRepost=true for repost type items', async () => {
-        const feedItems = [
-          { id: BigInt(1), type: 'repost', created_at: '2024-01-01T00:00:00Z' },
-          { id: BigInt(2), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
-        ];
-        const fullTweets = [
-          { id: BigInt(1), content: 'Tweet 1' },
-          { id: BigInt(2), content: 'Tweet 2' },
-        ];
-        const tweetDtos = [
-          { id: '1', content: 'Tweet 1' },
-          { id: '2', content: 'Tweet 2' },
-        ];
-
-        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
-          id: requestedUserId,
-          username,
-        });
-        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
-        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToDetailedTweetDto
-          .mockReturnValueOnce(tweetDtos[0])
-          .mockReturnValueOnce(tweetDtos[1]);
-
-        const result = await service.getUserPosts(username, authUserId, limit, undefined);
       });
 
       it('should filter out null items when tweet data is missing', async () => {
