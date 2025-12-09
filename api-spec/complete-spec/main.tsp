@@ -2023,13 +2023,12 @@ namespace Onboarding {
     **Suggestion Algorithm:**
     - Prioritizes users with mutual followers (friends of friends)
     - Secondary sorting by follower count (popularity)
-    - Excludes blocked, muted, and already-followed users
+    - Excludes blocked or blockedby, muted, and already-followed users
     
     **Parameters:**
     - `limit` (optional): Number of suggestions to return (max 15, default 15)
     
     **Not Paginated:** This endpoint returns a fixed set of suggestions and does not support cursor-based pagination.
-    Use this during onboarding flow to help new users discover accounts to follow.
     """)
   op getFollowSuggestions(
     @query
