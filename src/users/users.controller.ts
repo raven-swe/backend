@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
 import { FollowingUserDto } from './dtos';
@@ -92,5 +92,19 @@ export class UsersController {
     );
     const itemsDto = plainToInstance(FollowingUserDto, items);
     return { items: itemsDto, pagination };
+  }
+
+  @Post(':username/notify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async enableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
+    return await this.usersService.enableUserNotifications(BigInt(user.id), username);
+  }
+
+  @Delete(':username/notify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async disableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
+    return await this.usersService.disableUserNotifications(BigInt(user.id), username);
   }
 }

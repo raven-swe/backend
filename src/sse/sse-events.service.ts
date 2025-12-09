@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventPublisherService } from './event-publisher.service';
+import { NotificationResponseDto } from 'src/notifications/dtos/notification-response.dto';
 
 export interface NewMessagePayload {
   messageId: string;
@@ -40,6 +41,39 @@ export class SseEventsService {
     await this.publisher.publishToUser(userId.toString(), {
       event: SSE_EVENTS.DM_NEW_MESSAGE,
       data: payload,
+    });
+  }
+
+  async publishNewNotification(
+    recieverId: bigint,
+    notification: NotificationResponseDto,
+    updatedCount: number,
+  ): Promise<void> {
+    this.logger.log(`Publishing notification to user ${recieverId}`);
+    await this.publisher.publishToUser(recieverId.toString(), {
+      event: 'notifications.new',
+      data: notification,
+    });
+
+    await this.publisher.publishToUser(recieverId.toString(), {
+      event: 'notifications.count_update',
+      data: { count: updatedCount },
+    });
+  }
+
+  async publishNotificationSeen(
+    receiverId: bigint,
+    notificationId?: bigint,
+    unSeenCount?: number,
+  ): Promise<void> {
+    this.logger.log(`Publishing notification seen event to user ${receiverId}`);
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.seen',
+      data: {
+        notificationId: notificationId?.toString() ?? null,
+        scope: notificationId ? 'SINGLE' : 'ALL',
+        unSeenCount: unSeenCount ?? 0,
+      },
     });
   }
 }

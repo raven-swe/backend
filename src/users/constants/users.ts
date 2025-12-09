@@ -72,3 +72,11 @@ export const USERS_ERROR_MESSAGES = {
   INVALID_LANGUAGE: 'Invalid language, valid options are AR and EN only.',
   INVALID_REQUEST_COMBINATION: 'Cannot upload and delete the same media in a single request',
 } as const;
+
+export const USER_SEARCH_RANKING_WEIGHTS = {
+  SIMILARITY: 5000, // Primary factor: text similarity
+  I_FOLLOW: 500, // Strong: users I follow
+  FOLLOWS_ME: 300, // Good: users who follow me
+  FOLLOWERS: 100, // Moderate: popularity (per follower)
+  MAX_FOLLOWERS_COUNT: 10_000, // Cap follower count
+} as const;

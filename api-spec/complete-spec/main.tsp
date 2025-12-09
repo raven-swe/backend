@@ -366,22 +366,28 @@ model TweetAuthor {
   @doc("True if the current user has blocked this author")
   isBlocked: boolean;
 
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
-
   @doc("True if the current user has muted this author")
   isMuted: boolean;
 
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
 }
 
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
-  @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean | null;
-
   @doc("Is the user following the current logged-in user")
   isFollower: boolean | null;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean | null;
+}
+
+model UserMetadataWithFollowing {
+  ...UserMetadata;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -698,7 +704,7 @@ enum NotificationFilter {
 model NotificationActorSummary {
   @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
   @maxItems(3)
-  previewActors: UserMetadata[];
+  previewActors: UserMetadataWithFollowing[];
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
@@ -850,6 +856,14 @@ model AllMatchingUsers {
   users: UserMetadataWithFollowInfo[];
 }
 
+model SearchUser {
+  ...UserMetadata;
+  bio: string | null;
+  bioEntities: BioEntities | null;
+  bannerUrl: string | null;
+  relationship: UserRelationship;
+}
+
 model TopHashtags {
   @doc("Top 3 relevant hashtags for the search query")
   @maxItems(3)
@@ -904,6 +918,14 @@ model DataResponseWithPagination<T> {
 
 model MessageResponse<TMessage extends string> {
   ...OkResponse;
+  ...Body<{
+    success: true;
+    message?: TMessage; // optional message field on success
+  }>;
+}
+
+model MessageCreatedResponse<TMessage extends string> {
+  ...CreatedResponse;
   ...Body<{
     success: true;
     message?: TMessage; // optional message field on success
@@ -1067,6 +1089,7 @@ namespace Auth {
     @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
+      fcmToken?: string;
     },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
@@ -1387,6 +1410,24 @@ namespace Users {
         | InternalServerErrorResponse;
     }
   }
+
+  @summary("enable notifications for a user, follows the user if not followed")
+  @post
+  @route("{username}/notify")
+  op enableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications enabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("disable notifications for a user, follows the user if not followed")
+  @delete
+  @route("{username}/notify")
+  op disableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications disabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Me")
@@ -1686,8 +1727,11 @@ namespace Me {
     @route("/interests")
     @summary("Get all available interests with user selection status")
     @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
-    op getInterests(
-    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+    op getInterests():
+      | DataResponse<Interest[]>
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
 
     @put
     @route("/interests")
@@ -2094,6 +2138,23 @@ namespace Search {
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
+  @summary("Get suggested users from following/follower list, used in mentions")
+  @get
+  @route("/users/suggestions")
+  op getUserSuggestions(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<{
+        users: UserMetadataWithFollowInfo[];
+      }>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Get all users matching the search query - returns paginated user results")
   @get
   @route("/users")
@@ -2104,12 +2165,15 @@ namespace Search {
 
     ...CursorPaginationParameters,
   ):
-    | DataResponseWithPagination<AllMatchingUsers>
+    | DataResponseWithPagination<{
+        users: SearchUser[];
+      }>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @doc("Supports searching by a normal text or hashtags")
   @get
   @route("/tweets")
   op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):
@@ -2142,25 +2206,29 @@ namespace Explore {
   @route("/trending")
   @summary("Get trending hashtags/keywords across all categories")
   @doc("Returns top trending hashtags/keywords globally, ordered by trending score")
-  op getTrendingHashtags(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getTrendingHashtags(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/news")
   @summary("Get trending keywords/hashtags in the News category")
   @doc("Returns top trending news-related keywords (max 30)")
-  op getNewsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getNewsExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/sports")
   @summary("Get trending keywords/hashtags in the Sports category")
   @doc("Returns top trending sports-related keywords (max 30)")
-  op getSportsExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getSportsExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 
   @get
   @route("/entertainment")
   @summary("Get trending hashtags in the Entertainment category")
   @doc("Returns top trending entertainment-related keywords (max 30)")
-  op getEntertainmentExplore(): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  op getEntertainmentExplore(
+  ): DataResponse<HashtagPreview[]> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 
 @tag("Hashtags")
@@ -2235,6 +2303,37 @@ namespace Media {
         message: string;
       }>
     | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @put
+  @route("push")
+  @summary("Enable or disable push notifications for the device")
+  op togglePushNotifications(
+    @body body: {
+      fcmToken: string;
+      enable: boolean;
+    },
+  ):
+    | MessageResponse<"Push notifications enabled/disabled successfully.">
+    | ValidationErrorResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
 }

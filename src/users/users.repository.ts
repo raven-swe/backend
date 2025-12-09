@@ -2,7 +2,12 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
-import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import {
+  USER_SEARCH_RANKING_WEIGHTS,
+  USERS_ERROR_CODES,
+  USERS_ERROR_MESSAGES,
+} from 'src/users/constants';
+
 import {
   BioEntitiesDto,
   MutualUserDto,
@@ -10,19 +15,25 @@ import {
   UserProfileResponseDto,
   UserRelationshipDto,
 } from './dtos';
-import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
-import { AuthorDto } from 'src/tweets/dtos';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
+import { RankedUser } from './interfaces/ranked-user.interface';
+import { CompactAuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 
 @Injectable()
 export class UsersRepository {
   private readonly logger = new Logger(UsersRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly refreshTokensService: RefreshTokensService,
+  ) {}
 
   async findByEmail(email: string) {
     return await this.prisma.user.findUnique({ where: { email } });
@@ -174,12 +185,6 @@ export class UsersRepository {
       where: whereClause,
       include: {
         profile: true,
-        _count: {
-          select: {
-            following: true,
-            followers: true,
-          },
-        },
       },
     });
   }
@@ -273,8 +278,8 @@ export class UsersRepository {
           follower: false,
           muted: false,
         },
-        followingCount: user._count.following,
-        followersCount: user._count.followers,
+        followingCount: user.followingCount,
+        followersCount: user.followersCount,
         mutualsCount: null,
         mutualUsers: null,
       };
@@ -304,8 +309,8 @@ export class UsersRepository {
       websiteUrl: user.profile?.websiteUrl || null,
       joinedAt: user.createdAt,
       relationship,
-      followingCount: user._count.following,
-      followersCount: user._count.followers,
+      followingCount: user.followingCount,
+      followersCount: user.followersCount,
       mutualsCount: mutualsCount,
       mutualUsers: mutualUsers,
       email: isMyProfile ? user.email : undefined,
@@ -446,26 +451,38 @@ export class UsersRepository {
       },
     });
   }
+
   async followUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.follow.create({
-      data: {
-        followerId,
-        followedId,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.follow.create({
+        data: { followerId, followedId },
+      }),
+      this.prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { increment: 1 } },
+      }),
+      this.prisma.user.update({
+        where: { id: followedId },
+        data: { followersCount: { increment: 1 } },
+      }),
+    ]);
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.follow.delete({
-      where: {
-        followerId_followedId: {
-          followerId,
-          followedId,
-        },
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.follow.delete({
+        where: { followerId_followedId: { followerId, followedId } },
+      }),
+      this.prisma.user.update({
+        where: { id: followerId },
+        data: { followingCount: { decrement: 1 } },
+      }),
+      this.prisma.user.update({
+        where: { id: followedId },
+        data: { followersCount: { decrement: 1 } },
+      }),
+    ]);
   }
-
   async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
     const follows = await this.prisma.follow.findMany({
       where: { followerId: userId },
@@ -683,6 +700,11 @@ export class UsersRepository {
             createdAt: 'asc',
           },
         },
+        sessions: {
+          orderBy: {
+            lastSeenAt: 'asc',
+          },
+        },
         country: {
           select: {
             name: true,
@@ -727,7 +749,7 @@ export class UsersRepository {
       username: user.username,
       email: user.email,
       accountCreationDate: user.createdAt,
-      accountCreationIp: user.userDevices[0].ipAddress, // workaround as we currently don't store the original ip address of a user
+      accountCreationIp: user.userDevices[0]?.ipAddress || user.sessions[0]?.ipAddress || '0.0.0.0', // workaround as we currently don't store the original ip address of a user
       country: user.country?.name || null,
       languages: [user.languageCode],
       gender: user.gender,
@@ -994,23 +1016,6 @@ export class UsersRepository {
     });
   }
 
-  private hashStringDeterministic(str: string) {
-    const hash = crypto.createHash('sha256');
-    hash.update(str);
-    return hash.digest('hex');
-  }
-
-  private async getTokenByHash(hash: string) {
-    return await this.prisma.refreshToken.findUnique({
-      where: {
-        tokenHash: hash,
-      },
-      include: {
-        userDevice: true,
-      },
-    });
-  }
-
   async getSessions(userId: bigint, refreshToken: string) {
     const user = await this.prisma.user.findUnique({
       where: {
@@ -1027,32 +1032,29 @@ export class UsersRepository {
         HttpStatus.NOT_FOUND,
       );
 
-    let currentDeviceId: bigint | null = null;
+    let currentSessionId: bigint | null = null;
 
     try {
-      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-      const token = await this.getTokenByHash(hashedRefreshToken);
+      const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
+      const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
       if (token && token.expiresAt >= new Date()) {
-        currentDeviceId = token.deviceId;
+        currentSessionId = token.sessionId;
       }
     } catch {
-      this.logger.warn('Failed to identify current device from refresh token');
+      this.logger.warn('Failed to identify current session from refresh token');
     }
 
-    const userSessions = await this.prisma.userDevice.findMany({
-      where: { userId: userId },
-      orderBy: { lastUsedAt: 'desc' },
+    const userSessions = await this.prisma.session.findMany({
+      where: { userId },
+      orderBy: { lastSeenAt: 'desc' },
     });
 
-    const filteredSessions = userSessions.map((session) => {
-      return {
-        id: session.id.toString(),
-        deviceType: session.deviceType,
-        lastActive: session.lastUsedAt,
-        isCurrent: currentDeviceId ? session.id === currentDeviceId : false,
-      };
-    });
-
+    const filteredSessions = userSessions.map((session) => ({
+      id: session.id.toString(),
+      deviceType: session.userAgent,
+      lastActive: session.lastSeenAt,
+      isCurrent: currentSessionId ? session.id === currentSessionId : false,
+    }));
     this.logger.log(`Getting sessions for ${user.username}`);
 
     return filteredSessions;
@@ -1064,7 +1066,7 @@ export class UsersRepository {
         id: userId,
       },
       include: {
-        userDevices: {
+        sessions: {
           select: {
             id: true,
           },
@@ -1081,19 +1083,19 @@ export class UsersRepository {
         HttpStatus.NOT_FOUND,
       );
 
-    let currentDeviceId: bigint | null = null;
+    let currentSessionId: bigint | null = null;
 
     try {
-      const hashedRefreshToken = this.hashStringDeterministic(refreshToken);
-      const token = await this.getTokenByHash(hashedRefreshToken);
+      const hashedRefreshToken = this.refreshTokensService.hashStringDeterministic(refreshToken);
+      const token = await this.refreshTokensService.getTokenByHash(hashedRefreshToken);
       if (token && token.expiresAt >= new Date()) {
-        currentDeviceId = token.deviceId;
+        currentSessionId = token.sessionId;
       }
     } catch {
-      this.logger.warn('Failed to identify current device from refresh token');
+      this.logger.warn('Failed to identify current session from refresh token');
     }
 
-    if (currentDeviceId === sessionId)
+    if (currentSessionId === sessionId)
       throw new HttpException(
         {
           message: USERS_ERROR_MESSAGES.CANNOT_DELETE_CURRENT_SESSION,
@@ -1101,7 +1103,7 @@ export class UsersRepository {
         },
         HttpStatus.FORBIDDEN,
       );
-    const sessionToBeDeleted = user.userDevices.find((device) => device.id === sessionId);
+    const sessionToBeDeleted = user.sessions.find((session) => session.id === sessionId);
 
     if (!sessionToBeDeleted)
       throw new HttpException(
@@ -1113,10 +1115,10 @@ export class UsersRepository {
       );
 
     await this.prisma.refreshToken.deleteMany({
-      where: { deviceId: sessionToBeDeleted.id },
+      where: { sessionId: sessionToBeDeleted.id },
     });
 
-    await this.prisma.userDevice.delete({
+    await this.prisma.session.delete({
       where: { id: sessionToBeDeleted.id },
     });
 
@@ -1265,6 +1267,7 @@ export class UsersRepository {
 
     return !!(block1 || block2);
   }
+
   async getMatchingUsers(userId: bigint, username: string) {
     return await this.prisma.user.findMany({
       where: {
@@ -1302,11 +1305,12 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         username: true,
+        id: true,
         profile: {
           select: {
             displayName: true,
@@ -1321,12 +1325,281 @@ export class UsersRepository {
     }
 
     return {
+      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      isBlocked: false,
-      isFollowing: false,
-      isMuted: false,
     };
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+  ) {
+    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition } =
+      this.buildUserSearchFilters(
+        currentUserId,
+        excludeMutedAndBlocked,
+        peopleFilter,
+        decodedCursor,
+      );
+
+    const rankingScoreSql = this.buildUsersRankingScore();
+
+    const sqlQuery = Prisma.sql`
+   -- First get matching user ids with username or display name similar to query
+    WITH matched_ids AS (
+      SELECT 
+        id as user_id 
+        FROM users WHERE deleted_at IS NULL
+        AND (LOWER(username) % ${query})
+
+      UNION
+
+      SELECT user_id 
+      FROM profiles
+      WHERE LOWER(display_name) % ${query}
+    ),
+
+  ranked_users AS (
+    SELECT 
+      u.id, 
+      u.username,
+      u.created_at,
+      u.followers_count,
+      p.display_name,
+      p.avatar_url,
+      p.banner_url,
+      p.bio,
+      p.bio_entities,
+      SIMILARITY(LOWER(u.username), ${query}) AS sim_username,
+      COALESCE(SIMILARITY(LOWER(p.display_name), ${query}), 0) AS sim_display_name,
+      (f_out.follower_id IS NOT NULL) AS i_follow,
+      (f_in.follower_id IS NOT NULL) AS follows_me 
+    FROM matched_ids matched_user
+    JOIN users u ON matched_user.user_id = u.id
+    JOIN profiles p ON matched_user.user_id = p.user_id
+    LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
+    LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
+    WHERE 1 = 1
+      ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
+    ),
+    scored_users AS (
+      SELECT *, ${rankingScoreSql} 
+      FROM ranked_users
+    )
+    SELECT *
+    FROM scored_users
+    WHERE 1=1
+    ${cursorCondition}
+    ORDER BY ranking_score DESC, id DESC
+    LIMIT ${limit};
+`;
+
+    const results = await this.prisma.$queryRaw<RankedUser[]>(sqlQuery);
+
+    return results.map((row) => ({
+      id: row.id.toString(),
+      username: row.username,
+      displayName: row.display_name || '',
+      avatarUrl: row.avatar_url,
+      bannerUrl: row.banner_url || null,
+      bio: row.bio || null,
+      bioEntities: row.bio_entities || null,
+      createdAt: row.created_at,
+      rankingScore: row.ranking_score,
+    }));
+  }
+
+  private buildUserSearchFilters(
+    currentUserId: bigint,
+    excludeMutedAndBlocked: boolean,
+    peopleFilter: PeopleSearchFilter,
+    cursor: UserSearchCursor | undefined,
+  ) {
+    const cursorScore = cursor ? BigInt(cursor.rankingScore) : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    const cursorCondition = cursor
+      ? Prisma.sql`
+        AND (
+          ranking_score < ${cursorScore}
+          OR (ranking_score = ${cursorScore} AND id <= ${cursorId})
+        )
+      `
+      : Prisma.empty;
+
+    const mutedAndBlockedCondition = excludeMutedAndBlocked
+      ? Prisma.sql`
+            AND NOT EXISTS (
+              SELECT 1 
+              FROM blocks b 
+              WHERE b.user_id = ${currentUserId} AND b.blocked_id = u.id
+            )
+            AND NOT EXISTS (
+              SELECT 1 
+              FROM mutes m 
+              WHERE m.user_id = ${currentUserId} AND m.muted_id = u.id
+            )
+          `
+      : Prisma.empty;
+
+    const peopleFilterCondition =
+      peopleFilter === PeopleSearchFilter.Following
+        ? Prisma.sql`
+            AND EXISTS (
+              SELECT 1 
+              FROM follows f 
+              WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+            )
+          `
+        : Prisma.empty;
+
+    return {
+      cursorCondition,
+      mutedAndBlockedCondition,
+      peopleFilterCondition,
+    };
+  }
+
+  /**
+   * Builds the ranking score SQL snippet for user search.
+   * Score = sim_score * sim_weight + followers_count * followers_weight + i_follow_weight + follows_me_weight
+   */
+  private buildUsersRankingScore() {
+    return Prisma.sql`
+    (
+      CAST( (COALESCE(sim_username, 0) + COALESCE(sim_display_name, 0)) * ${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY} AS BIGINT )  +
+      (LEAST(followers_count, ${USER_SEARCH_RANKING_WEIGHTS.MAX_FOLLOWERS_COUNT}) * (${USER_SEARCH_RANKING_WEIGHTS.FOLLOWERS})::bigint) +
+      (CASE WHEN i_follow THEN ${USER_SEARCH_RANKING_WEIGHTS.I_FOLLOW}::bigint ELSE 0 END) +
+      (CASE WHEN follows_me THEN ${USER_SEARCH_RANKING_WEIGHTS.FOLLOWS_ME}::bigint ELSE 0 END)
+    ) as ranking_score`;
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    const relationshipsMap = new Map<bigint, UserRelationshipDto>();
+    if (!userIds || userIds.length === 0) {
+      return relationshipsMap;
+    }
+
+    const results = await this.prisma.$queryRaw<
+      {
+        user_id: bigint;
+        is_blocking: boolean | number;
+        is_blocked_by: boolean | number;
+        is_following: boolean | number;
+        is_follower: boolean | number;
+        is_muted: boolean | number;
+      }[]
+    >`
+      SELECT 
+        u.id AS user_id,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${currentUserId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${currentUserId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${currentUserId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${currentUserId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${currentUserId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM users u
+      WHERE u.id IN (${Prisma.join(userIds)});
+    `;
+
+    // 3. Map results
+    for (const row of results) {
+      // Boolean() conversion handles cases where DB driver returns 1/0 instead of true/false
+      relationshipsMap.set(row.user_id, {
+        blocking: Boolean(row.is_blocking),
+        blockedBy: Boolean(row.is_blocked_by),
+        following: Boolean(row.is_following),
+        follower: Boolean(row.is_follower),
+        muted: Boolean(row.is_muted),
+      });
+    }
+
+    return relationshipsMap;
+  }
+
+  async getFollowersUnPaginated(userId: bigint): Promise<bigint[]> {
+    return this.prisma.follow
+      .findMany({
+        where: { followedId: userId },
+        select: { followerId: true },
+      })
+      .then((followers) => followers.map((follow) => follow.followerId));
+  }
+
+  async getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+    return this.prisma.mute
+      .findMany({
+        where: { mutedId },
+        select: { userId: true },
+      })
+      .then((mutings) => mutings.map((mute) => mute.userId));
+  }
+
+  async toggleUserNotifications(userId: bigint, followedId: bigint, enable: boolean) {
+    if (enable) {
+      const isBlocked = await this.areUsersBlocked(userId, followedId);
+      if (isBlocked) {
+        throw new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_FOLLOW_USER,
+            code: USERS_ERROR_CODES.CANNOT_FOLLOW_USER,
+          },
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
+    return await this.prisma.follow.upsert({
+      where: {
+        followerId_followedId: { followerId: userId, followedId: followedId },
+      },
+      create: {
+        followerId: userId,
+        followedId: followedId,
+        withNotifications: enable,
+      },
+      update: {
+        withNotifications: enable,
+      },
+    });
+  }
+
+  async findByUsernameWithDisplayname(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
   }
 }

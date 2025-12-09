@@ -11,14 +11,41 @@ export class RefreshTokensRepository {
     refreshToken: RefreshToken,
     prismaClient: Prisma.TransactionClient = this.prisma,
   ) {
-    const { userId, deviceId, tokenHash, expiresAt } = refreshToken;
+    const { userId, sessionId, tokenHash, expiresAt } = refreshToken;
     return prismaClient.refreshToken.create({
       data: {
-        userId: userId,
-        deviceId: deviceId,
-        tokenHash: tokenHash,
-        expiresAt: expiresAt,
+        userId,
+        sessionId,
+        tokenHash,
+        expiresAt,
       },
     });
+  }
+
+  async getTokenByHash(hash: string) {
+    return await this.prisma.refreshToken.findUnique({
+      where: {
+        tokenHash: hash,
+      },
+      include: {
+        user: { select: { id: true, username: true } },
+      },
+    });
+  }
+
+  async updateTokenHash(tokenId: bigint, newHash: string, expiresAt: Date) {
+    return await this.prisma.refreshToken.update({
+      where: {
+        id: tokenId,
+      },
+      data: {
+        tokenHash: newHash,
+        expiresAt,
+      },
+    });
+  }
+
+  async deleteTokensById(tokenId: bigint, prismaClient: Prisma.TransactionClient = this.prisma) {
+    return await prismaClient.refreshToken.delete({ where: { id: tokenId } });
   }
 }

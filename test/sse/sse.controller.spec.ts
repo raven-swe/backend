@@ -110,7 +110,7 @@ describe('SseController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
+        message: 'Invalid topics. Allowed: dm, notifications',
         code: 'INVALID_TOPICS',
       });
       expect(mockSseService.subscribe).not.toHaveBeenCalled();
@@ -123,8 +123,8 @@ describe('SseController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
-        code: 'INVALID_TOPICS',
+        message: 'Missing topics parameter. Example: ?topics=dm,notifications',
+        code: 'MISSING_TOPICS',
       });
       expect(mockSseService.subscribe).not.toHaveBeenCalled();
     });
@@ -135,7 +135,7 @@ describe('SseController', () => {
 
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
-      expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
+      expect(mockSseService.subscribe).toHaveBeenCalledWith('123', ['dm']);
       expect(mockRes.status).toHaveBeenCalledWith(429);
       expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Too many active connections. Close some tabs or devices.',
@@ -169,7 +169,7 @@ describe('SseController', () => {
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
       expect(mockRes.write).toHaveBeenCalledWith(
-        `event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`,
+        `event: connected\ndata: ${JSON.stringify({ ok: true, topics: ['dm'] })}\n\n`,
       );
 
       cleanupConnection(mockRes);
@@ -183,7 +183,7 @@ describe('SseController', () => {
 
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
-      expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
+      expect(mockSseService.subscribe).toHaveBeenCalledWith('123', ['dm']);
 
       cleanupConnection(mockRes);
       mockSubject.complete();
