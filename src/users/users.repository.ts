@@ -1670,7 +1670,7 @@ export class UsersRepository {
       bio: row.bio,
       bioEntities: row.bio_entities,
       relationship: {
-        follower: Boolean(row.is_follower),
+        isFollower: Boolean(row.is_follower),
       },
     }));
   }
