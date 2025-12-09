@@ -9,12 +9,6 @@ import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { RedisService } from 'src/redis/redis.service';
-import {
-  decodeCompositeCursor,
-  decodeCursor,
-  paginateComposite,
-  paginateSingle,
-} from 'src/common/utils';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
