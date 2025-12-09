@@ -802,6 +802,10 @@ export class TimelineService {
               isRetweeted: false,
             };
           }
+        } else {
+          tweet.quotedTweet = {
+            isDeleted: true,
+          };
         }
       }
     }
