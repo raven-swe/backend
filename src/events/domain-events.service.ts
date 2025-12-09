@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DOMAIN_EVENT_NAMES,
+  MessageCreatedEvent,
+  ReactionSentEvent,
   TweetCreatedEvent,
   TweetLikedEvent,
   TweetRetweetedEvent,
@@ -26,6 +28,7 @@ export class DomainEventsService {
   async emitTweetRetweeted(payload: TweetRetweetedEvent) {
     await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Retweeted, payload);
   }
+
   async emitTweetCreated(payload: TweetCreatedEvent) {
     await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Created, payload);
   }
@@ -40,5 +43,13 @@ export class DomainEventsService {
 
   async emitUserUnfollowed(payload: UserUnfollowedEvent) {
     await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.User_Unfollowed, payload);
+  }
+
+  async emitMessageCreated(payload: MessageCreatedEvent) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Message_Created, payload);
+  }
+
+  async emitReactionSent(payload: ReactionSentEvent) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Reaction_Created, payload);
   }
 }

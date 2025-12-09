@@ -163,6 +163,7 @@ export class MessagesRepository {
         conversationId: true,
         reactionReceiver: true,
         reactionSender: true,
+        content: true,
       },
     });
   }
