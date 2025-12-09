@@ -15,6 +15,7 @@ import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { TweetsBackfill } from './timeline/interfaces';
+import { DeletedTweet } from './types';
 
 export const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -181,6 +182,16 @@ export class TweetsRepository {
   }
 
   mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
+    let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
+    if (tweet.quotedTweet) {
+      if (!tweet.quotedTweet.isDeleted) {
+        quotedTweet = this.mapToTweetDto(tweet.quotedTweet);
+      } else {
+        quotedTweet = {
+          isDeleted: true,
+        };
+      }
+    }
     return {
       id: tweet.id.toString(),
       author: {
@@ -214,7 +225,7 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
-      quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
+      quotedTweet,
     };
   }
 
