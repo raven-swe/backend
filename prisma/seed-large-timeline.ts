@@ -17,8 +17,6 @@ async function main() {
   await prisma.tweetMention.deleteMany();
   await prisma.tweetMedia.deleteMany();
 
-  await prisma.tweet.deleteMany();
-
   await prisma.follow.deleteMany();
   await prisma.mute.deleteMany();
   await prisma.block.deleteMany();
@@ -27,14 +25,22 @@ async function main() {
   await prisma.userDevice.deleteMany();
 
   await prisma.userExternalAccount.deleteMany();
-  await prisma.conversationParticipant.deleteMany();
+
   await prisma.message.deleteMany();
+  await prisma.conversationParticipant.deleteMany();
+
+  // await prisma.conversation.updateMany({
+  //   data: { lastMessageId: null },
+  // });
   await prisma.conversation.deleteMany();
+  // await prisma.conversationParticipant.deleteMany();
+
   await prisma.notification.deleteMany();
   await prisma.media.deleteMany();
 
   await prisma.profile.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.tweet.deleteMany();
   await prisma.user.deleteMany();
 
   // 2. Create the single user we will use for profiling
