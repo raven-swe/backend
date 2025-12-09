@@ -3,9 +3,11 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
-import { RetweetFanoutJob, TweetFanoutJob } from './interfaces/TweetFanoutJob.interface';
+import { RetweetFanoutJob, TweetFanoutJob } from './interfaces/tweet-fanout-job.interface';
 import { TIMELINE_MAX_SIZE } from '../timeline/constants/timeline.constants';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { TweetsRepository } from '../tweets.repository';
+import { BackfillFollowJob } from './interfaces/backfill-follow-job.interface';
 
 function isRetweetFanoutJob(
   actionType: 'T' | 'R',
@@ -22,6 +24,7 @@ export class TimelineConsumer extends WorkerHost {
   constructor(
     private readonly redisService: RedisService,
     private readonly usersService: UsersService,
+    private readonly tweetsRepository: TweetsRepository,
   ) {
     super();
     this.redisClient = this.redisService.getClient();
@@ -38,6 +41,10 @@ export class TimelineConsumer extends WorkerHost {
       case 'purge-retweet':
         await this.purgeRetweetFromTimelines(job as Job<RetweetFanoutJob>);
         break;
+      case 'backfill-follow':
+        await this.backfillFollowToTimeline(job as Job<BackfillFollowJob>);
+        break;
+
       default:
         this.logger.warn(`Unknown job name: ${job.name} with id ${job.id}`);
         await job.remove();
@@ -128,5 +135,55 @@ export class TimelineConsumer extends WorkerHost {
     }
   }
 
-  // TODO i need the backfill to happen for follows
+  async backfillFollowToTimeline(job: Job<BackfillFollowJob>): Promise<void> {
+    try {
+      this.logger.debug(`Processing timeline-following backfill job ${job.id}`);
+      const { followerId, followedId, followedAt } = job.data;
+
+      const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(followerId));
+
+      const tweetsToBackfill = await this.tweetsRepository.getRecentTweetsFromUser(
+        BigInt(followedId),
+        new Date(followedAt),
+        TIMELINE_MAX_SIZE, // up to full timeline size
+      );
+
+      if (tweetsToBackfill.length === 0) {
+        this.logger.debug(`No tweets from followed user ${followedId} to backfill`);
+        return;
+      }
+
+      this.logger.debug(`Backfilling ${tweetsToBackfill.length} tweets for follower ${followerId}`);
+
+      const pipeline = this.redisClient.pipeline();
+
+      for (const tweet of tweetsToBackfill) {
+        const compositeId =
+          tweet.type === 'R'
+            ? REDIS_TIMELINE_KEYS.getTimelineRetweetItem(
+                BigInt(tweet.authorId),
+                BigInt(tweet.id),
+                BigInt(tweet.retweeterId!),
+              )
+            : REDIS_TIMELINE_KEYS.getTimelineTweetItem(BigInt(tweet.authorId), BigInt(tweet.id));
+
+        pipeline.zadd(timelineKey, tweet.createdAt.getTime(), compositeId);
+      }
+
+      // handles the most recent by default
+      pipeline.zremrangebyrank(timelineKey, 0, -(TIMELINE_MAX_SIZE + 1));
+
+      // delete empty placeholder if exists
+      pipeline.del(REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(BigInt(followerId)));
+
+      await pipeline.exec();
+
+      this.logger.debug(
+        `Successfully backfilled ${tweetsToBackfill.length} tweets for follower ${followerId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error processing follow backfill job ${job.id}`, error);
+      throw error;
+    }
+  }
 }

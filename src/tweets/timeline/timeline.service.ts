@@ -15,10 +15,9 @@ import {
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
 } from './constants';
-import { StaticDataFromCache } from './interfaces';
+import { DynamicDataFromCache, StaticDataFromCache } from './interfaces';
 import { CachedStaticTweet } from '../interfaces';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
-import { DynamicDataFromCache } from './interfaces/DynamicDataFromCache.interface';
 
 @Injectable()
 export class TimelineService {

@@ -14,6 +14,7 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TweetsBackfill } from './timeline/interfaces';
 
 export const tweetInclude = (currentUserId: bigint) =>
   ({
@@ -170,7 +171,13 @@ export class TweetsRepository {
     LIMIT ${limit || TIMELINE_MAX_SIZE}
   `;
 
-    return timeline;
+    return timeline.map((item) => ({
+      id: item.id,
+      authorId: item.authorId,
+      createdAt: item.createdAt,
+      type: item.type,
+      retweeterId: item.retweeterId,
+    }));
   }
 
   mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
@@ -1140,5 +1147,54 @@ export class TweetsRepository {
     });
 
     return validTweets.map((t) => t.id);
+  }
+
+  /**
+   * Get recent tweets and retweets from a user (for backfilling timeline)
+   */
+  async getRecentTweetsFromUser(
+    userId: bigint,
+    beforeDate: Date,
+    limit: number,
+  ): Promise<Array<TweetsBackfill>> {
+    const result = await this.prisma.$queryRaw<Array<TweetsBackfill>>`
+    SELECT * FROM (
+      SELECT 
+        id,
+        user_id as "authorId",
+        created_at as "createdAt",
+        'T'::text as type,
+        NULL::bigint as "retweeterId"
+      FROM tweets
+      WHERE user_id = ${userId}
+        AND created_at < ${beforeDate}::timestamp
+        AND is_deleted = false
+        AND reply_to_tweet_id IS NULL
+      
+      UNION ALL
+      
+      SELECT 
+        r.tweet_id as id,
+        t.user_id as "authorId",
+        r.created_at as "createdAt",
+        'R'::text as type,
+        r.user_id as "retweeterId"
+      FROM retweets r
+      INNER JOIN tweets t ON r.tweet_id = t.id
+      WHERE r.user_id = ${userId}
+        AND r.created_at < ${beforeDate}::timestamp
+        AND t.is_deleted = false
+    ) AS combined_timeline
+    ORDER BY "createdAt" DESC, id DESC
+    LIMIT ${limit}
+  `;
+
+    return result.map((row) => ({
+      id: row.id,
+      authorId: row.authorId,
+      createdAt: row.createdAt,
+      type: row.type,
+      retweeterId: row.retweeterId,
+    }));
   }
 }

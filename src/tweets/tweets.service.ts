@@ -21,7 +21,7 @@ import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { CompactAuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
+import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fanout-job.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';

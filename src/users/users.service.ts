@@ -30,6 +30,7 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -44,6 +45,7 @@ export class UsersService {
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
     private emailQueue: Queue,
+    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
   ) {}
 
   async findByEmail(email: string) {
@@ -434,6 +436,21 @@ export class UsersService {
     }
 
     await this.usersRepository.followUser(followerId, followedId);
+
+    //dispatch follow backfill job
+    const backfillJobData: BackfillFollowJob = {
+      followerId: followerId.toString(),
+      followedId: followedId.toString(),
+      followedAt: new Date(),
+    };
+
+    await this.timelineFollowingQueue.add('backfill-follow', backfillJobData, {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
 
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
     return { message: 'User followed successfully.' };
