@@ -1588,6 +1588,21 @@ export class UsersRepository {
     });
   }
 
+  async findByUsernameWithDisplayname(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+  }
+
   async getOnboardingFollowSuggestions(userId: bigint, limit: number) {
     const sqlQuery = Prisma.sql`
     WITH suggestions AS (
@@ -1675,19 +1690,5 @@ export class UsersRepository {
         isFollower: Boolean(row.is_follower),
       },
     }));
-    
-  async findByUsernameWithDisplayname(username: string) {
-    return this.prisma.user.findUnique({
-      where: { username },
-      select: {
-        id: true,
-        username: true,
-        profile: {
-          select: {
-            displayName: true,
-          },
-        },
-      },
-    });
   }
 }
