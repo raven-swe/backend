@@ -153,7 +153,7 @@ class TweetProcessor:
                 
                 keywords_with_scores = []
                 for k in keywords_raw:
-                    word = k[0]
+                    word = k[0].lower()
                     keybert_score = k[1]
                     if word.lower() not in CUSTOM_IGNORE_LIST:
                         keywords_with_scores.append((word, keybert_score))
