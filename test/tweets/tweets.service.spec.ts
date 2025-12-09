@@ -124,6 +124,8 @@ describe('TweetsService', () => {
         {
           provide: RedisService,
           useValue: mockRedisService,
+        },
+        {
           provide: TrendingService,
           useValue: mockTrendingService,
         },
