@@ -10,9 +10,10 @@ import { MessagesRepository } from './messages/messages.repository';
 import { AuthModule } from 'src/auth/auth.module';
 import { DmGateway } from './gateways/dm.gateway';
 import { SseModule } from '../sse/sse.module';
+import { MediaModule } from 'src/media/media.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, AuthModule, forwardRef(() => SseModule)],
+  imports: [UsersModule, PrismaModule, AuthModule, MediaModule, forwardRef(() => SseModule)],
   controllers: [ConversationsController, MessagesController],
   providers: [
     ConversationsService,

@@ -13,6 +13,7 @@ export interface NewMessagePayload {
   };
   bodySnippet: string;
   createdAt: Date;
+  hasMedia: boolean;
 }
 
 export const SSE_EVENTS = {

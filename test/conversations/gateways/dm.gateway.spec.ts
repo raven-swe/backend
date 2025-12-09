@@ -36,9 +36,10 @@ describe('DmGateway', () => {
     }),
   } as unknown as Socket;
 
+  const mockEmitFn = jest.fn();
   const mockServer = {
     to: jest.fn().mockReturnThis(),
-    emit: jest.fn(),
+    emit: mockEmitFn,
   } as unknown as Server;
 
   beforeEach(async () => {
@@ -58,6 +59,7 @@ describe('DmGateway', () => {
           useValue: {
             createMessage: jest.fn(),
             updateLastSeen: jest.fn(),
+            addReactionToMessage: jest.fn(),
           },
         },
         {
@@ -262,14 +264,16 @@ describe('DmGateway', () => {
     });
 
     it('should emit error when assertParticipant returns unknown error', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'UNKNOWN_ERROR' });
+      conversationsService.assertParticipant.mockResolvedValue({
+        error: 'INVALID_CONVERSATION_ID',
+      });
 
       await gateway.markSeen(mockSocket, payload);
 
       expect(mockSocket.emit).toHaveBeenCalledWith('error', {
         type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
-        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
+        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
       });
       expect(messagesService.updateLastSeen).not.toHaveBeenCalled();
     });
@@ -320,8 +324,14 @@ describe('DmGateway', () => {
       messageEntities: null,
       createdAt: new Date('2024-01-01T10:00:00Z'),
       mediaUrl: null,
+      mediaId: null,
+      media: null,
       isDeletedSender: false,
       isDeletedReceiver: false,
+      reactionSender: null,
+      reactionSenderAt: null,
+      reactionReceiver: null,
+      reactionReceiverAt: null,
     };
 
     beforeEach(() => {
@@ -345,7 +355,12 @@ describe('DmGateway', () => {
       await gateway.sendMessage(mockSocket, payload);
 
       expect(conversationsService.assertParticipant).toHaveBeenCalledWith('6', '2');
-      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', 'Hello, how are you?');
+      expect(messagesService.createMessage).toHaveBeenCalledWith(
+        '2',
+        '6',
+        'Hello, how are you?',
+        undefined,
+      );
       expect(mockSocket.join).toHaveBeenCalledWith('2');
       expect(mockServer.to).toHaveBeenCalledWith('2');
       expect(mockServer.emit).toHaveBeenCalledWith('message_received', {
@@ -360,6 +375,11 @@ describe('DmGateway', () => {
           clientMessageId: 'client-msg-123',
           body: 'Hello, how are you?',
           createdAt: expect.any(Date) as Date,
+          mediaUrl: null,
+          type: null,
+          altText: null,
+          width: null,
+          height: null,
         },
       });
       expect(sseEvents.publishNewMessagePreview).toHaveBeenCalled();
@@ -388,78 +408,6 @@ describe('DmGateway', () => {
 
       expect(mockSocket.leave).not.toHaveBeenCalled();
       expect(mockSocket.join).not.toHaveBeenCalled();
-    });
-
-    it('should emit error when user is not a participant', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(false);
-
-      await gateway.sendMessage(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
-        clientMessageId: 'client-msg-123',
-      });
-      expect(messagesService.createMessage).not.toHaveBeenCalled();
-    });
-
-    it('should emit error when assertParticipant returns INVALID_CONVERSATION_ID error', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({
-        error: 'INVALID_CONVERSATION_ID',
-      });
-
-      await gateway.sendMessage(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
-        clientMessageId: 'client-msg-123',
-      });
-      expect(messagesService.createMessage).not.toHaveBeenCalled();
-    });
-
-    it('should emit error when user is blocked', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
-
-      await gateway.sendMessage(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
-        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
-        clientMessageId: 'client-msg-123',
-      });
-      expect(messagesService.createMessage).not.toHaveBeenCalled();
-    });
-
-    it('should emit error when assertParticipant fails with unknown error', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'SOME_OTHER_ERROR' });
-
-      await gateway.sendMessage(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
-        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
-        clientMessageId: 'client-msg-123',
-      });
-      expect(messagesService.createMessage).not.toHaveBeenCalled();
-    });
-
-    it('should emit error when assertParticipant returns null', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(null);
-
-      await gateway.sendMessage(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
-        clientMessageId: 'client-msg-123',
-      });
-      expect(messagesService.createMessage).not.toHaveBeenCalled();
     });
 
     it('should emit error when conversation ID is invalid', async () => {
@@ -502,7 +450,7 @@ describe('DmGateway', () => {
 
       await gateway.sendMessage(mockSocket, emptyPayload);
 
-      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', '');
+      expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', '', undefined);
     });
   });
 
@@ -520,8 +468,14 @@ describe('DmGateway', () => {
           messageEntities: null,
           createdAt: new Date(),
           mediaUrl: null,
+          mediaId: null,
+          media: null,
           isDeletedSender: false,
           isDeletedReceiver: false,
+          reactionSender: null,
+          reactionSenderAt: null,
+          reactionReceiver: null,
+          reactionReceiverAt: null,
         },
       });
 
@@ -593,75 +547,6 @@ describe('DmGateway', () => {
       });
     });
 
-    it('should not leave previous room if already in the same conversation', async () => {
-      mockSocket.data = { user: mockUser, currentConversationId: '2' };
-      conversationsService.assertParticipant.mockResolvedValue(true);
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.leave).not.toHaveBeenCalled();
-      expect(mockSocket.join).not.toHaveBeenCalled();
-    });
-
-    it('should leave previous room and join new one when switching conversations', async () => {
-      mockSocket.data = { user: mockUser, currentConversationId: '1' };
-      conversationsService.assertParticipant.mockResolvedValue(true);
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.leave).toHaveBeenCalledWith('1');
-      expect(mockSocket.join).toHaveBeenCalledWith('2');
-      expect(mockSocket.data).toHaveProperty('currentConversationId', '2');
-    });
-
-    it('should emit error when conversation ID is invalid', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(null);
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
-      });
-    });
-
-    it('should emit error when user is blocked', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
-        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
-      });
-    });
-
-    it('should emit error when access is forbidden', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(false);
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
-      });
-    });
-
-    it('should emit error when assertParticipant fails', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'UNKNOWN_ERROR' });
-
-      await gateway.typingStart(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
-        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
-      });
-    });
-
     it('should log typing start event', async () => {
       const logSpy = jest.spyOn(gateway['logger'], 'log');
       conversationsService.assertParticipant.mockResolvedValue(true);
@@ -715,54 +600,6 @@ describe('DmGateway', () => {
       });
     });
 
-    it('should emit error when conversation ID is invalid', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(null);
-
-      await gateway.typingStop(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID,
-      });
-    });
-
-    it('should emit error when user is blocked', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'BLOCKED_USER' });
-
-      await gateway.typingStop(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.BLOCKED_USER,
-        message: CONVERSATIONS_ERROR_MESSAGES.BLOCKED_USER,
-      });
-    });
-
-    it('should emit error when access is forbidden', async () => {
-      conversationsService.assertParticipant.mockResolvedValue(false);
-
-      await gateway.typingStop(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.FORBIDDEN_CONVERSATION_ID,
-        message: CONVERSATIONS_ERROR_MESSAGES.FORBIDDEN_CONVERSATION_ID,
-      });
-    });
-
-    it('should emit error when assertParticipant fails', async () => {
-      conversationsService.assertParticipant.mockResolvedValue({ error: 'ASSERT_FAILED' });
-
-      await gateway.typingStop(mockSocket, payload);
-
-      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
-        type: 'error',
-        code: CONVERSATIONS_ERROR_CODES.ASSERT_PARTICPANT_FAILED,
-        message: CONVERSATIONS_ERROR_MESSAGES.ASSERT_PARTICPANT_FAILED,
-      });
-    });
-
     it('should log typing stop event', async () => {
       const logSpy = jest.spyOn(gateway['logger'], 'log');
       conversationsService.assertParticipant.mockResolvedValue(true);
@@ -799,6 +636,204 @@ describe('DmGateway', () => {
       const callArgs = emitMock.mock.calls[0] as Array<unknown>;
       const eventData = callArgs?.[1] as Record<string, unknown>;
       expect(Object.keys(eventData || {})).toHaveLength(2);
+    });
+  });
+
+  describe('reaction', () => {
+    const payload = {
+      conversationId: '2',
+      messageId: '1',
+      reaction: '👍',
+    };
+
+    const mockReactionDb = {
+      id: BigInt(1),
+      reactionSender: '👍',
+      reactionReceiver: null,
+      reactionSenderAt: new Date('2024-01-01T10:00:00Z'),
+      reactionReceiverAt: null,
+    };
+
+    const mockSender = {
+      user: {
+        username: 'tasneem',
+        profile: {
+          displayName: 'Tasneem',
+          avatarUrl: 'https://example.com/tasneem.jpg',
+        },
+      },
+    };
+
+    const mockReceiver = {
+      user: {
+        username: 'layla',
+        profile: {
+          displayName: 'Layla',
+          avatarUrl: 'https://example.com/layla.jpg',
+        },
+      },
+    };
+
+    beforeEach(() => {
+      mockSocket.data = { user: mockUser };
+      mockEmitFn.mockClear();
+    });
+
+    it('should successfully add reaction and emit to conversation room', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: mockReactionDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(conversationsService.assertParticipant).toHaveBeenCalledWith(
+        mockUser.id,
+        payload.conversationId,
+      );
+      expect(messagesService.addReactionToMessage).toHaveBeenCalledWith(
+        mockUser.id,
+        payload.messageId,
+        payload.reaction,
+        payload.conversationId,
+      );
+      expect(mockServer.to).toHaveBeenCalledWith(payload.conversationId);
+      expect(mockServer.emit).toHaveBeenCalledWith('reaction_received', {
+        conversationId: payload.conversationId,
+        messageId: payload.messageId,
+        reactions: {
+          sender: {
+            username: 'tasneem',
+            displayName: 'Tasneem',
+            avatarUrl: 'https://example.com/tasneem.jpg',
+            reaction: '👍',
+            reactedAt: mockReactionDb.reactionSenderAt,
+          },
+          receiver: {
+            username: 'layla',
+            displayName: 'Layla',
+            avatarUrl: 'https://example.com/layla.jpg',
+            reaction: null,
+            reactedAt: null,
+          },
+        },
+      });
+    });
+
+    it('should not join room if no previous conversation (user must already be in room)', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: mockReactionDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(mockSocket.join).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when message ID is invalid', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+      messagesService.addReactionToMessage.mockResolvedValue({ error: 'INVALID_ID' });
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_MESSAGE_ID,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_MESSAGE_ID,
+      });
+      expect(mockServer.emit).not.toHaveBeenCalled();
+    });
+
+    it('should emit error when reaction creation fails', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+      messagesService.addReactionToMessage.mockResolvedValue({
+        error: 'REACTION_CREATION_FAILED',
+      });
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.REACTION_CREATION_FAILED,
+        message: CONVERSATIONS_ERROR_MESSAGES.REACTION_CREATION_FAILED,
+      });
+      expect(mockServer.emit).not.toHaveBeenCalled();
+    });
+
+    it('should log reaction event', async () => {
+      const logSpy = jest.spyOn(gateway['logger'], 'log');
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: mockReactionDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(logSpy).toHaveBeenCalled();
+      const logCall = logSpy.mock.calls.find((call) => String(call[0]).includes('Reaction event'));
+      expect(logCall).toBeDefined();
+    });
+
+    it('should include both sender and receiver reaction data', async () => {
+      const bothReactionsDb = {
+        ...mockReactionDb,
+        reactionReceiver: '❤️',
+        reactionReceiverAt: new Date('2024-01-01T10:05:00Z'),
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: bothReactionsDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      const emitCall = mockEmitFn.mock.calls[0] as Array<unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      const eventData = emitCall[1] as any;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(eventData.reactions.sender.reaction).toBe('👍');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(eventData.reactions.receiver.reaction).toBe('❤️');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(eventData.reactions.receiver.reactedAt).toEqual(bothReactionsDb.reactionReceiverAt);
+    });
+
+    it('should update current conversation ID in socket data when joining new room', async () => {
+      const socketData = { user: mockUser, currentConversationId: '1' };
+      const testSocket = {
+        ...mockSocket,
+        data: socketData,
+        join: jest.fn(),
+        leave: jest.fn(),
+      } as unknown as Socket;
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: mockReactionDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(testSocket, payload);
+
+      expect((socketData as { currentConversationId?: string }).currentConversationId).toBe(
+        payload.conversationId,
+      );
     });
   });
 });

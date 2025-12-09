@@ -44,6 +44,20 @@ export class MessagesRepository {
         content: true,
         createdAt: true,
         userId: true,
+        reactionSender: true,
+        reactionReceiver: true,
+        reactionReceiverAt: true,
+        reactionSenderAt: true,
+        mediaUrl: true,
+        mediaId: true,
+        media: {
+          select: {
+            type: true,
+            width: true,
+            height: true,
+            altText: true,
+          },
+        },
       },
     });
   }
@@ -97,23 +111,45 @@ export class MessagesRepository {
     };
   }
 
-  async createMessage(conversationId: bigint, senderId: bigint, body: string) {
-    const message = await this.prisma.message.create({
-      data: {
-        userId: senderId,
-        conversationId,
-        content: body,
-      },
+  async createMessage(
+    conversationId: bigint,
+    senderId: bigint,
+    body: string,
+    mediaUrl?: string,
+    mediaId?: bigint,
+  ) {
+    const message = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          userId: senderId,
+          conversationId,
+          content: body,
+          mediaUrl,
+          mediaId,
+        },
+        include: {
+          media: {
+            select: {
+              type: true,
+              width: true,
+              height: true,
+              altText: true,
+            },
+          },
+        },
+      });
+
+      await tx.conversation.update({
+        where: {
+          id: conversationId,
+        },
+        data: {
+          lastMessageId: message.id,
+        },
+      });
+      return message;
     });
 
-    await this.prisma.conversation.update({
-      where: {
-        id: conversationId,
-      },
-      data: {
-        lastMessageId: message.id,
-      },
-    });
     return message;
   }
 
@@ -125,6 +161,8 @@ export class MessagesRepository {
       select: {
         userId: true,
         conversationId: true,
+        reactionReceiver: true,
+        reactionSender: true,
       },
     });
   }
@@ -135,6 +173,33 @@ export class MessagesRepository {
     await this.prisma.message.update({
       where: { id: messageId },
       data,
+    });
+  }
+
+  async addMessageReaction(messageId: bigint, side: 'sender' | 'receiver', value: string | null) {
+    const now = new Date();
+
+    const data =
+      value === null
+        ? side === 'sender'
+          ? { reactionSender: null, reactionSenderAt: null }
+          : { reactionReceiver: null, reactionReceiverAt: null }
+        : side === 'sender'
+          ? { reactionSender: value, reactionSenderAt: now }
+          : { reactionReceiver: value, reactionReceiverAt: now };
+
+    return await this.prisma.message.update({
+      where: { id: messageId },
+      data,
+      select: {
+        id: true,
+        conversationId: true,
+        userId: true,
+        reactionSender: true,
+        reactionSenderAt: true,
+        reactionReceiver: true,
+        reactionReceiverAt: true,
+      },
     });
   }
 }
