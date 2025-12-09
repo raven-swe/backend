@@ -102,10 +102,10 @@ export class TimelineConsumer extends WorkerHost {
         `Processing timeline-following purge retweet job ${job.id} for tweet ${tweetId} by author ${authorId} retweeter ${retweeterId}`,
       );
 
-      const followerIds: string[] = (await this.usersService.getFollowersIds(BigInt(authorId))).map(
-        (id) => id.toString(),
-      );
-      followerIds.unshift(authorId.toString());
+      const followerIds: string[] = (
+        await this.usersService.getFollowersIds(BigInt(retweeterId))
+      ).map((id) => id.toString());
+      followerIds.unshift(retweeterId.toString());
 
       const timelineKeys = followerIds.map((id) =>
         REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(id)),
