@@ -133,6 +133,8 @@ export class TimelineService {
         this.tweetsRepository.filterValidTweets(Array.from(tweetIds)),
       ]);
 
+      validAuthorIds.unshift(userId);
+
       const validAuthorSet = new Set(validAuthorIds.map((id) => id.toString()));
       const validTweetSet = new Set(validTweetIds.map((id) => id.toString()));
 
