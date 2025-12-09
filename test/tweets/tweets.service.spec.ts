@@ -247,6 +247,7 @@ describe('TweetsService', () => {
         quoteToTweetId: null,
         quotedTweet: undefined,
         replyToTweet: undefined,
+        rootTweetId: null,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
