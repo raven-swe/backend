@@ -368,6 +368,14 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Metadata for user with the last seen message id for the other user ")
+model UserMetadataWithLastSeen {
+  ...UserMetadata;
+
+  @doc("The ID of the last message seen from the other user in a conversation")
+  otherParticipantLastSeenMessageId: string | null;
+}
+
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
@@ -784,6 +792,33 @@ model MessageEntities {
   hashtags: HashtagEntity[] | null;
 }
 
+@doc("Reactions corresponding to a message")
+model Reaction {
+  @doc("The username of the user who reacted to the message")
+  username: string;
+
+  @doc("The display name of the user who reacted to the message")
+  displayName: string;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string;
+
+  @doc("The reaction emoji (null if reaction was removed)")
+  reaction: string | null;
+
+  @doc("Timestamp when the reaction was made. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  reactedAt: utcDateTime;
+}
+
+@doc("Reactions for both participating users in the conversation")
+model ConversationReactions {
+  @doc("Reactions from the message sender user")
+  sender: Reaction;
+
+  @doc("Reactions from the other user in the conversation")
+  receiver: Reaction;
+}
+
 @doc("A single message in a conversation")
 model Message {
   @doc("Unique identifier for the message")
@@ -804,6 +839,9 @@ model Message {
 
   @doc("True if this message was sent by the authenticated user (Easy for client side)")
   isMine: boolean;
+
+  @doc("Reactions corresponding to this message")
+  reactions: ConversationReactions;
 }
 
 @doc("Unified conversation model")
@@ -990,7 +1028,7 @@ alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
 // Conversation and Messages response aliases
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
 alias MessageListResponse = DataResponseWithPagination<{
-  participant: UserMetadata;
+  participant: UserMetadataWithLastSeen;
   messages: Message[];
 }>;
 alias ConversationResponse = DataResponse<Conversation>;
