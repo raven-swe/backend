@@ -167,7 +167,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -201,7 +200,6 @@ describe('TweetsService', () => {
         media: [],
         replyToTweetId: null,
         quoteToTweetId: null,
-        quotedTweet: undefined,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -251,7 +249,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
