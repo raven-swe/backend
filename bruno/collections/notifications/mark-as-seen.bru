@@ -5,13 +5,13 @@ meta {
 }
 
 patch {
-  url: http://localhost:3000/notifications/:notificationId/mark-seen
+  url: http://localhost:3000/notifications/:notificationId/seen
   body: none
   auth: bearer
 }
 
 params:path {
-  notificationId: 1
+  notificationId: 29
 }
 
 auth:bearer {

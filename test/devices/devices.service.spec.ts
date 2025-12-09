@@ -9,7 +9,8 @@ describe('DevicesService', () => {
 
   const mockDevicesRepository = {
     removeAllUserDevices: jest.fn(),
-    createDevice: jest.fn(),
+    registerDevice: jest.fn(),
+    togglePushNotifications: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -74,12 +75,13 @@ describe('DevicesService', () => {
     });
   });
 
-  describe('createDevice', () => {
+  describe('register Device', () => {
     it('should correctly call the repository with device data and return the created device', async () => {
       const deviceData: Device = {
         userId: BigInt(123),
         ipAddress: '192.168.1.1',
         deviceType: 'Chrome on Window',
+        fcmToken: 'some-fcm-token',
       };
 
       const expectedCreatedDevice = {
@@ -91,38 +93,88 @@ describe('DevicesService', () => {
         updated_at: new Date(),
       };
 
-      mockDevicesRepository.createDevice.mockResolvedValue(expectedCreatedDevice);
+      mockDevicesRepository.registerDevice.mockResolvedValue(expectedCreatedDevice);
 
-      const result = await service.createDevice(deviceData, {} as never);
+      const result = await service.registerDevice(deviceData, {} as never);
 
-      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as never);
+      expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
+      expect(result).toBe(expectedCreatedDevice);
+    });
+
+    it('should correctly call the repository with device data and return the created device', async () => {
+      const deviceData: Device = {
+        userId: BigInt(123),
+        ipAddress: '192.168.1.1',
+        deviceType: 'Chrome on Window',
+        fcmToken: 'some-fcm-token',
+      };
+
+      const expectedCreatedDevice = {
+        id: BigInt(1), // The new ID from the database
+        user_id: deviceData.userId,
+        ip_address: deviceData.ipAddress,
+        device_type: deviceData.deviceType,
+        fcm_token: deviceData.fcmToken,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockDevicesRepository.registerDevice.mockResolvedValue(expectedCreatedDevice);
+
+      const result = await service.registerDevice(deviceData, {} as never);
+
+      expect(mockDevicesRepository.registerDevice).toHaveBeenCalledWith(deviceData, {} as never);
       expect(result).toBe(expectedCreatedDevice);
     });
   });
 
-  describe('createDevice', () => {
-    it('should correctly call the repository with device data and return the created device', async () => {
-      const deviceData: Device = {
-        userId: BigInt(123),
-        ipAddress: '192.168.1.1',
-        deviceType: 'Chrome on Window',
-      };
+  describe('toggleDeviceNotifications', () => {
+    it('should correctly call the repository to toggle push notifications', async () => {
+      const fcmToken = 'some-fcm-token';
+      const userId = BigInt(123);
+      const enable = true;
 
-      const expectedCreatedDevice = {
-        id: BigInt(1), // The new ID from the database
-        user_id: deviceData.userId,
-        ip_address: deviceData.ipAddress,
-        device_type: deviceData.deviceType,
-        created_at: new Date(),
+      const expectedUpdatedDevice = {
+        id: BigInt(1),
+        user_id: userId,
+        fcm_token: fcmToken,
+        push_notifications_enabled: enable,
         updated_at: new Date(),
       };
 
-      mockDevicesRepository.createDevice.mockResolvedValue(expectedCreatedDevice);
+      mockDevicesRepository.togglePushNotifications = jest
+        .fn()
+        .mockResolvedValue(expectedUpdatedDevice);
 
-      const result = await service.createDevice(deviceData, {} as never);
+      const result = await service.togglePushNotifications(fcmToken, userId, enable);
 
-      expect(mockDevicesRepository.createDevice).toHaveBeenCalledWith(deviceData, {} as never);
-      expect(result).toBe(expectedCreatedDevice);
+      expect(mockDevicesRepository.togglePushNotifications).toHaveBeenCalledWith(fcmToken, enable);
+      expect(result).toBe(expectedUpdatedDevice);
+    });
+  });
+
+  describe('toggleDeviceNotifications', () => {
+    it('should correctly call the repository to toggle push notifications', async () => {
+      const fcmToken = 'some-fcm-token';
+      const userId = BigInt(123);
+      const enable = true;
+
+      const expectedUpdatedDevice = {
+        id: BigInt(1),
+        user_id: userId,
+        fcm_token: fcmToken,
+        push_notifications_enabled: enable,
+        updated_at: new Date(),
+      };
+
+      mockDevicesRepository.togglePushNotifications = jest
+        .fn()
+        .mockResolvedValue(expectedUpdatedDevice);
+
+      const result = await service.togglePushNotifications(fcmToken, userId, enable);
+
+      expect(mockDevicesRepository.togglePushNotifications).toHaveBeenCalledWith(fcmToken, enable);
+      expect(result).toBe(expectedUpdatedDevice);
     });
   });
 });

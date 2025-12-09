@@ -14,6 +14,8 @@ interface SseEvent {
   data: unknown;
 }
 
+const ALLOWED_TOPICS = ['dm', 'notifications'];
+
 @Controller('stream')
 export class SseController {
   private readonly logger = new Logger(SseController.name);
@@ -35,18 +37,31 @@ export class SseController {
   async stream(
     @User() user: RequestUser,
     @Res({ passthrough: false }) res: Response,
-    @Query('topics') topics?: string,
+    @Query('topics') topicsQuery?: string,
   ) {
-    if (topics !== 'dm') {
+    if (!topicsQuery) {
       res.status(400).json({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
+        message: 'Missing topics parameter. Example: ?topics=dm,notifications',
+        code: 'MISSING_TOPICS',
+      });
+      return;
+    }
+
+    const requestedTopics = topicsQuery.split(',').map((t) => t.trim());
+
+    const validTopics = requestedTopics.filter((t) => ALLOWED_TOPICS.includes(t));
+
+    if (validTopics.length === 0) {
+      res.status(400).json({
+        message: `Invalid topics. Allowed: ${ALLOWED_TOPICS.join(', ')}`,
         code: 'INVALID_TOPICS',
       });
       return;
     }
+
     const userId = user.id;
 
-    const subject = await this.sse.subscribe(userId);
+    const subject = await this.sse.subscribe(userId, validTopics);
 
     if (!subject) {
       this.logger.warn(`SSE connection limit reached - User: ${userId}`);
@@ -64,7 +79,7 @@ export class SseController {
     });
     res.flushHeaders?.();
 
-    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, topics: validTopics })}\n\n`);
 
     this.publishUnseenCountEvent(BigInt(userId)).catch((err: unknown) => {
       this.logger.error(`Failed to send initial unseen count for user ${userId}`, err);

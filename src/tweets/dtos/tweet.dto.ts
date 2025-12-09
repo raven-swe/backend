@@ -1,9 +1,9 @@
 import { TweetEntitiesDto } from './tweet-entitites.dto';
-import { AuthorDto } from './author.dto';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
+import { CompactAuthorDto } from './compact-author.dto';
 export class TweetDto {
   id: string;
-  author: AuthorDto;
+  author: CompactAuthorDto;
   //TODO null content will be handled later for media tweets
   content: string | null;
   createdAt: Date;
@@ -22,4 +22,12 @@ export class TweetDto {
   quoteToTweetId: string | null;
 
   quotedTweet?: TweetDto;
+
+  isRepost: boolean;
+  repostedBy?: Reposter;
+}
+
+class Reposter {
+  username: string;
+  displayName: string;
 }

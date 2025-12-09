@@ -8,8 +8,10 @@ import { RedisService } from './redis/redis.service';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 async function bootstrap() {
+  const isProd = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true, // buffers initial logs until winston is attached
+    logger: isProd ? ['error', 'warn', 'log'] : ['debug', 'error', 'warn', 'log', 'verbose'],
   });
 
   app.use(cookieParser());

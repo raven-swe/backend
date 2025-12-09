@@ -13,7 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -27,7 +27,10 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class UsersService {
@@ -41,6 +44,7 @@ export class UsersService {
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
     private emailQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async findByEmail(email: string) {
@@ -422,6 +426,11 @@ export class UsersService {
     }
 
     await this.usersRepository.followUser(followerId, followedId);
+
+    await this.domainEvents.emitUserFollowed({
+      actorId: followerId,
+      receiverId: followedId,
+    });
 
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
     return { message: 'User followed successfully.' };
@@ -1024,5 +1033,80 @@ export class UsersService {
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
+  }
+
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersIds(userId: bigint): Promise<bigint[]> {
+    return await this.usersRepository.getFollowersUnPaginated(userId);
+  }
+
+  async enableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, true);
+
+    this.logger.log(`User ID: ${userId} enabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications enabled for user successfully',
+    };
+  }
+
+  async disableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, false);
+
+    this.logger.log(`User ID: ${userId} disabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications disabled for user successfully',
+    };
   }
 }

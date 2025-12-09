@@ -43,5 +43,39 @@ export class TrendingRepository {
     }));
   }
 
-  // ---------------
+  /**
+   * Retrieves the ID of a hashtag from the database.
+   *
+   * @param hashtag - The hashtag to search for, without the leading '#'.
+   * @returns - The ID of the hashtag if it exists, or null if it does not.
+   */
+  async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
+    return await this.prisma.trendingKeyword.findUnique({
+      select: { id: true },
+      where: {
+        keyword_isHashtag: {
+          keyword: hashtag.toLowerCase(),
+          isHashtag: true,
+        },
+      },
+    });
+  }
+
+  async getTopHashtagsByKeyword(query: string, limit: number): Promise<string[]> {
+    const results = await this.prisma.trendingKeyword.findMany({
+      where: {
+        isHashtag: true,
+        keyword: {
+          startsWith: query.toLowerCase(),
+        },
+      },
+      select: {
+        keyword: true,
+        count: true,
+      },
+      orderBy: { count: 'desc' },
+      take: limit,
+    });
+    return results.map((result) => result.keyword);
+  }
 }

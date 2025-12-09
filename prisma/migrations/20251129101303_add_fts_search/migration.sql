@@ -109,4 +109,5 @@ CREATE INDEX IF NOT EXISTS users_username_trgm_idx ON "users" USING GIN (usernam
 CREATE INDEX IF NOT EXISTS profiles_display_name_trgm_idx ON "profiles" USING GIN (display_name gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS tweets_created_at ON "tweets" (created_at DESC) WHERE is_deleted = false;
+
 CREATE INDEX IF NOT EXISTS tweets_with_media ON "tweets" (created_at DESC) WHERE has_media = true AND is_deleted = false;

@@ -47,7 +47,7 @@ export class MessagesService {
     userId: bigint,
     conversationId: bigint,
     limit: number = 20,
-    cursor: string,
+    cursor: string | undefined,
   ) {
     const conversation = await this.checkConversationEligibility(userId, conversationId);
 

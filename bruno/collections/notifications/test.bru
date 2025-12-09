@@ -1,11 +1,11 @@
 meta {
-  name: mark-all-as-seen
+  name: test
   type: http
-  seq: 2
+  seq: 5
 }
 
-patch {
-  url: http://localhost:3000/notifications/mark-all-seen
+get {
+  url: http://localhost:3000/notifications/count
   body: none
   auth: bearer
 }

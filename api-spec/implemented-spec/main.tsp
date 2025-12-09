@@ -313,6 +313,14 @@ model MessageResponse<TMessage extends string> {
   }>;
 }
 
+model MessageCreatedResponse<TMessage extends string> {
+  ...CreatedResponse;
+  ...Body<{
+    success: true;
+    message?: TMessage; // optional message field on success
+  }>;
+}
+
 model FollowingUser {
   ...CompactUser;
   isFollowing: boolean;
@@ -570,21 +578,28 @@ model TweetAuthor {
   @doc("True if the current user has blocked this author")
   isBlocked: boolean;
 
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
-
   @doc("True if the current user has muted this author")
   isMuted: boolean;
+
+  @doc("True if the current user is following this author")
+  isFollowing: boolean;
 }
 
 model UserMetadataWithFollowInfo {
   ...UserMetadata;
 
-  @doc("Is the user followed by the current logged-in user")
-  isFollowing: boolean;
-
   @doc("Is the user following the current logged-in user")
   isFollower: boolean;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean;
+}
+
+model UserMetadataWithFollowing {
+  ...UserMetadata;
+
+  @doc("Is the user followed by the current logged-in user")
+  isFollowing: boolean;
 }
 
 @doc("User metadata with biography information")
@@ -823,7 +838,7 @@ enum NotificationFilter {
 model NotificationActorSummary {
   @doc("A sample of users for UI previews (e.g., 'Alex, Maria...').")
   @maxItems(3)
-  previewActors: UserMetadata[];
+  previewActors: UserMetadataWithFollowing[];
 
   @doc("The total count of all users (e.g., for '...and 4 others').")
   @minValue(1)
@@ -911,6 +926,15 @@ model SearchTweetsParameters {
   @query
   excludeMutedAndBlocked?: boolean;
 }
+
+model SearchUser {
+  ...UserMetadata;
+  bio: string | null;
+  bioEntities: BioEntities | null;
+  bannerUrl: string | null;
+  relationship: UserRelationship;
+}
+
 @tag("Auth")
 @route("/auth")
 namespace Auth {
@@ -1094,6 +1118,7 @@ namespace Auth {
     @cookie("refreshToken") refreshToken?: string,
     @body body?: {
       refreshToken: string;
+      fcmToken?: string;
     },
   ): MessageResponse<"Logged out successfully."> | UnauthorizedResponse | InternalServerErrorResponse;
 
@@ -1394,8 +1419,11 @@ namespace Me {
     @route("/interests")
     @summary("Get all available interests with user selection status")
     @doc("Returns a list of all available interests. Each interest includes a flag indicating whether the authenticated user has selected it.")
-    op getInterests(
-    ): DataResponse<Interest[]> | UnauthorizedResponse | NotFoundResponse | InternalServerErrorResponse;
+    op getInterests():
+      | DataResponse<Interest[]>
+      | UnauthorizedResponse
+      | NotFoundResponse
+      | InternalServerErrorResponse;
 
     @put
     @route("/interests")
@@ -1538,6 +1566,23 @@ namespace Users {
         | InternalServerErrorResponse;
     }
   }
+  @summary("enable notifications for a user, follows the user if not followed")
+  @post
+  @route("{username}/notify")
+  op enableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications enabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("disable notifications for a user, follows the user if not followed")
+  @delete
+  @route("{username}/notify")
+  op disableUserNotifications(@path username: string):
+    | MessageResponse<"Notifications disabled for user successfully.">
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Users")
@@ -1984,11 +2029,90 @@ namespace Conversations {
     | InternalServerErrorResponse;
 }
 
+@tag("Devices")
+@route("/devices")
+@useAuth(BearerAuth)
+namespace Devices {
+  @post
+  @summary("Register a device for push notifications")
+  op registerDevice(
+    @body body: {
+      fcmToken: string;
+    },
+  ):
+    | MessageCreatedResponse<"Device registered successfully for push notifications.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @put
+  @route("push")
+  @summary("Enable or disable push notifications for the device")
+  op togglePushNotifications(
+    @body body: {
+      fcmToken: string;
+      enable: boolean;
+    },
+  ):
+    | MessageResponse<"Push notifications enabled/disabled successfully.">
+    | ValidationErrorResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+}
+
 @tag("Search")
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
+  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @get
+  @route("/hashtags/top")
+  op getTopHashtags(
+    @doc("The search query")
+    @query
+    query: string,
+  ):
+    | DataResponse<TopHashtags>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get suggested users from following/follower list, used in mentions")
+  @get
+  @route("/users/suggestions")
+  op getUserSuggestions(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<{
+        users: UserMetadataWithFollowInfo[];
+      }>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get all users matching the search query - returns paginated user results")
+  @get
+  @route("/users")
+  op searchUsers(
+    @doc("Search query (username or display name)")
+    @query
+    query: string,
+
+    ...CursorPaginationParameters,
+  ):
+    | DataResponseWithPagination<{
+        users: SearchUser[];
+      }>
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Search for tweets (Posts/Latest tab) - returns paginated tweet results")
+  @doc("Supports searching by a normal text or hashtags")
   @get
   @route("/tweets")
   op searchTweets(...SearchTweetsParameters, ...CursorPaginationParameters):

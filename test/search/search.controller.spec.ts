@@ -4,6 +4,7 @@ import { SearchService } from 'src/search/search.service';
 import { PeopleSearchFilter, SearchTab, SearchTweetsQueryDto } from 'src/search/dtos';
 import { ParseBooleanPipe } from 'src/common/pipes/parse-boolean.pipe';
 import { RequestUser } from 'src/common/interfaces';
+import { TrendingService } from 'src/trending/trending.service';
 
 describe('SearchController - searchTweets', () => {
   let controller: SearchController;
@@ -15,6 +16,10 @@ describe('SearchController - searchTweets', () => {
 
   const mockUser: RequestUser = {
     id: '1',
+  };
+
+  const mockTrendingService = {
+    getTrendingHashtags: jest.fn(),
   };
 
   const mockSearchResult = {
@@ -34,7 +39,11 @@ describe('SearchController - searchTweets', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SearchController],
-      providers: [{ provide: SearchService, useValue: mockSearchService }, ParseBooleanPipe],
+      providers: [
+        { provide: SearchService, useValue: mockSearchService },
+        { provide: TrendingService, useValue: mockTrendingService },
+        ParseBooleanPipe,
+      ],
     }).compile();
 
     controller = module.get<SearchController>(SearchController);

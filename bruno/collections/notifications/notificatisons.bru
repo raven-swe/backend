@@ -1,0 +1,24 @@
+meta {
+  name: notificatisons
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:3000/notifications?filter=mentions
+  body: none
+  auth: bearer
+}
+
+params:query {
+  filter: mentions
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

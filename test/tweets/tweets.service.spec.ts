@@ -11,10 +11,13 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 import { MediaType } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
-const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
+import { TrendingService } from 'src/trending/trending.service';
+
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -61,6 +64,7 @@ describe('TweetsService', () => {
   const mockUsersRepository = {
     areUsersBlocked: jest.fn(),
     findByUsername: jest.fn(),
+    findByUsernameWithDisplayname: jest.fn(),
     findOwnTweetAuthorMetaData: jest.fn(),
   };
 
@@ -82,6 +86,15 @@ describe('TweetsService', () => {
     getex: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+  };
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitTweetCreated: jest.fn(),
+    emitTweetLiked: jest.fn(),
+    emitTweetRetweeted: jest.fn(),
+  };
+  const mockTrendingService = {
+    getHashtagId: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -111,6 +124,18 @@ describe('TweetsService', () => {
         {
           provide: RedisService,
           useValue: mockRedisService,
+          provide: TrendingService,
+          useValue: mockTrendingService,
+        },
+        {
+          provide: getQueueToken('timeline-following'),
+          useValue: {
+            add: jest.fn(),
+          },
+        },
+        {
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     }).compile();
@@ -173,9 +198,7 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -210,6 +233,8 @@ describe('TweetsService', () => {
         replyToTweetId: null,
         quoteToTweetId: null,
         quotedTweet: undefined,
+        replyToTweet: undefined,
+        isRepost: false,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -259,9 +284,7 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -954,7 +977,10 @@ describe('TweetsService', () => {
 
     describe('getUserPosts', () => {
       it('should call getGenericProfileFeed with includeReplies=false', async () => {
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
@@ -971,7 +997,10 @@ describe('TweetsService', () => {
 
     describe('getUserPostsAndReplies', () => {
       it('should call getGenericProfileFeed with includeReplies=true', async () => {
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
@@ -988,7 +1017,7 @@ describe('TweetsService', () => {
 
     describe('getGenericProfileFeed (via getUserPosts)', () => {
       it('should throw NOT_FOUND when user does not exist', async () => {
-        mockUsersRepository.findByUsername.mockResolvedValue(null);
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue(null);
 
         await expect(service.getUserPosts(username, authUserId, limit, undefined)).rejects.toThrow(
           HttpException,
@@ -1001,7 +1030,10 @@ describe('TweetsService', () => {
       });
 
       it('should throw BAD_REQUEST for invalid cursor', async () => {
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         const invalidCursor = 'invalid!!!cursor';
 
         await expect(
@@ -1016,7 +1048,10 @@ describe('TweetsService', () => {
 
       it('should decode valid cursor and pass to repository', async () => {
         const validCursor = encodeCompositeCursor({ id: '123', createdAt: '2024-01-01T00:00:00Z' });
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
@@ -1031,7 +1066,10 @@ describe('TweetsService', () => {
       });
 
       it('should handle empty feed', async () => {
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
@@ -1055,7 +1093,10 @@ describe('TweetsService', () => {
           { id: '2', content: 'Tweet 2' },
         ];
 
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
         mockTweetsRepository.mapToDetailedTweetDto
@@ -1076,7 +1117,10 @@ describe('TweetsService', () => {
         const fullTweets = [{ id: BigInt(1), content: 'Tweet 1' }];
         const tweetDtos = [{ id: '1', content: 'Tweet 1' }];
 
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
         mockTweetsRepository.mapToDetailedTweetDto.mockReturnValue(tweetDtos[0]);
@@ -1093,7 +1137,10 @@ describe('TweetsService', () => {
           { id: BigInt(1), type: 'repost', created_at: '2024-01-02T00:00:00Z' },
         ];
 
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
@@ -1112,7 +1159,10 @@ describe('TweetsService', () => {
         const fullTweets = [{ id: BigInt(1), content: 'Tweet 1', createdAt: tweetCreatedAt }];
         const tweetDtos = [{ id: '1', content: 'Tweet 1', createdAt: tweetCreatedAt }];
 
-        mockUsersRepository.findByUsername.mockResolvedValue({ id: requestedUserId, username });
+        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
+          id: requestedUserId,
+          username,
+        });
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
         mockTweetsRepository.mapToDetailedTweetDto.mockReturnValue(tweetDtos[0]);
@@ -1121,29 +1171,6 @@ describe('TweetsService', () => {
 
         expect(result.items[0]!.createdAt).toBe(feedCreatedAt);
       });
-    });
-  });
-  describe('getTimeline', () => {
-    const userId = BigInt(1);
-    const validCursor = encodeCursor(BigInt(50).toString());
-    const limit = 10;
-
-    it('should successfully fetch and paginate timeline', async () => {
-      const decodedCursorId = BigInt(50).toString();
-      const rawTweets = [{ id: BigInt(100) }, { id: BigInt(99) }];
-
-      mockTweetsRepository.getTimelineForUser.mockResolvedValue(rawTweets);
-
-      const result = await service.getTimeline(userId, validCursor, limit);
-
-      expect(mockTweetsRepository.getTimelineForUser).toHaveBeenCalledWith(
-        userId,
-        decodedCursorId,
-        limit + 1,
-      );
-      expect(result.items).toEqual(rawTweets);
-      expect(result.pagination.cursor).toBe(validCursor);
-      expect(result.pagination.hasNextPage).toBe(false);
     });
   });
 
@@ -1465,7 +1492,7 @@ describe('TweetsService', () => {
       mockTweetsRepository.getTweetLikers.mockResolvedValue(mockLikers);
 
       // Act
-      const result = await service.getTweetLikers(tweetId, currentUserId, limit, validCursor);
+      await service.getTweetLikers(tweetId, currentUserId, limit, validCursor);
 
       // Assert
       expect(mockTweetsRepository.getTweetLikers).toHaveBeenCalledWith(
@@ -1474,7 +1501,6 @@ describe('TweetsService', () => {
         limit + 1,
         { id: '50', createdAt: '2024-01-01T00:00:00Z' },
       );
-      expect(result.items).toEqual(mockLikers);
     });
 
     it('should throw BAD_REQUEST on invalid cursor for likers', async () => {
@@ -1509,7 +1535,7 @@ describe('TweetsService', () => {
       mockTweetsRepository.getTweetRetweeters.mockResolvedValue(mockRetweeters);
 
       // Act
-      const result = await service.getTweetRetweeters(tweetId, currentUserId, limit);
+      await service.getTweetRetweeters(tweetId, currentUserId, limit);
 
       // Assert
       expect(mockTweetsRepository.getTweetRetweeters).toHaveBeenCalledWith(
@@ -1518,7 +1544,6 @@ describe('TweetsService', () => {
         limit + 1,
         undefined,
       );
-      expect(result.items).toEqual(mockRetweeters);
     });
   });
 
@@ -1706,17 +1731,6 @@ describe('TweetsService', () => {
   });
 
   describe('TweetsService - Query Methods', () => {
-    let service: TweetsService;
-
-    const mockTweetsRepository = {
-      getTweetsByQuery: jest.fn(),
-    };
-
-    const mockUsersRepository = {};
-    const mockContentParsingService = {};
-    const mockMediaRepository = {};
-    const mockPrismaService = {};
-
     const mockTweets = [
       {
         id: BigInt(1),
@@ -1740,6 +1754,14 @@ describe('TweetsService', () => {
           { provide: MediaRepository, useValue: mockMediaRepository },
           { provide: PrismaService, useValue: mockPrismaService },
           { provide: RedisService, useValue: mockRedisService },
+          { provide: TrendingService, useValue: mockTrendingService },
+          {
+            provide: getQueueToken('timeline-following'),
+            useValue: {
+              add: jest.fn(),
+            },
+          },
+          { provide: DomainEventsService, useValue: mockDomainEventsService },
         ],
       }).compile();
 

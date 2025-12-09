@@ -1,11 +1,14 @@
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateTweetDto {
+  @IsOptional()
   @IsString()
-  content: string;
+  @MaxLength(280)
+  content?: string;
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(4)
   @IsString({ each: true })
   media?: string[];
 
