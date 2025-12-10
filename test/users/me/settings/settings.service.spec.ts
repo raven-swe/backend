@@ -46,6 +46,7 @@ describe('SettingsService', () => {
     deleteSession: jest.fn(),
     getUserMutes: jest.fn(),
     getUserBlocks: jest.fn(),
+    updateInterests: jest.fn(),
   };
 
   const mockRedisService = {
@@ -1247,6 +1248,209 @@ describe('SettingsService', () => {
       // Act & Assert
       await expect(service.getUserBlockedUsers(userId, limit)).rejects.toThrow('Database error');
       expect(mockUsersService.getUserBlocks).toHaveBeenCalledWith(userId, limit + 1, undefined);
+    });
+  });
+
+  describe('getInterests', () => {
+    const userId = BigInt(1);
+
+    it('should return all interests with isSelected=false when user has no interests', async () => {
+      // Arrange
+      const mockUser = {
+        id: userId,
+        interests: [],
+      };
+      mockUsersService.findById.mockResolvedValue(mockUser);
+
+      // Act
+      const result = await service.getInterests(userId);
+
+      // Assert
+      expect(mockUsersService.findById).toHaveBeenCalledWith(userId);
+      expect(result).toHaveLength(11); // All 11 interest codes
+      expect(result.every((interest) => !interest.isSelected)).toBe(true);
+      expect(result[0]).toHaveProperty('code');
+      expect(result[0]).toHaveProperty('name');
+      expect(result[0]).toHaveProperty('isSelected');
+    });
+
+    it('should return interests with correct isSelected status', async () => {
+      // Arrange
+      const mockUser = {
+        id: userId,
+        interests: ['TECH', 'SPORTS', 'FOOD'],
+      };
+      mockUsersService.findById.mockResolvedValue(mockUser);
+
+      // Act
+      const result = await service.getInterests(userId);
+
+      // Assert
+      expect(result).toHaveLength(11);
+      const techInterest = result.find((i) => i.code === 'TECH');
+      const sportsInterest = result.find((i) => i.code === 'SPORTS');
+      const cultureInterest = result.find((i) => i.code === 'CULTURE');
+
+      expect(techInterest?.isSelected).toBe(true);
+      expect(sportsInterest?.isSelected).toBe(true);
+      expect(cultureInterest?.isSelected).toBe(false);
+    });
+
+    it('should handle null interests field', async () => {
+      // Arrange
+      const mockUser = {
+        id: userId,
+        interests: null,
+      };
+      mockUsersService.findById.mockResolvedValue(mockUser);
+
+      // Act
+      const result = await service.getInterests(userId);
+
+      // Assert
+      expect(result).toHaveLength(11);
+      expect(result.every((interest) => !interest.isSelected)).toBe(true);
+    });
+
+    it('should throw NOT_FOUND when user does not exist', async () => {
+      // Arrange
+      mockUsersService.findById.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(service.getInterests(userId)).rejects.toThrow(HttpException);
+      await expect(service.getInterests(userId)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+
+    it('should return interests with correct names from INTEREST_NAMES mapping', async () => {
+      // Arrange
+      const mockUser = { id: userId, interests: [] };
+      mockUsersService.findById.mockResolvedValue(mockUser);
+
+      // Act
+      const result = await service.getInterests(userId);
+
+      // Assert
+      const techInterest = result.find((i) => i.code === 'TECH');
+      expect(techInterest?.name).toBe('Tech');
+      const sportsInterest = result.find((i) => i.code === 'SPORTS');
+      expect(sportsInterest?.name).toBe('Sports');
+    });
+  });
+
+  describe('updateInterests', () => {
+    const userId = BigInt(1);
+
+    it('should successfully update interests with valid data', async () => {
+      // Arrange
+      const dto = { interests: ['TECH', 'SPORTS', 'FOOD'] };
+      mockUsersService.updateInterests.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateInterests(userId, dto);
+
+      // Assert
+      expect(mockUsersService.updateInterests).toHaveBeenCalledWith(userId, [
+        'TECH',
+        'SPORTS',
+        'FOOD',
+      ]);
+      expect(result).toEqual({ message: 'Interests updated successfully.' });
+    });
+
+    it('should remove duplicates before updating', async () => {
+      // Arrange
+      const dto = { interests: ['TECH', 'SPORTS', 'TECH', 'FOOD', 'SPORTS'] };
+      mockUsersService.updateInterests.mockResolvedValue(undefined);
+
+      // Act
+      await service.updateInterests(userId, dto);
+
+      // Assert
+      expect(mockUsersService.updateInterests).toHaveBeenCalledTimes(1);
+      const calls = mockUsersService.updateInterests.mock.calls;
+      expect(calls).toHaveLength(1);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const calledWith = calls[0]?.[1] as string[];
+      expect(calledWith).toHaveLength(3);
+      expect(new Set(calledWith).size).toBe(3); // Verify no duplicates
+      expect(calledWith).toContain('TECH');
+      expect(calledWith).toContain('SPORTS');
+      expect(calledWith).toContain('FOOD');
+    });
+
+    it('should accept single interest (minimum requirement)', async () => {
+      // Arrange
+      const dto = { interests: ['TECH'] };
+      mockUsersService.updateInterests.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateInterests(userId, dto);
+
+      // Assert
+      expect(mockUsersService.updateInterests).toHaveBeenCalledWith(userId, ['TECH']);
+      expect(result).toEqual({ message: 'Interests updated successfully.' });
+    });
+
+    it('should accept all valid interests', async () => {
+      // Arrange
+      const allInterests = [
+        'CULTURE',
+        'FINANCE',
+        'MEDICAL',
+        'POLITICS',
+        'SPORTS',
+        'TECH',
+        'ENTERTAINMENT',
+        'GENERAL',
+        'FOOD',
+        'LEARNING',
+        'TRAVEL',
+      ];
+      const dto = { interests: allInterests };
+      mockUsersService.updateInterests.mockResolvedValue(undefined);
+
+      // Act
+      const result = await service.updateInterests(userId, dto);
+
+      // Assert
+      expect(mockUsersService.updateInterests).toHaveBeenCalledWith(userId, allInterests);
+      expect(result).toEqual({ message: 'Interests updated successfully.' });
+    });
+
+    it('should throw BadRequest when interests array is empty', async () => {
+      // Arrange
+      const dto = { interests: [] };
+
+      // Act & Assert
+      await expect(service.updateInterests(userId, dto)).rejects.toThrow(BadRequestException);
+      expect(mockUsersService.updateInterests).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequest when interests contain invalid codes', async () => {
+      // Arrange
+      const dto = { interests: ['TECH', 'INVALID_CODE', 'SPORTS'] };
+
+      // Act & Assert
+      await expect(service.updateInterests(userId, dto)).rejects.toThrow(BadRequestException);
+      expect(mockUsersService.updateInterests).not.toHaveBeenCalled();
+    });
+
+    it('should handle UsersService errors gracefully', async () => {
+      // Arrange
+      const dto = { interests: ['TECH'] };
+      const dbError = new Error('Database connection failed');
+      mockUsersService.updateInterests.mockRejectedValue(dbError);
+
+      // Act & Assert
+      await expect(service.updateInterests(userId, dto)).rejects.toThrow(
+        'Database connection failed',
+      );
     });
   });
 });

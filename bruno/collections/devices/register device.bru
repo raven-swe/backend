@@ -1,0 +1,15 @@
+meta {
+  name: register device
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/devices
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

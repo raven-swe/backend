@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 import { ConversationsRepository } from './conversations.repository';
@@ -9,21 +9,19 @@ import { MessagesService } from './messages/messages.services';
 import { MessagesRepository } from './messages/messages.repository';
 import { AuthModule } from 'src/auth/auth.module';
 import { DmGateway } from './gateways/dm.gateway';
-import { EventPublisherService } from './event-publisher.service';
-import { SseController } from './sse.controller';
-import { SseService } from './sse.service';
+import { SseModule } from '../sse/sse.module';
+import { MediaModule } from 'src/media/media.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, AuthModule],
-  controllers: [ConversationsController, MessagesController, SseController],
+  imports: [UsersModule, PrismaModule, AuthModule, MediaModule, forwardRef(() => SseModule)],
+  controllers: [ConversationsController, MessagesController],
   providers: [
     ConversationsService,
     ConversationsRepository,
     MessagesService,
     MessagesRepository,
     DmGateway,
-    EventPublisherService,
-    SseService,
   ],
+  exports: [ConversationsService, ConversationsRepository],
 })
 export class ConversationsModule {}

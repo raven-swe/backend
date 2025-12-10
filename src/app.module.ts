@@ -9,7 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { HttpExceptionFilter } from './common/filters/http-response.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -30,6 +30,15 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
+import { TimelineModule } from './tweets/timeline/timeline.module';
+import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SseModule } from './sse/sse.module';
+import { SseController } from './sse/sse.controller';
+import cors from 'cors';
+import { EventsModule } from './events/events.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -64,16 +73,26 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
     TweetsModule,
     ConversationsModule,
     SearchModule,
+    SseModule,
     ...(process.env.NODE_ENV === 'testing' ? [TestingModule] : []),
     TrendingModule,
     ContentParsingModule,
+    TimelineModule,
     LoggerModule,
+    SessionsModule,
+    NotificationsModule,
+    TweetAnalyzeModule,
+    EventsModule,
+    SessionsModule,
+    NotificationsModule,
+    EventsModule,
+    FirebaseModule,
   ],
   controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: IpThrottlerGuard,
     },
     {
       provide: APP_FILTER,
@@ -87,10 +106,6 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
       provide: APP_INTERCEPTOR,
       useClass: AvatarUrlInterceptor,
     },
-    {
-      provide: APP_GUARD,
-      useClass: IpThrottlerGuard,
-    },
     HttpExceptionFilter,
     AppLogger,
   ],
@@ -98,5 +113,15 @@ import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+
+    consumer
+      .apply(
+        cors({
+          origin: '*',
+          methods: 'GET,OPTIONS',
+          credentials: true,
+        }),
+      )
+      .forRoutes(SseController);
   }
 }

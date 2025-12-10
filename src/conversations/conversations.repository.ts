@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -8,22 +9,41 @@ export class ConversationsRepository {
   async getUserConversations(
     userId: bigint,
     limit: number,
-    prevCursor: { conversationId: string } | undefined,
+    prevCursor: { conversationId: string; lastMessageCreatedAt: string } | undefined,
   ) {
-    return await this.prisma.conversation.findMany({
-      where: {
-        conversationParticipants: {
-          some: {
-            userId,
-          },
+    const visibleMessageFilter = {
+      OR: [
+        { userId, isDeletedSender: false },
+        { NOT: { userId }, isDeletedReceiver: false },
+      ],
+    };
+
+    const baseWhere: Prisma.ConversationWhereInput = {
+      conversationParticipants: { some: { userId } },
+      messages: { some: visibleMessageFilter },
+      lastMessageId: { not: null },
+    };
+
+    if (prevCursor) {
+      const cursorDate = new Date(prevCursor.lastMessageCreatedAt);
+      const cursorConvId = BigInt(prevCursor.conversationId);
+
+      baseWhere.AND = [
+        {
+          OR: [
+            { lastMessage: { createdAt: { lt: cursorDate } } },
+            {
+              AND: [{ lastMessage: { createdAt: cursorDate } }, { id: { lte: cursorConvId } }],
+            },
+          ],
         },
-      },
+      ];
+    }
+
+    const conversations = await this.prisma.conversation.findMany({
+      where: baseWhere,
       take: limit,
-      cursor: prevCursor
-        ? {
-            id: BigInt(prevCursor.conversationId),
-          }
-        : undefined,
+      orderBy: [{ lastMessage: { createdAt: 'desc' } }, { id: 'desc' }],
       select: {
         id: true,
         creatorId: true,
@@ -46,35 +66,32 @@ export class ConversationsRepository {
             },
           },
         },
-        lastMessage: {
+        messages: {
+          where: visibleMessageFilter,
+          orderBy: { createdAt: 'desc' },
+          take: 1,
           select: {
             content: true,
-            user: {
-              select: {
-                username: true,
-              },
-            },
             createdAt: true,
+            user: { select: { username: true } },
           },
         },
       },
-      orderBy: {
-        lastMessage: {
-          createdAt: 'desc',
-        },
-      },
     });
+
+    return conversations.map((conv) => ({
+      ...conv,
+      lastMessage: conv.messages[0] ?? null,
+    }));
   }
 
   async findConversation(authUserId: bigint, otherUserId: bigint) {
-    return await this.prisma.conversation.findFirst({
+    const conversation = await this.prisma.conversation.findFirst({
       where: {
         conversationParticipants: {
           every: {
-            user: {
-              id: {
-                in: [authUserId, otherUserId],
-              },
+            userId: {
+              in: [authUserId, otherUserId],
             },
           },
         },
@@ -100,19 +117,42 @@ export class ConversationsRepository {
             },
           },
         },
-        lastMessage: {
+        messages: {
+          where: {
+            OR: [
+              {
+                userId: authUserId,
+                isDeletedSender: false,
+              },
+              {
+                NOT: { userId: authUserId },
+                isDeletedReceiver: false,
+              },
+            ],
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
           select: {
             content: true,
+            createdAt: true,
             user: {
               select: {
                 username: true,
               },
             },
-            createdAt: true,
           },
         },
       },
     });
+
+    if (!conversation) return null;
+
+    return {
+      ...conversation,
+      lastMessage: conversation.messages[0] ?? null,
+    };
   }
 
   async createConversation(authUserId: bigint, otherUserId: bigint) {

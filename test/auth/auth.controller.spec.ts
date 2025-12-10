@@ -43,6 +43,7 @@ describe('AuthController with real config service', () => {
         refreshToken: 'mockRefreshToken',
       }),
     ),
+    logout: jest.fn(),
     checkIdentifier: jest.fn(() =>
       Promise.resolve({
         exists: true,
@@ -388,7 +389,7 @@ describe('AuthController with mocked config service', () => {
           refreshToken: 'mockRefreshToken',
         }),
       ),
-      clearRefreshToken: jest.fn(),
+      logout: jest.fn(() => Promise.resolve()),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -492,7 +493,7 @@ describe('AuthController with mocked config service', () => {
     const refreshToken = 'old_mocked_refresh_token';
     const req = mockRequestWithCookies({ refreshToken: refreshToken });
     const user: RequestUser = { id: '100' };
-    const dto: LogoutDto = { refreshToken };
+    const dto: LogoutDto = { refreshToken, fcmToken: 'mocked_fcm_token' };
     const mockResponse = {
       cookie: jest.fn(),
       clearCookie: jest.fn(),

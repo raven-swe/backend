@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
 import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';
@@ -8,11 +10,21 @@ import { UsersService } from 'src/users/users.service';
 @Injectable()
 export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
+  private readonly genAI: GoogleGenerativeAI;
 
   constructor(
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly trendingService: TrendingService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const apiKey = this.configService.get<string>('SUMMARY_API_KEY');
+    if (!apiKey) {
+      this.logger.error('SUMMARY_API_KEY is not configured');
+      throw new Error('SUMMARY_API_KEY environment variable is required');
+    }
+    this.genAI = new GoogleGenerativeAI(apiKey);
+  }
 
   /**
    *
@@ -43,6 +55,35 @@ export class ContentParsingService {
     return { mentions, hashtags };
   }
 
+  /**
+   * Parse content for profile bios - validates mentions but doesn't track hashtags
+   *
+   * @param content The bio text to parse
+   * @param tx a transaction client
+   * @returns Mentions with their IDs from the database, and plain hashtags (not saved to DB)
+   */
+  async parseContentForBio(
+    content: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{
+    mentions: (PlainMention & { userId: bigint })[];
+    hashtags: PlainHashtag[];
+  }> {
+    if (!content || content.length === 0) {
+      return { mentions: [], hashtags: [] };
+    }
+
+    const { mentions: plainMentions, hashtags: plainHashtags } = this.parsePlainContent(content);
+
+    // Only validate mentions
+    const mentions = await this.usersService.checkUsernamesExistenceAndReplaceIds(
+      plainMentions,
+      tx,
+    );
+
+    // Return plain hashtags without database interaction
+    return { mentions, hashtags: plainHashtags };
+  }
   /**
    *
    * @param content The text to parse (tweet, bio or message)
@@ -82,5 +123,30 @@ export class ContentParsingService {
       mentions: usernames,
       hashtags: hashtags,
     };
+  }
+
+  /**
+   * Generate a summary of a tweet using Gemini 2.0 Flash Lite
+   * @param content The tweet content to summarize
+   * @returns A concise summary of the tweet
+   */
+  async generateTweetSummary(content: string): Promise<string> {
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+
+      const prompt = `Summarize the following tweet in a concise manner (Summary To Be SHORTER than tweet) (1 sentence or 2 for really long tweets):\n\n${content}`;
+
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const summary = response.text();
+
+      this.logger.log(`Generated summary for tweet content`);
+      return summary.trim();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to generate tweet summary: ${errorMessage}`, errorStack);
+      throw new Error('Failed to generate tweet summary');
+    }
   }
 }

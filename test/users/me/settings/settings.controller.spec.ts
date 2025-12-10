@@ -30,6 +30,8 @@ describe('SettingsController', () => {
     deleteSession: jest.fn(),
     getUserMutedUsers: jest.fn(),
     getUserBlockedUsers: jest.fn(),
+    getInterests: jest.fn(),
+    updateInterests: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -1237,6 +1239,77 @@ describe('SettingsController', () => {
         20,
         undefined,
       );
+    });
+  });
+
+  describe('getInterests', () => {
+    const mockUser: RequestUser = { id: '1' } as RequestUser;
+
+    it('should return all interests with selection status', async () => {
+      // Arrange
+      const mockInterests = [
+        { code: 'TECH', name: 'Tech', isSelected: true },
+        { code: 'SPORTS', name: 'Sports', isSelected: false },
+        { code: 'FOOD', name: 'Food', isSelected: true },
+      ];
+      mockSettingsService.getInterests.mockResolvedValue(mockInterests);
+
+      // Act
+      const result = await controller.getInterests(mockUser);
+
+      // Assert
+      expect(mockSettingsService.getInterests).toHaveBeenCalledWith(BigInt(1));
+      expect(result).toEqual({ interests: mockInterests });
+    });
+
+    it('should handle service errors (user not found)', async () => {
+      // Arrange
+      const error = new HttpException({ message: 'User not found', code: 'USER_NOT_FOUND' }, 404);
+      mockSettingsService.getInterests.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.getInterests(mockUser)).rejects.toThrow(error);
+      expect(mockSettingsService.getInterests).toHaveBeenCalledWith(BigInt(1));
+    });
+  });
+
+  describe('updateInterests', () => {
+    const mockUser: RequestUser = { id: '1' } as RequestUser;
+
+    it('should update interests successfully', async () => {
+      // Arrange
+      const dto = { interests: ['TECH', 'SPORTS', 'FOOD'] };
+      const expectedResult = { message: 'Interests updated successfully.' };
+      mockSettingsService.updateInterests.mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.updateInterests(dto, mockUser);
+
+      // Assert
+      expect(mockSettingsService.updateInterests).toHaveBeenCalledWith(BigInt(1), dto);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle validation errors (empty array)', async () => {
+      // Arrange
+      const dto = { interests: [] };
+      const error = new BadRequestException('Must select at least 1 interest');
+      mockSettingsService.updateInterests.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.updateInterests(dto, mockUser)).rejects.toThrow(error);
+      expect(mockSettingsService.updateInterests).toHaveBeenCalledWith(BigInt(1), dto);
+    });
+
+    it('should handle validation errors (invalid interests)', async () => {
+      // Arrange
+      const dto = { interests: ['TECH', 'INVALID_CODE', 'SPORTS'] };
+      const error = new BadRequestException('Invalid interests');
+      mockSettingsService.updateInterests.mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.updateInterests(dto, mockUser)).rejects.toThrow(error);
+      expect(mockSettingsService.updateInterests).toHaveBeenCalledWith(BigInt(1), dto);
     });
   });
 });

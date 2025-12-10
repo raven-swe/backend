@@ -28,6 +28,7 @@ import {
   ChangeGenderDto,
   ChangeLanguageDto,
   ValidatePasswordDto,
+  UpdateInterestsDto,
 } from 'src/users/dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
@@ -319,5 +320,20 @@ export class SettingsController {
     );
     // TODO:  const itemsDto = plainToInstance(CompactUserDto, items); after merging the follows
     return { items, pagination };
+  }
+
+  @Get('interests')
+  @UseGuards(JwtAuthGuard)
+  async getInterests(@User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    const interests = await this.settingsService.getInterests(userId);
+    return { interests };
+  }
+
+  @Put('interests')
+  @UseGuards(JwtAuthGuard)
+  async updateInterests(@Body() updateInterestsDto: UpdateInterestsDto, @User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    return this.settingsService.updateInterests(userId, updateInterestsDto);
   }
 }

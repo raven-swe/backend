@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -6,28 +7,57 @@ export class MessagesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async getMessages(
+    userId: bigint,
     conversationId: bigint,
     limit: number,
-    prevCursor: { messageId: string } | undefined,
+    prevCursor: { messageId: string; createdAt: string } | undefined,
   ) {
+    const baseWhere: Prisma.MessageWhereInput = {
+      conversationId,
+      OR: [
+        { userId, isDeletedSender: false },
+        { NOT: { userId }, isDeletedReceiver: false },
+      ],
+    };
+
+    if (prevCursor) {
+      const cursorDate = new Date(prevCursor.createdAt);
+
+      const cursorId = BigInt(prevCursor.messageId);
+
+      baseWhere.AND = [
+        {
+          OR: [
+            { createdAt: { lt: cursorDate } },
+            { AND: [{ createdAt: cursorDate }, { id: { lte: cursorId } }] },
+          ],
+        },
+      ];
+    }
+
     return await this.prisma.message.findMany({
-      where: {
-        conversationId: conversationId,
-      },
+      where: baseWhere,
       take: limit,
-      cursor: prevCursor
-        ? {
-            id: BigInt(prevCursor.messageId),
-          }
-        : undefined,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         content: true,
         createdAt: true,
         userId: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
+        reactionSender: true,
+        reactionReceiver: true,
+        reactionReceiverAt: true,
+        reactionSenderAt: true,
+        mediaUrl: true,
+        mediaId: true,
+        media: {
+          select: {
+            type: true,
+            width: true,
+            height: true,
+            altText: true,
+          },
+        },
       },
     });
   }
@@ -81,23 +111,95 @@ export class MessagesRepository {
     };
   }
 
-  async createMessage(conversationId: bigint, senderId: bigint, body: string) {
-    const message = await this.prisma.message.create({
-      data: {
-        userId: senderId,
-        conversationId,
-        content: body,
-      },
+  async createMessage(
+    conversationId: bigint,
+    senderId: bigint,
+    body: string,
+    mediaUrl?: string,
+    mediaId?: bigint,
+  ) {
+    const message = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({
+        data: {
+          userId: senderId,
+          conversationId,
+          content: body,
+          mediaUrl,
+          mediaId,
+        },
+        include: {
+          media: {
+            select: {
+              type: true,
+              width: true,
+              height: true,
+              altText: true,
+            },
+          },
+        },
+      });
+
+      await tx.conversation.update({
+        where: {
+          id: conversationId,
+        },
+        data: {
+          lastMessageId: message.id,
+        },
+      });
+      return message;
     });
 
-    await this.prisma.conversation.update({
+    return message;
+  }
+
+  async getMessageById(messageId: bigint) {
+    return this.prisma.message.findUnique({
       where: {
-        id: conversationId,
+        id: messageId,
       },
-      data: {
-        lastMessageId: message.id,
+      select: {
+        userId: true,
+        conversationId: true,
+        reactionReceiver: true,
+        reactionSender: true,
       },
     });
-    return message;
+  }
+
+  async deleteMessage(messageId: bigint, authUserId: bigint, authorId: bigint) {
+    const data = authUserId === authorId ? { isDeletedSender: true } : { isDeletedReceiver: true };
+
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data,
+    });
+  }
+
+  async addMessageReaction(messageId: bigint, side: 'sender' | 'receiver', value: string | null) {
+    const now = new Date();
+
+    const data =
+      value === null
+        ? side === 'sender'
+          ? { reactionSender: null, reactionSenderAt: null }
+          : { reactionReceiver: null, reactionReceiverAt: null }
+        : side === 'sender'
+          ? { reactionSender: value, reactionSenderAt: now }
+          : { reactionReceiver: value, reactionReceiverAt: now };
+
+    return await this.prisma.message.update({
+      where: { id: messageId },
+      data,
+      select: {
+        id: true,
+        conversationId: true,
+        userId: true,
+        reactionSender: true,
+        reactionSenderAt: true,
+        reactionReceiver: true,
+        reactionReceiverAt: true,
+      },
+    });
   }
 }

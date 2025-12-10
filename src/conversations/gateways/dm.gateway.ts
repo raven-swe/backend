@@ -6,6 +6,7 @@ import {
   OnGatewayConnection,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
 import { UseGuards, UsePipes, ValidationPipe, UseFilters, Logger } from '@nestjs/common';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
@@ -13,7 +14,7 @@ import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import { Server, Socket } from 'socket.io';
 import { ConversationsService } from '../conversations.service';
 import { MessagesService } from '../messages/messages.services';
-import { EventPublisherService } from '../event-publisher.service';
+import { SseEventsService } from '../../sse/sse-events.service';
 import { WsJwtGuard } from 'src/auth/guards';
 import { SendMessageDto } from './dto/send-message.dto';
 import {
@@ -22,6 +23,9 @@ import {
 } from '../constants/conversation-constants';
 import { WsValidationExceptionFilter } from 'src/common/filters/ws-validation-exception.filter';
 import { MarkSeenDto } from './dto/mark-seen.dto';
+import { TypingIndicatorDto } from './dto/typing-indicator.dto';
+import { ReactionDto } from './dto/react-message.dto';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 @WebSocketGateway({
   namespace: '/ws/dm',
@@ -36,7 +40,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
-    private readonly publisher: EventPublisherService,
+    private readonly sseEvents: SseEventsService,
   ) {
     this.logger.log('DmGateway initialized');
   }
@@ -54,7 +58,19 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(@ConnectedSocket() client: Socket) {
-    const user = (client.data as { user?: WsUser }).user;
+    const { user, currentConversationId, isTyping } = client.data as {
+      user?: WsUser;
+      currentConversationId?: string;
+      isTyping?: boolean;
+    };
+
+    if (user && currentConversationId && isTyping) {
+      this.server.to(currentConversationId).emit('user_typing_stop', {
+        conversationId: currentConversationId,
+        username: user.username,
+      });
+    }
+
     this.logger.log(`Client disconnected: ${client.id}, User: ${user?.id || 'anonymous'}`);
     client.data = {};
   }
@@ -110,10 +126,74 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return false;
   }
 
+  private async publishUnseenCountEvent(userId: bigint): Promise<void> {
+    const unseenCount = await this.conversationsService.countUnseenConversations(userId);
+    await this.sseEvents.publishUnseenCount(userId, unseenCount);
+  }
+
+  private async publishNewMessagePreview(
+    conversationId: string,
+    message: {
+      id: bigint;
+      createdAt: Date;
+      conversationId: bigint;
+      userId: bigint;
+      content: string;
+      mediaUrl: string | null;
+    },
+    sender: WsUser,
+  ) {
+    const participants =
+      await this.conversationsService.getConversationParticipants(conversationId);
+
+    if (!participants) {
+      this.logger.warn(`No participants found for conversation ${conversationId}`);
+      return;
+    }
+
+    for (const participant of participants) {
+      const userId = participant.user.id;
+
+      await this.sseEvents.publishNewMessagePreview(userId, {
+        messageId: message.id.toString(),
+        conversationId,
+        sender: {
+          id: message.userId.toString(),
+          username: sender.username,
+          displayName: sender.displayName,
+          avatarUrl: sender?.avatarUrl,
+        },
+        bodySnippet: message.content.slice(0, 80),
+        createdAt: message.createdAt,
+        hasMedia: !!message.mediaUrl,
+      });
+
+      if (userId !== message.userId) {
+        await this.publishUnseenCountEvent(userId);
+      }
+    }
+
+    this.logger.log(`Finished publishing message preview for conversation ${conversationId}`);
+  }
+
   @SubscribeMessage('mark_seen')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async markSeen(@ConnectedSocket() client: Socket, @MessageBody() payload: MarkSeenDto) {
-    const user = (client.data as { user: WsUser }).user;
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+    };
+    const user = data.user;
+
     this.logger.log(
       `mark_seen event - User: ${user.id}, Conversation: ${payload.conversationId}, Message: ${payload.lastSeenMessageId}`,
     );
@@ -150,15 +230,16 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
+    await this.publishUnseenCountEvent(BigInt(user.id));
+
     const { lastSeenMessageId, seenAt, username, unseenCount } = res;
 
-    const prev = (client.data as { currentConversationId: string }).currentConversationId;
+    const prev = data.currentConversationId;
 
     if (prev !== payload.conversationId) {
       if (prev) await client.leave(prev);
       await client.join(payload.conversationId);
-      (client.data as { currentConversationId: string }).currentConversationId =
-        payload.conversationId;
+      data.currentConversationId = payload.conversationId;
     }
 
     this.server.to(payload.conversationId).emit('conversation_seen_update', {
@@ -171,9 +252,23 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('send_message')
-  @UsePipes(new ValidationPipe({ transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
   async sendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: SendMessageDto) {
-    const user = (client.data as { user: WsUser }).user;
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+    };
+    const user = data.user;
+
     this.logger.log(
       `send_message event - User: ${user.id}, Conversation: ${payload.conversationId}, ClientMsgId: ${payload.clientMessageId}`,
     );
@@ -194,20 +289,34 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const result = await this.messagesService.createMessage(conversationId, user.id, payload.body);
+    const result = await this.messagesService.createMessage(
+      conversationId,
+      user.id,
+      payload.body,
+      payload.mediaId,
+    );
 
     if ('error' in result) {
       this.logger.error(
         `Message creation failed - User: ${user.id}, Conversation: ${conversationId}, Error: ${result.error}`,
       );
-      const errorCode: string =
-        result.error === 'INVALID_CONVERSATION_ID'
-          ? CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID
-          : CONVERSATIONS_ERROR_CODES.MESSAGE_CREATION_FAILED;
-      const errorMessage: string =
-        result.error === 'INVALID_CONVERSATION_ID'
-          ? CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID
-          : CONVERSATIONS_ERROR_MESSAGES.MESSAGE_CREATION_FAILED;
+      let errorCode: string;
+      let errorMessage: string;
+
+      switch (result.error) {
+        case 'INVALID_CONVERSATION_ID':
+          errorCode = CONVERSATIONS_ERROR_CODES.INVALID_CONVERSATION_ID;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.INVALID_CONVERSATION_ID;
+          break;
+        case 'INVALID_MEDIA':
+          errorCode = CONVERSATIONS_ERROR_CODES.INVALID_MEDIA;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.INVALID_MEDIA;
+          break;
+        default:
+          errorCode = CONVERSATIONS_ERROR_CODES.MESSAGE_CREATION_FAILED;
+          errorMessage = CONVERSATIONS_ERROR_MESSAGES.MESSAGE_CREATION_FAILED;
+          break;
+      }
 
       return client.emit('error', {
         type: 'error',
@@ -223,12 +332,12 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Message created successfully - ID: ${message.id}, User: ${user.id}, Conversation: ${conversationId}`,
     );
 
-    const prev = (client.data as { currentConversationId: string }).currentConversationId;
+    const prev = data.currentConversationId;
 
     if (prev !== conversationId) {
       if (prev) await client.leave(prev);
       await client.join(conversationId);
-      (client.data as { currentConversationId: string }).currentConversationId = conversationId;
+      data.currentConversationId = conversationId;
       this.logger.log(`User ${user.id} joined room: ${conversationId}`);
     }
 
@@ -244,9 +353,214 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
         clientMessageId: payload.clientMessageId,
         body: message.content,
         createdAt: message.createdAt,
+        mediaUrl: message.mediaUrl,
+        type: message.media?.type || null,
+        height: message.media?.height || null,
+        width: message.media?.width || null,
+        altText: message.media?.altText || null,
       },
     });
 
-    await this.publisher.publishNewMessagePreview(conversationId, message, user);
+    await this.publishNewMessagePreview(conversationId, message, user);
+  }
+
+  @SubscribeMessage('typing_start')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
+  async typingStart(@ConnectedSocket() client: Socket, @MessageBody() payload: TypingIndicatorDto) {
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+      isTyping?: boolean;
+    };
+    const user = data.user;
+
+    this.logger.log(
+      `typing_start event - User: ${user.id}, Conversation: ${payload.conversationId}`,
+    );
+
+    const conversationId = payload.conversationId;
+
+    const isAllowed = await this.conversationsService.assertParticipant(user.id, conversationId);
+
+    if (this.handleParticipantError(client, isAllowed, BigInt(user.id), payload.conversationId)) {
+      return;
+    }
+
+    const prev = data.currentConversationId;
+
+    if (prev && prev !== conversationId && data.isTyping) {
+      this.server.to(prev).emit('user_typing_stop', {
+        conversationId: prev,
+        username: user.username,
+      });
+    }
+
+    if (prev !== conversationId) {
+      if (prev) await client.leave(prev);
+      await client.join(conversationId);
+      data.currentConversationId = conversationId;
+      this.logger.log(`User ${user.id} joined room: ${conversationId}`);
+    }
+
+    if (data.isTyping && prev === conversationId) {
+      return;
+    }
+
+    data.isTyping = true;
+
+    client.to(conversationId).emit('user_typing', {
+      conversationId,
+      username: user.username,
+    });
+  }
+
+  @SubscribeMessage('typing_stop')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
+  async typingStop(@ConnectedSocket() client: Socket, @MessageBody() payload: TypingIndicatorDto) {
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+      isTyping?: boolean;
+    };
+    const user = data.user;
+
+    this.logger.log(
+      `typing_stop event - User: ${user.id}, Conversation: ${payload.conversationId}`,
+    );
+
+    const conversationId = payload.conversationId;
+
+    const isAllowed = await this.conversationsService.assertParticipant(user.id, conversationId);
+
+    if (this.handleParticipantError(client, isAllowed, BigInt(user.id), payload.conversationId)) {
+      return;
+    }
+
+    const prev = data.currentConversationId;
+
+    if (prev && prev !== conversationId) {
+      if (prev) await client.leave(prev);
+      await client.join(conversationId);
+      data.currentConversationId = conversationId;
+      this.logger.log(`User ${user.id} joined room: ${conversationId}`);
+    }
+
+    data.isTyping = false;
+
+    client.to(conversationId).emit('user_typing_stop', {
+      conversationId,
+      username: user.username,
+    });
+  }
+
+  @SubscribeMessage('send_reaction')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) => Object.values(error.constraints || {}).join(', '));
+        return new WsException({ message: messages });
+      },
+    }),
+  )
+  async reactToMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: ReactionDto) {
+    const data = client.data as {
+      user: WsUser;
+      currentConversationId?: string;
+      isTyping?: boolean;
+    };
+    const user = data.user;
+
+    this.logger.log(
+      `Reaction event - User: ${user.id}, Message: ${payload.messageId}, Reaction: ${payload.reaction}`,
+    );
+
+    const conversationId = payload.conversationId;
+
+    const isAllowed = await this.conversationsService.assertParticipant(user.id, conversationId);
+
+    if (this.handleParticipantError(client, isAllowed, BigInt(user.id), payload.conversationId)) {
+      return;
+    }
+
+    const prev = data.currentConversationId;
+
+    if (prev && prev !== conversationId) {
+      if (prev) await client.leave(prev);
+      await client.join(conversationId);
+      data.currentConversationId = conversationId;
+      this.logger.log(`User ${user.id} joined room: ${conversationId}`);
+    }
+
+    const reactionState = await this.messagesService.addReactionToMessage(
+      user.id,
+      payload.messageId,
+      payload.reaction,
+      payload.conversationId,
+    );
+
+    if ('error' in reactionState) {
+      this.logger.error(
+        `Message creation failed - User: ${user.id}, Conversation: ${conversationId}, Error: ${reactionState.error}`,
+      );
+      const errorCode: string =
+        reactionState.error === 'INVALID_ID'
+          ? CONVERSATIONS_ERROR_CODES.INVALID_MESSAGE_ID
+          : CONVERSATIONS_ERROR_CODES.REACTION_CREATION_FAILED;
+      const errorMessage: string =
+        reactionState.error === 'INVALID_ID'
+          ? CONVERSATIONS_ERROR_MESSAGES.INVALID_MESSAGE_ID
+          : CONVERSATIONS_ERROR_MESSAGES.REACTION_CREATION_FAILED;
+
+      return client.emit('error', {
+        type: 'error',
+        code: errorCode,
+        message: errorMessage,
+      });
+    }
+
+    const { reactionDb, sender, receiver } = reactionState;
+
+    const socketPayload = {
+      conversationId,
+      messageId: payload.messageId,
+      reactions: {
+        sender: {
+          username: sender!.user.username,
+          displayName: sender!.user.profile!.displayName,
+          avatarUrl: sender!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          reaction: reactionDb.reactionSender,
+          reactedAt: reactionDb.reactionSenderAt,
+        },
+        receiver: {
+          username: receiver!.user.username,
+          displayName: receiver!.user.profile!.displayName,
+          avatarUrl: receiver!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          reaction: reactionDb.reactionReceiver,
+          reactedAt: reactionDb.reactionReceiverAt,
+        },
+      },
+    };
+
+    this.server.to(conversationId).emit('reaction_received', socketPayload);
   }
 }

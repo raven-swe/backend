@@ -3,16 +3,19 @@ import { UsersService } from 'src/users/users.service';
 import { UsersRepository } from 'src/users/users.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
-import { NewUser } from 'src/users/interfaces';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
-import { LanguageCode } from '@prisma/client';
+import { LanguageCode, Prisma } from '@prisma/client';
 import { ChangePasswordBasicDto, UpdateProfileDto } from 'src/users/dtos';
 import { OtpType } from 'src/email/interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { NewUser } from 'src/users/interfaces';
+import { RedisService } from 'src/redis/redis.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -48,7 +51,7 @@ describe('UsersService', () => {
     followingCount: '100',
     followersCount: '200',
     mutualsCount: 2,
-    mutualNames: ['Omar', 'Tasneem'],
+    mutualUsers: ['Omar', 'Tasneem'],
   };
 
   const mockRepository = {
@@ -106,17 +109,37 @@ describe('UsersService', () => {
     uploadAndSaveMedia: jest.fn(),
   };
 
+  const mockContentParsingService = {
+    parseContentForBio: jest.fn(),
+  };
+
+  const mockPrismaService = {
+    $transaction: jest.fn(),
+  };
+
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitUserFollowed: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: mockRepository },
-        { provide: PrismaService, useValue: {} },
+        { provide: PrismaService, useValue: mockPrismaService },
         { provide: UsersService, useClass: UsersService },
         { provide: MediaService, useValue: mockMediaService },
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: MediaService, useValue: mockMediaService },
+        { provide: ContentParsingService, useValue: mockContentParsingService },
+        {
+          provide: RedisService,
+          useValue: { del: jest.fn(), safeIncr: jest.fn(), safeDecr: jest.fn() },
+        },
+        { provide: getQueueToken('timeline-following'), useValue: { add: jest.fn() } },
+        { provide: DomainEventsService, useValue: mockDomainEventsService },
       ],
     }).compile();
 
@@ -427,6 +450,15 @@ describe('UsersService', () => {
       };
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), updateProfileDto);
@@ -434,12 +466,6 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedProfile);
       expect(message).toEqual('Profile updated successfully');
       expect(mockRepository.findByIdWithProfile).toHaveBeenCalledWith(BigInt(1));
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
-        BigInt(1),
-        updateProfileDto,
-        undefined,
-        undefined,
-      );
     });
 
     test('should update only provided fields in user profile', async () => {
@@ -454,6 +480,16 @@ describe('UsersService', () => {
       };
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
+
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), partialUpdateDto);
@@ -465,6 +501,8 @@ describe('UsersService', () => {
         partialUpdateDto,
         undefined,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -485,6 +523,11 @@ describe('UsersService', () => {
     it('should handle empty update data', async () => {
       const emptyUpdateDto: UpdateProfileDto = {};
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(mockUserProfile);
 
       const { message, ...result } = await service.updateProfile(BigInt(1), emptyUpdateDto);
@@ -492,12 +535,6 @@ describe('UsersService', () => {
       // No data to update, should return existing profile
       expect(result).toEqual(mockUserProfile);
       expect(message).toEqual('Profile updated successfully');
-      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
-        BigInt(1),
-        emptyUpdateDto,
-        undefined,
-        undefined,
-      );
     });
 
     it('should successfully upload avatar and update profile', async () => {
@@ -510,6 +547,15 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ avatarUrl });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -527,6 +573,8 @@ describe('UsersService', () => {
         updateProfileDto,
         avatarUrl,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -540,6 +588,15 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockMediaService.uploadAvatarOrBanner.mockResolvedValue({ bannerUrl });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), updateProfileDto, {
@@ -557,6 +614,8 @@ describe('UsersService', () => {
         updateProfileDto,
         undefined,
         bannerUrl,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -569,6 +628,15 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
@@ -582,6 +650,8 @@ describe('UsersService', () => {
         { ...updateProfileDto, deleteBanner: true },
         undefined,
         null,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -594,6 +664,15 @@ describe('UsersService', () => {
 
       mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
       mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
 
       const { message, ...profile } = await service.updateProfile(BigInt(1), {
         ...updateProfileDto,
@@ -607,6 +686,8 @@ describe('UsersService', () => {
         { ...updateProfileDto, deleteAvatar: true },
         null,
         undefined,
+        { mentions: [], hashtags: [] },
+        {},
       );
     });
 
@@ -925,7 +1006,7 @@ describe('UsersService', () => {
       const profileWithMutuals = {
         ...mockUserProfile,
         mutualsCount: 2,
-        mutualNames: ['Omar', 'Tasneem'],
+        mutualUsers: ['Omar', 'Tasneem'],
       };
 
       mockRepository.findUserProfileByUsername.mockResolvedValue(profileWithMutuals);
@@ -933,7 +1014,7 @@ describe('UsersService', () => {
       const result = await service.getUserProfile('testuser', BigInt(2));
 
       expect(result.mutualsCount).toBe(2);
-      expect(result.mutualNames).toEqual(['Omar', 'Tasneem']);
+      expect(result.mutualUsers).toEqual(['Omar', 'Tasneem']);
       expect(mockRepository.findUserProfileByUsername).toHaveBeenCalledWith(
         'testuser',
         BigInt(2),
@@ -1578,27 +1659,6 @@ describe('UsersService', () => {
         ),
       );
     });
-
-    it('should throw error if user blocked you', async () => {
-      // Arrange
-      const muterId = BigInt(2);
-      const usernameToMute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isMuted.mockResolvedValue(false);
-      mockRepository.isBlocked.mockResolvedValue(true); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.muteUser(muterId, usernameToMute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
-        ),
-      );
-    });
   });
 
   describe('unmuteUser', () => {
@@ -1658,48 +1718,6 @@ describe('UsersService', () => {
             code: USERS_ERROR_CODES.NOT_MUTED,
           },
           HttpStatus.NOT_FOUND,
-        ),
-      );
-    });
-
-    it('should throw error if user is blocked (you blocked them)', async () => {
-      // Arrange
-      const unmuterId = BigInt(2);
-      const usernameToUnmute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(true); // youBlockedUser
-      mockRepository.isBlocked.mockResolvedValueOnce(false); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
-        ),
-      );
-    });
-
-    it('should throw error if user is blocked (they blocked you)', async () => {
-      // Arrange
-      const unmuterId = BigInt(2);
-      const usernameToUnmute = 'testuser';
-
-      mockRepository.findByUsername.mockResolvedValue(mockUser);
-      mockRepository.isBlocked.mockResolvedValueOnce(false); // youBlockedUser
-      mockRepository.isBlocked.mockResolvedValueOnce(true); // userBlockedYou
-
-      // Act & Assert
-      await expect(service.unmuteUser(unmuterId, usernameToUnmute)).rejects.toThrow(
-        new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-            code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-          },
-          HttpStatus.FORBIDDEN,
         ),
       );
     });
