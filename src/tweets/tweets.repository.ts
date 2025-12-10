@@ -185,7 +185,7 @@ export class TweetsRepository {
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
+    context: { repostedBy?: { username: string; displayName: string } } = {},
   ): TweetDto {
     let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {
@@ -1007,7 +1007,6 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       rootTweetId: tweet.rootTweetId?.toString() ?? null,
-      isRepost: false,
       repostedBy: undefined,
     }));
   }

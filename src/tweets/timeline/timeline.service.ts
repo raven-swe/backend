@@ -78,9 +78,7 @@ export class TimelineService {
     };
   }
 
-  // reviewer, don't delete these comments please they keep me sane, I will delete them myself (or not)
-  // this should be exactly like for you, just the extra step to get the ids from multiple sorted sets instead of one
-  // 1 - check the empty placeholder to fail fast (no following tweets, or no interests at all for for you)
+  // 1 - check the empty placeholder to fail fast (no following tweets)
   // 2 - get the actual ids (tweets and authors) from redis sorted set (timeline, paginated) (pagination)
   // 3 - hydrate all static data from redis (tweets and authors), get back the missing ones too
   // 4 - backfill the missing ones from db to redis
@@ -90,16 +88,6 @@ export class TimelineService {
   // 8 - hydrate these from redis or backfill from db (only the static data is required, no counters or interactions)
   // 9 - assemble and return
 
-  // note: i will filter timeline tweets for people I follow, not muted and accounts are active(i need to reach db for this sadly)
-  // why? it's easier that way instead of cleaning the cache on every mute/block/deactivate, the rare case of blocking/muting/deactivating all active people you follow to the point that the timeline becomes short is not worth the extra work
-
-  // TODO invalidating user dto on deactivate and update (another PR after this), and counter updates
-
-  //not the best, send authorids to be checked for unfollow/mute, and send the tweetids to check for deleted/deactivated accounts to fitler
-  // this while getting more keys to ensure a full page after filtering
-
-  // i will remove retweets on write because retweet removal is not read-time filterable
-  // this is inconsistency I know, but yeah, irl the fanout would be only for nonpower users, so purging would be a better appraoch for a cleaner cache
   async timelineCacheHit(
     userId: bigint,
     decodedCursor: FeedCursor | undefined,

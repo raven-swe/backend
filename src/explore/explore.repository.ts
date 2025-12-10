@@ -162,13 +162,11 @@ export class ExploreRepository {
     return {
       id: tweet.id.toString(),
       author: {
-        id: tweet.user.id.toString(),
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl,
       },
       rootTweetId: null,
-      isRepost: false,
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
