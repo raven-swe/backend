@@ -300,24 +300,18 @@ export class TweetsRepository {
     return !!tweet;
   }
 
-  async deleteTweet(tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: { isDeleted: true },
-      });
+  async deleteTweet(tweetId: bigint, prismaClient: Prisma.TransactionClient) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true },
+    });
 
-      await tx.retweet.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
+    await prismaClient.retweet.deleteMany({
+      where: { tweetId },
+    });
 
-      await tx.like.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
+    await prismaClient.like.deleteMany({
+      where: { tweetId },
     });
   }
 
