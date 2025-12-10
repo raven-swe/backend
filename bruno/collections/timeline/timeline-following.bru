@@ -5,14 +5,14 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/timeline/following?cursor&limit=20
+  url: http://localhost:3000/timeline/following?cursor=eyJjcmVhdGVkQXQiOiIyMDI1LTEyLTA3VDE4OjAzOjU0LjU3M1oiLCJpZCI6IjY1MDUifQ==&limit=30
   body: none
   auth: bearer
 }
 
 params:query {
-  cursor: 
-  limit: 20
+  cursor: eyJjcmVhdGVkQXQiOiIyMDI1LTEyLTA3VDE4OjAzOjU0LjU3M1oiLCJpZCI6IjY1MDUifQ==
+  limit: 30
 }
 
 auth:bearer {

@@ -11,9 +11,10 @@ import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
 import { CachedStaticTweet } from './interfaces/cached-static-tweet';
-import { CompactAuthorDto } from './dtos/compact-author.dto';
+import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { TweetsBackfill } from './timeline/interfaces';
 import { MAX_TWEET_DEPTH } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
@@ -100,14 +101,19 @@ export class TweetsRepository {
     userId: bigint,
     cursor: FeedCursor | undefined,
     limit: number | undefined,
-  ) {
+  ): Promise<
+    Array<{
+      id: bigint;
+      authorId: bigint;
+      createdAt: Date;
+      type: 'T' | 'R';
+      retweeterId: bigint | null;
+    }>
+  > {
     // get followed users
     const followedUnMutedUserIds = await this.prisma.follow.findMany({
       where: {
         followerId: userId,
-        followedUser: {
-          mutedBy: { none: { userId } },
-        },
       },
       select: { followedId: true },
     });
@@ -116,45 +122,85 @@ export class TweetsRepository {
     // The timeline consists of tweets from followed users plus the user's own tweets.
     const timelineUserIds = [...followedUserIds, userId];
 
-    const tweets = await this.prisma.tweet.findMany({
-      where: {
-        userId: { in: timelineUserIds },
-        isDeleted: false,
-        replyToTweetId: null,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        ...tweetInclude(userId),
-        quotedTweet: {
-          include: tweetInclude(userId),
-        },
-      },
-      cursor: cursor ? { createdAt: new Date(cursor.createdAt), id: BigInt(cursor.id) } : undefined, // id as a tiebreaker
-      take: limit || TIMELINE_MAX_SIZE,
-    });
+    const cursorTime = cursor ? new Date(cursor.createdAt).getTime() : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
 
-    return tweets.map((tweet) => this.mapToTweetDto(tweet));
+    const cursorClause =
+      cursor && cursorTime !== null
+        ? Prisma.sql`
+        AND (
+          EXTRACT(EPOCH FROM "createdAt") * 1000, -- timestamp
+          id
+        ) < (${cursorTime}, ${cursorId})
+      `
+        : Prisma.sql``;
+
+    const timeline = await this.prisma.$queryRaw<
+      Array<{
+        id: bigint;
+        authorId: bigint;
+        createdAt: Date;
+        type: 'T' | 'R';
+        retweeterId: bigint | null;
+      }>
+    >`
+    SELECT * FROM (
+      SELECT 
+        id,
+        user_id as "authorId",
+        created_at as "createdAt",
+        'T'::text as type,
+        NULL::bigint as "retweeterId"
+      FROM tweets
+      WHERE user_id = ANY(${timelineUserIds}::bigint[])
+        AND is_deleted = false
+        AND reply_to_tweet_id IS NULL
+      
+      UNION ALL -- no duplicates will happen due to different columns, duplicates are handled in application layer
+      
+      SELECT 
+        r.tweet_id as id,
+        t.user_id as "authorId",
+        r.created_at as "createdAt",
+        'R'::text as type,
+        r.user_id as "retweeterId"
+      FROM retweets r
+      INNER JOIN tweets t ON r.tweet_id = t.id
+      WHERE r.user_id = ANY(${timelineUserIds}::bigint[])
+        AND t.is_deleted = false
+    ) AS combined_timeline
+    WHERE 1=1 ${cursorClause}
+    ORDER BY "createdAt" DESC, id DESC
+    LIMIT ${limit || TIMELINE_MAX_SIZE}
+  `;
+
+    return timeline.map((item) => ({
+      id: item.id,
+      authorId: item.authorId,
+      createdAt: item.createdAt,
+      type: item.type,
+      retweeterId: item.retweeterId,
+    }));
   }
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
     context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
   ): TweetDto {
-    let quotedTweet: TweetDto | DeletedTweet | undefined;
+    let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {
-      if ('isDeleted' in tweet.quotedTweet && tweet.quotedTweet.isDeleted) {
-        quotedTweet = { isDeleted: true } as DeletedTweet;
-      } else if ('isDeleted' in tweet.quotedTweet && !tweet.quotedTweet.isDeleted) {
+      if (!tweet.quotedTweet.isDeleted) {
         quotedTweet = this.mapToTweetDto(tweet.quotedTweet);
+      } else {
+        quotedTweet = {
+          isDeleted: true,
+        };
       }
     }
 
     return {
       id: tweet.id.toString(),
       author: {
-        id: tweet.user.id.toString(),
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
@@ -187,7 +233,6 @@ export class TweetsRepository {
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       rootTweetId: tweet.rootTweetId?.toString() ?? null,
       quotedTweet,
-      isRepost: context.isRepost ?? false,
       repostedBy: context.repostedBy ?? undefined,
     };
   }
@@ -233,12 +278,18 @@ export class TweetsRepository {
     });
   }
 
-  async checkExistingTweet(tweetId: bigint): Promise<boolean> {
+  async checkExistingTweet(tweetId: bigint): Promise<{
+    exists: boolean;
+    replyToTweetId: bigint | null;
+  }> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
-      select: { id: true },
+      select: { id: true, replyToTweetId: true },
     });
-    return !!tweet;
+    return {
+      exists: !!tweet,
+      replyToTweetId: tweet ? tweet.replyToTweetId : null,
+    };
   }
 
   async checkTweetOwnership(tweetId: bigint, userId: bigint): Promise<boolean> {
@@ -961,7 +1012,7 @@ export class TweetsRepository {
     }));
   }
 
-  async getCompactAuthorsByIds(authorIds: Set<bigint>): Promise<CompactAuthorDto[]> {
+  async getCompactAuthorsByIds(authorIds: Set<bigint>): Promise<CompactAuthorWithId[]> {
     if (authorIds.size === 0) {
       return [];
     }
@@ -1272,5 +1323,105 @@ export class TweetsRepository {
     });
 
     return tweets.map((tweet) => this.mapToTweetDto(tweet));
+  }
+
+  /**
+   * Filters author IDs to return only those that the user follows and hasn't muted, acc is still active
+   * @param userId The user checking their timeline
+   * @param authorIds Array of author IDs to validate
+   * @returns Array of valid author IDs (followed, not muted, not deleted)
+   */
+  async filterValidAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+    const validFollows = await this.prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        followedId: { in: authorIds },
+        // Check that user hasn't muted this author
+        followedUser: {
+          mutedBy: {
+            none: {
+              userId: userId,
+            },
+          },
+          deletedAt: null,
+        },
+      },
+      select: {
+        followedId: true,
+      },
+    });
+
+    return validFollows.map((f) => f.followedId);
+  }
+
+  /**
+   * Filters tweet IDs to return only those not deleted
+   * @param tweetIds Array of tweet IDs to validate
+   * @returns Array of valid tweet IDs
+   */
+  async filterValidTweets(tweetIds: bigint[]): Promise<bigint[]> {
+    const validTweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds },
+        isDeleted: false,
+        user: {
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return validTweets.map((t) => t.id);
+  }
+
+  /**
+   * Get recent tweets and retweets from a user (for backfilling timeline)
+   */
+  async getRecentTweetsFromUser(
+    userId: bigint,
+    beforeDate: Date,
+    limit: number,
+  ): Promise<Array<TweetsBackfill>> {
+    const result = await this.prisma.$queryRaw<Array<TweetsBackfill>>`
+    SELECT * FROM (
+      SELECT 
+        id,
+        user_id as "authorId",
+        created_at as "createdAt",
+        'T'::text as type,
+        NULL::bigint as "retweeterId"
+      FROM tweets
+      WHERE user_id = ${userId}
+        AND created_at < ${beforeDate}::timestamp
+        AND is_deleted = false
+        AND reply_to_tweet_id IS NULL
+      
+      UNION ALL
+      
+      SELECT 
+        r.tweet_id as id,
+        t.user_id as "authorId",
+        r.created_at as "createdAt",
+        'R'::text as type,
+        r.user_id as "retweeterId"
+      FROM retweets r
+      INNER JOIN tweets t ON r.tweet_id = t.id
+      WHERE r.user_id = ${userId}
+        AND r.created_at < ${beforeDate}::timestamp
+        AND t.is_deleted = false
+    ) AS combined_timeline
+    ORDER BY "createdAt" DESC, id DESC
+    LIMIT ${limit}
+  `;
+
+    return result.map((row) => ({
+      id: row.id,
+      authorId: row.authorId,
+      createdAt: row.createdAt,
+      type: row.type,
+      retweeterId: row.retweeterId,
+    }));
   }
 }
