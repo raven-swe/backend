@@ -453,19 +453,29 @@ export class UsersRepository {
   }
 
   async followUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.create({
-        data: { followerId, followedId },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { increment: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { increment: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.create({
+          data: { followerId, followedId },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { increment: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { increment: 1 } },
+        }),
+      ])
+      .catch(() => {
+        throw new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+            code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+          },
+          HttpStatus.CONFLICT,
+        );
+      });
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
