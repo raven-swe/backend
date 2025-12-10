@@ -4,9 +4,10 @@ import { SseController } from './sse.controller';
 import { EventPublisherService } from './event-publisher.service';
 import { SseEventsService } from './sse-events.service';
 import { ConversationsModule } from 'src/conversations/conversations.module';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
-  imports: [forwardRef(() => ConversationsModule)],
+  imports: [forwardRef(() => ConversationsModule), forwardRef(() => NotificationsModule)],
   controllers: [SseController],
   providers: [SseService, EventPublisherService, SseEventsService],
   exports: [SseService, EventPublisherService, SseEventsService],

@@ -7,6 +7,7 @@ import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { SSE_CONNECTION_TIMEOUT } from './constants/sse-constants';
 import { ConversationsRepository } from 'src/conversations/conversations.repository';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 interface SseEvent {
   event?: string;
@@ -24,12 +25,19 @@ export class SseController {
     private readonly sse: SseService,
     private readonly sseEvents: SseEventsService,
     private readonly conversationsRepository: ConversationsRepository,
+    private readonly notificationsRepository: NotificationsRepository,
   ) {}
 
   private async publishUnseenCountEvent(userId: bigint): Promise<void> {
     this.logger.log(`Publishing unseen_conversations_count (on initial load) to user ${userId}`);
     const unseenCount = await this.conversationsRepository.countUnseenConversations(userId);
     await this.sseEvents.publishUnseenCount(userId, unseenCount);
+  }
+
+  private async publishUnseenNotificationCountEvent(userId: bigint): Promise<void> {
+    this.logger.log(`Publishing unseen_notifications_count (on initial load) to user ${userId}`);
+    const unseenNotificationCount = await this.notificationsRepository.getUnseenCount(userId);
+    await this.sseEvents.publishUnseenNotificationCount(userId, unseenNotificationCount);
   }
 
   @Get()
@@ -82,7 +90,14 @@ export class SseController {
     res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, topics: validTopics })}\n\n`);
 
     this.publishUnseenCountEvent(BigInt(userId)).catch((err: unknown) => {
-      this.logger.error(`Failed to send initial unseen count for user ${userId}`, err);
+      this.logger.error(`Failed to send initial unseen messages count for user ${userId}`, err);
+    });
+
+    this.publishUnseenNotificationCountEvent(BigInt(userId)).catch((err: unknown) => {
+      this.logger.error(
+        `Failed to send initial unseen notifications count for user ${userId}`,
+        err,
+      );
     });
 
     this.logger.log(

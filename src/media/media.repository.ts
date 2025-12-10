@@ -32,6 +32,21 @@ export class MediaRepository {
     return media;
   }
 
+  async findByIdAndUserId(mediaId: bigint, userId: bigint) {
+    const media = await this.prisma.media.findFirst({
+      where: {
+        id: mediaId,
+        userId,
+      },
+      select: {
+        url: true,
+        pending: true,
+      },
+    });
+
+    return media;
+  }
+
   async deleteMedia(id: bigint) {
     await this.prisma.media.delete({
       where: { id },

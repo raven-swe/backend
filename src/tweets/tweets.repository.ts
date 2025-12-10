@@ -15,7 +15,8 @@ import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { TweetsBackfill } from './timeline/interfaces';
-import { DeletedTweet } from './types';
+import { MAX_TWEET_DEPTH } from './constants';
+import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 export const tweetInclude = (currentUserId: bigint) =>
@@ -230,6 +231,7 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+      rootTweetId: tweet.rootTweetId?.toString() ?? null,
       quotedTweet,
       repostedBy: context.repostedBy ?? undefined,
     };
@@ -242,6 +244,7 @@ export class TweetsRepository {
         content: tweetData.content ?? '',
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
+        rootTweetId: tweetData.rootTweetId ?? null,
         hasMentions: tweetData.Mentions.length > 0,
         hasHashtags: tweetData.Hashtags.length > 0,
         tweetMentions: {
@@ -494,16 +497,135 @@ export class TweetsRepository {
       where: { id: tweetId, isDeleted: false },
       include: {
         ...tweetInclude(currentUserId),
-        quotedTweet: {
-          include: tweetInclude(currentUserId),
-        },
-        replyToTweet: {
-          include: tweetInclude(currentUserId),
-        },
       },
     });
 
-    return tweet ? (this.mapToDetailedTweetDto(tweet) as GetTweetResponseDto) : null;
+    if (!tweet) {
+      return null;
+    }
+
+    // Manually fetch quoted tweet to handle deleted state
+    let quotedTweetForMapping: BaseTweetWithIncludes | { isDeleted: true } | null = null;
+
+    if (tweet.quotedTweetId) {
+      const quotedTweetCheck = await this.prisma.tweet.findUnique({
+        where: { id: tweet.quotedTweetId },
+        select: { id: true, isDeleted: true },
+      });
+
+      if (quotedTweetCheck && quotedTweetCheck.isDeleted) {
+        quotedTweetForMapping = { isDeleted: true };
+      } else if (quotedTweetCheck && !quotedTweetCheck.isDeleted) {
+        quotedTweetForMapping = await this.prisma.tweet.findUnique({
+          where: { id: tweet.quotedTweetId },
+          include: tweetInclude(currentUserId),
+        });
+      }
+    }
+
+    const tweetWithQuoted = {
+      ...tweet,
+      quotedTweet: quotedTweetForMapping,
+    } as DetailedTweetWithIncludes;
+
+    return this.mapToDetailedTweetDto(tweetWithQuoted);
+  }
+
+  /**
+   * Get a tweet by ID, returning a deleted marker if the tweet is deleted
+   * Used for root tweets and quoted tweets
+   */
+  async getTweetOrDeleted(tweetId: bigint, currentUserId: bigint): Promise<TweetOrDeleted | null> {
+    const tweetCheck = await this.prisma.tweet.findUnique({
+      where: { id: tweetId },
+      select: { id: true, isDeleted: true },
+    });
+
+    if (!tweetCheck) {
+      return null;
+    }
+
+    if (tweetCheck.isDeleted) {
+      return { isDeleted: true };
+    }
+
+    // Fetch full tweet data if not deleted
+    const tweet = await this.prisma.tweet.findUnique({
+      where: { id: tweetId, isDeleted: false },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    return tweet ? this.mapToTweetDto(tweet) : null;
+  }
+
+  /**
+   * Get all parent tweets of a given tweet using recursive CTE (max depth is 4)
+   *
+   * @param replyToTweetId - ID of the direct parent tweet of the tweet to get parents for
+   * @param currentUserId - ID of the current user (for context)
+   *
+   * @returns an array of parent tweets (excluding the root tweet)
+   */
+  async getParentTweets(replyToTweetId: bigint, currentUserId: bigint, rootTweetId: bigint | null) {
+    // Get all parent Ids with recursive CTE
+    const parentIds = await this.prisma.$queryRaw<
+      { id: bigint; depth: number; is_deleted: boolean }[]
+    >`
+      WITH RECURSIVE parent_tweets AS (
+        -- base case: direct parent
+        SELECT id, reply_to_tweet_id, root_tweet_id, is_deleted, 1 AS depth
+        FROM tweets
+        WHERE id = ${replyToTweetId}
+        ${rootTweetId ? Prisma.sql`AND id != ${rootTweetId}` : Prisma.empty}
+      
+        UNION ALL
+
+        -- recursive case: find parent of the current tweet
+        SELECT t.id, t.reply_to_tweet_id, t.root_tweet_id, t.is_deleted, pt.depth + 1
+        FROM tweets t
+        INNER JOIN parent_tweets pt ON t.id = pt.reply_to_tweet_id
+        WHERE pt.depth < ${MAX_TWEET_DEPTH} 
+        AND pt.reply_to_tweet_id IS NOT NULL
+        ${rootTweetId ? Prisma.sql`AND t.id != ${rootTweetId}` : Prisma.empty}
+      )
+    SELECT id, depth, is_deleted
+    FROM parent_tweets
+    ORDER BY depth DESC
+  `;
+
+    if (parentIds.length === 0) {
+      return [];
+    }
+
+    const deletedIds = new Set(parentIds.filter((row) => row.is_deleted).map((row) => row.id));
+    const activeIds = parentIds.filter((row) => !row.is_deleted).map((row) => row.id);
+
+    // Hydrate non-deleted tweets
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: activeIds },
+        isDeleted: false,
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+      },
+    });
+
+    // Map tweet id to dto
+    const tweetMap = new Map<bigint, TweetDto>();
+    tweets.forEach((tweet) => {
+      tweetMap.set(tweet.id, this.mapToTweetDto(tweet));
+    });
+
+    const result = parentIds.map((row) => {
+      if (deletedIds.has(row.id)) {
+        return { isDeleted: true } as DeletedTweet;
+      }
+      return tweetMap.get(row.id)!;
+    });
+    return result;
   }
 
   async getReferencedTweet(tweetId: bigint, currentUserId: bigint): Promise<TweetDto | null> {
@@ -884,6 +1006,7 @@ export class TweetsRepository {
       })),
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
+      rootTweetId: tweet.rootTweetId?.toString() ?? null,
       isRepost: false,
       repostedBy: undefined,
     }));
@@ -1301,8 +1424,6 @@ export class TweetsRepository {
       retweeterId: row.retweeterId,
     }));
   }
-
-  // Add to src/tweets/tweets.repository.ts
 
   /**
    * Get user's interests from their profile
