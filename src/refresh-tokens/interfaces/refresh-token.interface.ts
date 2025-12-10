@@ -1,6 +1,6 @@
 export interface RefreshToken {
   userId: bigint;
-  deviceId: bigint;
+  sessionId: bigint;
   tokenHash: string;
   expiresAt: Date;
 }

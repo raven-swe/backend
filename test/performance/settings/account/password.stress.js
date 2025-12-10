@@ -103,7 +103,7 @@ export default function () {
     );
 
     if (!check(resValidate, {
-        'Validate Password status is 201': (r) => r.status === 201, // TODO: Should be 200
+        'Validate Password status is 200': (r) => r.status === 200,
         'Validate Password is valid': (r) => r.json('data.isValid') === true,
     })) {
         console.error(`Validate Password Failed: ${resValidate.body}`);

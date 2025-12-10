@@ -8,10 +8,12 @@ export const TWEETS_ERROR_CODES = {
   INVALID_TWEET_PAYLOAD: 'INVALID_TWEET_PAYLOAD',
   INVALID_MEDIA: 'INVALID_MEDIA',
   TOO_MANY_MEDIA: 'TOO_MANY_MEDIA',
+  EMPTY_TWEET_CONTENT: 'EMPTY_TWEET_CONTENT',
   TWEET_FORBIDDEN_DELETION: 'TWEET_FORBIDDEN_DELETION',
 };
 
 export const TWEETS_ERROR_MESSAGES = {
+  EMPTY_TWEET_CONTENT: 'Tweet content cannot be empty.',
   TWEET_NOT_FOUND: 'Tweet not found.',
   CONFLICTING_LIKE: 'You have already liked or unliked this tweet.',
   CONFLICTING_RETWEET: 'You have already retweeted or unretweeted this tweet.',
@@ -23,3 +25,8 @@ export const TWEETS_ERROR_MESSAGES = {
   TWEET_FORBIDDEN_DELETION: 'You do not have permission to delete this tweet.',
   INVALID_CURSOR: 'The provided cursor is invalid.',
 };
+
+export const MAX_TWEET_DEPTH = 5; // Maximum depth for thread views (4 parents + 1 for hasMore check)
+
+// Cache TTL in seconds for tweet summaries (72 hours)
+export const TWEET_SUMMARY_CACHE_TTL = 72 * 60 * 60;

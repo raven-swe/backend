@@ -1,11 +1,19 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -19,6 +27,13 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
+import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { RedisService } from 'src/redis/redis.service';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class UsersService {
@@ -28,7 +43,13 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
-    @InjectQueue('email') private emailQueue: Queue,
+    private readonly redisService: RedisService,
+    @Inject(forwardRef(() => ContentParsingService))
+    private readonly contentParsingService: ContentParsingService,
+    @InjectQueue('email')
+    private emailQueue: Queue,
+    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async findByEmail(email: string) {
@@ -208,13 +229,41 @@ export class UsersService {
       const finalAvatarUrl = data.deleteAvatar ? null : (uploadedAvatarUrl ?? oldAvatarUrl);
       const finalBannerUrl = data.deleteBanner ? null : (uploadedBannerUrl ?? oldBannerUrl);
 
-      // Update database
-      const profile = await this.usersRepository.updateProfile(
-        userId,
-        data,
-        finalAvatarUrl,
-        finalBannerUrl,
-      );
+      // Update database with profile and bio entities
+      const profile = await this.prisma.$transaction(async (tx) => {
+        let mentions, hashtags;
+        if (data.bio) {
+          ({ mentions, hashtags } = await this.contentParsingService.parseContentForBio(
+            data.bio,
+            tx,
+          ));
+        }
+
+        const bioEntities = {
+          mentions:
+            mentions?.map((m) => ({
+              username: m.username,
+              startPosition: m.startPosition,
+            })) ?? null,
+          hashtags:
+            hashtags?.map((h) => ({
+              hashtag: h.keyword,
+              startPosition: h.startPosition,
+            })) ?? null,
+        };
+
+        const profile = await this.usersRepository.updateProfile(
+          userId,
+          data,
+          finalAvatarUrl,
+          finalBannerUrl,
+          bioEntities,
+          tx,
+        );
+
+        return profile;
+      });
+
       this.logger.log(`Profile updated for user ID: ${user.id}`);
 
       // Delete old files from S3 AFTER successful DB update
@@ -242,6 +291,10 @@ export class UsersService {
           .deleteMedia(oldAvatarUrl, user.id)
           .catch((err) => this.logger.warn('Failed to delete old avatar', err));
       }
+
+      // invalidates cache pessimistically
+      this.logger.debug(`Invalidating cache for user ID: ${user.id} after profile update`);
+      await this.invalidateUserCache(user.id);
 
       return {
         message: 'Profile updated successfully',
@@ -303,6 +356,11 @@ export class UsersService {
 
   async updateUsernameById(userId: bigint, newUsername: string) {
     await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    this.logger.debug(
+      `Username updated for user ID: ${userId} to ${newUsername}, invalidating cache`,
+    );
+    await this.invalidateUserCache(userId);
 
     return { message: 'Username updated successfully.' };
   }
@@ -383,6 +441,26 @@ export class UsersService {
 
     await this.usersRepository.followUser(followerId, followedId);
 
+    //dispatch follow backfill job
+    const backfillJobData: BackfillFollowJob = {
+      followerId: followerId.toString(),
+      followedId: followedId.toString(),
+      followedAt: new Date(),
+    };
+
+    await this.timelineFollowingQueue.add('backfill-follow', backfillJobData, {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.domainEvents.emitUserFollowed({
+      actorId: followerId,
+      receiverId: followedId,
+    });
+
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
     return { message: 'User followed successfully.' };
   }
@@ -409,7 +487,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
           code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 
@@ -483,7 +561,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.NOT_BLOCKED,
           code: USERS_ERROR_CODES.NOT_BLOCKED,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 
@@ -518,7 +596,18 @@ export class UsersService {
       );
     }
 
-    // Check if already muted
+    const isBlocked = await this.usersRepository.isBlocked(userId, mutedId);
+    if (isBlocked) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Check if already muted or blocked
     const isAlreadyMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (isAlreadyMuted) {
       throw new HttpException(
@@ -527,17 +616,6 @@ export class UsersService {
           code: USERS_ERROR_CODES.ALREADY_MUTED,
         },
         HttpStatus.CONFLICT,
-      );
-    }
-
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-    if (userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
       );
     }
 
@@ -561,20 +639,6 @@ export class UsersService {
 
     const mutedId = mutedUser.id;
 
-    // Check if user is blocked (either direction)
-    const youBlockedUser = await this.usersRepository.isBlocked(userId, mutedId);
-    const userBlockedYou = await this.usersRepository.isBlocked(mutedId, userId);
-
-    if (youBlockedUser || userBlockedYou) {
-      throw new HttpException(
-        {
-          message: USERS_ERROR_MESSAGES.CANNOT_UNMUTE_USER,
-          code: USERS_ERROR_CODES.CANNOT_UNMUTE_USER,
-        },
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
     const isMuted = await this.usersRepository.isMuted(userId, mutedId);
     if (!isMuted) {
       throw new HttpException(
@@ -582,7 +646,7 @@ export class UsersService {
           message: USERS_ERROR_MESSAGES.NOT_MUTED,
           code: USERS_ERROR_CODES.NOT_MUTED,
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.CONFLICT,
       );
     }
 
@@ -830,6 +894,12 @@ export class UsersService {
     return this.usersRepository.updateBirthDate(userId, birthDate);
   }
 
+  async updateInterests(userId: bigint, interests: string[]) {
+    await this.usersRepository.updateInterests(userId, interests);
+
+    return { message: 'Interests updated successfully.' };
+  }
+
   async getUserSSOs(userId: bigint) {
     return this.usersRepository.getUserSSOs(userId);
   }
@@ -889,7 +959,6 @@ export class UsersService {
     return { message: 'Session terminated successfully.' };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
     const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
@@ -902,7 +971,6 @@ export class UsersService {
     return { message: 'Banner uploaded successfully', bannerUrl };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
     const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
@@ -992,5 +1060,84 @@ export class UsersService {
 
   async getUserFollowRelations(userId: bigint, userIds: bigint[]) {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
+  }
+
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
+  }
+
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersIds(userId: bigint): Promise<bigint[]> {
+    return await this.usersRepository.getFollowersUnPaginated(userId);
+  }
+
+  async enableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, true);
+
+    this.logger.log(`User ID: ${userId} enabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications enabled for user successfully',
+    };
+  }
+
+  async disableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, false);
+
+    this.logger.log(`User ID: ${userId} disabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications disabled for user successfully',
+    };
+  }
+
+  async invalidateUserCache(userId: bigint) {
+    await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
   }
 }

@@ -12,7 +12,7 @@ get {
 
 params:query {
   ~limit: 2
-  ~cursor: eyJpZCI6IjEwIiwiY3JlYXRlZEF0IjoiMjAyNS0xMS0wMlQwMTo1MDoyMi4zNjRaIn0=
+  ~cursor: 
 }
 
 params:path {
@@ -21,6 +21,11 @@ params:path {
 
 auth:bearer {
   token: {{access_token}}
+}
+
+vars:pre-request {
+  username: Tasneem
+  base_url: http://localhost:3000
 }
 
 settings {

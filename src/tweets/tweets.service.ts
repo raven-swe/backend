@@ -1,6 +1,11 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
+import {
+  MAX_TWEET_DEPTH,
+  TWEETS_ERROR_CODES,
+  TWEETS_ERROR_MESSAGES,
+  TWEET_SUMMARY_CACHE_TTL,
+} from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
@@ -8,12 +13,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Tweet } from '@prisma/client';
 import { MediaRepository } from 'src/media/media.repository';
 import { UsersRepository } from 'src/users/users.repository';
-import {
-  decodeCompositeCursor,
-  decodeCursor,
-  paginateComposite,
-  paginateSingle,
-} from 'src/common/utils';
+import { RedisService } from 'src/redis/redis.service';
+import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import {
@@ -23,31 +24,35 @@ import {
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
-import { AuthorDto, TweetDto } from './dtos';
+import { CompactAuthorDto, TweetDto } from './dtos';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fanout-job.interface';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { COUNT_CACHE_TTL } from './timeline/constants';
+import { ThreadViewResponseDto } from './dtos/thread-view-response.dto';
+import { DeletedTweet } from './types';
+import { TrendingService } from 'src/trending/trending.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class TweetsService {
   private readonly logger = new Logger(TweetsService.name);
+  private readonly redisClient;
 
   constructor(
     private readonly tweetsRepository: TweetsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly contentParsingService: ContentParsingService,
+    private readonly trendingService: TrendingService,
     private readonly mediaRepository: MediaRepository,
+    private readonly domainEvents: DomainEventsService,
     private readonly prisma: PrismaService,
-  ) {}
-
-  async getTimeline(userId: bigint, cursor: string, limit: number) {
-    this.logger.log(`Fetching following timeline for user ID: ${userId}`);
-    const id = decodeCursor(cursor);
-    const timeline = await this.tweetsRepository.getTimelineForUser(userId, id, limit + 1);
-    const validTweets = timeline.filter((tweet) => tweet !== undefined);
-
-    const pagination = paginateSingle(validTweets, limit, cursor, (tweet) => tweet.id.toString());
-    return {
-      items: validTweets,
-      pagination,
-    };
+    private readonly redisService: RedisService,
+    @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
+  ) {
+    this.redisClient = this.redisService.getClient();
   }
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
@@ -61,7 +66,8 @@ export class TweetsService {
       );
     }
 
-    if (!createTweetDto.content && (!createTweetDto.media || createTweetDto.media.length === 0)) {
+    const trimContent = createTweetDto.content?.trim() ?? '';
+    if (!trimContent && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.INVALID_TWEET_PAYLOAD,
@@ -70,6 +76,9 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    createTweetDto.content = trimContent;
+
     if (createTweetDto.media && createTweetDto.media.length > 4) {
       throw new HttpException(
         {
@@ -103,52 +112,6 @@ export class TweetsService {
       mediaIds,
     );
 
-    const { tweet, mentions, hashtags } = await this.prisma.$transaction(async (tx) => {
-      const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
-        createTweetDto.content,
-        tx,
-      );
-
-      const tweetData: CreateTweetData = {
-        userId,
-        content: createTweetDto.content,
-        replyToTweetId: createTweetDto.replyToTweetId
-          ? BigInt(createTweetDto.replyToTweetId)
-          : null,
-        quotedTweetId: createTweetDto.quoteToTweetId ? BigInt(createTweetDto.quoteToTweetId) : null,
-        Mentions: mentions.map((mention) => ({
-          userId: mention.userId,
-          startPosition: mention.startPosition,
-        })),
-        Hashtags: hashtags.map((hashtag) => ({
-          hashtagId: hashtag.hashtagId,
-          startPosition: hashtag.startPosition,
-        })),
-        hasMedia: mediaIds.length > 0,
-      };
-
-      if (createTweetDto.replyToTweetId) {
-        await this.tweetsRepository.updateTweetReplyCount(
-          BigInt(createTweetDto.replyToTweetId),
-          true,
-          tx,
-        );
-      }
-
-      if (createTweetDto.quoteToTweetId) {
-        await this.tweetsRepository.updateTweetRetweetCount(
-          BigInt(createTweetDto.quoteToTweetId),
-          true,
-          tx,
-        );
-      }
-      const tweet = await this.tweetsRepository.create(tweetData, tx);
-      await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
-      await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
-
-      return { tweet, mentions, hashtags };
-    });
-
     const mediaObjectsPromise =
       mediaIds.length > 0
         ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
@@ -166,6 +129,102 @@ export class TweetsService {
       referencedTweetPromise,
     ]);
 
+    // If this tweet is a reply, set the rootTweetId to the referenced tweet's rootTweetId (if it exists)
+    // otherwise set it to the referenced tweet's ID
+    let rootTweetId: bigint | null = null;
+    if (createTweetDto.replyToTweetId && referencedTweet) {
+      rootTweetId = referencedTweet.rootTweetId
+        ? BigInt(referencedTweet.rootTweetId)
+        : BigInt(createTweetDto.replyToTweetId);
+    }
+
+    const { tweet, mentions, hashtags, tweetId, authorId } = await this.prisma.$transaction(
+      async (tx) => {
+        const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
+          trimContent,
+          tx,
+        );
+
+        const tweetData: CreateTweetData = {
+          userId,
+          content: trimContent,
+          replyToTweetId: createTweetDto.replyToTweetId
+            ? BigInt(createTweetDto.replyToTweetId)
+            : null,
+          quotedTweetId: createTweetDto.quoteToTweetId
+            ? BigInt(createTweetDto.quoteToTweetId)
+            : null,
+          rootTweetId,
+          Mentions: mentions.map((mention) => ({
+            userId: mention.userId,
+            startPosition: mention.startPosition,
+          })),
+          Hashtags: hashtags.map((hashtag) => ({
+            hashtagId: hashtag.hashtagId,
+            startPosition: hashtag.startPosition,
+          })),
+          hasMedia: mediaIds.length > 0,
+        };
+
+        if (createTweetDto.replyToTweetId) {
+          await this.tweetsRepository.updateTweetReplyCount(
+            BigInt(createTweetDto.replyToTweetId),
+            true,
+            tx,
+          );
+        }
+
+        if (createTweetDto.quoteToTweetId) {
+          await this.tweetsRepository.updateTweetRetweetCount(
+            BigInt(createTweetDto.quoteToTweetId),
+            true,
+            tx,
+          );
+        }
+        const tweet = await this.tweetsRepository.create(tweetData, tx);
+        await this.tweetsRepository.linkTweetMedia(tweet.id, mediaIds, tx);
+        await this.mediaRepository.markMediaAsNotPending(mediaIds, tx);
+
+        return { tweet, mentions, hashtags, tweetId: tweet.id, authorId: tweet.userId };
+      },
+    );
+
+    await this.domainEvents.emitTweetCreated({
+      tweetId: tweet.id,
+      authorId: userId,
+      replyToTweetId: tweet.replyToTweetId,
+      quoteToTweetId: tweet.quotedTweetId,
+      mentionedUserIds: mentions.map((m) => m.userId),
+    });
+
+    // dispatch fanout job
+    if (!createTweetDto.replyToTweetId) {
+      const fanoutJob: TweetFanoutJob = {
+        tweetId: tweetId.toString(),
+        authorId: authorId.toString(),
+        timestamp: Date.now(),
+      };
+
+      await this.timelineFollowingQueue.add('fanout-tweet', fanoutJob, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      });
+
+      this.logger.log(
+        `Dispathced fanout on write job for tweet ID: ${tweetId} by user ID: ${userId}`,
+      );
+    }
+
+    if (createTweetDto.replyToTweetId) {
+      await this.redisService.safeIncr(
+        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
+
     return this.formatTweetDto(
       tweet,
       mentions,
@@ -178,7 +237,8 @@ export class TweetsService {
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
-    if (!(await this.tweetsRepository.checkExistingTweet(tweetId))) {
+    const { exists, replyToTweetId } = await this.tweetsRepository.checkExistingTweet(tweetId);
+    if (!exists) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
@@ -200,6 +260,15 @@ export class TweetsService {
 
     await this.tweetsRepository.deleteTweet(tweetId);
     this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
+
+    await this.invalidateTweetCache(tweetId);
+
+    if (replyToTweetId) {
+      await this.redisService.safeDecr(
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(replyToTweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
     return { message: 'Tweet deleted successfully' };
   }
 
@@ -208,19 +277,16 @@ export class TweetsService {
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
     media: MediaResponseDto[],
-    authorDto: AuthorDto,
+    compactAuthorDto: CompactAuthorDto,
     createTweetDto: CreateTweetDto,
     referencedTweet: GetTweetResponseDto | undefined | null,
   ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
       author: {
-        username: authorDto.username,
-        displayName: authorDto.displayName,
-        avatarUrl: authorDto.avatarUrl,
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
+        username: compactAuthorDto.username,
+        displayName: compactAuthorDto.displayName,
+        avatarUrl: compactAuthorDto.avatarUrl,
       },
       content: tweet.content,
       createdAt: tweet.createdAt,
@@ -242,6 +308,9 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      rootTweetId: createTweetDto.replyToTweetId
+        ? (referencedTweet?.rootTweetId ?? createTweetDto.replyToTweetId)
+        : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
     };
@@ -346,7 +415,18 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.likeTweet(userId, tweetId);
-    this.logger.log(`User ${userId} liked tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} liked tweet ${tweetId} successfully`);
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
+
+    await this.domainEvents.emitTweetLiked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
 
     return { message: 'Tweet liked successfully' };
   }
@@ -368,7 +448,12 @@ export class TweetsService {
 
     await this.tweetsRepository.unlikeTweet(userId, tweetId);
 
-    this.logger.log(`User ${userId} unliked tweet ${tweetId} successfully`);
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
+
+    this.logger.debug(`User ${userId} unliked tweet ${tweetId} successfully`);
     return { message: 'Tweet unliked successfully' };
   }
 
@@ -402,7 +487,34 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} retweeted tweet ${tweetId} successfully`);
+
+    //dispatch retweet fanout job
+    const fanoutJob: RetweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+      retweeterId: userId.toString(),
+    };
+
+    await this.timelineFollowingQueue.add('fanout-retweet', fanoutJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
+
+    await this.domainEvents.emitTweetRetweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId: tweetId,
+    });
 
     return { message: 'Tweet retweeted successfully' };
   }
@@ -432,7 +544,28 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} unretweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} unretweeted tweet ${tweetId} successfully`);
+
+    //dispatch retweet purge job
+    const purgeJob: RetweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+      retweeterId: userId.toString(),
+    };
+
+    await this.timelineFollowingQueue.add('purge-retweet', purgeJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     return { message: 'Tweet unretweeted successfully' };
   }
@@ -462,7 +595,7 @@ export class TweetsService {
     prevCursor: string | undefined,
     includeReplies: boolean,
   ) {
-    const requestedUser = await this.usersRepository.findByUsername(username);
+    const requestedUser = await this.usersRepository.findByUsernameWithDisplayname(username);
 
     if (!requestedUser) {
       throw new HttpException(
@@ -503,28 +636,36 @@ export class TweetsService {
 
     const fullTweets = await this.tweetsRepository.hydrateTweetsInList(authUserId, tweetIds);
 
-    const fullTweetsDto = fullTweets.map((tweet) => this.tweetsRepository.mapToTweetDto(tweet));
+    const fullTweetsDto = fullTweets.map((tweet) =>
+      this.tweetsRepository.mapToDetailedTweetDto(tweet),
+    );
 
     const tweetsMap = new Map(fullTweetsDto.map((t) => [t.id.toString(), t]));
 
     const items = feedItems
-      .map((item) => {
+      .map((item): TweetDto | null => {
         const tweetData = tweetsMap.get(item.id.toString());
 
         if (!tweetData) return null; // Should technically never happen
 
         return {
           ...tweetData,
-          isRepost: item.type === 'repost',
+          repostedBy:
+            item.type === 'repost'
+              ? {
+                  username: requestedUser?.username || '',
+                  displayName: requestedUser.profile?.displayName || '',
+                }
+              : undefined,
           createdAt: item.created_at,
         };
       })
-      .filter(Boolean); // Remove any nulls
+      .filter(Boolean);
 
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
@@ -536,7 +677,40 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-    return tweet;
+
+    let rootTweet: TweetDto | DeletedTweet | null = null;
+    let parentTweets: (TweetDto | DeletedTweet)[] = [];
+    let hasMoreParents = false;
+
+    // If this is a reply, fetch the root tweet
+    if (tweet?.rootTweetId) {
+      rootTweet = await this.tweetsRepository.getTweetOrDeleted(
+        BigInt(tweet.rootTweetId),
+        currentUserId,
+      );
+    }
+
+    // Fetch parent tweets (intermediate tweets between root and this tweet)
+    if (tweet.replyToTweetId) {
+      parentTweets = await this.tweetsRepository.getParentTweets(
+        BigInt(tweet.replyToTweetId),
+        currentUserId,
+        tweet.rootTweetId ? BigInt(tweet.rootTweetId) : null,
+      );
+    }
+
+    if (parentTweets.length >= MAX_TWEET_DEPTH) {
+      // Remove the oldest tweet to maintain the depth limit
+      parentTweets = parentTweets.slice(1);
+      hasMoreParents = true;
+    }
+
+    return {
+      ...tweet,
+      rootTweet,
+      parentTweets,
+      hasMoreParents,
+    };
   }
 
   async getTweetQuotes(
@@ -548,7 +722,12 @@ export class TweetsService {
     return this.getTweetRelations('quotes', tweetId, currentUserId, limit, prevCursor);
   }
 
-  getTweetReplies(tweetId: bigint, currentUserId: bigint, limit: number = 20, prevCursor?: string) {
+  async getTweetReplies(
+    tweetId: bigint,
+    currentUserId: bigint,
+    limit: number = 20,
+    prevCursor?: string,
+  ) {
     return this.getTweetRelations('replies', tweetId, currentUserId, limit, prevCursor);
   }
 
@@ -662,7 +841,9 @@ export class TweetsService {
 
     this.logger.log(`Fetched ${items.length} ${type} for tweet ID: ${tweetId}`);
 
-    return { items, pagination };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const safeItems = items.map(({ userId, ...rest }) => rest);
+    return { items: safeItems, pagination };
   }
 
   async checkIfTweetExists(tweetId: bigint) {
@@ -728,6 +909,183 @@ export class TweetsService {
     return {
       items: tweets.slice(0, limit),
       pagination,
+    };
+  }
+
+  async getTopTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getTweetsByQuery(
+      currentUserId,
+      query,
+      false,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+
+  async getTweetsWithMediaByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getTweetsByQuery(
+      currentUserId,
+      query,
+      true,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+
+  async getTweetsByHashtag(
+    hashtag: string,
+    currentUserId: bigint,
+    limit: number,
+    hasMedia: boolean = false,
+    prevCursor?: TweetRelationsCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    // Get hashtag record
+    const hashtagRecord = await this.trendingService.getHashtagId(hashtag);
+    if (!hashtagRecord) {
+      return [];
+    }
+
+    // Get tweet ids from tweet hashtags table
+    const tweetIds = await this.tweetsRepository.getTweetIdsLinkedToHashtag(
+      hashtagRecord.id,
+      currentUserId,
+      limit + 1,
+      hasMedia,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      prevCursor,
+    );
+
+    // Get full tweets data
+    return await this.tweetsRepository.getTweetsWithReferencesByIds(currentUserId, tweetIds);
+  }
+
+  async getUserMediaTweets(
+    requestingUserId: bigint,
+    targetUsername: string,
+    limit: number,
+    prevCursor: string | undefined,
+  ) {
+    const targetUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!targetUser || targetUser.deletedAt) {
+      // TODO remove if done on global level
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    let decodedCursor: TweetRelationsCursor | undefined;
+    if (prevCursor) {
+      try {
+        decodedCursor = decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      } catch {
+        throw new HttpException(
+          {
+            message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+            code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const tweets = await this.tweetsRepository.getMediaTweetsForUser(
+      targetUser.id,
+      requestingUserId,
+      limit + 1,
+      decodedCursor,
+    );
+
+    const pagination = paginateComposite(tweets, limit, prevCursor, (tweet) => ({
+      id: tweet.id,
+      createdAt: tweet.createdAt,
+    }));
+
+    return {
+      items: tweets.slice(0, limit),
+      pagination,
+    };
+  }
+
+  async invalidateTweetCache(tweetId: bigint) {
+    const deletionPipeline = this.redisClient.pipeline();
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetStaticDataKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId));
+    await deletionPipeline.exec();
+  }
+
+  async getTweetSummary(tweetId: bigint) {
+    const tweet = await this.checkIfTweetExists(tweetId);
+
+    if (tweet.isDeleted) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!tweet.content || tweet.content.length === 0) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.EMPTY_TWEET_CONTENT,
+          code: TWEETS_ERROR_CODES.EMPTY_TWEET_CONTENT,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check Redis cache first
+    const cacheKey = `tweet:summary:${tweetId.toString()}`;
+    const cachedSummary = await this.redisService.getex(cacheKey, TWEET_SUMMARY_CACHE_TTL);
+
+    if (cachedSummary) {
+      this.logger.log(`Returning cached summary for tweet ${tweetId}`);
+      return {
+        id: tweet.id.toString(),
+        summary: cachedSummary,
+      };
+    }
+
+    // Generate new summary if not cached
+    const summary = await this.contentParsingService.generateTweetSummary(tweet.content);
+
+    // Cache the summary with TTL
+    await this.redisService.set(cacheKey, summary, TWEET_SUMMARY_CACHE_TTL);
+    this.logger.log(`Cached summary for tweet ${tweetId} with TTL ${TWEET_SUMMARY_CACHE_TTL}s`);
+
+    return {
+      id: tweet.id.toString(),
+      summary,
     };
   }
 }

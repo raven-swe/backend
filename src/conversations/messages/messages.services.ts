@@ -9,22 +9,19 @@ import {
 } from '../constants/conversation-constants';
 import { MessagesRepository } from './messages.repository';
 import { ParticipantDto, MessageDto } from './dtos';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { MediaRepository } from 'src/media/media.repository';
 
 @Injectable()
 export class MessagesService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly messagesRepository: MessagesRepository,
+    private readonly mediaRepository: MediaRepository,
   ) {}
 
-  async getMessagesInConversation(
-    userId: bigint,
-    conversationId: bigint,
-    limit: number,
-    cursor: string,
-  ) {
+  async checkConversationEligibility(userId: bigint, conversationId: bigint) {
     const conversation = await this.conversationsRepository.getConversation(conversationId);
-
     if (!conversation || !conversation.conversationParticipants)
       throw new HttpException(
         {
@@ -33,11 +30,9 @@ export class MessagesService {
         },
         HttpStatus.BAD_REQUEST,
       );
-
     const isParticipant = conversation.conversationParticipants.find(
       (participant) => participant.userId === userId,
     );
-
     if (!isParticipant) {
       throw new HttpException(
         {
@@ -48,23 +43,55 @@ export class MessagesService {
       );
     }
 
+    return conversation;
+  }
+
+  async getMessagesInConversation(
+    userId: bigint,
+    conversationId: bigint,
+    limit: number = 20,
+    cursor: string | undefined,
+  ) {
+    const conversation = await this.checkConversationEligibility(userId, conversationId);
+
     let decoded:
       | {
           messageId: string;
+          createdAt: string;
         }
       | undefined;
     if (cursor) {
       try {
-        decoded = decodeCompositeCursor<{ messageId: string }>(cursor);
+        decoded = decodeCompositeCursor<{ messageId: string; createdAt: string }>(cursor);
       } catch {
         throw new HttpException(
           { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      if (!decoded || !decoded.messageId || !decoded.createdAt || decoded.createdAt.trim() === '') {
+        throw new HttpException(
+          { message: 'Invalid cursor format', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const parsed = new Date(decoded.createdAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new HttpException(
+          { message: 'Invalid cursor date', code: VALIDATION_ERROR_CODES.INVALID_FORMAT },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
-    const messages = await this.messagesRepository.getMessages(conversationId, limit + 1, decoded);
+    const messages = await this.messagesRepository.getMessages(
+      userId,
+      conversationId,
+      limit + 1,
+      decoded,
+    );
 
     const otherParticipant = conversation.conversationParticipants.find(
       (participant) => participant.userId !== userId,
@@ -72,23 +99,70 @@ export class MessagesService {
 
     const formattedMessages = messages.map((message) => ({
       id: message.id.toString(),
+      userId: message.userId,
       content: message.content,
       createdAt: message.createdAt,
       isMine: message.userId === userId,
+      reactionSender: message.reactionSender,
+      reactionReceiver: message.reactionReceiver,
+      reactionSenderAt: message.reactionSenderAt,
+      reactionReceiverAt: message.reactionReceiverAt,
+      mediaUrl: message.mediaUrl,
+      type: message.media?.type,
+      altText: message.media?.altText,
+      width: message.media?.width,
+      height: message.media?.height,
     }));
 
     const pagination = paginateComposite(formattedMessages, limit, cursor, (item) => ({
       messageId: item.id,
+      createdAt: item.createdAt.toISOString(),
     }));
+
+    const formattedMessagesWithReacts = formattedMessages.map((message) => {
+      const sender = conversation.conversationParticipants.find(
+        (participant) => participant.userId === message.userId,
+      );
+      const receiver = conversation.conversationParticipants.find(
+        (participant) => participant.userId !== message.userId,
+      );
+      return {
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        isMine: message.userId === userId,
+        mediaUrl: message.mediaUrl,
+        type: message.type || null,
+        altText: message.altText || null,
+        width: message.width || null,
+        height: message.height || null,
+        reactions: {
+          sender: {
+            username: sender!.user.username,
+            displayName: sender!.user.profile!.displayName,
+            avatarUrl: sender!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            reaction: message.reactionSender,
+            reactedAt: message.reactionSenderAt,
+          },
+          receiver: {
+            username: receiver!.user.username,
+            displayName: receiver!.user.profile!.displayName,
+            avatarUrl: receiver!.user.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+            reaction: message.reactionReceiver,
+            reactedAt: message.reactionReceiverAt,
+          },
+        },
+      };
+    });
 
     const participant = plainToInstance(ParticipantDto, {
       username: otherParticipant.user.username,
       displayName: otherParticipant.user.profile?.displayName ?? '',
-      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString(),
+      otherParticipantLastSeenMessageId: otherParticipant.lastSeenMessageId?.toString() || null,
       avatarUrl: otherParticipant.user.profile?.avatarUrl,
     });
 
-    const messagesDto = plainToInstance(MessageDto, formattedMessages);
+    const messagesDto = plainToInstance(MessageDto, formattedMessagesWithReacts);
 
     return { items: { participant, messages: messagesDto }, pagination };
   }
@@ -124,7 +198,7 @@ export class MessagesService {
     };
   }
 
-  async createMessage(conversationId: string, senderId: string, body: string) {
+  async createMessage(conversationId: string, senderId: string, body: string, mediaId?: string) {
     let userIdBigInt: bigint;
     let conversationIdBigInt: bigint;
 
@@ -135,14 +209,38 @@ export class MessagesService {
       return { error: 'INVALID_CONVERSATION_ID' };
     }
 
+    let mediaIdBigInt: bigint | undefined;
+    let mediaUrl: string | undefined;
+    if (mediaId) {
+      try {
+        mediaIdBigInt = BigInt(mediaId);
+      } catch {
+        return { error: 'INVALID_MEDIA' };
+      }
+
+      const media = await this.mediaRepository.findByIdAndUserId(mediaIdBigInt, userIdBigInt);
+
+      if (!media) {
+        return { error: 'INVALID_MEDIA' };
+      }
+
+      mediaUrl = media.url;
+    }
+
     const message = await this.messagesRepository.createMessage(
       conversationIdBigInt,
       userIdBigInt,
       body,
+      mediaUrl,
+      mediaIdBigInt,
     );
 
     if (!message) {
       return { error: 'MESSAGE_CREATION_FAILED' };
+    }
+
+    if (mediaIdBigInt) {
+      await this.mediaRepository.markMediaAsNotPending([mediaIdBigInt]);
     }
 
     await this.messagesRepository.updateLastSeenMessage(
@@ -152,5 +250,75 @@ export class MessagesService {
     );
 
     return { message };
+  }
+
+  async deleteConversationMessage(userId: bigint, conversationId: bigint, messageId: bigint) {
+    await this.checkConversationEligibility(userId, conversationId);
+
+    const message = await this.messagesRepository.getMessageById(messageId);
+
+    if (!message || message.conversationId !== conversationId) {
+      throw new HttpException(
+        {
+          message: CONVERSATIONS_ERROR_MESSAGES.INVALID_MESSAGE_ID,
+          code: CONVERSATIONS_ERROR_CODES.INVALID_MESSAGE_ID,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.messagesRepository.deleteMessage(messageId, userId, message.userId);
+  }
+
+  async addReactionToMessage(
+    userId: string,
+    messageId: string,
+    reaction: string,
+    conversationId: string,
+  ) {
+    let userIdBigInt: bigint;
+    let messageIdBigInt: bigint;
+    let conversationIdBigInt: bigint;
+
+    try {
+      userIdBigInt = BigInt(userId);
+      messageIdBigInt = BigInt(messageId);
+      conversationIdBigInt = BigInt(conversationId);
+    } catch {
+      return { error: 'INVALID_ID' };
+    }
+
+    const message = await this.messagesRepository.getMessageById(messageIdBigInt);
+
+    if (!message || message.conversationId !== conversationIdBigInt) {
+      return { error: 'INVALID_ID' };
+    }
+
+    const isAuthor = userIdBigInt === message.userId;
+
+    const side: 'sender' | 'receiver' = isAuthor ? 'sender' : 'receiver';
+
+    const current = isAuthor ? message.reactionSender : message.reactionReceiver;
+    const willRemove = current === reaction;
+
+    const valueToWrite: string | null = willRemove ? null : reaction;
+
+    const participants =
+      await this.conversationsRepository.getConversationParticipants(conversationIdBigInt);
+
+    const sender = participants.find((participant) => participant.user.id === message.userId);
+    const receiver = participants.find((participant) => participant.user.id !== message.userId);
+
+    const reactionDb = await this.messagesRepository.addMessageReaction(
+      messageIdBigInt,
+      side,
+      valueToWrite,
+    );
+
+    if (!reactionDb) {
+      return { error: 'REACTION_CREATION_FAILED' };
+    }
+
+    return { reactionDb, sender, receiver };
   }
 }

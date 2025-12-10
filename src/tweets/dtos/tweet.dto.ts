@@ -1,10 +1,11 @@
 import { TweetEntitiesDto } from './tweet-entitites.dto';
-import { AuthorDto } from './author.dto';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
+import { DeletedTweet } from '../types';
+import { CompactAuthorDto } from './compact-author.dto';
+
 export class TweetDto {
   id: string;
-  author: AuthorDto;
-  //TODO null content will be handled later for media tweets
+  author: CompactAuthorDto;
   content: string | null;
   createdAt: Date;
 
@@ -20,6 +21,11 @@ export class TweetDto {
 
   replyToTweetId: string | null;
   quoteToTweetId: string | null;
+  rootTweetId: string | null;
 
-  quotedTweet?: TweetDto;
+  quotedTweet?: TweetDto | DeletedTweet;
+
+  repostedBy?: Retweeter;
 }
+
+type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;

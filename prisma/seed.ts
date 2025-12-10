@@ -178,6 +178,317 @@ async function main() {
       countryId: usa?.id,
       profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
     },
+    {
+      username: 'reactjs',
+      email: 'react@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO845Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'React', bio: 'The library for web and native user interfaces' },
+      },
+    },
+    {
+      username: 'vel_rea_en',
+      email: 'velvelreact@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'Velvel React (EN)', bio: 'Idk who is velvet react just testing.' },
+      },
+    },
+    {
+      username: 'sumit_saurabh',
+      email: 'sumit@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO8938Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-11-30'),
+      countryId: usa?.id,
+      profile: {
+        create: { displayName: 'Sumit Saurabh | Javascrip | React', bio: 'Senior full stack dev' },
+      },
+    },
+
+    {
+      username: 'omar_gamal',
+      email: 'omar1@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2002-03-15'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Gamal',
+          bio: 'Backend enjoyer.',
+          location: 'Cairo, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarry',
+      email: 'omar2@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2001-07-02'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Youssef',
+          bio: 'Bug creator, bug fixer.',
+          location: 'Alexandria, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omardev',
+      email: 'omar3@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('1999-10-10'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Dev',
+          bio: 'Code > Sleep.',
+          location: 'Giza, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omartix',
+      email: 'omar4@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2000-05-23'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Tarek',
+          bio: 'Tech addict.',
+          location: 'Nasr City, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omar_codes',
+      email: 'omar5@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2003-02-18'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Salah',
+          bio: 'Rust-curious.',
+          location: 'Maadi, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarszn',
+      email: 'omar6@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-06-30'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Hassan',
+          bio: 'Night coder.',
+          location: 'Heliopolis, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omar_exe',
+      email: 'omar7@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('1998-09-09'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Khaled',
+          bio: 'Always compiling.',
+          location: 'Zamalek, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarlab',
+      email: 'omar8@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2003-01-21'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Lab',
+          bio: 'Testing in prod.',
+          location: 'Dokki, Egypt',
+        },
+      },
+    },
+    {
+      username: 'theomar',
+      email: 'omar9@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2001-12-12'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'The Omar',
+          bio: 'Digital survivor.',
+          location: 'Haram, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarlol',
+      email: 'omar10@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2005-07-07'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Abdelrahman',
+          bio: 'Learning Linux.',
+          location: 'Faisal, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarx',
+      email: 'omar11@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('1997-04-18'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar X',
+          bio: 'Minimalist dev.',
+          location: 'Sheikh Zayed, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omar_ai',
+      email: 'omar12@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2000-11-11'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar AI',
+          bio: 'Machine learning fan.',
+          location: 'New Cairo, Egypt',
+        },
+      },
+    },
+    {
+      username: 'devomar',
+      email: 'omar13@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2002-02-02'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Dev Omar',
+          bio: 'Building cool stuff.',
+          location: 'Rehab, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarzz',
+      email: 'omar14@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2003-08-08'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Z',
+          bio: 'Learning everyday.',
+          location: 'Shorouk, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omartech',
+      email: 'omar15@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('1996-03-03'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Tech',
+          bio: 'Cloud curious.',
+          location: 'Madinaty, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarxo',
+      email: 'omar16@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2004-09-14'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Mostafa',
+          bio: 'API wizard.',
+          location: 'Badr City, Egypt',
+        },
+      },
+    },
+    {
+      username: 'realomar',
+      email: 'omar17@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('1999-06-01'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Real Omar',
+          bio: 'Real bugs, real fixes.',
+          location: 'Obour, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarscript',
+      email: 'omar18@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2000-09-21'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Script',
+          bio: 'Automation nerd.',
+          location: 'Helwan, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarvibes',
+      email: 'omar19@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2002-12-19'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Fahmy',
+          bio: 'Good vibes only.',
+          location: 'Garden City, Egypt',
+        },
+      },
+    },
+    {
+      username: 'omarflux',
+      email: 'omar20@gmail.com',
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+      birthdate: new Date('2001-01-01'),
+      countryId: egypt?.id,
+      profile: {
+        create: {
+          displayName: 'Omar Flux',
+          bio: 'Always iterating.',
+          location: 'Tagamo3, Egypt',
+        },
+      },
+    },
   ];
   for (const user of usersToCreate) {
     await prisma.user.create({ data: user });
@@ -204,15 +515,18 @@ async function main() {
       { followerId: 5, followedId: 4 },
       { followerId: 5, followedId: 7 },
       { followerId: 5, followedId: 8 },
+      { followerId: 5, followedId: 2 },
       { followerId: 6, followedId: 1 },
       { followerId: 6, followedId: 3 },
       { followerId: 6, followedId: 10 },
+      { followerId: 6, followedId: 2 },
       { followerId: 7, followedId: 2 },
       { followerId: 7, followedId: 5 },
       { followerId: 7, followedId: 9 },
       { followerId: 8, followedId: 1, withNotifications: true },
       { followerId: 8, followedId: 4 },
       { followerId: 8, followedId: 6 },
+      { followerId: 8, followedId: 2 },
       { followerId: 9, followedId: 2 },
       { followerId: 9, followedId: 7 },
       { followerId: 10, followedId: 1 },
@@ -223,6 +537,28 @@ async function main() {
       { followerId: 12, followedId: 8 },
     ],
   });
+
+  await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "followers_count" = sub.count
+  FROM (
+    SELECT "followed_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "followed_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
+
+  await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "following_count" = sub.count
+  FROM (
+    SELECT "follower_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "follower_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
 
   await prisma.block.createMany({
     data: [
@@ -248,6 +584,84 @@ async function main() {
     });
   };
 
+  // Create media records
+  const media1 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/4846e19b-72b3-4d42-b7d5-b624a362dd38.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media2 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/c33fe331-4851-41f6-97c7-e2f6eab63619.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media3 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/68424de7-60a2-4e05-b8de-7c0fe7b58217.jpg',
+      width: 736,
+      height: 414,
+      pending: false,
+    },
+  });
+
+  const media4 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/cd1a97a0-2020-4713-9dbc-faa6d1043e0b.png',
+      width: 734,
+      height: 145,
+      pending: false,
+    },
+  });
+
+  const media5 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'IMAGE',
+      url: 'https://cdn.raven.cmp27.space/tweets/9e6b75bf-c4b2-4025-b198-56d21a90103c.png',
+      width: 734,
+      height: 145,
+      pending: false,
+    },
+  });
+
+  const media6 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'VIDEO',
+      url: 'https://cdn.raven.cmp27.space/tweets/9c62e434-909f-489f-88d8-b93481eb7cb2.mkv',
+      width: 0,
+      height: 0,
+      pending: false,
+    },
+  });
+
+  const media7 = await prisma.media.create({
+    data: {
+      userId: 2,
+      type: 'VIDEO',
+      url: 'https://cdn.raven.cmp27.space/tweets/66d768fb-0b71-4082-94e7-79b8d1cfb27c.mkv',
+      width: 0,
+      height: 0,
+      pending: false,
+    },
+  });
+
   let tsHashtag = await getHashtag('typescript');
   const nestHashtag = await getHashtag('nestjs');
   const authHashtag = await getHashtag('auth');
@@ -259,6 +673,7 @@ async function main() {
         'Just deployed my first app with #nestjs. The developer experience is amazing compared to Express. #typescript @OmarHassan what do you think?',
       hasHashtags: true,
       hasMentions: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [
           { hashtagId: nestHashtag.id, startPosition: 32 },
@@ -268,6 +683,12 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 1, startPosition: 110 }],
       },
+      tweetMedia: {
+        create: [
+          { mediaId: media4.id, order: 0 },
+          { mediaId: media5.id, order: 1 },
+        ],
+      },
     },
   });
 
@@ -276,6 +697,7 @@ async function main() {
       userId: 2,
       content: 'Totally agree! The module system keeps everything so clean. @anasbrahim',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 4, startPosition: 60 }],
@@ -288,6 +710,7 @@ async function main() {
       userId: 1,
       content: 'How are you handling authentication? Passport.js strategies? #auth',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasHashtags: true,
       tweetHashtags: {
         create: [{ hashtagId: authHashtag.id, startPosition: 61 }],
@@ -300,6 +723,7 @@ async function main() {
       userId: 4,
       content: 'Yep, using passport-jwt. It integrated surprisingly easily. Thanks @OmarHassan!',
       replyToTweetId: omarHReply1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 1, startPosition: 66 }],
@@ -312,6 +736,11 @@ async function main() {
       userId: 8,
       content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
       replyToTweetId: anasTweet1.id,
+      rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media6.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -337,6 +766,13 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 3, startPosition: 90 }],
       },
+      tweetMedia: {
+        create: [
+          { mediaId: media1.id, order: 0 },
+          { mediaId: media2.id, order: 1 },
+          { mediaId: media3.id, order: 2 },
+        ],
+      },
     },
   });
 
@@ -345,6 +781,7 @@ async function main() {
       userId: 3,
       content: 'Omg where is this?? Looks incredible! @Layla tag me next time!',
       replyToTweetId: laylaTweet1.id,
+      rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 6, startPosition: 38 }],
@@ -357,6 +794,7 @@ async function main() {
       userId: 12,
       content: 'Koshary is life! Adding to my list. 😍',
       replyToTweetId: laylaTweet1.id,
+      rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
     },
   });
 
@@ -394,6 +832,7 @@ async function main() {
       userId: 11,
       content: 'ISP woes unite us all. Time for Starlink? 🚀',
       replyToTweetId: karimTweet1.id,
+      rootTweetId: karimTweet1.rootTweetId || karimTweet1.id,
     },
   });
 
@@ -408,6 +847,7 @@ async function main() {
         'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design #typescript @ZakiDev',
       hasHashtags: true,
       hasMentions: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [
           { hashtagId: uiuxHashtag.id, startPosition: 21 },
@@ -418,6 +858,9 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 9, startPosition: 101 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media6.id, order: 0 }],
+      },
     },
   });
 
@@ -426,6 +869,7 @@ async function main() {
       userId: 9,
       content: 'Figma all the way, but user testing is overrated sometimes. @FatmaDesign',
       replyToTweetId: fatmaTweet1.id,
+      rootTweetId: fatmaTweet1.rootTweetId || fatmaTweet1.id,
       hasMentions: true,
       tweetMentions: {
         create: [{ userId: 12, startPosition: 60 }],
@@ -440,8 +884,12 @@ async function main() {
       userId: 11,
       content: 'AI is changing everything. Excited for the future! #ai @YoussefTech self-promo 😏',
       hasHashtags: true,
+      hasMedia: true,
       tweetHashtags: {
         create: [{ hashtagId: aiHashtag.id, startPosition: 51 }],
+      },
+      tweetMedia: {
+        create: [{ mediaId: media7.id, order: 0 }],
       },
     },
   });
@@ -456,6 +904,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 17 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -476,6 +928,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 4, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -504,6 +960,10 @@ async function main() {
       userId: 11,
       content: 'Egyptian street food hits different. Always. 🇪🇬',
       quotedTweetId: laylaTweet1.id,
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -516,6 +976,10 @@ async function main() {
       tweetMentions: {
         create: [{ userId: 6, startPosition: 42 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media2.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -589,6 +1053,10 @@ async function main() {
       tweetHashtags: {
         create: [{ hashtagId: graphqlHashtag.id, startPosition: 66 }],
       },
+      tweetMedia: {
+        create: [{ mediaId: media3.id, order: 0 }],
+      },
+      hasMedia: true,
     },
   });
 
@@ -759,49 +1227,6 @@ async function main() {
   await prisma.tweet.update({ where: { id: quote12.id }, data: { likeCount: 1 } });
   await prisma.tweet.update({ where: { id: quote13.id }, data: { likeCount: 2 } });
   await prisma.tweet.update({ where: { id: quote14.id }, data: { likeCount: 1 } });
-
-  const groupConversation1 = await prisma.conversation.create({
-    data: {
-      creatorId: 4,
-      conversationParticipants: {
-        create: [
-          { userId: 4, notificationsMuted: false },
-          { userId: 1, notificationsMuted: true },
-          { userId: 2, lastSeenMessageId: null },
-        ],
-      },
-    },
-  });
-
-  await prisma.message.create({
-    data: {
-      content: 'Hey guys, thinking of making that NestJS project open source.',
-      conversationId: groupConversation1.id,
-      userId: 4,
-      messageEntities: { text: 'Hey guys, thinking of making that NestJS project open source.' },
-    },
-  });
-  await prisma.message.create({
-    data: {
-      content: 'Great idea! I can help with the database schema design.',
-      conversationId: groupConversation1.id,
-      userId: 1,
-      messageEntities: { text: 'Great idea! I can help with the database schema design.' },
-    },
-  });
-  const msg1_3 = await prisma.message.create({
-    data: {
-      content: "I'm in! I can set up the frontend with React/Next.js.",
-      conversationId: groupConversation1.id,
-      userId: 2,
-      messageEntities: { text: "I'm in! I can set up the frontend with React/Next.js." },
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: groupConversation1.id },
-    data: { lastMessageId: msg1_3.id },
-  });
 
   const privateConv1 = await prisma.conversation.create({
     data: {

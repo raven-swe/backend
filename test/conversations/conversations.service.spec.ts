@@ -83,6 +83,13 @@ describe('ConversationsService', () => {
               },
             },
           ],
+          messages: [
+            {
+              content: 'Hello',
+              user: { username: 'user2' },
+              createdAt: new Date(),
+            },
+          ],
           lastMessage: {
             content: 'Hello',
             user: { username: 'user2' },
@@ -129,6 +136,94 @@ describe('ConversationsService', () => {
       }
     });
 
+    it('should throw error for cursor missing conversationId', async () => {
+      const cursorWithoutConvId = Buffer.from(
+        JSON.stringify({ lastMessageCreatedAt: '2024-01-01T00:00:00.000Z' }),
+      ).toString('base64');
+
+      await expect(
+        service.getUserConversations(userId, limit, cursorWithoutConvId),
+      ).rejects.toThrow(HttpException);
+
+      try {
+        await service.getUserConversations(userId, limit, cursorWithoutConvId);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect((error as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+        const response = (error as HttpException).getResponse() as {
+          message: string;
+          code: string;
+        };
+        expect(response.code).toBe(VALIDATION_ERROR_CODES.INVALID_FORMAT);
+      }
+    });
+
+    it('should throw error for cursor missing lastMessageCreatedAt', async () => {
+      const cursorWithoutDate = Buffer.from(JSON.stringify({ conversationId: '123' })).toString(
+        'base64',
+      );
+
+      await expect(service.getUserConversations(userId, limit, cursorWithoutDate)).rejects.toThrow(
+        HttpException,
+      );
+
+      try {
+        await service.getUserConversations(userId, limit, cursorWithoutDate);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect((error as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+        const response = (error as HttpException).getResponse() as {
+          message: string;
+          code: string;
+        };
+        expect(response.code).toBe(VALIDATION_ERROR_CODES.INVALID_FORMAT);
+      }
+    });
+
+    it('should throw error for cursor with empty lastMessageCreatedAt', async () => {
+      const cursorWithEmptyDate = Buffer.from(
+        JSON.stringify({ conversationId: '123', lastMessageCreatedAt: '   ' }),
+      ).toString('base64');
+
+      await expect(
+        service.getUserConversations(userId, limit, cursorWithEmptyDate),
+      ).rejects.toThrow(HttpException);
+
+      try {
+        await service.getUserConversations(userId, limit, cursorWithEmptyDate);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect((error as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+        const response = (error as HttpException).getResponse() as {
+          message: string;
+          code: string;
+        };
+        expect(response.code).toBe(VALIDATION_ERROR_CODES.INVALID_FORMAT);
+      }
+    });
+
+    it('should throw error for cursor with invalid date format', async () => {
+      const cursorWithInvalidDate = Buffer.from(
+        JSON.stringify({ conversationId: '123', lastMessageCreatedAt: 'not-a-date' }),
+      ).toString('base64');
+
+      await expect(
+        service.getUserConversations(userId, limit, cursorWithInvalidDate),
+      ).rejects.toThrow(HttpException);
+
+      try {
+        await service.getUserConversations(userId, limit, cursorWithInvalidDate);
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        expect((error as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+        const response = (error as HttpException).getResponse() as {
+          message: string;
+          code: string;
+        };
+        expect(response.code).toBe(VALIDATION_ERROR_CODES.INVALID_FORMAT);
+      }
+    });
+
     it('should filter out conversations with blocked users', async () => {
       const mockConversations = [
         {
@@ -155,6 +250,13 @@ describe('ConversationsService', () => {
               },
             },
           ],
+          messages: [
+            {
+              content: 'Hello',
+              user: { username: 'blocked_user' },
+              createdAt: new Date(),
+            },
+          ],
           lastMessage: {
             content: 'Hello',
             user: { username: 'blocked_user' },
@@ -171,85 +273,6 @@ describe('ConversationsService', () => {
 
       expect(result.items[0].isBlocking).toBe(true);
       expect(result.items[0].isBlockedBy).toBe(false);
-    });
-
-    it('should filter conversations without last message unless user is creator', async () => {
-      const mockConversations = [
-        {
-          id: BigInt(1),
-          creatorId: BigInt(999), // Not the current user
-          lastMessageId: null,
-          conversationParticipants: [
-            {
-              userId,
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user1',
-                profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
-              },
-            },
-            {
-              userId: BigInt(2),
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user2',
-                profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
-              },
-            },
-          ],
-          lastMessage: null,
-        },
-      ];
-
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
-
-      const result = await service.getUserConversations(userId, limit, '');
-
-      expect(result.items).toHaveLength(0);
-    });
-
-    it('should include conversations without last message if user is creator', async () => {
-      const mockConversations = [
-        {
-          id: BigInt(1),
-          creatorId: userId, // Current user is creator
-          lastMessageId: null,
-          conversationParticipants: [
-            {
-              userId,
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user1',
-                profile: { displayName: 'User One', avatarUrl: 'avatar1.jpg' },
-              },
-            },
-            {
-              userId: BigInt(2),
-              lastSeenMessageId: null,
-              notificationsMuted: false,
-              user: {
-                username: 'user2',
-                profile: { displayName: 'User Two', avatarUrl: 'avatar2.jpg' },
-              },
-            },
-          ],
-          lastMessage: null,
-        },
-      ];
-
-      conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
-
-      const result = await service.getUserConversations(userId, limit, '');
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].lastMessage).toBeNull();
     });
   });
 
@@ -284,11 +307,13 @@ describe('ConversationsService', () => {
             user: otherUser,
           },
         ],
+        messages: [],
         lastMessage: null,
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
-      conversationsRepository.findConversation.mockResolvedValue(mockConversation);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      conversationsRepository.findConversation.mockResolvedValue(mockConversation as any);
       usersRepository.getUserBlocks.mockResolvedValue([]);
       usersRepository.getUserBlockedBy.mockResolvedValue([]);
 
@@ -341,12 +366,14 @@ describe('ConversationsService', () => {
             user: otherUser,
           },
         ],
+        messages: [],
         lastMessage: null,
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
       conversationsRepository.findConversation.mockResolvedValueOnce(null);
-      conversationsRepository.findConversation.mockResolvedValueOnce(mockConversation);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      conversationsRepository.findConversation.mockResolvedValueOnce(mockConversation as any);
       conversationsRepository.createConversation.mockResolvedValue({
         id: BigInt(1),
         creatorId: userId,
