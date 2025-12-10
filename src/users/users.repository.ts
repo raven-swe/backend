@@ -467,31 +467,49 @@ export class UsersRepository {
           data: { followersCount: { increment: 1 } },
         }),
       ])
-      .catch(() => {
-        throw new HttpException(
-          {
-            message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
-            code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
-          },
-          HttpStatus.CONFLICT,
-        );
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.delete({
-        where: { followerId_followedId: { followerId, followedId } },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { decrement: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { decrement: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.delete({
+          where: { followerId_followedId: { followerId, followedId } },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { decrement: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { decrement: 1 } },
+        }),
+      ])
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
   async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
     const follows = await this.prisma.follow.findMany({
