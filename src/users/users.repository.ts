@@ -1601,4 +1601,93 @@ export class UsersRepository {
       },
     });
   }
+
+  async getOnboardingFollowSuggestions(userId: bigint, limit: number) {
+    const sqlQuery = Prisma.sql`
+    WITH suggestions AS (
+      SELECT 
+        u.id,
+        u.username,
+        u.followers_count,
+        p.display_name,
+        p.avatar_url,
+        p.bio,
+        p.bio_entities,
+        COALESCE(
+          (SELECT COUNT(*) 
+           FROM follows f1
+           WHERE f1.followed_id = u.id
+           AND f1.follower_id IN (
+             SELECT followed_id 
+             FROM follows f2 
+             WHERE f2.follower_id = ${userId}
+           )
+          ), 0
+        ) as mutual_count,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${userId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${userId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${userId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${userId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM users u
+      JOIN profiles p ON u.id = p.user_id
+      WHERE u.id != ${userId}
+      AND NOT EXISTS (
+        SELECT 1 FROM mutes m 
+        WHERE m.user_id = ${userId} AND m.muted_id = u.id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM blocks b 
+        WHERE (b.user_id = ${userId} AND b.blocked_id = u.id)
+        OR (b.user_id = u.id AND b.blocked_id = ${userId})
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM follows f 
+        WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+      )
+      ORDER BY mutual_count DESC, u.followers_count DESC
+      LIMIT ${limit}
+    )
+    SELECT id, username, display_name, avatar_url, bio, bio_entities,  is_follower 
+    FROM suggestions;
+`;
+    const results = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+        bio: string | null;
+        bio_entities: Prisma.JsonValue | null;
+        is_follower: boolean | number;
+      }[]
+    >(sqlQuery);
+
+    return results.map((row) => ({
+      id: row.id.toString(),
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      bio: row.bio,
+      bioEntities: row.bio_entities,
+      relationship: {
+        isFollower: Boolean(row.is_follower),
+      },
+    }));
+  }
 }
