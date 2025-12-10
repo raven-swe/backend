@@ -21,6 +21,9 @@ import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
     BullModule.registerQueue({
       name: 'email',
     }),
+    BullModule.registerQueue({
+      name: 'timeline-following',
+    }),
     RedisModule,
     PrismaModule,
     MediaModule,
