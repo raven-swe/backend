@@ -1,9 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { ExploreRepository } from './explore.repository';
+import { TweetDto } from 'src/tweets/dtos';
+
+export interface ForYouCategory {
+  category: string;
+  tweets: TweetDto[];
+}
 
 @Injectable()
 export class ExploreService {
   constructor(private readonly exploreRepository: ExploreRepository) {}
+
+  async getForYouCategories(userId: bigint): Promise<ForYouCategory[]> {
+    const userInterests = await this.exploreRepository.getUserInterests(userId);
+
+    if (!userInterests || userInterests.length === 0) {
+      return [];
+    }
+
+    // Fetch all tweets for all categories in a single query
+    const categoryTweetsMap = await this.exploreRepository.getTweetsByCategories(
+      userId,
+      userInterests,
+      5,
+    );
+
+    // Convert map to array, filtering out empty categories
+    const categories: ForYouCategory[] = [];
+    for (const interest of userInterests) {
+      const tweets = categoryTweetsMap.get(interest.toLowerCase()) ?? [];
+      if (tweets.length > 0) {
+        categories.push({
+          category: interest.toLowerCase(),
+          tweets,
+        });
+      }
+    }
+
+    return categories;
+  }
 
   private mapCategory(category: string): string {
     switch (category) {
@@ -18,7 +53,9 @@ export class ExploreService {
     }
   }
 
-  async getTrendingTabKeywords() {
+  async getTrendingTabKeywords(): Promise<
+    { hashtag: string; tweetsCount: number; category: string }[]
+  > {
     const trendingKeywords = await this.exploreRepository.getTrendingKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
       hashtag: keyword.keyword,
@@ -29,7 +66,9 @@ export class ExploreService {
     return filteredKeywords;
   }
 
-  async getEntertainmentKeywords() {
+  async getEntertainmentKeywords(): Promise<
+    { hashtag: string; tweetsCount: number; category: string }[]
+  > {
     const trendingKeywords = await this.exploreRepository.getEntertainmentKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
       hashtag: keyword.keyword,
@@ -40,7 +79,7 @@ export class ExploreService {
     return filteredKeywords;
   }
 
-  async getNewsKeywords() {
+  async getNewsKeywords(): Promise<{ hashtag: string; tweetsCount: number; category: string }[]> {
     const trendingKeywords = await this.exploreRepository.getNewsKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
       hashtag: keyword.keyword,
@@ -51,7 +90,7 @@ export class ExploreService {
     return filteredKeywords;
   }
 
-  async getSportsKeywords() {
+  async getSportsKeywords(): Promise<{ hashtag: string; tweetsCount: number; category: string }[]> {
     const trendingKeywords = await this.exploreRepository.getSportsKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
       hashtag: keyword.keyword,
