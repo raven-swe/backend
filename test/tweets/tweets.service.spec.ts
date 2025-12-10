@@ -94,9 +94,6 @@ describe('TweetsService', () => {
     emitTweetCreated: jest.fn(),
     emitTweetLiked: jest.fn(),
     emitTweetRetweeted: jest.fn(),
-    emitTweetDeleted: jest.fn(),
-    emitTweetUnliked: jest.fn(),
-    emitTweetUnretweeted: jest.fn(),
   };
   const mockTrendingService = {
     getHashtagId: jest.fn(),

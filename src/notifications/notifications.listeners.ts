@@ -7,9 +7,6 @@ import type {
   TweetCreatedEvent,
   TweetRetweetedEvent,
   UserFollowedEvent,
-  TweetUnlikedEvent,
-  UserUnfollowedEvent,
-  TweetDeletedEvent,
 } from 'src/events/interfaces/event.interface';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 @Injectable()
@@ -108,99 +105,6 @@ export class NotificationsListeners {
       }
     } catch (error) {
       this.logger.error('Error processing Tweet_Created event:', error);
-    }
-  }
-
-  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Unliked) async handleTweetUnliked(payload: TweetUnlikedEvent) {
-    try {
-      await this.notificationsService.undo({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'LIKE',
-      });
-    } catch (error) {
-      this.logger.error('Error processing Tweet_Unliked event:', error);
-    }
-  }
-
-  @OnEvent(DOMAIN_EVENT_NAMES.User_Unfollowed) async handleUserUnfollowed(
-    payload: UserUnfollowedEvent,
-  ) {
-    try {
-      await this.notificationsService.undo({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        type: 'FOLLOW',
-      });
-    } catch (error) {
-      this.logger.error('Error processing User_Unfollowed event:', error);
-    }
-  }
-  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Unretweeted) async handleTweetUnRetweeted(
-    payload: TweetRetweetedEvent,
-  ) {
-    try {
-      await this.notificationsService.undo({
-        actorId: payload.actorId,
-        receiverId: payload.receiverId,
-        tweetId: payload.tweetId,
-        type: 'RETWEET',
-      });
-    } catch (error) {
-      this.logger.error('Error processing Tweet_Unretweeted event:', error);
-    }
-  }
-  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Deleted) async handleTweetDeleted(payload: TweetDeletedEvent) {
-    const { tweetId, authorId, replyToTweetId, quoteToTweetId, mentionedUserIds } = payload;
-
-    const authorsIdsNotified = new Set<bigint>();
-
-    try {
-      if (replyToTweetId) {
-        const parentTweet = await this.tweetRepository.findTweetById(replyToTweetId);
-
-        if (parentTweet && parentTweet.userId !== authorId) {
-          authorsIdsNotified.add(parentTweet.userId);
-          await this.notificationsService.undo({
-            type: 'REPLY',
-            actorId: authorId,
-            receiverId: parentTweet.userId,
-            tweetId: tweetId,
-          });
-        }
-      }
-      if (quoteToTweetId) {
-        const quotedTweet = await this.tweetRepository.findTweetById(quoteToTweetId);
-
-        if (quotedTweet && quotedTweet.userId !== authorId) {
-          authorsIdsNotified.add(quotedTweet.userId);
-          await this.notificationsService.trigger({
-            type: 'QUOTE',
-            actorId: authorId,
-            receiverId: quotedTweet.userId,
-            tweetId: tweetId,
-          });
-        }
-      }
-
-      if (mentionedUserIds.length > 0) {
-        for (const targetId of mentionedUserIds) {
-          if (targetId === authorId) continue;
-
-          // Avoid sending duplicate notifications to users already notified for reply or quote
-          if (authorsIdsNotified.has(targetId)) continue;
-
-          await this.notificationsService.undo({
-            type: 'MENTION',
-            actorId: authorId,
-            receiverId: targetId,
-            tweetId: tweetId,
-          });
-        }
-      }
-    } catch (error) {
-      this.logger.error('Error processing Tweet_Deleted event:', error);
     }
   }
 }

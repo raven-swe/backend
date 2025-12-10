@@ -493,11 +493,6 @@ export class UsersService {
 
     await this.usersRepository.unfollowUser(followerId, followedId);
 
-    await this.domainEvents.emitUserUnfollowed({
-      actorId: followerId,
-      receiverId: followedId,
-    });
-
     this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
     return { message: 'User unfollowed successfully.' };
   }

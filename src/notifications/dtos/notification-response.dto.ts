@@ -1,6 +1,5 @@
 import { NotificationType } from '@prisma/client';
 import { TweetDto } from 'src/tweets/dtos';
-import { DeletedTweet } from 'src/tweets/types';
 import { UserMetaDataDto } from 'src/users/dtos/user-meta-data.dto';
 
 export class NotificationResponseDto {
@@ -18,7 +17,7 @@ class NotificationActorSummaryDto {
 }
 
 class NotificationTweetSummaryDto {
-  primaryTweet: TweetDto | DeletedTweet | null;
+  primaryTweet: TweetDto | null;
   totalCount: number;
   subjectIds: string[];
 }

@@ -3,10 +3,6 @@ export const DOMAIN_EVENT_NAMES = {
   Tweet_Liked: 'tweet.liked',
   Tweet_Retweeted: 'tweet.retweeted',
   Tweet_Created: 'tweet.created',
-  Tweet_Deleted: 'tweet.deleted',
-  User_Unfollowed: 'user.unfollowed',
-  Tweet_Unliked: 'tweet.unliked',
-  Tweet_Unretweeted: 'tweet.unretweeted',
 } as const;
 
 interface UserEvent {
@@ -32,9 +28,3 @@ export type TweetCreatedEvent = {
   quoteToTweetId?: bigint | null;
   mentionedUserIds: bigint[];
 };
-
-export type TweetDeletedEvent = TweetCreatedEvent;
-
-export type UserUnfollowedEvent = UserEvent;
-export type TweetUnlikedEvent = TweetEvent;
-export type TweetUnretweetedEvent = TweetEvent;

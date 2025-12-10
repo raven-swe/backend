@@ -62,11 +62,7 @@ export class NotificationsRepository {
       tweetSummary: {
         totalCount: n.tweet?.id ? 1 : 0,
         subjectIds: n.tweet?.id ? [n.tweet.id.toString()] : [],
-        primaryTweet: n.tweet
-          ? n.tweet.isDeleted
-            ? { isDeleted: true }
-            : this.tweetRepository.mapToTweetDto(n.tweet)
-          : null,
+        primaryTweet: n.tweet ? this.tweetRepository.mapToTweetDto(n.tweet) : null,
       },
       latestEventAt: n.latestEventAt,
       isSeen: n.seen,
