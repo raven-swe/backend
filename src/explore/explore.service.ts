@@ -60,7 +60,7 @@ export class ExploreService {
     const filteredKeywords = trendingKeywords.map((keyword) => ({
       hashtag: keyword.keyword,
       tweetsCount: keyword.count,
-      category: this.mapCategory(keyword.topCategory.category),
+      category: this.mapCategory(keyword.topCategory?.category),
     }));
 
     return filteredKeywords;
