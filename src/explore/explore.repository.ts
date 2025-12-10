@@ -167,6 +167,8 @@ export class ExploreRepository {
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl,
       },
+      rootTweetId: null,
+      isRepost: false,
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
