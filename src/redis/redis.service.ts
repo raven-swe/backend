@@ -6,6 +6,34 @@ export class RedisService {
   private readonly redis: Redis;
   private readonly logger = new Logger(RedisService.name);
 
+  private readonly SAFE_INCR_SCRIPT = `
+            local key = KEYS[1]
+            local ttl = tonumber(ARGV[1])
+            
+            if redis.call("EXISTS", key) == 1 then
+              local newval = redis.call("INCR", key)
+              redis.call("EXPIRE", key, ttl)
+              return newval
+            end
+            return nil`;
+
+  private readonly SAFE_DECR_SCRIPT = `
+            local key = KEYS[1]
+            local ttl = tonumber(ARGV[1])
+            
+            if redis.call("EXISTS", key) == 1 then
+              local newval = redis.call("DECR", key)
+              if newval < 0 then
+                redis.call("SET", key, 0)
+                redis.call("EXPIRE", key, ttl)
+                return 0
+              else
+                redis.call("EXPIRE", key, ttl)
+                return newval
+              end
+            end
+            return nil`;
+
   constructor() {
     this.redis = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
@@ -60,5 +88,13 @@ export class RedisService {
   }
   async ttl(key: string): Promise<number> {
     return this.redis.ttl(key);
+  }
+
+  async safeIncr(key: string, ttlSeconds: number): Promise<void> {
+    await this.redis.eval(this.SAFE_INCR_SCRIPT, 1, key, ttlSeconds);
+  }
+
+  async safeDecr(key: string, ttlSeconds: number): Promise<void> {
+    await this.redis.eval(this.SAFE_DECR_SCRIPT, 1, key, ttlSeconds);
   }
 }

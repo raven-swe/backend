@@ -20,11 +20,11 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
-import { UserSearchCursor } from 'src/common/types/cursors';
 import { RankedUser } from './interfaces/ranked-user.interface';
 import { CompactAuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { UserSearchCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class UsersRepository {
@@ -1325,7 +1325,6 @@ export class UsersRepository {
     }
 
     return {
-      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
@@ -1550,7 +1549,7 @@ export class UsersRepository {
       .then((followers) => followers.map((follow) => follow.followerId));
   }
 
-  async getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+  getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
     return this.prisma.mute
       .findMany({
         where: { mutedId },

@@ -6,7 +6,6 @@ import { CompactAuthorDto } from './compact-author.dto';
 export class TweetDto {
   id: string;
   author: CompactAuthorDto;
-  //TODO null content will be handled later for media tweets
   content: string | null;
   createdAt: Date;
 
@@ -26,11 +25,7 @@ export class TweetDto {
 
   quotedTweet?: TweetDto | DeletedTweet;
 
-  isRepost: boolean;
-  repostedBy?: Reposter;
+  repostedBy?: Retweeter;
 }
 
-class Reposter {
-  username: string;
-  displayName: string;
-}
+type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;

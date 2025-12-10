@@ -138,6 +138,15 @@ describe('TweetsService', () => {
           },
         },
         {
+          provide: RedisService,
+          useValue: {
+            getClient: jest.fn(),
+            del: jest.fn(),
+            safeIncr: jest.fn(),
+            safeDecr: jest.fn(),
+          },
+        },
+        {
           provide: DomainEventsService,
           useValue: mockDomainEventsService,
         },
@@ -203,7 +212,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -240,7 +248,6 @@ describe('TweetsService', () => {
         quotedTweet: undefined,
         replyToTweet: undefined,
         rootTweetId: null,
-        isRepost: false,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -291,7 +298,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        id: '2',
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -991,8 +997,9 @@ describe('TweetsService', () => {
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
-        await service.getUserPosts(username, authUserId, limit, undefined);
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
 
+        expect(result).toBeDefined();
         expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
           requestedUserId,
           limit + 1,
@@ -1084,36 +1091,6 @@ describe('TweetsService', () => {
 
         expect(result.items).toEqual([]);
         expect(result.pagination.hasNextPage).toBe(false);
-      });
-
-      it('should set isRepost=true for repost type items', async () => {
-        const feedItems = [
-          { id: BigInt(1), type: 'repost', created_at: '2024-01-01T00:00:00Z' },
-          { id: BigInt(2), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
-        ];
-        const fullTweets = [
-          { id: BigInt(1), content: 'Tweet 1' },
-          { id: BigInt(2), content: 'Tweet 2' },
-        ];
-        const tweetDtos = [
-          { id: '1', content: 'Tweet 1' },
-          { id: '2', content: 'Tweet 2' },
-        ];
-
-        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
-          id: requestedUserId,
-          username,
-        });
-        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
-        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToDetailedTweetDto
-          .mockReturnValueOnce(tweetDtos[0])
-          .mockReturnValueOnce(tweetDtos[1]);
-
-        const result = await service.getUserPosts(username, authUserId, limit, undefined);
-
-        expect(result.items[0]!.isRepost).toBe(true);
-        expect(result.items[1]!.isRepost).toBe(false);
       });
 
       it('should filter out null items when tweet data is missing', async () => {
@@ -1896,6 +1873,15 @@ describe('TweetsService', () => {
             provide: getQueueToken('timeline-following'),
             useValue: {
               add: jest.fn(),
+            },
+          },
+          {
+            provide: RedisService,
+            useValue: {
+              getClient: jest.fn(),
+              del: jest.fn(),
+              safeIncr: jest.fn(),
+              safeDecr: jest.fn(),
             },
           },
           { provide: DomainEventsService, useValue: mockDomainEventsService },
