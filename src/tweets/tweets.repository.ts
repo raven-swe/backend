@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto, UserInteractionDto } from './dtos';
@@ -15,7 +15,7 @@ import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { TweetsBackfill } from './timeline/interfaces';
-import { MAX_TWEET_DEPTH } from './constants';
+import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
@@ -382,87 +382,147 @@ export class TweetsRepository {
   }
 
   async likeTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.like.create({
-        data: {
-          userId,
-          tweetId,
-        },
-      });
-
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          likeCount: {
-            increment: 1,
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.like.create({
+          data: {
+            userId,
+            tweetId,
           },
-        },
+        });
+
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            likeCount: {
+              increment: 1,
+            },
+          },
+        });
+      })
+      .catch((e) => {
+        //unique constraint
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_LIKE,
+              code: TWEETS_ERROR_CODES.CONFLICTING_LIKE,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.like.delete({
-        where: {
-          userId_tweetId: {
-            userId,
-            tweetId,
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.like.delete({
+          where: {
+            userId_tweetId: {
+              userId,
+              tweetId,
+            },
           },
-        },
-      });
+        });
 
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          likeCount: {
-            decrement: 1,
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            likeCount: {
+              decrement: 1,
+            },
           },
-        },
+        });
+      })
+      .catch((e) => {
+        // record not found
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_LIKE,
+              code: TWEETS_ERROR_CODES.CONFLICTING_LIKE,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
   }
 
   async retweetTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.retweet.create({
-        data: {
-          userId,
-          tweetId,
-        },
-      });
-
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          retweetCount: {
-            increment: 1,
-          },
-        },
-      });
-    });
-  }
-
-  async unretweetTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.retweet.delete({
-        where: {
-          userId_tweetId: {
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.retweet.create({
+          data: {
             userId,
             tweetId,
           },
-        },
-      });
+        });
 
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          retweetCount: {
-            decrement: 1,
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            retweetCount: {
+              increment: 1,
+            },
           },
-        },
+        });
+      })
+      .catch((e) => {
+        //unique constraint
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_RETWEET,
+              code: TWEETS_ERROR_CODES.CONFLICTING_RETWEET,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
+  }
+
+  async unretweetTweet(userId: bigint, tweetId: bigint) {
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.retweet.delete({
+          where: {
+            userId_tweetId: {
+              userId,
+              tweetId,
+            },
+          },
+        });
+
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            retweetCount: {
+              decrement: 1,
+            },
+          },
+        });
+      })
+      .catch((e) => {
+        //record not found
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_RETWEET,
+              code: TWEETS_ERROR_CODES.CONFLICTING_RETWEET,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
 
   async hasUserLikedTweet(userId: bigint, tweetId: bigint): Promise<boolean> {
