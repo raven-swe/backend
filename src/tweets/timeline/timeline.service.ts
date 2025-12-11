@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { TweetsRepository } from '../tweets.repository';
-import { FeedCursor } from 'src/common/interfaces';
+import { FeedCursor, TimelineCursor } from 'src/common/interfaces';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import {
   PAGINATION_DEFAULT_LIMIT,
@@ -12,6 +12,7 @@ import { TweetDto, CompactAuthorWithId } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
   COUNT_CACHE_TTL,
+  SEEN_IDS_CURSOR_LIMIT,
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
 } from './constants';
@@ -33,10 +34,14 @@ export class TimelineService {
 
   async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
     this.logger.debug(`Fetching following timeline for user ID: ${userId}`);
-    let decoded: FeedCursor | undefined;
+    let decoded: TimelineCursor | undefined;
+    let seenSet = new Set<string>(); // this is to deduplicate ids across different requests, so that a repost and the original tweet are NOT in the same timeline
     if (cursor) {
       try {
-        decoded = decodeCompositeCursor<FeedCursor>(cursor);
+        decoded = decodeCompositeCursor<TimelineCursor>(cursor);
+        if (decoded?.seenIds && decoded.seenIds.length > 0) {
+          seenSet = new Set<string>(decoded.seenIds);
+        }
       } catch {
         throw new HttpException(
           {
@@ -53,7 +58,7 @@ export class TimelineService {
       REDIS_TIMELINE_KEYS.getUserTimelineKey(userId),
     );
     if (timelineKeyExists) {
-      timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSet);
     } else {
       // empty placeholder avoids the query on a cache miss, this gets removed on fanout of any new tweet/retweet
       if (
@@ -64,13 +69,18 @@ export class TimelineService {
         timeline = [];
       } else {
         await this.timelineCacheMiss(userId, decoded);
-        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSet);
       }
     }
 
+    let seenIdsNextCursor = Array.from(seenSet);
+    if (seenIdsNextCursor.length > SEEN_IDS_CURSOR_LIMIT) {
+      seenIdsNextCursor = seenIdsNextCursor.slice(seenIdsNextCursor.length - SEEN_IDS_CURSOR_LIMIT);
+    }
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
       createdAt: tweet.createdAt,
       id: tweet.id.toString(),
+      seenIds: seenIdsNextCursor,
     }));
     return {
       items: timeline,
@@ -104,6 +114,7 @@ export class TimelineService {
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
     limit: number = PAGINATION_DEFAULT_LIMIT,
+    seenSet: Set<string>,
   ): Promise<TweetDto[]> {
     const isEmpty = await this.redisClient.exists(`timeline:${userId}:empty`);
     if (isEmpty) {
@@ -148,7 +159,7 @@ export class TimelineService {
         return isTweetValid && isAuthorValid && isRetweeterValid;
       });
 
-      const uniqueFilteredTimelineObjects = this.deduplicateTimelineItems(filteredItems);
+      const uniqueFilteredTimelineObjects = this.deduplicateTimelineItems(filteredItems, seenSet);
 
       this.logger.debug(
         `Filtered ${timelineObjects.length - filteredItems.length} items (muted/unfollowed/deleted) for user ID: ${userId}, remaining: ${filteredItems.length}`,
@@ -853,14 +864,13 @@ export class TimelineService {
     await timelinePipeline.exec();
   }
 
-  private deduplicateTimelineItems(items: string[]): string[] {
-    const seenTweetIds = new Set<string>();
+  private deduplicateTimelineItems(items: string[], seenIds: Set<string>): string[] {
     const uniqueItems: string[] = [];
 
     for (const item of items) {
       const tweetId = item.split(':')[1];
-      if (!seenTweetIds.has(tweetId)) {
-        seenTweetIds.add(tweetId);
+      if (!seenIds.has(tweetId)) {
+        seenIds.add(tweetId);
         uniqueItems.push(item);
       }
     }
