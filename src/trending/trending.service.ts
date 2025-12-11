@@ -30,18 +30,26 @@ export class TrendingService {
       return [];
     }
 
-    let isHashtagQuery = false;
-    // If the query is a hashtag, remove the leading '#'
-    if (isSingleHashtagQuery(query)) {
-      isHashtagQuery = true;
-      query = extractHashtag(query);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
     }
 
-    const hashtags = await this.TrendingRepository.getTopWordsByKeyword(
-      query,
+    let isHashtagQuery = false;
+    // If the query is a hashtag, remove the leading '#'
+    if (isSingleHashtagQuery(rawQuery)) {
+      isHashtagQuery = true;
+      rawQuery = extractHashtag(rawQuery);
+    }
+
+    const results = await this.TrendingRepository.getTopWordsByKeyword(
+      rawQuery,
       limit,
       isHashtagQuery,
     );
-    return hashtags;
+    return results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
   }
 }

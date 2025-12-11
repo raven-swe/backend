@@ -65,7 +65,7 @@ export class TrendingRepository {
     query: string,
     limit: number,
     isHashtagQuery: boolean = false,
-  ): Promise<string[]> {
+  ): Promise<{ keyword: string; isHashtag: boolean }[]> {
     const results = await this.prisma.trendingKeyword.findMany({
       where: {
         keyword: {
@@ -80,6 +80,7 @@ export class TrendingRepository {
       orderBy: { count: 'desc' },
       take: limit,
     });
-    return results.map((result) => result.keyword);
+
+    return results;
   }
 }
