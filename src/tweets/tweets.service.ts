@@ -278,6 +278,9 @@ export class TweetsService {
       if (replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(replyToTweetId, false, tx);
       }
+      if (quoteToTweetId) {
+        await this.tweetsRepository.updateTweetRetweetCount(quoteToTweetId, false, tx);
+      }
     });
     this.logger.debug(`User ${userId} deleted tweet ${tweetId} successfully`);
 
