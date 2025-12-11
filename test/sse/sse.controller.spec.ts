@@ -7,6 +7,7 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import type { Response } from 'express';
 import type { RequestUser } from 'src/common/interfaces';
 import { Subject } from 'rxjs';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 describe('SseController', () => {
   let controller: SseController;
@@ -27,6 +28,10 @@ describe('SseController', () => {
     countUnseenConversations: jest.fn().mockResolvedValue(0),
   };
 
+  const mockNotificationsRepository = {
+    getUnseenCount: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -45,6 +50,7 @@ describe('SseController', () => {
           provide: ConversationsRepository,
           useValue: mockConversationsRepository,
         },
+        { provide: NotificationsRepository, useValue: mockNotificationsRepository },
       ],
     })
       .overrideGuard(JwtAuthGuard)

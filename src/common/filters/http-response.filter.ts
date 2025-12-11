@@ -214,35 +214,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
     status: number;
     response: ApiErrorResponse;
   } {
-    let status = HttpStatus.BAD_REQUEST;
-    let code = 'DB_ERROR';
-    let message = 'An unexpected error occurred';
-    const meta = exception.meta;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    const code = 'DB_ERROR';
+    const message = 'An unexpected error occurred';
 
     switch (exception.code) {
       case 'P2002': {
         // Unique constraint
-        // may get triggered on some edge cases
-        status = HttpStatus.CONFLICT;
-        code = 'ALREADY_EXISTS';
-        const target = meta?.target as string[];
-        message = target
-          ? `Unique constraint failed on the fields: (${target.join(', ')})`
-          : 'Record already exists';
+        this.logger.error(exception.message);
         break;
       }
 
       case 'P2025': // Record not found
-        status = HttpStatus.NOT_FOUND;
-        code = 'NOT_FOUND';
-        message = 'The record you are trying to access does not exist';
+        this.logger.error(`Record not found: ${exception.message}`);
         break;
 
       case 'P2003': // Foreign key violations
-        // this would normally not be hit
-        status = HttpStatus.BAD_REQUEST;
-        code = 'INVALID_RELATION';
-        message = 'Operation depends on a record that does not exist';
+        this.logger.error(`Foreign key violation: ${exception.message}`);
         break;
 
       default:

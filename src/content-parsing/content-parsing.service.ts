@@ -1,6 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
 import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';

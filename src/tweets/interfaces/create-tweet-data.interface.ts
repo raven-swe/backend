@@ -10,6 +10,7 @@ export interface CreateTweetData {
 
   replyToTweetId: bigint | null;
   quotedTweetId: bigint | null;
+  rootTweetId: bigint | null;
 
   hasMedia: boolean;
 }

@@ -368,6 +368,31 @@ model UserMetadata {
   avatarUrl: string;
 }
 
+@doc("Model for follow suggestions")
+model FollowSuggestionData {
+  ...UserMetadata;
+
+  @doc("The user's biography with structured entities")
+  bio: string | null;
+
+  @doc("Structured entities found in the bio (mentions and hashtags)")
+  bioEntities: BioEntities | null;
+
+  @doc("Relationship information for the suggested user")
+  relationship: {
+    @doc("True if this user is following the current user")
+    isFollower: boolean;
+  };
+}
+
+@doc("Metadata for user with the last seen message id for the other user ")
+model UserMetadataWithLastSeen {
+  ...UserMetadata;
+
+  @doc("The ID of the last message seen from the other user in a conversation")
+  otherParticipantLastSeenMessageId: string | null;
+}
+
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
@@ -692,6 +717,17 @@ model TweetWithoutQuotedTweet {
   replyToTweetId: string | null;
 }
 
+model TweetWithThread extends Tweet {
+  @doc("The root tweet of the thread (oldest tweet in the chain).")
+  rootTweet: CompactTweet | null;
+
+  @doc("Parent tweets leading to this tweet (up to 4), ordered from oldest to newest, excluding the root tweet.")
+  parentTweets: CompactTweet[] | null;
+
+  @doc("Indicates if there are more parent tweets beyond the provided ones.")
+  hasMoreParents: boolean;
+}
+
 @doc("Defines the filter categories for the notifications list.")
 enum NotificationFilter {
   @doc("Show only conversational notifications like replies, mentions, and quotes.")
@@ -784,6 +820,33 @@ model MessageEntities {
   hashtags: HashtagEntity[] | null;
 }
 
+@doc("Reactions corresponding to a message")
+model Reaction {
+  @doc("The username of the user who reacted to the message")
+  username: string;
+
+  @doc("The display name of the user who reacted to the message")
+  displayName: string;
+
+  @doc("URL to the user's avatar image")
+  avatarUrl: string;
+
+  @doc("The reaction emoji (null if reaction was removed)")
+  reaction: string | null;
+
+  @doc("Timestamp when the reaction was made. ISO 8601 format (e.g., '2024-01-15T14:30:00Z').")
+  reactedAt: utcDateTime;
+}
+
+@doc("Reactions for both participating users in the conversation")
+model ConversationReactions {
+  @doc("Reactions from the message sender user")
+  sender: Reaction;
+
+  @doc("Reactions from the other user in the conversation")
+  receiver: Reaction;
+}
+
 @doc("A single message in a conversation")
 model Message {
   @doc("Unique identifier for the message")
@@ -804,6 +867,9 @@ model Message {
 
   @doc("True if this message was sent by the authenticated user (Easy for client side)")
   isMine: boolean;
+
+  @doc("Reactions corresponding to this message")
+  reactions: ConversationReactions;
 }
 
 @doc("Unified conversation model")
@@ -990,7 +1056,7 @@ alias UnmuteUserResponse = MessageResponse<"user unmuted successfully">;
 // Conversation and Messages response aliases
 alias ConversationListResponse = DataResponseWithPagination<Conversation[]>;
 alias MessageListResponse = DataResponseWithPagination<{
-  participant: UserMetadata;
+  participant: UserMetadataWithLastSeen;
   messages: Message[];
 }>;
 alias ConversationResponse = DataResponse<Conversation>;
@@ -1892,9 +1958,9 @@ namespace Tweets {
 
   @get
   @route("/{id}")
-  @summary("Get a specific tweet by ID")
+  @summary("Get a specific tweet by ID with its thread context")
   op getTweet(@path id: string):
-    | DataResponse<TweetWithReplyTo>
+    | DataResponse<TweetWithThread>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
@@ -2025,8 +2091,24 @@ namespace Onboarding {
 
   @get
   @route("/follow-suggestions")
-  op getFollowSuggestions(): DataResponse<{
-    suggestions: UserMetadata[];
+  @summary("Get follow suggestions for the authenticated user")
+  @doc("""    
+    **Suggestion Algorithm:**
+    - Prioritizes users with mutual followers (friends of friends)
+    - Secondary sorting by follower count (popularity)
+    - Excludes blocked or blockedby, muted, and already-followed users
+    
+    **Parameters:**
+    - `limit` (optional): Number of suggestions to return (max 15, default 15)
+    
+    **Not Paginated:** This endpoint returns a fixed set of suggestions and does not support cursor-based pagination.
+    """)
+  op getFollowSuggestions(
+    @query
+    @doc("Maximum number of suggestions to return. Capped at 15. Defaults to 15 if not provided.")
+    limit?: int32,
+  ): DataResponse<{
+    suggestions: FollowSuggestionData[];
   }> | UnauthorizedResponse | InternalServerErrorResponse;
 }
 

@@ -1,6 +1,11 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TweetsRepository } from './tweets.repository';
-import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES, TWEET_SUMMARY_CACHE_TTL } from './constants';
+import {
+  MAX_TWEET_DEPTH,
+  TWEETS_ERROR_CODES,
+  TWEETS_ERROR_MESSAGES,
+  TWEET_SUMMARY_CACHE_TTL,
+} from './constants';
 import { CreateTweetDto } from './dtos/create-tweet.dto';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { CreateTweetData, PlainHashtag, PlainMention } from './interfaces';
@@ -22,14 +27,19 @@ import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { CompactAuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TweetFanoutJob } from './timeline/interfaces/TweetFanoutJob.interface';
+import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fanout-job.interface';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { COUNT_CACHE_TTL } from './timeline/constants';
+import { ThreadViewResponseDto } from './dtos/thread-view-response.dto';
+import { DeletedTweet } from './types';
 import { TrendingService } from 'src/trending/trending.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class TweetsService {
   private readonly logger = new Logger(TweetsService.name);
+  private readonly redisClient;
 
   constructor(
     private readonly tweetsRepository: TweetsRepository,
@@ -41,7 +51,9 @@ export class TweetsService {
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
     @InjectQueue('timeline-following') private readonly timelineFollowingQueue: Queue,
-  ) {}
+  ) {
+    this.redisClient = this.redisService.getClient();
+  }
 
   async createTweet(createTweetDto: CreateTweetDto, userId: bigint): Promise<TweetDto> {
     if (createTweetDto.replyToTweetId && createTweetDto.quoteToTweetId) {
@@ -53,8 +65,8 @@ export class TweetsService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const trimContent = createTweetDto.content?.trim() ?? '';
 
+    const trimContent = createTweetDto.content?.trim() ?? '';
     if (!trimContent && (!createTweetDto.media || createTweetDto.media.length === 0)) {
       throw new HttpException(
         {
@@ -100,6 +112,32 @@ export class TweetsService {
       mediaIds,
     );
 
+    const mediaObjectsPromise =
+      mediaIds.length > 0
+        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
+        : Promise.resolve([]);
+    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
+    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
+    const referencedTweetPromise = referencedTweetId
+      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
+      : Promise.resolve(undefined);
+    // I know this probably confilcts with "nested replies"
+
+    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
+      mediaObjectsPromise,
+      authorDtoPromise,
+      referencedTweetPromise,
+    ]);
+
+    // If this tweet is a reply, set the rootTweetId to the referenced tweet's rootTweetId (if it exists)
+    // otherwise set it to the referenced tweet's ID
+    let rootTweetId: bigint | null = null;
+    if (createTweetDto.replyToTweetId && referencedTweet) {
+      rootTweetId = referencedTweet.rootTweetId
+        ? BigInt(referencedTweet.rootTweetId)
+        : BigInt(createTweetDto.replyToTweetId);
+    }
+
     const { tweet, mentions, hashtags, tweetId, authorId } = await this.prisma.$transaction(
       async (tx) => {
         const { mentions, hashtags } = await this.contentParsingService.parseContentAndValidate(
@@ -116,6 +154,7 @@ export class TweetsService {
           quotedTweetId: createTweetDto.quoteToTweetId
             ? BigInt(createTweetDto.quoteToTweetId)
             : null,
+          rootTweetId,
           Mentions: mentions.map((mention) => ({
             userId: mention.userId,
             startPosition: mention.startPosition,
@@ -158,17 +197,6 @@ export class TweetsService {
       mentionedUserIds: mentions.map((m) => m.userId),
     });
 
-    const mediaObjectsPromise =
-      mediaIds.length > 0
-        ? this.mediaRepository.findOrderedMediaObjectsByIds(mediaIds)
-        : Promise.resolve([]);
-    const authorDtoPromise = this.usersRepository.findOwnTweetAuthorMetaData(userId);
-    const referencedTweetId = createTweetDto.quoteToTweetId ?? createTweetDto.replyToTweetId;
-    const referencedTweetPromise = referencedTweetId
-      ? this.tweetsRepository.getReferencedTweet(BigInt(referencedTweetId), userId)
-      : Promise.resolve(undefined);
-    // I know this probably confilcts with "nested replies"
-
     // dispatch fanout job
     if (!createTweetDto.replyToTweetId) {
       const fanoutJob: TweetFanoutJob = {
@@ -177,7 +205,7 @@ export class TweetsService {
         timestamp: Date.now(),
       };
 
-      await this.timelineFollowingQueue.add('fanout', fanoutJob, {
+      await this.timelineFollowingQueue.add('fanout-tweet', fanoutJob, {
         attempts: 3,
         backoff: {
           type: 'exponential',
@@ -190,11 +218,12 @@ export class TweetsService {
       );
     }
 
-    const [mediaObjects, authorDto, referencedTweet] = await Promise.all([
-      mediaObjectsPromise,
-      authorDtoPromise,
-      referencedTweetPromise,
-    ]);
+    if (createTweetDto.replyToTweetId) {
+      await this.redisService.safeIncr(
+        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
 
     return this.formatTweetDto(
       tweet,
@@ -208,7 +237,8 @@ export class TweetsService {
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
-    if (!(await this.tweetsRepository.checkExistingTweet(tweetId))) {
+    const { exists, replyToTweetId } = await this.tweetsRepository.checkExistingTweet(tweetId);
+    if (!exists) {
       throw new HttpException(
         {
           message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
@@ -230,6 +260,15 @@ export class TweetsService {
 
     await this.tweetsRepository.deleteTweet(tweetId);
     this.logger.log(`User ${userId} deleted tweet ${tweetId} successfully`);
+
+    await this.invalidateTweetCache(tweetId);
+
+    if (replyToTweetId) {
+      await this.redisService.safeDecr(
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(replyToTweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
     return { message: 'Tweet deleted successfully' };
   }
 
@@ -245,7 +284,6 @@ export class TweetsService {
     return {
       id: tweet.id.toString(),
       author: {
-        id: compactAuthorDto.id,
         username: compactAuthorDto.username,
         displayName: compactAuthorDto.displayName,
         avatarUrl: compactAuthorDto.avatarUrl,
@@ -270,9 +308,11 @@ export class TweetsService {
       media,
       replyToTweetId: createTweetDto.replyToTweetId ?? null,
       quoteToTweetId: createTweetDto.quoteToTweetId ?? null,
+      rootTweetId: createTweetDto.replyToTweetId
+        ? (referencedTweet?.rootTweetId ?? createTweetDto.replyToTweetId)
+        : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
-      isRepost: false,
     };
   }
 
@@ -375,7 +415,12 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.likeTweet(userId, tweetId);
-    this.logger.log(`User ${userId} liked tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} liked tweet ${tweetId} successfully`);
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     await this.domainEvents.emitTweetLiked({
       actorId: userId,
@@ -403,7 +448,12 @@ export class TweetsService {
 
     await this.tweetsRepository.unlikeTweet(userId, tweetId);
 
-    this.logger.log(`User ${userId} unliked tweet ${tweetId} successfully`);
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
+
+    this.logger.debug(`User ${userId} unliked tweet ${tweetId} successfully`);
     return { message: 'Tweet unliked successfully' };
   }
 
@@ -437,7 +487,28 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.retweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} retweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} retweeted tweet ${tweetId} successfully`);
+
+    //dispatch retweet fanout job
+    const fanoutJob: RetweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+      retweeterId: userId.toString(),
+    };
+
+    await this.timelineFollowingQueue.add('fanout-retweet', fanoutJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.redisService.safeIncr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     await this.domainEvents.emitTweetRetweeted({
       actorId: userId,
@@ -473,7 +544,28 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
-    this.logger.log(`User ${userId} unretweeted tweet ${tweetId} successfully`);
+    this.logger.debug(`User ${userId} unretweeted tweet ${tweetId} successfully`);
+
+    //dispatch retweet purge job
+    const purgeJob: RetweetFanoutJob = {
+      tweetId: tweetId.toString(),
+      authorId: tweet.userId.toString(),
+      timestamp: Date.now(),
+      retweeterId: userId.toString(),
+    };
+
+    await this.timelineFollowingQueue.add('purge-retweet', purgeJob, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.redisService.safeDecr(
+      REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
+      COUNT_CACHE_TTL,
+    );
 
     return { message: 'Tweet unretweeted successfully' };
   }
@@ -558,7 +650,6 @@ export class TweetsService {
 
         return {
           ...tweetData,
-          isRepost: item.type === 'repost',
           repostedBy:
             item.type === 'repost'
               ? {
@@ -574,7 +665,7 @@ export class TweetsService {
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<GetTweetResponseDto | null> {
+  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
@@ -586,7 +677,40 @@ export class TweetsService {
         HttpStatus.NOT_FOUND,
       );
     }
-    return tweet;
+
+    let rootTweet: TweetDto | DeletedTweet | null = null;
+    let parentTweets: (TweetDto | DeletedTweet)[] = [];
+    let hasMoreParents = false;
+
+    // If this is a reply, fetch the root tweet
+    if (tweet?.rootTweetId) {
+      rootTweet = await this.tweetsRepository.getTweetOrDeleted(
+        BigInt(tweet.rootTweetId),
+        currentUserId,
+      );
+    }
+
+    // Fetch parent tweets (intermediate tweets between root and this tweet)
+    if (tweet.replyToTweetId) {
+      parentTweets = await this.tweetsRepository.getParentTweets(
+        BigInt(tweet.replyToTweetId),
+        currentUserId,
+        tweet.rootTweetId ? BigInt(tweet.rootTweetId) : null,
+      );
+    }
+
+    if (parentTweets.length >= MAX_TWEET_DEPTH) {
+      // Remove the oldest tweet to maintain the depth limit
+      parentTweets = parentTweets.slice(1);
+      hasMoreParents = true;
+    }
+
+    return {
+      ...tweet,
+      rootTweet,
+      parentTweets,
+      hasMoreParents,
+    };
   }
 
   async getTweetQuotes(
@@ -908,6 +1032,15 @@ export class TweetsService {
     };
   }
 
+  async invalidateTweetCache(tweetId: bigint) {
+    const deletionPipeline = this.redisClient.pipeline();
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetStaticDataKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId));
+    deletionPipeline.del(REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId));
+    await deletionPipeline.exec();
+  }
+
   async getTweetSummary(
     tweetId: bigint,
     langcode?: string,
@@ -919,6 +1052,18 @@ export class TweetsService {
       langcode = 'en-US';
     } else if (!langcode) {
       langcode = 'en-US';
+
+  async getTweetSummary(tweetId: bigint) {
+    const tweet = await this.checkIfTweetExists(tweetId);
+
+    if (tweet.isDeleted) {
+      throw new HttpException(
+        {
+          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (!tweet.content || tweet.content.length === 0) {

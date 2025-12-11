@@ -13,6 +13,7 @@ export interface NewMessagePayload {
   };
   bodySnippet: string;
   createdAt: Date;
+  hasMedia: boolean;
 }
 
 export const SSE_EVENTS = {
@@ -74,6 +75,14 @@ export class SseEventsService {
         scope: notificationId ? 'SINGLE' : 'ALL',
         unSeenCount: unSeenCount ?? 0,
       },
+    });
+  }
+
+  async publishUnseenNotificationCount(userId: bigint, count: number): Promise<void> {
+    this.logger.log(`Publishing unseen notification count (${count}) to user ${userId}`);
+    await this.publisher.publishToUser(userId.toString(), {
+      event: 'notifications.count_update',
+      data: { count },
     });
   }
 }
