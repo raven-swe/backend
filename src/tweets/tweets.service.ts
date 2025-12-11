@@ -665,7 +665,7 @@ export class TweetsService {
     return { items, pagination };
   }
 
-  async getTweet(tweetId: bigint, currentUserId: bigint): Promise<ThreadViewResponseDto> {
+  async getTweet(tweetId: bigint, currentUserId: bigint | null): Promise<ThreadViewResponseDto> {
     const tweet = await this.tweetsRepository.getDetailedTweetById(tweetId, currentUserId);
 
     if (!tweet) {
@@ -676,6 +676,10 @@ export class TweetsService {
         },
         HttpStatus.NOT_FOUND,
       );
+    }
+
+    if (!currentUserId) {
+      return { ...tweet, rootTweet: null, parentTweets: [], hasMoreParents: false };
     }
 
     let rootTweet: TweetDto | DeletedTweet | null = null;
