@@ -310,9 +310,9 @@ export class TweetsRepository {
     await prismaClient.retweet.deleteMany({
       where: { tweetId },
     });
-      await prismaClient.notification.deleteMany({
-        where: { tweetId },
-      });
+    await prismaClient.notification.deleteMany({
+      where: { tweetId },
+    });
     await prismaClient.like.deleteMany({
       where: { tweetId },
     });
@@ -425,6 +425,10 @@ export class TweetsRepository {
           },
         });
 
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'LIKE' },
+        });
+
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -448,11 +452,6 @@ export class TweetsRepository {
           throw e;
         }
       });
-
-      await tx.notification.deleteMany({
-        where: { tweetId, actorId: userId, type: 'LIKE' },
-      });
-    });
   }
 
   async retweetTweet(userId: bigint, tweetId: bigint) {
@@ -502,6 +501,10 @@ export class TweetsRepository {
           },
         });
 
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'RETWEET' },
+        });
+
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -525,11 +528,6 @@ export class TweetsRepository {
           throw e;
         }
       });
-
-      await tx.notification.deleteMany({
-        where: { tweetId, actorId: userId, type: 'RETWEET' },
-      });
-    });
   }
 
   async hasUserLikedTweet(userId: bigint, tweetId: bigint): Promise<boolean> {
