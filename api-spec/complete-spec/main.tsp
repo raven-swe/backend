@@ -1911,8 +1911,13 @@ namespace Tweets {
   @get
   @route("/{id}/summary")
   @summary("Get AI-generated summary of a tweet")
-  @doc("Generates a concise summary of the tweet content using Gemini 2.0 Flash Lite")
-  op getTweetSummary(@path id: string):
+  @doc("Generates a concise summary of the tweet content using AI")
+  op getTweetSummary(
+    @path id: string,
+    @query
+    @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
+    locale?: "ar-EG" | "en-US",
+  ):
     | DataResponse<TweetSummaryResponse>
     | NotFoundResponse
     | UnauthorizedResponse

@@ -140,7 +140,7 @@ export class ContentParsingService {
       }
 
       const englishPrompt = `
-      Summarize the following tweet in a very simple and concise way.
+      Summarize the following tweet in english in a very simple and concise way.
       The summary MUST start with: "The tweet is talking about ..."
       Keep it shorter than the original tweet.
 
