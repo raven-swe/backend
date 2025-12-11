@@ -917,6 +917,8 @@ export class TweetsService {
     const AVAILABLE_LANGUAGES = ['en-US', 'ar-EG'];
     if (langcode && AVAILABLE_LANGUAGES.indexOf(langcode) === -1) {
       langcode = 'en-US';
+    } else if (!langcode) {
+      langcode = 'en-US';
     }
 
     if (!tweet.content || tweet.content.length === 0) {
