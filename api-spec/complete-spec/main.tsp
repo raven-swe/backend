@@ -397,14 +397,7 @@ model UserMetadataWithLastSeen {
 model TweetAuthor {
   ...UserMetadata;
 
-  @doc("True if the current user has blocked this author")
-  isBlocked: boolean;
-
-  @doc("True if the current user has muted this author")
-  isMuted: boolean;
-
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
+  relationship: UserRelationship;
 }
 
 model UserMetadataWithFollowInfo {
@@ -1370,6 +1363,17 @@ namespace Users {
   op getUserPreview(@path username: string):
     | DataResponse<UserPreview>
     | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get user metadata by id (used for retweeter caching in client)")
+  @get
+  @route("/id/{userId}")
+  op getUserMetadataById(@path userId: string):
+    | DataResponse<{
+        username: string;
+        displayName: string;
+      }>
     | NotFoundResponse
     | InternalServerErrorResponse;
 
