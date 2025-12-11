@@ -5,6 +5,7 @@ import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
 export class UsersController {
@@ -12,6 +13,12 @@ export class UsersController {
 
   @Post(':username/following')
   @UseGuards(JwtAuthGuard)
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60,
+    },
+  })
   async followUser(@Param('username') username: string, @User() user: RequestUser) {
     await this.usersService.followUser(BigInt(user.id), username);
     return { message: 'Followed user successfully' };
