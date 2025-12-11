@@ -46,6 +46,7 @@ export class TrendingService {
     }
 
     const results = await this.TrendingRepository.getTopWords(rawQuery, limit, isHashtagQuery);
-    return results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
+    const hashtags = results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
+    return hashtags;
   }
 }
