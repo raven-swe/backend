@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TrendingRepository } from './trending.repository';
 import { Prisma } from '@prisma/client';
 import { PlainHashtag } from 'src/tweets/interfaces';
+import { extractHashtag, isSingleHashtagQuery } from 'src/search/utils/search-query.util';
 
 @Injectable()
 export class TrendingService {
@@ -24,12 +25,23 @@ export class TrendingService {
     return await this.TrendingRepository.getHashtagId(hashtag);
   }
 
-  async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
+  async getTrendingWords(query: string, limit: number): Promise<string[]> {
     if (!query || query.trim() === '') {
       return [];
     }
 
-    const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
+    let isHashtagQuery = false;
+    // If the query is a hashtag, remove the leading '#'
+    if (isSingleHashtagQuery(query)) {
+      isHashtagQuery = true;
+      query = extractHashtag(query);
+    }
+
+    const hashtags = await this.TrendingRepository.getTopWordsByKeyword(
+      query,
+      limit,
+      isHashtagQuery,
+    );
     return hashtags;
   }
 }
