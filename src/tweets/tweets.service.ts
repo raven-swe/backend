@@ -1045,59 +1045,54 @@ export class TweetsService {
     tweetId: bigint,
     langcode?: string,
   ): Promise<{ id: string; summary: string }> {
-    const tweet = await this.checkIfTweetExists(tweetId);
 
-    const AVAILABLE_LANGUAGES = ['en-US', 'ar-EG'];
-    if (langcode && AVAILABLE_LANGUAGES.indexOf(langcode) === -1) {
-      langcode = 'en-US';
-    } else if (!langcode) {
-      langcode = 'en-US';
+      const tweet = await this.checkIfTweetExists(tweetId);
+      if (tweet.isDeleted) {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
+            code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
 
-  async getTweetSummary(tweetId: bigint) {
-    const tweet = await this.checkIfTweetExists(tweetId);
+      if (!tweet.content || tweet.content.length === 0) {
+        throw new HttpException(
+          {
+            message: TWEETS_ERROR_MESSAGES.EMPTY_TWEET_CONTENT,
+            code: TWEETS_ERROR_CODES.EMPTY_TWEET_CONTENT,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
-    if (tweet.isDeleted) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.TWEET_NOT_FOUND,
-          code: TWEETS_ERROR_CODES.TWEET_NOT_FOUND,
-        },
-        HttpStatus.NOT_FOUND,
+      // Check Redis cache first
+      const cacheKey = `tweet:summary:${tweetId.toString()}:${langcode}`;
+      const cachedSummary = await this.redisService.getex(cacheKey, TWEET_SUMMARY_CACHE_TTL);
+
+      if (cachedSummary) {
+        this.logger.log(`Returning cached summary for tweet ${tweetId} with lang ${langcode}`);
+        return {
+          id: tweet.id.toString(),
+          summary: cachedSummary,
+        };
+      }
+
+      // Generate new summary if not cached
+      const summary = await this.contentParsingService.generateTweetSummary(
+        tweet.content,
+        langcode,
       );
-    }
 
-    if (!tweet.content || tweet.content.length === 0) {
-      throw new HttpException(
-        {
-          message: TWEETS_ERROR_MESSAGES.EMPTY_TWEET_CONTENT,
-          code: TWEETS_ERROR_CODES.EMPTY_TWEET_CONTENT,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+      // Cache the summary with TTL
+      await this.redisService.set(cacheKey, summary, TWEET_SUMMARY_CACHE_TTL);
+      this.logger.log(`Cached summary for tweet ${tweetId} with TTL ${TWEET_SUMMARY_CACHE_TTL}s`);
 
-    // Check Redis cache first
-    const cacheKey = `tweet:summary:${tweetId.toString()}:${langcode}`;
-    const cachedSummary = await this.redisService.getex(cacheKey, TWEET_SUMMARY_CACHE_TTL);
-
-    if (cachedSummary) {
-      this.logger.log(`Returning cached summary for tweet ${tweetId} with lang ${langcode}`);
       return {
         id: tweet.id.toString(),
-        summary: cachedSummary,
+        summary,
       };
     }
-
-    // Generate new summary if not cached
-    const summary = await this.contentParsingService.generateTweetSummary(tweet.content, langcode);
-
-    // Cache the summary with TTL
-    await this.redisService.set(cacheKey, summary, TWEET_SUMMARY_CACHE_TTL);
-    this.logger.log(`Cached summary for tweet ${tweetId} with TTL ${TWEET_SUMMARY_CACHE_TTL}s`);
-
-    return {
-      id: tweet.id.toString(),
-      summary,
-    };
   }
 }

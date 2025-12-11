@@ -113,6 +113,13 @@ export class TweetsController {
     @Param('id', ParseBigIntPipe) tweetId: bigint,
     @Query('locale') langcode?: string,
   ) {
+    const AVAILABLE_LANGUAGES = ['en-US', 'ar-EG'];
+    if (langcode && AVAILABLE_LANGUAGES.indexOf(langcode) === -1) {
+      langcode = 'en-US';
+    } else if (!langcode) {
+      langcode = 'en-US';
+    }
+
     return await this.tweetsService.getTweetSummary(tweetId, langcode);
   }
 }
