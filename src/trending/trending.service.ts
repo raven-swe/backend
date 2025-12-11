@@ -26,7 +26,7 @@ export class TrendingService {
   }
 
   async getTrendingWords(query: string, limit: number): Promise<string[]> {
-    if (!query || query.trim() === '') {
+    if (!query || query.trim() === '' || !/[a-z0-9]/i.test(query)) {
       return [];
     }
 
@@ -45,11 +45,7 @@ export class TrendingService {
       rawQuery = extractHashtag(rawQuery);
     }
 
-    const results = await this.TrendingRepository.getTopWordsByKeyword(
-      rawQuery,
-      limit,
-      isHashtagQuery,
-    );
+    const results = await this.TrendingRepository.getTopWords(rawQuery, limit, isHashtagQuery);
     return results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
   }
 }

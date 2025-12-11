@@ -61,11 +61,14 @@ export class TrendingRepository {
     });
   }
 
-  async getTopWordsByKeyword(
+  async getTopWords(
     query: string,
     limit: number,
     isHashtagQuery: boolean = false,
   ): Promise<{ keyword: string; isHashtag: boolean }[]> {
+    // Escape sql wildcards % and _
+    query = query.replace(/[%_]/g, '\\$&');
+
     const results = await this.prisma.trendingKeyword.findMany({
       where: {
         keyword: {
