@@ -70,7 +70,13 @@ export class SearchService {
   ) {
     const { query, tab, peopleFilter, excludeMutedAndBlocked } = searchTweetsQueryDto;
 
-    const rawQuery = decodeURIComponent(query);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
+    }
 
     if (!rawQuery || rawQuery.trim() === '') {
       return {
