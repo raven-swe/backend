@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto, UserInteractionDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -31,6 +31,11 @@ export const tweetInclude = (currentUserId: bigint) =>
             avatarUrl: true,
           },
         },
+        blockedBy: { where: { userId: currentUserId } },
+        blockedUsers: { where: { blockedId: currentUserId } },
+        mutedBy: { where: { userId: currentUserId } },
+        followers: { where: { followerId: currentUserId } },
+        following: { where: { followedId: currentUserId } },
       },
     },
     _count: {
@@ -185,7 +190,10 @@ export class TweetsRepository {
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
+    context: {
+      isRepost?: boolean;
+      repostedBy?: { username: string; displayName: string; id: string };
+    } = {},
   ): TweetDto {
     let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {
@@ -204,6 +212,13 @@ export class TweetsRepository {
         username: tweet.user.username,
         displayName: tweet.user.profile?.displayName ?? '',
         avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        relationship: {
+          blocking: tweet.user.blockedBy.length > 0,
+          blockedBy: tweet.user.blockedUsers.length > 0,
+          muted: tweet.user.mutedBy.length > 0,
+          following: tweet.user.following.length > 0,
+          follower: tweet.user.followers.length > 0,
+        },
       },
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
@@ -1423,5 +1438,61 @@ export class TweetsRepository {
       type: row.type,
       retweeterId: row.retweeterId,
     }));
+  }
+
+  async getAuthorRelationships(
+    userId: bigint,
+    authorMap: Map<string, CompactAuthorWithId>,
+  ): Promise<Map<string, AuthorDto>> {
+    const authorIds = Array.from(authorMap.keys()).map((id) => BigInt(id));
+
+    const relationships = await this.prisma.$queryRaw<
+      Array<{
+        author_id: bigint;
+        is_following: boolean;
+        is_follower: boolean;
+        is_blocked: boolean;
+        is_blocking: boolean;
+        is_muted: boolean;
+      }>
+    >`
+    SELECT 
+      a.id AS author_id,
+      EXISTS (
+        SELECT 1 FROM follows f WHERE f.follower_id = ${userId} AND f.followed_id = a.id
+      ) AS is_following,
+      EXISTS (
+        SELECT 1 FROM follows f WHERE f.follower_id = a.id AND f.followed_id = ${userId}
+      ) AS is_follower,
+      EXISTS (
+        SELECT 1 FROM blocks b WHERE b.user_id = ${userId} AND b.blocked_id = a.id
+      ) AS is_blocking,
+      EXISTS (
+        SELECT 1 FROM blocks b WHERE b.user_id = a.id AND b.blocked_id = ${userId}
+      ) AS is_blocked,
+      EXISTS (
+        SELECT 1 FROM mutes m WHERE m.user_id = ${userId} AND m.muted_id = a.id
+      ) AS is_muted
+    FROM users a
+    WHERE a.id = ANY(${authorIds}::bigint[])
+  `; // because I think prisma will do it with joins
+
+    const authors: Map<string, AuthorDto> = new Map();
+    relationships.forEach((rel) => {
+      const author = authorMap.get(rel.author_id.toString());
+      if (author) {
+        authors.set(rel.author_id.toString(), {
+          ...author,
+          relationship: {
+            following: rel.is_following,
+            follower: rel.is_follower,
+            blockedBy: rel.is_blocked,
+            blocking: rel.is_blocking,
+            muted: rel.is_muted,
+          },
+        });
+      }
+    });
+    return authors;
   }
 }

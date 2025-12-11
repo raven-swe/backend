@@ -8,7 +8,7 @@ import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants';
-import { TweetDto, CompactAuthorWithId } from '../dtos';
+import { TweetDto, CompactAuthorWithId, AuthorDto } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
   COUNT_CACHE_TTL,
@@ -201,10 +201,13 @@ export class TimelineService {
           authors.set(authorId, author);
         }
 
+        const fullAuthorsMap = await this.tweetsRepository.getAuthorRelationships(userId, authors);
+
         const batchTweets = this.assembleTimelineTweets(
           uniqueFilteredTimelineObjects,
           tweets,
           authors,
+          fullAuthorsMap,
           {
             likeCounts,
             retweetCounts,
@@ -734,6 +737,7 @@ export class TimelineService {
     items: string[],
     tweets: Map<string, CachedStaticTweet>,
     authors: Map<string, CompactAuthorWithId>,
+    fullAuthors: Map<string, AuthorDto>,
     dynamicData: DynamicDataFromCache,
   ): TweetDto[] {
     const timelineTweets = new Array<TweetDto>();
@@ -741,11 +745,11 @@ export class TimelineService {
     for (const item of items) {
       const [authorIdStr, tweetIdStr, actionType] = item.split(':');
       const tweet = tweets.get(tweetIdStr);
-      const author = authors.get(authorIdStr);
+      const fullAuthor = fullAuthors.get(authorIdStr);
       const retweeterId = actionType === 'R' ? item.split(':')[3] : null;
       const retweeter = retweeterId ? authors.get(retweeterId) : undefined;
 
-      if (!tweet || !author) {
+      if (!tweet || !fullAuthor) {
         continue; // never happens
       }
 
@@ -760,12 +764,10 @@ export class TimelineService {
 
       /* eslint-disable @typescript-eslint/no-unused-vars */
       const { authorId, ...tweetWithoutAuthorId } = tweet; // remove authorId from tweet
-      const { id, ...authorWithoutId } = author; // remove id from author dto
-      /* eslint-enable @typescript-eslint/no-unused-vars */
 
       const tweetDto: TweetDto = {
         ...tweetWithoutAuthorId,
-        author: authorWithoutId,
+        author: fullAuthor,
         likeCount,
         retweetCount,
         replyCount,
@@ -773,6 +775,7 @@ export class TimelineService {
         isRetweeted,
         repostedBy: retweeter
           ? {
+              id: retweeter.id,
               username: retweeter.username,
               displayName: retweeter.displayName,
             }
@@ -787,9 +790,8 @@ export class TimelineService {
       if (tweet.quoteToTweetId) {
         const quotedTweet = tweets.get(tweet.quoteToTweetId);
         if (quotedTweet) {
-          const quotedAuthor = authors.get(quotedTweet.authorId);
+          const quotedAuthor = fullAuthors.get(quotedTweet.authorId);
           if (quotedAuthor) {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { authorId, ...quotedTweetWithoutAuthorId } = quotedTweet;
             tweet.quotedTweet = {
               ...quotedTweetWithoutAuthorId,

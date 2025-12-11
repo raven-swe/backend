@@ -1,5 +1,5 @@
 import { AuthorDto } from './author.dto';
 
-export type CompactAuthorDto = Omit<AuthorDto, 'isBlocked' | 'isFollowing' | 'isMuted'>;
+type CompactAuthorDtoCached = Omit<AuthorDto, 'relationship'>;
 
-export type CompactAuthorWithId = CompactAuthorDto & { id: string };
+export type CompactAuthorWithId = CompactAuthorDtoCached & { id: string };

@@ -21,7 +21,7 @@ import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RankedUser } from './interfaces/ranked-user.interface';
-import { CompactAuthorDto } from 'src/tweets/dtos';
+import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { UserSearchCursor } from 'src/common/types/cursors';
@@ -1305,7 +1305,7 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -1328,6 +1328,14 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        // self relationship
+        blocking: false,
+        blockedBy: false,
+        following: false,
+        follower: false,
+        muted: false,
+      },
     };
   }
 
