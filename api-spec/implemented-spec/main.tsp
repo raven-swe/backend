@@ -693,7 +693,7 @@ model UploadImageRequest {
 }
 
 model UploadVideoRequest {
-  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  @doc("Video file to upload (mp4, mov). Max size: 10MB")
   file: HttpPart<bytes>;
 
   @doc("Alt text for accessibility (optional)")
