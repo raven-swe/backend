@@ -109,7 +109,10 @@ export class TweetsController {
 
   @Get(':id/summary')
   @UseGuards(JwtAuthGuard)
-  async getTweetSummary(@Param('id', ParseBigIntPipe) tweetId: bigint) {
-    return await this.tweetsService.getTweetSummary(tweetId);
+  async getTweetSummary(
+    @Param('id', ParseBigIntPipe) tweetId: bigint,
+    @Query('locale') langcode?: string,
+  ) {
+    return await this.tweetsService.getTweetSummary(tweetId, langcode);
   }
 }

@@ -1320,14 +1320,12 @@ async function main() {
   });
 }
 
-if (process.env.SEED_ENV === 'true') {
-  main()
-    .then(async () => {
-      await prisma.$disconnect();
-    })
-    .catch(async (e) => {
-      console.error('Seeding failed:', e);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
-}
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error('Seeding failed:', e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
