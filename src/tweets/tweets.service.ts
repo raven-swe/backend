@@ -1075,9 +1075,11 @@ export class TweetsService {
     await deletionPipeline.exec();
   }
 
-  async getTweetSummary(tweetId: bigint) {
+  async getTweetSummary(
+    tweetId: bigint,
+    langcode: string,
+  ): Promise<{ id: string; summary: string }> {
     const tweet = await this.checkIfTweetExists(tweetId);
-
     if (tweet.isDeleted) {
       throw new HttpException(
         {
@@ -1099,11 +1101,11 @@ export class TweetsService {
     }
 
     // Check Redis cache first
-    const cacheKey = `tweet:summary:${tweetId.toString()}`;
+    const cacheKey = `tweet:summary:${tweetId.toString()}:${langcode}`;
     const cachedSummary = await this.redisService.getex(cacheKey, TWEET_SUMMARY_CACHE_TTL);
 
     if (cachedSummary) {
-      this.logger.debug(`Returning cached summary for tweet ${tweetId}`);
+      this.logger.log(`Returning cached summary for tweet ${tweetId} with lang ${langcode}`);
       return {
         id: tweet.id.toString(),
         summary: cachedSummary,
@@ -1111,7 +1113,7 @@ export class TweetsService {
     }
 
     // Generate new summary if not cached
-    const summary = await this.contentParsingService.generateTweetSummary(tweet.content);
+    const summary = await this.contentParsingService.generateTweetSummary(tweet.content, langcode);
 
     // Cache the summary with TTL
     await this.redisService.set(cacheKey, summary, TWEET_SUMMARY_CACHE_TTL);
