@@ -1043,7 +1043,7 @@ export class TweetsService {
 
   async getTweetSummary(
     tweetId: bigint,
-    langcode?: string,
+    langcode: string,
   ): Promise<{ id: string; summary: string }> {
     const tweet = await this.checkIfTweetExists(tweetId);
     if (tweet.isDeleted) {
