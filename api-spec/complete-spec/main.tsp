@@ -2215,15 +2215,15 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant trending words for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
-  @route("/hashtags/top")
+  @route("/suggestions")
   op getTopHashtags(
     @doc("The search query")
     @query
     query: string,
   ):
-    | DataResponse<TopHashtags>
+    | DataResponse<string[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
