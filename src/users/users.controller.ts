@@ -107,4 +107,11 @@ export class UsersController {
   async disableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
     return await this.usersService.disableUserNotifications(BigInt(user.id), username);
   }
+
+  @Get('/id/:id')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async getUserById(@Param('id') id: string) {
+    return await this.usersService.getUserById(BigInt(id));
+  }
 }

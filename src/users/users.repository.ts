@@ -1698,4 +1698,22 @@ export class UsersRepository {
       },
     }));
   }
+
+  async findUsernameAndDisplayNameById(
+    userId: bigint,
+  ): Promise<{ username: string; displayName: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    return user ? { username: user.username, displayName: user.profile!.displayName } : null;
+  }
 }
