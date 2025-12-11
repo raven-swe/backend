@@ -281,14 +281,16 @@ export class TweetsRepository {
   async checkExistingTweet(tweetId: bigint): Promise<{
     exists: boolean;
     replyToTweetId: bigint | null;
+    quoteToTweetId: bigint | null;
   }> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
-      select: { id: true, replyToTweetId: true },
+      select: { id: true, replyToTweetId: true, quotedTweetId: true },
     });
     return {
       exists: !!tweet,
       replyToTweetId: tweet ? tweet.replyToTweetId : null,
+      quoteToTweetId: tweet ? tweet.quotedTweetId : null,
     };
   }
 

@@ -218,12 +218,23 @@ export class TweetsService {
       );
     }
 
+    // these never happen together (validated earlier)
     if (createTweetDto.replyToTweetId) {
       this.logger.debug(
         `Incrementing reply count cache for tweet ID: ${createTweetDto.replyToTweetId}`,
       );
       await this.redisService.safeIncr(
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(BigInt(createTweetDto.replyToTweetId)),
+        COUNT_CACHE_TTL,
+      );
+    }
+
+    if (createTweetDto.quoteToTweetId) {
+      this.logger.debug(
+        `Incrementing retweet count cache for tweet ID: ${createTweetDto.quoteToTweetId}`,
+      );
+      await this.redisService.safeIncr(
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(BigInt(createTweetDto.quoteToTweetId)),
         COUNT_CACHE_TTL,
       );
     }
@@ -240,7 +251,8 @@ export class TweetsService {
   }
 
   async deleteTweet(tweetId: bigint, userId: bigint) {
-    const { exists, replyToTweetId } = await this.tweetsRepository.checkExistingTweet(tweetId);
+    const { exists, replyToTweetId, quoteToTweetId } =
+      await this.tweetsRepository.checkExistingTweet(tweetId);
     if (!exists) {
       throw new HttpException(
         {
@@ -271,6 +283,7 @@ export class TweetsService {
 
     await this.invalidateTweetCache(tweetId);
 
+    // these never happen together (validated on creation)
     if (replyToTweetId) {
       this.logger.log(`Decrementing reply count cache for tweet ID: ${replyToTweetId}`);
       await this.redisService.safeDecr(
@@ -278,6 +291,15 @@ export class TweetsService {
         COUNT_CACHE_TTL,
       );
     }
+
+    if (quoteToTweetId) {
+      this.logger.log(`Decrementing retweet count cache for tweet ID: ${quoteToTweetId}`);
+      await this.redisService.safeDecr(
+        REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(quoteToTweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
+
     return { message: 'Tweet deleted successfully' };
   }
 
