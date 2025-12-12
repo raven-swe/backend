@@ -30,6 +30,9 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { RedisService } from 'src/redis/redis.service';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
@@ -40,10 +43,12 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    private readonly redisService: RedisService,
     @Inject(forwardRef(() => ContentParsingService))
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
     private emailQueue: Queue,
+    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
     private readonly domainEvents: DomainEventsService,
   ) {}
 
@@ -287,6 +292,10 @@ export class UsersService {
           .catch((err) => this.logger.warn('Failed to delete old avatar', err));
       }
 
+      // invalidates cache pessimistically
+      this.logger.debug(`Invalidating cache for user ID: ${user.id} after profile update`);
+      await this.invalidateUserCache(user.id);
+
       return {
         message: 'Profile updated successfully',
         ...profile,
@@ -347,6 +356,11 @@ export class UsersService {
 
   async updateUsernameById(userId: bigint, newUsername: string) {
     await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    this.logger.debug(
+      `Username updated for user ID: ${userId} to ${newUsername}, invalidating cache`,
+    );
+    await this.invalidateUserCache(userId);
 
     return { message: 'Username updated successfully.' };
   }
@@ -426,6 +440,21 @@ export class UsersService {
     }
 
     await this.usersRepository.followUser(followerId, followedId);
+
+    //dispatch follow backfill job
+    const backfillJobData: BackfillFollowJob = {
+      followerId: followerId.toString(),
+      followedId: followedId.toString(),
+      followedAt: new Date(),
+    };
+
+    await this.timelineFollowingQueue.add('backfill-follow', backfillJobData, {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
 
     await this.domainEvents.emitUserFollowed({
       actorId: followerId,
@@ -930,7 +959,6 @@ export class UsersService {
     return { message: 'Session terminated successfully.' };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
     const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
@@ -943,7 +971,6 @@ export class UsersService {
     return { message: 'Banner uploaded successfully', bannerUrl };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
     const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
@@ -1108,5 +1135,9 @@ export class UsersService {
     return {
       message: 'Notifications disabled for user successfully',
     };
+  }
+
+  async invalidateUserCache(userId: bigint) {
+    await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
   }
 }

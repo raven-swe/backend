@@ -9,7 +9,7 @@ import { MediaType } from '@prisma/client';
 import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
-
+import { TenorResponse } from './interfaces';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -235,12 +235,7 @@ export class MediaService {
     return { ...items, message: 'Media uploaded successfully.' };
   }
 
-  async uploadGif(
-    currentUserId: bigint,
-    tenorId: string,
-    folder: MediaFolder,
-    altText?: string,
-  ): Promise<{ url: string; id: string }> {
+  async uploadGif(currentUserId: bigint, tenorId: string): Promise<{ url: string; id: string }> {
     const tenorApiKey = process.env.RAVEN_TENOR_KEY;
     if (!tenorApiKey) {
       this.logger.error('Tenor API key is not configured');
@@ -262,7 +257,8 @@ export class MediaService {
       throw new Error(`Tenor API request failed: ${tenorResponse.statusText}`);
     }
 
-    const tenorData = await tenorResponse.json() as TenorApiResponse;
+    const tenorData = (await tenorResponse.json()) as TenorResponse;
+    console.log({ tenorData });
 
     if ((tenorData && !tenorData.results) || tenorData.results.length === 0) {
       throw new HttpException(
@@ -284,12 +280,12 @@ export class MediaService {
 
     // Save metadata to database
     const mediaDto: MediaDto = {
-      userId,
+      userId: currentUserId,
       url: gifUrl,
       type: MediaType.GIF,
       width,
       height,
-      altText: altText || gifData.content_description,
+      altText: gifData.content_description,
       pending: true,
     };
 

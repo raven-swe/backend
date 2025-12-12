@@ -14,6 +14,7 @@ import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { NewUser } from 'src/users/interfaces';
+import { RedisService } from 'src/redis/redis.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
 
 jest.mock('src/auth/utils/password.util');
@@ -133,6 +134,11 @@ describe('UsersService', () => {
         { provide: getQueueToken('email'), useValue: mockEmailQueue },
         { provide: MediaService, useValue: mockMediaService },
         { provide: ContentParsingService, useValue: mockContentParsingService },
+        {
+          provide: RedisService,
+          useValue: { del: jest.fn(), safeIncr: jest.fn(), safeDecr: jest.fn() },
+        },
+        { provide: getQueueToken('timeline-following'), useValue: { add: jest.fn() } },
         { provide: DomainEventsService, useValue: mockDomainEventsService },
       ],
     }).compile();

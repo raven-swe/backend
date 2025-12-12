@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TrendingRepository } from './trending.repository';
 import { Prisma } from '@prisma/client';
 import { PlainHashtag } from 'src/tweets/interfaces';
+import { extractHashtag, isSingleHashtagQuery } from 'src/search/utils/search-query.util';
 
 @Injectable()
 export class TrendingService {
@@ -24,12 +25,28 @@ export class TrendingService {
     return await this.TrendingRepository.getHashtagId(hashtag);
   }
 
-  async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
-    if (!query || query.trim() === '') {
+  async getTrendingWords(query: string, limit: number): Promise<string[]> {
+    if (!query || query.trim() === '' || !/[a-z0-9]/i.test(query)) {
       return [];
     }
 
-    const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
+    }
+
+    let isHashtagQuery = false;
+    // If the query is a hashtag, remove the leading '#'
+    if (isSingleHashtagQuery(rawQuery)) {
+      isHashtagQuery = true;
+      rawQuery = extractHashtag(rawQuery);
+    }
+
+    const results = await this.TrendingRepository.getTopWords(rawQuery, limit, isHashtagQuery);
+    const hashtags = results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
     return hashtags;
   }
 }

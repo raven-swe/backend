@@ -1,7 +1,5 @@
 import { IsNotEmpty, IsString } from 'class-validator';
-import { UploadMedia } from './upload-media.dto';
-
-export class UploadGif extends UploadMedia {
+export class UploadGif {
   @IsString()
   @IsNotEmpty()
   tenorId: string;

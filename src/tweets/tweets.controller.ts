@@ -106,4 +106,20 @@ export class TweetsController {
     const userId = BigInt(user.id);
     return await this.tweetsService.getTweetReplies(tweetId, userId, parsedLimit, cursor);
   }
+
+  @Get(':id/summary')
+  @UseGuards(JwtAuthGuard)
+  async getTweetSummary(
+    @Param('id', ParseBigIntPipe) tweetId: bigint,
+    @Query('locale') langcode?: string,
+  ) {
+    const AVAILABLE_LANGUAGES = ['en-US', 'ar-EG'];
+    if (langcode && AVAILABLE_LANGUAGES.indexOf(langcode) === -1) {
+      langcode = 'en-US';
+    } else if (!langcode) {
+      langcode = 'en-US';
+    }
+
+    return await this.tweetsService.getTweetSummary(tweetId, langcode);
+  }
 }

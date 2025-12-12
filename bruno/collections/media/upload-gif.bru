@@ -1,0 +1,19 @@
+meta {
+  name: upload-gif
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:3000/media/upload/image?file
+  body: none
+  auth: inherit
+}
+
+params:query {
+  file: 
+}
+
+settings {
+  encodeUrl: true
+}

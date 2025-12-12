@@ -8,19 +8,16 @@ import {
   PAGINATION_ERROR_CODES,
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants';
-import { TweetDto, CompactAuthorDto } from '../dtos';
+import { TweetDto, CompactAuthorWithId } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
-  LIKE_COUNT_CACHE_TTL,
-  REPLIES_COUNT_CACHE_TTL,
-  RETWEET_COUNT_CACHE_TTL,
+  COUNT_CACHE_TTL,
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
 } from './constants';
-import { StaticDataFromCache } from './interfaces';
+import { DynamicDataFromCache, StaticDataFromCache } from './interfaces';
 import { CachedStaticTweet } from '../interfaces';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
-import { DynamicDataFromCache } from './interfaces/DynamicDataFromCache.interface';
 
 @Injectable()
 export class TimelineService {
@@ -58,8 +55,17 @@ export class TimelineService {
     if (timelineKeyExists) {
       timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
     } else {
-      await this.timelineCacheMiss(userId, decoded);
-      timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      // empty placeholder avoids the query on a cache miss, this gets removed on fanout of any new tweet/retweet
+      if (
+        await this.redisClient.exists(
+          REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(userId),
+        )
+      ) {
+        timeline = [];
+      } else {
+        await this.timelineCacheMiss(userId, decoded);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      }
     }
 
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
@@ -89,77 +95,143 @@ export class TimelineService {
 
   // TODO invalidating user dto on deactivate and update (another PR after this), and counter updates
 
+  //not the best, send authorids to be checked for unfollow/mute, and send the tweetids to check for deleted/deactivated accounts to fitler
+  // this while getting more keys to ensure a full page after filtering
+
+  // i will remove retweets on write because retweet removal is not read-time filterable
+  // this is inconsistency I know, but yeah, irl the fanout would be only for nonpower users, so purging would be a better appraoch for a cleaner cache
   async timelineCacheHit(
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
     limit: number = PAGINATION_DEFAULT_LIMIT,
   ): Promise<TweetDto[]> {
-    // check empty placeholder (to fail fast)
     const isEmpty = await this.redisClient.exists(`timeline:${userId}:empty`);
     if (isEmpty) {
-      await this.redisClient.expire(`timeline:${userId}:empty`, TIMELINE_EMPTY_PLACEHOLDER_TTL); // refresh placeholder ttl
+      await this.redisClient.expire(`timeline:${userId}:empty`, TIMELINE_EMPTY_PLACEHOLDER_TTL);
       this.logger.debug(`Timeline empty placeholder hit for user ID: ${userId}`);
       return [];
     }
 
-    const items = await this.getIdsFromTimelineSet(userId, decodedCursor, limit);
-    if (!items || items.length === 0) {
-      return [];
-    }
+    const validTweets: TweetDto[] = [];
+    let currentCursor = decodedCursor;
+    const batchSize = limit * 2;
+    const maxAttempts = 5;
+    let attempts = 0;
 
-    this.logger.debug(
-      `Hydrating static data for ${items.length} timeline items for user ID: ${userId}`,
-    );
-    const { tweets, authors, missingTweetIds, missingAuthorIds } =
-      await this.hydrateStaticData(items);
+    while (validTweets.length < limit && attempts < maxAttempts) {
+      attempts++;
 
-    this.logger.debug(
-      `Backfilling ${missingTweetIds.length} tweets and ${missingAuthorIds.size} authors from DB for user ID: ${userId}`,
-    );
-    const { tweets: backfilledTweets, authors: backfilledAuthors } =
-      await this.backFillStaticDataToCache(missingTweetIds, missingAuthorIds);
+      const timelineObjects = await this.getIdsFromTimelineSet(userId, currentCursor, batchSize);
+      if (!timelineObjects || timelineObjects.length === 0) {
+        break;
+      }
 
-    for (const tweet of backfilledTweets) {
-      tweets.set(tweet.id, tweet);
-    }
+      const { authorIds, tweetIds } = this.extractIdsFromTimelineItems(timelineObjects);
 
-    for (const author of backfilledAuthors) {
-      authors.set(author.id, author);
-    }
+      const [validAuthorIds, validTweetIds] = await Promise.all([
+        this.tweetsRepository.filterValidAuthors(userId, Array.from(authorIds)),
+        this.tweetsRepository.filterValidTweets(Array.from(tweetIds)),
+      ]);
 
-    this.logger.debug(`Hydrating dynamic data for timeline tweets for user ID: ${userId}`);
-    const { likeCounts, retweetCounts, replyCounts, userTweetInteractions } =
-      await this.getAndBackfillTweetDynamicData(tweets, userId);
+      validAuthorIds.unshift(userId);
 
-    // second pass to hydrate quote tweets ( only static tweet and author, no need for anything else)
-    this.logger.debug(`Hydrating quoted tweets for timeline tweets for user ID: ${userId}`);
-    const quoteTweetIdSet = new Set<string>(); // tweetId -> authorId
-    for (const tweet of tweets.values()) {
-      if (tweet.quoteToTweetId) {
-        quoteTweetIdSet.add(tweet.quoteToTweetId);
+      const validAuthorSet = new Set(validAuthorIds.map((id) => id.toString()));
+      const validTweetSet = new Set(validTweetIds.map((id) => id.toString()));
+
+      const filteredItems = timelineObjects.filter((item) => {
+        const [authorId, tweetId, actionType, retweeterId] = item.split(':');
+        const isTweetValid = validTweetSet.has(tweetId);
+        const isAuthorValid = validAuthorSet.has(authorId);
+        const isRetweeterValid =
+          actionType === 'R' && retweeterId ? validAuthorSet.has(retweeterId) : true;
+
+        return isTweetValid && isAuthorValid && isRetweeterValid;
+      });
+
+      const uniqueFilteredTimelineObjects = this.deduplicateTimelineItems(filteredItems);
+
+      this.logger.debug(
+        `Filtered ${timelineObjects.length - filteredItems.length} items (muted/unfollowed/deleted) for user ID: ${userId}, remaining: ${filteredItems.length}`,
+      );
+
+      if (uniqueFilteredTimelineObjects.length > 0) {
+        this.logger.debug(
+          `Hydrating static data for ${uniqueFilteredTimelineObjects.length} timeline items for user ID: ${userId}`,
+        );
+
+        const { tweets, authors, missingTweetIds, missingAuthorIds } = await this.hydrateStaticData(
+          uniqueFilteredTimelineObjects,
+        );
+
+        this.logger.debug(
+          `Backfilling ${missingTweetIds.length} tweets and ${missingAuthorIds.size} authors from DB for user ID: ${userId}`,
+        );
+
+        const { tweets: backfilledTweets, authors: backfilledAuthors } =
+          await this.backFillStaticDataToCache(missingTweetIds, missingAuthorIds);
+
+        for (const tweet of backfilledTweets) {
+          tweets.set(tweet.id, tweet);
+        }
+
+        for (const author of backfilledAuthors) {
+          authors.set(author.id, author);
+        }
+
+        this.logger.debug(`Hydrating dynamic data for timeline tweets for user ID: ${userId}`);
+        const { likeCounts, retweetCounts, replyCounts, userTweetInteractions } =
+          await this.getAndBackfillTweetDynamicData(tweets, userId);
+
+        this.logger.debug(`Hydrating quoted tweets for timeline tweets for user ID: ${userId}`);
+        const quoteTweetIdSet = new Set<string>();
+        for (const tweet of tweets.values()) {
+          if (tweet.quoteToTweetId) {
+            quoteTweetIdSet.add(tweet.quoteToTweetId);
+          }
+        }
+
+        const { tweets: quoteTweetsMap, authors: quoteAuthorsMap } =
+          await this.hydrateStaticQuoteData(Array.from(quoteTweetIdSet));
+
+        for (const [tweetId, tweet] of quoteTweetsMap.entries()) {
+          tweets.set(tweetId, tweet);
+        }
+
+        for (const [authorId, author] of quoteAuthorsMap.entries()) {
+          authors.set(authorId, author);
+        }
+
+        const batchTweets = this.assembleTimelineTweets(
+          uniqueFilteredTimelineObjects,
+          tweets,
+          authors,
+          {
+            likeCounts,
+            retweetCounts,
+            replyCounts,
+            userTweetInteractions,
+          },
+        );
+
+        validTweets.push(...batchTweets);
+      }
+
+      if (validTweets.length < limit && timelineObjects.length === batchSize) {
+        const lastItem = timelineObjects[timelineObjects.length - 1]; // sets cursor to last item FROM REDIS NOT THE FILTERED ONES
+        const lastTweetCreatedAt = await this.getTweetCreatedAt(userId, lastItem);
+        const [, lastTweetId] = lastItem.split(':');
+        currentCursor = lastTweetCreatedAt
+          ? {
+              createdAt: lastTweetCreatedAt,
+              id: lastTweetId,
+            }
+          : undefined;
+      } else {
+        break;
       }
     }
 
-    const { tweets: quoteTweetsMap, authors: quoteAuthorsMap } = await this.hydrateStaticQuoteData(
-      Array.from(quoteTweetIdSet),
-    );
-
-    // add to main maps
-    for (const [tweetId, tweet] of quoteTweetsMap.entries()) {
-      tweets.set(tweetId, tweet);
-    }
-
-    for (const [authorId, author] of quoteAuthorsMap.entries()) {
-      authors.set(authorId, author);
-    }
-
-    // final assembly
-    return this.assembleTimelineTweets(items, tweets, authors, {
-      likeCounts,
-      retweetCounts,
-      replyCounts,
-      userTweetInteractions,
-    });
+    return validTweets.slice(0, limit);
   }
 
   private async getIdsFromTimelineSet(
@@ -205,26 +277,48 @@ export class TimelineService {
     const tweetIds = new Array<bigint>();
     const authorIds = new Array<bigint>();
     const tweetsMap = new Map<string, CachedStaticTweet>();
-    const authorsMap = new Map<string, CompactAuthorDto>();
+    const authorsMap = new Map<string, CompactAuthorWithId>();
     const missingTweetIds = new Array<bigint>();
     const missingAuthorIds = new Set<bigint>();
+
+    // needed because some tweets can be retweets, so redis can return either [tweetErr, tweetData] and [authorErr, authorData] for tweets, an additional [retweeterErr, retweeterData] in case of retweet
+    const itemStructure = Array<{ tweetId: bigint; authorId: bigint; retweeterId?: bigint }>();
 
     const hydrationPipeline = this.redisClient.pipeline();
 
     for (const item of items) {
-      const [authorIdStr, tweetIdStr] = item.split(':');
-      tweetIds.push(BigInt(tweetIdStr));
+      const [authorId, tweetId, actionType, retweeterId] = item.split(':');
+
+      tweetIds.push(BigInt(tweetId));
       hydrationPipeline.getex(
-        REDIS_TIMELINE_KEYS.getTweetStaticDataKey(BigInt(tweetIdStr)),
+        REDIS_TIMELINE_KEYS.getTweetStaticDataKey(BigInt(tweetId)),
         'EX',
         TWEET_STATIC_DATA_CACHE_TTL,
       );
-      authorIds.push(BigInt(authorIdStr));
+
+      authorIds.push(BigInt(authorId));
       hydrationPipeline.getex(
-        REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(authorIdStr)),
+        REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(authorId)),
         'EX',
         AUTHOR_COMPACT_DATA_CACHE_TTL,
       );
+
+      const itemInfo: { tweetId: bigint; authorId: bigint; retweeterId?: bigint } = {
+        tweetId: BigInt(tweetId),
+        authorId: BigInt(authorId),
+      };
+      // retweeter is a normal author to the cache
+      if (actionType === 'R' && retweeterId) {
+        authorIds.push(BigInt(retweeterId));
+        hydrationPipeline.getex(
+          REDIS_TIMELINE_KEYS.getAuthorDataKey(BigInt(retweeterId)),
+          'EX',
+          AUTHOR_COMPACT_DATA_CACHE_TTL,
+        );
+        itemInfo.retweeterId = BigInt(retweeterId);
+      }
+
+      itemStructure.push(itemInfo);
     }
 
     const hydrationResults = await hydrationPipeline.exec();
@@ -240,27 +334,37 @@ export class TimelineService {
     }
 
     // hydration returns a [error, result] tuple for each command, so each pair of those is a tweet and author
-    for (let i = 0; i < hydrationResults.length; i += 2) {
-      const [[tweetErr, tweetData], [authorErr, authorData]] = [
-        hydrationResults[i],
-        hydrationResults[i + 1],
-      ];
-
-      const tweetId = tweetIds[i / 2];
-      const authorId = authorIds[i / 2];
-
+    let resultIndex = 0;
+    for (const itemInfo of itemStructure) {
+      // tweet is always present
+      const [tweetErr, tweetData] = hydrationResults[resultIndex++];
       if (tweetErr || tweetData === null) {
-        missingTweetIds.push(tweetId);
+        missingTweetIds.push(itemInfo.tweetId);
       } else if (typeof tweetData === 'string') {
         const tweet: CachedStaticTweet = JSON.parse(tweetData) as CachedStaticTweet;
-        tweetsMap.set(tweetId.toString(), tweet);
+        tweetsMap.set(itemInfo.tweetId.toString(), tweet);
       }
 
+      // author is always present
+      const [authorErr, authorData] = hydrationResults[resultIndex++];
       if (authorErr || authorData === null) {
-        missingAuthorIds.add(authorId);
+        missingAuthorIds.add(itemInfo.authorId);
       } else if (typeof authorData === 'string') {
-        const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
-        authorsMap.set(authorId.toString(), authorDto);
+        const authorDto: CompactAuthorWithId = JSON.parse(authorData) as CompactAuthorWithId;
+        authorsMap.set(itemInfo.authorId.toString(), authorDto);
+      }
+
+      // retweeter author if present
+      if (itemInfo.retweeterId) {
+        const [retweeterErr, retweeterData] = hydrationResults[resultIndex++];
+        if (retweeterErr || retweeterData === null) {
+          missingAuthorIds.add(itemInfo.retweeterId);
+        } else if (typeof retweeterData === 'string') {
+          const retweeterDto: CompactAuthorWithId = JSON.parse(
+            retweeterData,
+          ) as CompactAuthorWithId;
+          authorsMap.set(itemInfo.retweeterId.toString(), retweeterDto);
+        }
       }
     }
 
@@ -287,7 +391,7 @@ export class TimelineService {
     missingAuthorIds: Set<bigint>,
   ): Promise<{
     tweets: CachedStaticTweet[];
-    authors: CompactAuthorDto[];
+    authors: CompactAuthorWithId[];
   }> {
     if (missingTweetIds.length === 0 && missingAuthorIds.size === 0) {
       return {
@@ -354,17 +458,17 @@ export class TimelineService {
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
         'EX',
-        LIKE_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(tweetId),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
       dynamicDataPipeline.getex(
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
         'EX',
-        REPLIES_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
     }
 
@@ -467,7 +571,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetLikesCountKey(BigInt(tweetId)),
         counts.likeCounts.toString(),
         'EX',
-        LIKE_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
 
       retweetCountsMap.set(BigInt(tweetId), counts.retweetCounts);
@@ -475,7 +579,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetRetweetsCountKey(BigInt(tweetId)),
         counts.retweetCounts.toString(),
         'EX',
-        RETWEET_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
 
       replyCountsMap.set(BigInt(tweetId), counts.replyCounts);
@@ -483,7 +587,7 @@ export class TimelineService {
         REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(BigInt(tweetId)),
         counts.replyCounts.toString(),
         'EX',
-        REPLIES_COUNT_CACHE_TTL,
+        COUNT_CACHE_TTL,
       );
     }
 
@@ -496,10 +600,10 @@ export class TimelineService {
    */
   async hydrateStaticQuoteData(quoteTweetIds: string[]): Promise<{
     tweets: Map<string, CachedStaticTweet>;
-    authors: Map<string, CompactAuthorDto>;
+    authors: Map<string, CompactAuthorWithId>;
   }> {
     const tweetsMap = new Map<string, CachedStaticTweet>();
-    const authorMap = new Map<string, CompactAuthorDto>();
+    const authorMap = new Map<string, CompactAuthorWithId>();
     const authorIds = new Array<bigint>();
     const missingTweetIds = new Array<bigint>();
 
@@ -589,7 +693,7 @@ export class TimelineService {
       if (authorErr || authorData === null) {
         missingAuthorIds.add(authorId);
       } else if (typeof authorData === 'string') {
-        const authorDto: CompactAuthorDto = JSON.parse(authorData) as CompactAuthorDto;
+        const authorDto: CompactAuthorWithId = JSON.parse(authorData) as CompactAuthorWithId;
         authorMap.set(authorId.toString(), authorDto);
       }
     }
@@ -629,15 +733,17 @@ export class TimelineService {
   assembleTimelineTweets(
     items: string[],
     tweets: Map<string, CachedStaticTweet>,
-    authors: Map<string, CompactAuthorDto>,
+    authors: Map<string, CompactAuthorWithId>,
     dynamicData: DynamicDataFromCache,
   ): TweetDto[] {
     const timelineTweets = new Array<TweetDto>();
 
     for (const item of items) {
-      const [authorIdStr, tweetIdStr] = item.split(':');
+      const [authorIdStr, tweetIdStr, actionType] = item.split(':');
       const tweet = tweets.get(tweetIdStr);
       const author = authors.get(authorIdStr);
+      const retweeterId = actionType === 'R' ? item.split(':')[3] : null;
+      const retweeter = retweeterId ? authors.get(retweeterId) : undefined;
 
       if (!tweet || !author) {
         continue; // never happens
@@ -652,16 +758,25 @@ export class TimelineService {
       const isLiked = userInteractions?.isLiked ?? false;
       const isRetweeted = userInteractions?.isRetweeted ?? false;
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      /* eslint-disable @typescript-eslint/no-unused-vars */
       const { authorId, ...tweetWithoutAuthorId } = tweet; // remove authorId from tweet
+      const { id, ...authorWithoutId } = author; // remove id from author dto
+      /* eslint-enable @typescript-eslint/no-unused-vars */
+
       const tweetDto: TweetDto = {
         ...tweetWithoutAuthorId,
-        author,
+        author: authorWithoutId,
         likeCount,
         retweetCount,
         replyCount,
         isLiked,
         isRetweeted,
+        repostedBy: retweeter
+          ? {
+              username: retweeter.username,
+              displayName: retweeter.displayName,
+            }
+          : undefined,
       };
 
       timelineTweets.push(tweetDto);
@@ -686,6 +801,10 @@ export class TimelineService {
               isRetweeted: false,
             };
           }
+        } else {
+          tweet.quotedTweet = {
+            isDeleted: true,
+          };
         }
       }
     }
@@ -696,10 +815,13 @@ export class TimelineService {
     this.logger.debug(`Timeline cache miss for user ID: ${userId}, fetching from DB`);
 
     // Get the complete timeline from database
-    // TODO can be optimized to fetch only needed tweets and author ids IMPORTANT
-    const tweets = await this.tweetsRepository.getTimelineForUser(userId, decodedCursor, undefined);
+    const timelineInfo = await this.tweetsRepository.getTimelineForUser(
+      userId,
+      decodedCursor,
+      undefined, // to fill timeline cache
+    );
 
-    if (!tweets || tweets.length === 0) {
+    if (!timelineInfo || timelineInfo.length === 0) {
       // Set empty placeholder to avoid repeated DB hits
       await this.redisClient.setex(
         REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(userId),
@@ -711,33 +833,70 @@ export class TimelineService {
     }
 
     this.logger.debug(
-      `Fetched ${tweets.length} tweets from DB for user ID: ${userId}, populating cache`,
+      `Fetched ${timelineInfo.length} timeline items (tweets/retweets) from DB for user ID: ${userId}, populating cache`,
     );
 
     // Populate timeline cache with scored set (using createdAt as score)
     const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(userId);
     const timelinePipeline = this.redisClient.pipeline();
 
-    const tweetAuthors = new Set<bigint>();
-    const tweetIds = new Array<bigint>();
-
-    for (const tweet of tweets) {
-      const score = tweet.createdAt.getTime();
-      const member = `${tweet.author.id}:${tweet.id}`;
-      timelinePipeline.zadd(timelineKey, score, member);
-
-      tweetIds.push(BigInt(tweet.id));
-      tweetAuthors.add(BigInt(tweet.author.id));
-
-      // Handle quoted tweets
-      if (tweet.quotedTweet) {
-        tweetIds.push(BigInt(tweet.quotedTweet.id));
-        tweetAuthors.add(BigInt(tweet.quotedTweet.author.id));
-      }
+    for (const item of timelineInfo) {
+      const score = item.createdAt.getTime();
+      const timelineMember = item.retweeterId
+        ? REDIS_TIMELINE_KEYS.getTimelineRetweetItem(item.authorId, item.id, item.retweeterId)
+        : REDIS_TIMELINE_KEYS.getTimelineTweetItem(item.authorId, item.id);
+      timelinePipeline.zadd(timelineKey, score, timelineMember);
     }
 
     // Set timeline TTL
     timelinePipeline.expire(timelineKey, TIMELINE_EMPTY_PLACEHOLDER_TTL);
     await timelinePipeline.exec();
+  }
+
+  private deduplicateTimelineItems(items: string[]): string[] {
+    const seenTweetIds = new Set<string>();
+    const uniqueItems: string[] = [];
+
+    for (const item of items) {
+      const tweetId = item.split(':')[1];
+      if (!seenTweetIds.has(tweetId)) {
+        seenTweetIds.add(tweetId);
+        uniqueItems.push(item);
+      }
+    }
+
+    return uniqueItems;
+  }
+
+  private extractIdsFromTimelineItems(items: string[]): {
+    authorIds: Set<bigint>;
+    tweetIds: Set<bigint>;
+  } {
+    const authorIds = new Set<bigint>();
+    const tweetIds = new Set<bigint>();
+
+    for (const item of items) {
+      const [authorId, tweetId, actionType, retweeterId] = item.split(':');
+
+      authorIds.add(BigInt(authorId));
+      tweetIds.add(BigInt(tweetId));
+
+      if (actionType === 'R' && retweeterId) {
+        authorIds.add(BigInt(retweeterId));
+      }
+    }
+
+    return { authorIds, tweetIds };
+  }
+
+  private async getTweetCreatedAt(userId: bigint, timelineItem: string): Promise<Date | null> {
+    const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(userId);
+    const score = await this.redisClient.zscore(timelineKey, timelineItem);
+
+    if (score === null) {
+      return null;
+    }
+
+    return new Date(Number(score));
   }
 }

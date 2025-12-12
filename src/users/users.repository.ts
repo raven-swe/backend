@@ -20,11 +20,11 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
-import { UserSearchCursor } from 'src/common/types/cursors';
 import { RankedUser } from './interfaces/ranked-user.interface';
 import { CompactAuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { UserSearchCursor } from 'src/common/types/cursors';
 
 @Injectable()
 export class UsersRepository {
@@ -453,35 +453,63 @@ export class UsersRepository {
   }
 
   async followUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.create({
-        data: { followerId, followedId },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { increment: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { increment: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.create({
+          data: { followerId, followedId },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { increment: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { increment: 1 } },
+        }),
+      ])
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.delete({
-        where: { followerId_followedId: { followerId, followedId } },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { decrement: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { decrement: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.delete({
+          where: { followerId_followedId: { followerId, followedId } },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { decrement: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { decrement: 1 } },
+        }),
+      ])
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
   async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
     const follows = await this.prisma.follow.findMany({
@@ -1325,7 +1353,6 @@ export class UsersRepository {
     }
 
     return {
-      id: user.id.toString(),
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
@@ -1347,6 +1374,7 @@ export class UsersRepository {
         peopleFilter,
         decodedCursor,
       );
+
     const rankingScoreSql = this.buildUsersRankingScore();
 
     const sqlQuery = Prisma.sql`
@@ -1384,6 +1412,7 @@ export class UsersRepository {
     JOIN profiles p ON matched_user.user_id = p.user_id
     LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
     LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
+    WHERE 1 = 1
       ${mutedAndBlockedCondition}
       ${peopleFilterCondition}
     ),
@@ -1548,7 +1577,7 @@ export class UsersRepository {
       .then((followers) => followers.map((follow) => follow.followerId));
   }
 
-  async getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
+  getMutingUsersUnPaginated(mutedId: bigint): Promise<bigint[]> {
     return this.prisma.mute
       .findMany({
         where: { mutedId },
@@ -1599,5 +1628,94 @@ export class UsersRepository {
         },
       },
     });
+  }
+
+  async getOnboardingFollowSuggestions(userId: bigint, limit: number) {
+    const sqlQuery = Prisma.sql`
+    WITH suggestions AS (
+      SELECT 
+        u.id,
+        u.username,
+        u.followers_count,
+        p.display_name,
+        p.avatar_url,
+        p.bio,
+        p.bio_entities,
+        COALESCE(
+          (SELECT COUNT(*) 
+           FROM follows f1
+           WHERE f1.followed_id = u.id
+           AND f1.follower_id IN (
+             SELECT followed_id 
+             FROM follows f2 
+             WHERE f2.follower_id = ${userId}
+           )
+          ), 0
+        ) as mutual_count,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = ${userId} AND b.blocked_id = u.id
+        ) AS is_blocking,
+        EXISTS (
+          SELECT 1 FROM blocks b 
+          WHERE b.user_id = u.id AND b.blocked_id = ${userId}
+        ) AS is_blocked_by,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+        ) AS is_following,
+        EXISTS (
+          SELECT 1 FROM follows f 
+          WHERE f.follower_id = u.id AND f.followed_id = ${userId}
+        ) AS is_follower,
+        EXISTS (
+          SELECT 1 FROM mutes m 
+          WHERE m.user_id = ${userId} AND m.muted_id = u.id
+        ) AS is_muted
+      FROM users u
+      JOIN profiles p ON u.id = p.user_id
+      WHERE u.id != ${userId}
+      AND NOT EXISTS (
+        SELECT 1 FROM mutes m 
+        WHERE m.user_id = ${userId} AND m.muted_id = u.id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM blocks b 
+        WHERE (b.user_id = ${userId} AND b.blocked_id = u.id)
+        OR (b.user_id = u.id AND b.blocked_id = ${userId})
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM follows f 
+        WHERE f.follower_id = ${userId} AND f.followed_id = u.id
+      )
+      ORDER BY mutual_count DESC, u.followers_count DESC
+      LIMIT ${limit}
+    )
+    SELECT id, username, display_name, avatar_url, bio, bio_entities,  is_follower 
+    FROM suggestions;
+`;
+    const results = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+        bio: string | null;
+        bio_entities: Prisma.JsonValue | null;
+        is_follower: boolean | number;
+      }[]
+    >(sqlQuery);
+
+    return results.map((row) => ({
+      id: row.id.toString(),
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      bio: row.bio,
+      bioEntities: row.bio_entities,
+      relationship: {
+        isFollower: Boolean(row.is_follower),
+      },
+    }));
   }
 }

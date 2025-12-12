@@ -17,8 +17,6 @@ async function main() {
   await prisma.tweetMention.deleteMany();
   await prisma.tweetMedia.deleteMany();
 
-  await prisma.tweet.deleteMany();
-
   await prisma.follow.deleteMany();
   await prisma.mute.deleteMany();
   await prisma.block.deleteMany();
@@ -27,13 +25,22 @@ async function main() {
   await prisma.userDevice.deleteMany();
 
   await prisma.userExternalAccount.deleteMany();
-  await prisma.conversationParticipant.deleteMany();
+
   await prisma.message.deleteMany();
+  await prisma.conversationParticipant.deleteMany();
+
+  // await prisma.conversation.updateMany({
+  //   data: { lastMessageId: null },
+  // });
   await prisma.conversation.deleteMany();
+  // await prisma.conversationParticipant.deleteMany();
+
   await prisma.notification.deleteMany();
   await prisma.media.deleteMany();
 
   await prisma.profile.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.tweet.deleteMany();
   await prisma.user.deleteMany();
 
   // 2. Create the single user we will use for profiling
@@ -49,6 +56,36 @@ async function main() {
     },
   });
 
+  const omar = await prisma.user.create({
+    data: {
+      username: 'omar',
+      email: 'whatever@test.com',
+      passwordHash,
+      birthdate: new Date('1990-01-01'),
+      profile: { create: { displayName: 'omardisplay' } },
+    },
+  });
+
+  const loay = await prisma.user.create({
+    data: {
+      username: 'loay',
+      email: 'whateverr@test.com',
+      passwordHash,
+      birthdate: new Date('1990-01-01'),
+      profile: { create: { displayName: 'loaydisplay' } },
+    },
+  });
+
+  const tasneem = await prisma.user.create({
+    data: {
+      username: 'tasneem',
+      email: 'whateverrr@test.com',
+      passwordHash,
+      birthdate: new Date('1990-01-01'),
+      profile: { create: { displayName: 'tasneemdisplay' } },
+    },
+  });
+
   // 3. Generate a large number of "author" users
   const authorsToCreate = [];
   for (let i = 0; i < NUM_AUTHORS; i++) {
@@ -61,7 +98,9 @@ async function main() {
   }
   await prisma.user.createMany({ data: authorsToCreate, skipDuplicates: true });
 
-  const allAuthors = await prisma.user.findMany({ where: { id: { not: testUser.id } } });
+  const allAuthors = await prisma.user.findMany({
+    where: { id: { notIn: [testUser.id, omar.id, loay.id, tasneem.id] } },
+  });
 
   // Create profiles for all authors
   await prisma.profile.createMany({

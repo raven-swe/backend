@@ -48,6 +48,6 @@ export class MediaController {
   @Post('upload/gif')
   @UseGuards(JwtAuthGuard)
   async uploadGif(@User() user: RequestUser, @Body() body: UploadGif) {
-    return this.mediaService.uploadGif(BigInt(user.id), body.tenorId, body.folder, body.altText);
+    return this.mediaService.uploadGif(BigInt(user.id), body.tenorId);
   }
 }
