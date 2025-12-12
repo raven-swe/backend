@@ -140,6 +140,12 @@ model UnauthorizedResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("standard 410 Gone response")
+model GoneResponse {
+  ...Response<410>;
+  ...Body<ApiErrorResponse>;
+}
+
 @doc("Standard 403 Forbidden response")
 model ForbiddenResponse {
   ...Response<403>;
@@ -1885,7 +1891,7 @@ namespace Timeline {
   @summary("Get the personalized 'For You' feed for the authenticated user")
   op getForYouFeed(
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse | GoneResponse;
 
   @get
   @route("/following")

@@ -607,6 +607,17 @@ export class UsersRepository {
   }
 
   /**
+   * Get all user IDs that a given user follows
+   */
+  async getFollowingIds(userId: bigint): Promise<bigint[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+    return follows.map((f) => f.followedId);
+  }
+
+  /**
    * Blocks a user and removes any existing follow relationships between the users.
    */
   async blockUser(userId: bigint, blockedId: bigint) {
