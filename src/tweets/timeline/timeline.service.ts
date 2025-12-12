@@ -3,6 +3,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { TweetsRepository } from '../tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { FeedCursor } from 'src/common/interfaces';
+import { FeedCursor, TimelineCursor } from 'src/common/interfaces';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import {
   PAGINATION_DEFAULT_LIMIT,
@@ -17,6 +18,7 @@ import {
   FOR_YOU_FEED_SCROLL_TTL,
   FOR_YOU_FEED_SIZE,
   FOR_YOU_SEEN_CACHE_TTL,
+  SEEN_IDS_CURSOR_LIMIT,
   TIMELINE_EMPTY_PLACEHOLDER_TTL,
   TWEET_STATIC_DATA_CACHE_TTL,
 } from './constants';
@@ -39,10 +41,14 @@ export class TimelineService {
 
   async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
     this.logger.debug(`Fetching following timeline for user ID: ${userId}`);
-    let decoded: FeedCursor | undefined;
+    let decoded: TimelineCursor | undefined;
+    let seenSetCrossRequest = new Set<string>(); // this is to deduplicate ids across different requests, so that a repost and the original tweet are NOT in the same timeline
     if (cursor) {
       try {
-        decoded = decodeCompositeCursor<FeedCursor>(cursor);
+        decoded = decodeCompositeCursor<TimelineCursor>(cursor);
+        if (decoded?.seenIds && decoded.seenIds.length > 0) {
+          seenSetCrossRequest = new Set<string>(decoded.seenIds);
+        }
       } catch {
         throw new HttpException(
           {
@@ -74,10 +80,21 @@ export class TimelineService {
       }
     }
 
+    let seenIdsNextCursor = [
+      Array.from(seenSetCrossRequest),
+      ...timeline.slice(0, limit).map((t) => t.id.toString()),
+    ].flat();
+
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
       createdAt: tweet.createdAt,
       id: tweet.id.toString(),
+      seenIds: seenIdsNextCursor,
     }));
+
+    if (seenIdsNextCursor.length > SEEN_IDS_CURSOR_LIMIT) {
+      seenIdsNextCursor = seenIdsNextCursor.slice(seenIdsNextCursor.length - SEEN_IDS_CURSOR_LIMIT);
+    }
+
     return {
       items: timeline,
       pagination,
@@ -850,13 +867,13 @@ export class TimelineService {
   }
 
   private deduplicateTimelineItems(items: string[]): string[] {
-    const seenTweetIds = new Set<string>();
     const uniqueItems: string[] = [];
+    const seenIdsInBatch = new Set<string>();
 
     for (const item of items) {
       const tweetId = item.split(':')[1];
-      if (!seenTweetIds.has(tweetId)) {
-        seenTweetIds.add(tweetId);
+      if (!seenIdsInBatch.has(tweetId)) {
+        seenIdsInBatch.add(tweetId);
         uniqueItems.push(item);
       }
     }
