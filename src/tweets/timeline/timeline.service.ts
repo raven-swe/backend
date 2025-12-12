@@ -65,7 +65,7 @@ export class TimelineService {
       REDIS_TIMELINE_KEYS.getUserTimelineKey(userId),
     );
     if (timelineKeyExists) {
-      timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+      timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSetCrossRequest);
     } else {
       // empty placeholder avoids the query on a cache miss, this gets removed on fanout of any new tweet/retweet
       if (
@@ -76,7 +76,7 @@ export class TimelineService {
         timeline = [];
       } else {
         await this.timelineCacheMiss(userId, decoded);
-        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSetCrossRequest);
       }
     }
 
@@ -117,6 +117,7 @@ export class TimelineService {
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
     limit: number = PAGINATION_DEFAULT_LIMIT,
+    seenSetCrossRequest: Set<string>,
   ): Promise<TweetDto[]> {
     const isEmpty = await this.redisClient.exists(`timeline:${userId}:empty`);
     if (isEmpty) {
@@ -134,7 +135,12 @@ export class TimelineService {
     while (validTweets.length < limit && attempts < maxAttempts) {
       attempts++;
 
-      const timelineObjects = await this.getIdsFromTimelineSet(userId, currentCursor, batchSize);
+      const timelineObjects = await this.getIdsFromTimelineSet(
+        userId,
+        currentCursor,
+        batchSize,
+        seenSetCrossRequest,
+      );
       if (!timelineObjects || timelineObjects.length === 0) {
         break;
       }
@@ -251,18 +257,20 @@ export class TimelineService {
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
     limit: number,
+    seenSetCrossRequest: Set<string>,
   ): Promise<string[]> {
     // paginated ids
     const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(userId);
     const maxScore = decodedCursor ? new Date(decodedCursor.createdAt).getTime() : '+inf';
 
+    const bufferMultiplier = seenSetCrossRequest && seenSetCrossRequest.size > 0 ? 3 : 1;
     const items = await this.redisClient.zrevrangebyscore(
       timelineKey,
       maxScore,
       '-inf',
       'LIMIT',
       0,
-      limit,
+      limit * bufferMultiplier,
     );
 
     if (!items || items.length === 0) {
@@ -276,7 +284,14 @@ export class TimelineService {
       );
     }
 
-    return items;
+    let filteredItems = items;
+    if (seenSetCrossRequest && seenSetCrossRequest.size > 0) {
+      filteredItems = items.filter((item) => {
+        const tweetId = item.split(':')[1];
+        return !seenSetCrossRequest.has(tweetId);
+      });
+    }
+    return filteredItems;
   }
 
   /**
