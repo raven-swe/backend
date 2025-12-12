@@ -693,7 +693,7 @@ model UploadImageRequest {
 }
 
 model UploadVideoRequest {
-  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  @doc("Video file to upload (mp4, mov). Max size: 10MB")
   file: HttpPart<bytes>;
 
   @doc("Alt text for accessibility (optional)")
@@ -1990,7 +1990,12 @@ namespace Tweets {
   @route("/{id}/summary")
   @summary("Get AI-generated summary of a tweet")
   @doc("Generates a concise summary of the tweet content using Gemini 2.0 Flash Lite")
-  op getTweetSummary(@path id: string):
+  op getTweetSummary(
+    @path id: string,
+    @query
+    @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
+    locale?: "ar-EG" | "en-US",
+  ):
     | DataResponse<TweetSummaryResponse>
     | NotFoundResponse
     | UnauthorizedResponse
@@ -2153,15 +2158,15 @@ namespace Devices {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant trending words for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
-  @route("/hashtags/top")
+  @route("/suggestions")
   op getTopHashtags(
     @doc("The search query")
     @query
     query: string,
   ):
-    | DataResponse<TopHashtags>
+    | DataResponse<string[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

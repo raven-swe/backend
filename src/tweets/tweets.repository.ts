@@ -281,14 +281,16 @@ export class TweetsRepository {
   async checkExistingTweet(tweetId: bigint): Promise<{
     exists: boolean;
     replyToTweetId: bigint | null;
+    quoteToTweetId: bigint | null;
   }> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
-      select: { id: true, replyToTweetId: true },
+      select: { id: true, replyToTweetId: true, quotedTweetId: true },
     });
     return {
       exists: !!tweet,
       replyToTweetId: tweet ? tweet.replyToTweetId : null,
+      quoteToTweetId: tweet ? tweet.quotedTweetId : null,
     };
   }
 
@@ -300,24 +302,18 @@ export class TweetsRepository {
     return !!tweet;
   }
 
-  async deleteTweet(tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: { isDeleted: true },
-      });
+  async deleteTweet(tweetId: bigint, prismaClient: Prisma.TransactionClient) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true },
+    });
 
-      await tx.retweet.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
+    await prismaClient.retweet.deleteMany({
+      where: { tweetId },
+    });
 
-      await tx.like.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
+    await prismaClient.like.deleteMany({
+      where: { tweetId },
     });
   }
 

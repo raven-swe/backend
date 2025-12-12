@@ -10,7 +10,7 @@ export function prepareSearchQuery(query: string): string {
     .trim()
     .toLowerCase()
     .replace(/[#]/g, '')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ') // Remove special characters except letters, numbers, and spaces
+    .replace(/[^\p{L}\p{N}\s]/gu, '') // Remove special characters except letters, numbers, and spaces
     .trim();
 
   if (!cleaned) return '';
