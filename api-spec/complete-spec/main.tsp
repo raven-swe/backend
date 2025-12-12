@@ -399,6 +399,7 @@ model UserMetadataWithLastSeen {
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
+  relationship: UserRelationship;
 }
 
 model UserMetadataWithFollowInfo {
@@ -674,9 +675,6 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
-
-  @doc("Indicates if this tweet is a repost (retweet).")
-  isRepost: boolean;
 
   @doc("User who reposted this tweet.")
   repostedBy?: TweetReposter;
@@ -1975,6 +1973,7 @@ namespace Tweets {
   @doc("Generates a concise summary of the tweet content using AI")
   op getTweetSummary(
     @path id: string,
+
     @query
     @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
     locale?: "ar-EG" | "en-US",
@@ -2087,7 +2086,7 @@ namespace Onboarding {
   @get
   @route("/follow-suggestions")
   @summary("Get follow suggestions for the authenticated user")
-  @doc("""    
+  @doc("""
     **Suggestion Algorithm:**
     - Prioritizes users with mutual followers (friends of friends)
     - Secondary sorting by follower count (popularity)
@@ -2222,11 +2221,7 @@ namespace Search {
     @doc("The search query")
     @query
     query: string,
-  ):
-    | DataResponse<string[]>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  ): DataResponse<string[]> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @summary("Get suggested users from following/follower list, used in mentions")
   @get
