@@ -28,4 +28,4 @@ export class TweetDto {
   repostedBy?: Retweeter;
 }
 
-type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;
+export type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;

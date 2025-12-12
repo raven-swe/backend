@@ -2,20 +2,13 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
-import * as crypto from 'crypto';
 import {
   USER_SEARCH_RANKING_WEIGHTS,
   USERS_ERROR_CODES,
   USERS_ERROR_MESSAGES,
 } from 'src/users/constants';
 
-import {
-  BioEntitiesDto,
-  MutualUserDto,
-  UpdateProfileDto,
-  UserProfileResponseDto,
-  UserRelationshipDto,
-} from './dtos';
+import { BioEntitiesDto, MutualUserDto, UpdateProfileDto, UserProfileResponseDto } from './dtos';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
@@ -1383,29 +1376,8 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
-      relationship: {
-        following: false,
-        follower: false,
-        blocking: false,
-        blockedBy: false,
-        muted: false,
-      },
     };
   }
-
-  async findByUsernameWithDisplayname(username: string) {
-    return await this.prisma.user.findUnique({
-      where: { username },
-      include: {
-        profile: {
-          select: {
-            displayName: true,
-          },
-        },
-      },
-    });
-  }
-
 
   async searchUsers(
     currentUserId: bigint,

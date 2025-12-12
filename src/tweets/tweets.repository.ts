@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthorDto, TweetDto } from './dtos';
+import { AuthorDto, Retweeter, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -18,7 +18,6 @@ import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 import { TweetsBackfill } from './timeline/interfaces';
 import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
 export const authorSelect = (currentUserId: bigint) =>
   ({
@@ -212,7 +211,7 @@ export class TweetsRepository {
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
+    context: { isRepost?: boolean; repostedBy?: Retweeter } = {},
   ): TweetDto {
     let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {

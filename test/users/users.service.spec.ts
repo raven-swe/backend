@@ -1434,8 +1434,8 @@ describe('UsersService', () => {
       await expect(service.unfollowUser(followerId, usernameToUnfollow)).rejects.toThrow(
         new HttpException(
           {
-            message: USERS_ERROR_MESSAGES.NOT_FOLLOWING,
-            code: USERS_ERROR_CODES.NOT_FOLLOWING,
+            message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
+            code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
           },
           HttpStatus.NOT_FOUND,
         ),
