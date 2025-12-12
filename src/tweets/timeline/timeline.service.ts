@@ -35,12 +35,12 @@ export class TimelineService {
   async getTimeline(userId: bigint, cursor: string | undefined, limit: number) {
     this.logger.debug(`Fetching following timeline for user ID: ${userId}`);
     let decoded: TimelineCursor | undefined;
-    let seenSet = new Set<string>(); // this is to deduplicate ids across different requests, so that a repost and the original tweet are NOT in the same timeline
+    let seenSetCrossRequest = new Set<string>(); // this is to deduplicate ids across different requests, so that a repost and the original tweet are NOT in the same timeline
     if (cursor) {
       try {
         decoded = decodeCompositeCursor<TimelineCursor>(cursor);
         if (decoded?.seenIds && decoded.seenIds.length > 0) {
-          seenSet = new Set<string>(decoded.seenIds);
+          seenSetCrossRequest = new Set<string>(decoded.seenIds);
         }
       } catch {
         throw new HttpException(
@@ -58,7 +58,7 @@ export class TimelineService {
       REDIS_TIMELINE_KEYS.getUserTimelineKey(userId),
     );
     if (timelineKeyExists) {
-      timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSet);
+      timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
     } else {
       // empty placeholder avoids the query on a cache miss, this gets removed on fanout of any new tweet/retweet
       if (
@@ -69,19 +69,25 @@ export class TimelineService {
         timeline = [];
       } else {
         await this.timelineCacheMiss(userId, decoded);
-        timeline = await this.timelineCacheHit(userId, decoded, limit + 1, seenSet);
+        timeline = await this.timelineCacheHit(userId, decoded, limit + 1);
       }
     }
 
-    let seenIdsNextCursor = Array.from(seenSet);
-    if (seenIdsNextCursor.length > SEEN_IDS_CURSOR_LIMIT) {
-      seenIdsNextCursor = seenIdsNextCursor.slice(seenIdsNextCursor.length - SEEN_IDS_CURSOR_LIMIT);
-    }
+    let seenIdsNextCursor = [
+      Array.from(seenSetCrossRequest),
+      ...timeline.slice(0, limit).map((t) => t.id.toString()),
+    ].flat();
+
     const pagination = paginateComposite(timeline, limit, cursor, (tweet) => ({
       createdAt: tweet.createdAt,
       id: tweet.id.toString(),
       seenIds: seenIdsNextCursor,
     }));
+
+    if (seenIdsNextCursor.length > SEEN_IDS_CURSOR_LIMIT) {
+      seenIdsNextCursor = seenIdsNextCursor.slice(seenIdsNextCursor.length - SEEN_IDS_CURSOR_LIMIT);
+    }
+
     return {
       items: timeline,
       pagination,
@@ -100,21 +106,10 @@ export class TimelineService {
   // 8 - hydrate these from redis or backfill from db (only the static data is required, no counters or interactions)
   // 9 - assemble and return
 
-  // note: i will filter timeline tweets for people I follow, not muted and accounts are active(i need to reach db for this sadly)
-  // why? it's easier that way instead of cleaning the cache on every mute/block/deactivate, the rare case of blocking/muting/deactivating all active people you follow to the point that the timeline becomes short is not worth the extra work
-
-  // TODO invalidating user dto on deactivate and update (another PR after this), and counter updates
-
-  //not the best, send authorids to be checked for unfollow/mute, and send the tweetids to check for deleted/deactivated accounts to fitler
-  // this while getting more keys to ensure a full page after filtering
-
-  // i will remove retweets on write because retweet removal is not read-time filterable
-  // this is inconsistency I know, but yeah, irl the fanout would be only for nonpower users, so purging would be a better appraoch for a cleaner cache
   async timelineCacheHit(
     userId: bigint,
     decodedCursor: FeedCursor | undefined,
     limit: number = PAGINATION_DEFAULT_LIMIT,
-    seenSet: Set<string>,
   ): Promise<TweetDto[]> {
     const isEmpty = await this.redisClient.exists(`timeline:${userId}:empty`);
     if (isEmpty) {
@@ -159,7 +154,7 @@ export class TimelineService {
         return isTweetValid && isAuthorValid && isRetweeterValid;
       });
 
-      const uniqueFilteredTimelineObjects = this.deduplicateTimelineItems(filteredItems, seenSet);
+      const uniqueFilteredTimelineObjects = this.deduplicateTimelineItems(filteredItems);
 
       this.logger.debug(
         `Filtered ${timelineObjects.length - filteredItems.length} items (muted/unfollowed/deleted) for user ID: ${userId}, remaining: ${filteredItems.length}`,
@@ -864,13 +859,14 @@ export class TimelineService {
     await timelinePipeline.exec();
   }
 
-  private deduplicateTimelineItems(items: string[], seenIds: Set<string>): string[] {
+  private deduplicateTimelineItems(items: string[]): string[] {
     const uniqueItems: string[] = [];
+    const seenIdsInBatch = new Set<string>();
 
     for (const item of items) {
       const tweetId = item.split(':')[1];
-      if (!seenIds.has(tweetId)) {
-        seenIds.add(tweetId);
+      if (!seenIdsInBatch.has(tweetId)) {
+        seenIdsInBatch.add(tweetId);
         uniqueItems.push(item);
       }
     }
