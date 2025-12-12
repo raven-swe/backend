@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { TweetsRepository } from '../tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
-import { FeedCursor } from 'src/common/interfaces';
 import { FeedCursor, TimelineCursor } from 'src/common/interfaces';
 import { decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import {
@@ -14,7 +13,7 @@ import { TweetDto, CompactAuthorWithId } from '../dtos';
 import {
   AUTHOR_COMPACT_DATA_CACHE_TTL,
   COUNT_CACHE_TTL,
-  FOR_YOU_FEED_BASE_TTL,
+  FOR_YOU_FEED_FRESH_TTL,
   FOR_YOU_FEED_SCROLL_TTL,
   FOR_YOU_FEED_SIZE,
   FOR_YOU_SEEN_CACHE_TTL,
@@ -25,6 +24,7 @@ import {
 import { DynamicDataFromCache, StaticDataFromCache } from './interfaces';
 import { CachedStaticTweet } from '../interfaces';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { ForYouFeedCache } from './interfaces/for-you-feed-cache.interface';
 
 @Injectable()
 export class TimelineService {
@@ -917,15 +917,17 @@ export class TimelineService {
    * Get the For You feed for a user
    *
    * Behavior:
-   * - Both refresh and scroll: Skip already seen tweets, show next unseen batch
-   * - Feed exhausted (all seen): Regenerate to try to get new content
-   * - On refresh + no new content: Reset seen cache and show from top
-   * - On scroll + no new content: Return empty (end of feed)
+   * - Refreshing:
+   * - Refreshing from generation time up to 5 minutes shows unseen tweets in cache to prevent excess regeneration
+   * - a refresh after 5 minutes regenerates the new feed and resets seen cache
+   * - Scrolling:
+   * - scrolling uses the cached feed and a sets a sliding window ttl of 1 hour on scroll
+   * - Refreshing and exhausting the seen cache regenerates again, while scrolling to the end just returns empty (what about excessive refreshing then scrolling?)
    */
   async getForYouFeed(userId: bigint, cursor: string | undefined, limit: number) {
     this.logger.debug(`Fetching For You feed for user ID: ${userId}`);
 
-    let isRefresh = !cursor;
+    const isRefresh = !cursor;
 
     // 1. Decode cursor
     let decodedCursor: { score: number; id: string } | undefined;
@@ -947,21 +949,36 @@ export class TimelineService {
     const feedKey = REDIS_TIMELINE_KEYS.getForYouFeedKey(userId);
     let rankedFeed = await this.getCachedForYouFeed(feedKey);
 
-    if (!rankedFeed) {
-      if (cursor) {
-        // rare, but user stayed on page for >2 hours while scrolling, acceptable to refresh
-        this.logger.debug(
-          `For You feed cache expired for user ${userId} during scroll, regenerating`,
-        );
-        cursor = undefined;
-        isRefresh = true;
-      }
-      rankedFeed = await this.generateForYouFeed(userId);
+    // user left for more than FOR_YOU_FEED_SCROLL_TTL seconds, cache is gone
+    if (!rankedFeed && !isRefresh) {
+      this.logger.debug(
+        `For You feed cache expired for user ID: ${userId} while scrolling, returning 410`,
+      );
+      throw new HttpException(
+        {
+          message: 'For You feed expired, please refresh to get new content.',
+          code: 'FOR_YOU_FEED_EXPIRED',
+        },
+        HttpStatus.GONE,
+      );
+    }
+
+    const shouldGenerate =
+      !rankedFeed ||
+      (isRefresh && Date.now() - rankedFeed.generatedAt > FOR_YOU_FEED_FRESH_TTL * 1000);
+
+    if (shouldGenerate) {
+      this.logger.debug(`Generating new For You feed for user ID: ${userId}`);
+      const tweets = await this.generateForYouFeed(userId);
+      rankedFeed = {
+        tweets,
+        generatedAt: Date.now(),
+      };
+
       await this.cacheForYouFeed(feedKey, rankedFeed);
-    } else {
-      if (cursor) {
-        await this.redisClient.expire(feedKey, FOR_YOU_FEED_SCROLL_TTL); // refresh ttl on scroll
-      } // no ttl refresh on page refresh
+    } else if (!isRefresh) {
+      // scrolling resets ttl on cached feed
+      await this.redisClient.expire(feedKey, FOR_YOU_FEED_SCROLL_TTL);
     }
 
     // 3. Get seen tweets (only used for refresh)
@@ -970,12 +987,11 @@ export class TimelineService {
     const seenSet = new Set(seenTweetIds);
 
     // 4. Get feed items based on cursor
-    let feedAfterCursor = rankedFeed;
-    if (decodedCursor) {
+    let feedAfterCursor = rankedFeed!.tweets; // sure we have a ranked feed here
+    if (decodedCursor && rankedFeed) {
       feedAfterCursor = this.applyCursorToFeed(rankedFeed, decodedCursor);
     }
 
-    // 5. CRITICAL: Different logic for refresh vs scroll
     let tweetsToShow: Array<{ id: string; score: number }>;
 
     if (isRefresh) {
@@ -1014,7 +1030,7 @@ export class TimelineService {
 
     // 8. Return with pagination
     const pagination = paginateComposite(validTweets, limit, cursor, (tweet) => {
-      const tweetInFeed = rankedFeed.find((t) => t.id === tweet.id);
+      const tweetInFeed = rankedFeed?.tweets.find((t) => t.id === tweet.id);
       return {
         score: tweetInFeed ? tweetInFeed.score : 0,
         id: tweet.id,
@@ -1028,33 +1044,28 @@ export class TimelineService {
   }
 
   private applyCursorToFeed(
-    rankedFeed: Array<{ id: string; score: number }>,
+    rankedFeed: ForYouFeedCache,
     cursor?: { score: number; id: string },
-  ): Array<{ id: string; score: number }> {
-    if (!cursor) return rankedFeed;
+  ): { id: string; score: number }[] {
+    if (!cursor) return rankedFeed.tweets;
 
-    return rankedFeed.filter((t) => {
+    return rankedFeed.tweets.filter((t) => {
       if (t.score < cursor.score) return true;
       if (t.score === cursor.score && t.id <= cursor.id) return true;
       return false;
     });
   }
 
-  private async getCachedForYouFeed(
-    feedKey: string,
-  ): Promise<Array<{ id: string; score: number }> | null> {
+  private async getCachedForYouFeed(feedKey: string): Promise<ForYouFeedCache | null> {
     const cachedFeed = await this.redisClient.get(feedKey);
     if (!cachedFeed) {
       return null;
     }
-    return JSON.parse(cachedFeed) as Array<{ id: string; score: number }>;
+    return JSON.parse(cachedFeed) as ForYouFeedCache;
   }
 
-  private async cacheForYouFeed(
-    feedKey: string,
-    rankedFeed: Array<{ id: string; score: number }>,
-  ): Promise<void> {
-    await this.redisClient.set(feedKey, JSON.stringify(rankedFeed), 'EX', FOR_YOU_FEED_BASE_TTL);
+  private async cacheForYouFeed(feedKey: string, rankedFeed: ForYouFeedCache): Promise<void> {
+    await this.redisClient.set(feedKey, JSON.stringify(rankedFeed), 'EX', FOR_YOU_FEED_SCROLL_TTL);
   }
 
   /**
@@ -1236,7 +1247,7 @@ export class TimelineService {
     const candidateAuthorIds = new Set(candidates.map((c) => BigInt(c.authorId)));
 
     const [validAuthorIds, validTweetIds] = await Promise.all([
-      this.tweetsRepository.filterValidAuthors(userId, Array.from(candidateAuthorIds)),
+      this.tweetsRepository.filterNonMutedAuthors(userId, Array.from(candidateAuthorIds)),
       this.tweetsRepository.filterValidTweets(candidateTweetIds),
     ]);
 

@@ -1410,6 +1410,23 @@ export class TweetsRepository {
     return validFollows.map((f) => f.followedId);
   }
 
+  async filterNonMutedAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+    const validAuthors = await this.prisma.user.findMany({
+      where: {
+        id: { in: authorIds },
+        deletedAt: null,
+        mutedBy: {
+          none: {
+            userId: userId,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return validAuthors.map((f) => f.id);
+  }
+
   /**
    * Filters tweet IDs to return only those not deleted
    * @param tweetIds Array of tweet IDs to validate
