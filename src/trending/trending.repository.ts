@@ -25,10 +25,10 @@ export class TrendingRepository {
     const keywords = Array.from(new Set(hashtags.map((hashtag) => hashtag.keyword.toLowerCase())));
 
     const results = await prismaClient.$queryRaw<{ id: bigint; keyword: string }[]>`
-      INSERT INTO "trending_keywords" (keyword, "is_hashtag", count)
+      INSERT INTO "trending_keywords" (keyword, "is_hashtag", occurrence_count)
       VALUES ${Prisma.join(keywords.map((keyword) => Prisma.sql`(${keyword}, true, 1)`))}
       ON CONFLICT (keyword, "is_hashtag")
-      DO UPDATE SET count = "trending_keywords".count + 1
+      DO UPDATE SET occurrence_count = "trending_keywords".occurrence_count + 1
       RETURNING id, keyword
     `;
 
