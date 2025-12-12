@@ -9,3 +9,5 @@ export const AUTHOR_COMPACT_DATA_CACHE_TTL = 86400; // 1 days in seconds
 
 export const USER_FOLLOWINGS_CACHE_TTL = 432000 as const; // 5 days in seconds
 export const USER_MUTED_CACHE_TTL = 432000 as const; // 5 days in seconds
+
+export const SEEN_IDS_CURSOR_LIMIT = 100 as const;
