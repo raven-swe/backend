@@ -19,9 +19,19 @@ export class DevicesService {
     return this.devicesRepository.removeAllUserDevices(userId);
   }
 
-  async createDevice(device: Device, tx: Prisma.TransactionClient = this.prisma) {
-    const newDevice = await this.devicesRepository.createDevice(device, tx);
-    this.logger.log('Device created successfully for user ID: ' + device.userId);
+  async registerDevice(device: Device, tx: Prisma.TransactionClient = this.prisma) {
+    const newDevice = await this.devicesRepository.registerDevice(device, tx);
+    this.logger.log('Device registered successfully for user ID: ' + device.userId);
     return newDevice;
+  }
+
+  async unassignDeviceFromUser(fcmToken: string, tx: Prisma.TransactionClient = this.prisma) {
+    return this.devicesRepository.unassignDeviceFromUser(fcmToken, tx);
+  }
+
+  async togglePushNotifications(fcmToken: string, userId: bigint, enable: boolean) {
+    const updatedDevice = await this.devicesRepository.togglePushNotifications(fcmToken, enable);
+    this.logger.log(`Push notifications ${enable ? 'enabled' : 'disabled'} for user ID: ${userId}`);
+    return updatedDevice;
   }
 }

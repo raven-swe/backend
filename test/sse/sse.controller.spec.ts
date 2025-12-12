@@ -7,6 +7,7 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import type { Response } from 'express';
 import type { RequestUser } from 'src/common/interfaces';
 import { Subject } from 'rxjs';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 describe('SseController', () => {
   let controller: SseController;
@@ -27,6 +28,10 @@ describe('SseController', () => {
     countUnseenConversations: jest.fn().mockResolvedValue(0),
   };
 
+  const mockNotificationsRepository = {
+    getUnseenCount: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -45,6 +50,7 @@ describe('SseController', () => {
           provide: ConversationsRepository,
           useValue: mockConversationsRepository,
         },
+        { provide: NotificationsRepository, useValue: mockNotificationsRepository },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -110,7 +116,7 @@ describe('SseController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
+        message: 'Invalid topics. Allowed: dm, notifications',
         code: 'INVALID_TOPICS',
       });
       expect(mockSseService.subscribe).not.toHaveBeenCalled();
@@ -123,8 +129,8 @@ describe('SseController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
-        code: 'INVALID_TOPICS',
+        message: 'Missing topics parameter. Example: ?topics=dm,notifications',
+        code: 'MISSING_TOPICS',
       });
       expect(mockSseService.subscribe).not.toHaveBeenCalled();
     });
@@ -135,7 +141,7 @@ describe('SseController', () => {
 
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
-      expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
+      expect(mockSseService.subscribe).toHaveBeenCalledWith('123', ['dm']);
       expect(mockRes.status).toHaveBeenCalledWith(429);
       expect(mockRes.json).toHaveBeenCalledWith({
         message: 'Too many active connections. Close some tabs or devices.',
@@ -169,7 +175,7 @@ describe('SseController', () => {
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
       expect(mockRes.write).toHaveBeenCalledWith(
-        `event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`,
+        `event: connected\ndata: ${JSON.stringify({ ok: true, topics: ['dm'] })}\n\n`,
       );
 
       cleanupConnection(mockRes);
@@ -183,7 +189,7 @@ describe('SseController', () => {
 
       await controller.stream(mockUser, mockRes as Response, 'dm');
 
-      expect(mockSseService.subscribe).toHaveBeenCalledWith('123');
+      expect(mockSseService.subscribe).toHaveBeenCalledWith('123', ['dm']);
 
       cleanupConnection(mockRes);
       mockSubject.complete();

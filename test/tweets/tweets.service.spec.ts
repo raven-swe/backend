@@ -3,6 +3,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
+import { RedisService } from 'src/redis/redis.service';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from 'src/tweets/constants';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
@@ -10,10 +11,13 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { MediaRepository } from 'src/media/media.repository';
 import { CreateTweetDto } from 'src/tweets/dtos';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 import { MediaType } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
-const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
+import { TrendingService } from 'src/trending/trending.service';
+
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
   return Buffer.from(jsonString).toString('base64');
@@ -57,6 +61,8 @@ describe('TweetsService', () => {
     getMediaTweetsForUser: jest.fn(),
     validateReferences: jest.fn(),
     getTweetsByQuery: jest.fn(),
+    getParentTweets: jest.fn(),
+    getTweetOrDeleted: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -77,6 +83,22 @@ describe('TweetsService', () => {
 
   const mockPrismaService = {
     $transaction: jest.fn(),
+  };
+
+  const mockRedisService = {
+    get: jest.fn(),
+    getex: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+  const mockDomainEventsService = {
+    publish: jest.fn(),
+    emitTweetCreated: jest.fn(),
+    emitTweetLiked: jest.fn(),
+    emitTweetRetweeted: jest.fn(),
+  };
+  const mockTrendingService = {
+    getHashtagId: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -102,6 +124,33 @@ describe('TweetsService', () => {
         {
           provide: MediaRepository,
           useValue: mockMediaRepository,
+        },
+        {
+          provide: RedisService,
+          useValue: mockRedisService,
+        },
+        {
+          provide: TrendingService,
+          useValue: mockTrendingService,
+        },
+        {
+          provide: getQueueToken('timeline-following'),
+          useValue: {
+            add: jest.fn(),
+          },
+        },
+        {
+          provide: RedisService,
+          useValue: {
+            getClient: jest.fn(),
+            del: jest.fn(),
+            safeIncr: jest.fn(),
+            safeDecr: jest.fn(),
+          },
+        },
+        {
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     }).compile();
@@ -134,6 +183,7 @@ describe('TweetsService', () => {
       hasMentions: false,
       replyToTweetId: null,
       quotedTweetId: null,
+      rootTweetId: null,
       likeCount: 0,
       retweetCount: 0,
       replyCount: 0,
@@ -164,9 +214,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -201,9 +248,9 @@ describe('TweetsService', () => {
         replyToTweetId: null,
         quoteToTweetId: null,
         quotedTweet: undefined,
-        reqplyToTweet: undefined,
-        isRepost: false,
         repostedBy: undefined,
+        replyToTweet: undefined,
+        rootTweetId: null,
       });
 
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
@@ -217,6 +264,7 @@ describe('TweetsService', () => {
           content: 'Hello world!',
           replyToTweetId: null,
           quotedTweetId: null,
+          rootTweetId: null,
           Mentions: [
             {
               userId: BigInt(2),
@@ -253,9 +301,6 @@ describe('TweetsService', () => {
         username: 'testuser',
         displayName: 'Test User',
         avatarUrl: 'https://example.com/avatar.jpg',
-        isBlocked: false,
-        isFollowing: false,
-        isMuted: false,
       };
 
       mockContentParsingService.parseContentAndValidate.mockResolvedValue({
@@ -955,8 +1000,9 @@ describe('TweetsService', () => {
         mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue([]);
         mockTweetsRepository.hydrateTweetsInList.mockResolvedValue([]);
 
-        await service.getUserPosts(username, authUserId, limit, undefined);
+        const result = await service.getUserPosts(username, authUserId, limit, undefined);
 
+        expect(result).toBeDefined();
         expect(mockTweetsRepository.getFeedSkeletonSQL).toHaveBeenCalledWith(
           requestedUserId,
           limit + 1,
@@ -1050,36 +1096,6 @@ describe('TweetsService', () => {
         expect(result.pagination.hasNextPage).toBe(false);
       });
 
-      it('should set isRepost=true for repost type items', async () => {
-        const feedItems = [
-          { id: BigInt(1), type: 'repost', created_at: '2024-01-01T00:00:00Z' },
-          { id: BigInt(2), type: 'tweet', created_at: '2024-01-02T00:00:00Z' },
-        ];
-        const fullTweets = [
-          { id: BigInt(1), content: 'Tweet 1' },
-          { id: BigInt(2), content: 'Tweet 2' },
-        ];
-        const tweetDtos = [
-          { id: '1', content: 'Tweet 1' },
-          { id: '2', content: 'Tweet 2' },
-        ];
-
-        mockUsersRepository.findByUsernameWithDisplayname.mockResolvedValue({
-          id: requestedUserId,
-          username,
-        });
-        mockTweetsRepository.getFeedSkeletonSQL.mockResolvedValue(feedItems);
-        mockTweetsRepository.hydrateTweetsInList.mockResolvedValue(fullTweets);
-        mockTweetsRepository.mapToDetailedTweetDto
-          .mockReturnValueOnce(tweetDtos[0])
-          .mockReturnValueOnce(tweetDtos[1]);
-
-        const result = await service.getUserPosts(username, authUserId, limit, undefined);
-
-        expect(result.items[0]!.isRepost).toBe(true);
-        expect(result.items[1]!.isRepost).toBe(false);
-      });
-
       it('should filter out null items when tweet data is missing', async () => {
         const feedItems = [
           { id: BigInt(1), type: 'tweet', created_at: '2024-01-01T00:00:00Z' },
@@ -1144,29 +1160,6 @@ describe('TweetsService', () => {
       });
     });
   });
-  describe('getTimeline', () => {
-    const userId = BigInt(1);
-    const validCursor = encodeCursor(BigInt(50).toString());
-    const limit = 10;
-
-    it('should successfully fetch and paginate timeline', async () => {
-      const decodedCursorId = BigInt(50).toString();
-      const rawTweets = [{ id: BigInt(100) }, { id: BigInt(99) }];
-
-      mockTweetsRepository.getTimelineForUser.mockResolvedValue(rawTweets);
-
-      const result = await service.getTimeline(userId, validCursor, limit);
-
-      expect(mockTweetsRepository.getTimelineForUser).toHaveBeenCalledWith(
-        userId,
-        decodedCursorId,
-        limit + 1,
-      );
-      expect(result.items).toEqual(rawTweets);
-      expect(result.pagination.cursor).toBe(validCursor);
-      expect(result.pagination.hasNextPage).toBe(false);
-    });
-  });
 
   describe('getTweet', () => {
     const tweetId = BigInt(1);
@@ -1208,20 +1201,100 @@ describe('TweetsService', () => {
       ],
       replyToTweetId: '2',
       quoteToTweetId: null,
+      rootTweetId: null,
+      parentTweets: [],
+      rootTweet: null,
     };
 
     it('should return detailed tweet when found', async () => {
       // Arrange
       mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue([]);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(null);
 
       // Act
       const result = await service.getTweet(tweetId, currentUserId);
 
       // Assert
-      expect(result).toEqual(mockDetailedTweet);
+      expect(result).toEqual({
+        ...mockDetailedTweet,
+        rootTweet: null,
+        parentTweets: [],
+        hasMoreParents: false,
+      });
       expect(mockTweetsRepository.getDetailedTweetById).toHaveBeenCalledWith(
         tweetId,
         currentUserId,
+      );
+    });
+
+    it('should fetch root tweet and parent tweets for a reply', async () => {
+      // Arrange
+      const tweetId = BigInt(100);
+      const currentUserId = BigInt(1);
+      const rootTweetId = '50';
+      const replyToTweetId = '75';
+
+      const mockAuthorDto = {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      };
+
+      const mockDetailedTweet = {
+        id: '100',
+        author: mockAuthorDto,
+        content: 'Reply tweet',
+        createdAt: new Date('2024-01-01'),
+        replyCount: 0,
+        retweetCount: 0,
+        likeCount: 0,
+        isLiked: false,
+        isRetweeted: false,
+        entities: {
+          mentions: [],
+          hashtags: [],
+        },
+        media: [],
+        replyToTweetId,
+        quoteToTweetId: null,
+        rootTweetId,
+        quotedTweet: undefined,
+      };
+
+      const mockRootTweet = {
+        id: rootTweetId,
+        content: 'Root tweet',
+        author: mockAuthorDto,
+      };
+
+      const mockParentTweets = [
+        {
+          id: replyToTweetId,
+          content: 'Parent tweet',
+          author: mockAuthorDto,
+        },
+      ];
+
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(mockRootTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue(mockParentTweets);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result.rootTweet).toEqual(mockRootTweet);
+      expect(result.parentTweets).toEqual(mockParentTweets);
+      expect(result.hasMoreParents).toBe(false);
+      expect(mockTweetsRepository.getTweetOrDeleted).toHaveBeenCalledWith(
+        BigInt(rootTweetId),
+        currentUserId,
+      );
+      expect(mockTweetsRepository.getParentTweets).toHaveBeenCalledWith(
+        BigInt(replyToTweetId),
+        currentUserId,
+        BigInt(rootTweetId),
       );
     });
 
@@ -1239,6 +1312,56 @@ describe('TweetsService', () => {
           HttpStatus.NOT_FOUND,
         ),
       );
+    });
+
+    it('should handle deleted parent tweets in thread', async () => {
+      // Arrange
+      const tweetId = BigInt(100);
+      const currentUserId = BigInt(1);
+      const replyToTweetId = '75';
+
+      const mockAuthorDto = {
+        username: 'tasneem',
+        displayName: 'Tasneem',
+        avatarUrl: 'http://cdn-ur.com',
+      };
+
+      const mockDetailedTweet = {
+        id: '100',
+        author: mockAuthorDto,
+        content: 'Reply tweet',
+        createdAt: new Date('2024-01-01'),
+        replyCount: 0,
+        retweetCount: 0,
+        likeCount: 0,
+        isLiked: false,
+        isRetweeted: false,
+        entities: {
+          mentions: [],
+          hashtags: [],
+        },
+        media: [],
+        replyToTweetId,
+        quoteToTweetId: null,
+        rootTweetId: null,
+        quotedTweet: undefined,
+      };
+
+      const mockDeletedParent = {
+        id: replyToTweetId,
+        isDeleted: true,
+      };
+
+      mockTweetsRepository.getDetailedTweetById.mockResolvedValue(mockDetailedTweet);
+      mockTweetsRepository.getParentTweets.mockResolvedValue([mockDeletedParent]);
+      mockTweetsRepository.getTweetOrDeleted.mockResolvedValue(null);
+
+      // Act
+      const result = await service.getTweet(tweetId, currentUserId);
+
+      // Assert
+      expect(result.parentTweets).toEqual([mockDeletedParent]);
+      expect(result.rootTweet).toBeNull();
     });
   });
 
@@ -1725,17 +1848,6 @@ describe('TweetsService', () => {
   });
 
   describe('TweetsService - Query Methods', () => {
-    let service: TweetsService;
-
-    const mockTweetsRepository = {
-      getTweetsByQuery: jest.fn(),
-    };
-
-    const mockUsersRepository = {};
-    const mockContentParsingService = {};
-    const mockMediaRepository = {};
-    const mockPrismaService = {};
-
     const mockTweets = [
       {
         id: BigInt(1),
@@ -1758,6 +1870,24 @@ describe('TweetsService', () => {
           { provide: ContentParsingService, useValue: mockContentParsingService },
           { provide: MediaRepository, useValue: mockMediaRepository },
           { provide: PrismaService, useValue: mockPrismaService },
+          { provide: RedisService, useValue: mockRedisService },
+          { provide: TrendingService, useValue: mockTrendingService },
+          {
+            provide: getQueueToken('timeline-following'),
+            useValue: {
+              add: jest.fn(),
+            },
+          },
+          {
+            provide: RedisService,
+            useValue: {
+              getClient: jest.fn(),
+              del: jest.fn(),
+              safeIncr: jest.fn(),
+              safeDecr: jest.fn(),
+            },
+          },
+          { provide: DomainEventsService, useValue: mockDomainEventsService },
         ],
       }).compile();
 

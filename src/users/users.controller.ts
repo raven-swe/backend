@@ -1,10 +1,11 @@
-import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { CompactUserDto } from './dtos/compact-user.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
 export class UsersController {
@@ -12,6 +13,12 @@ export class UsersController {
 
   @Post(':username/following')
   @UseGuards(JwtAuthGuard)
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60,
+    },
+  })
   async followUser(@Param('username') username: string, @User() user: RequestUser) {
     await this.usersService.followUser(BigInt(user.id), username);
     return { message: 'Followed user successfully' };
@@ -98,5 +105,18 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getUserRelationship(@Param('username') username: string, @User() user: RequestUser) {
     return this.usersService.getUserRelationship(BigInt(user.id), username);
+  }
+  @Post(':username/notify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async enableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
+    return await this.usersService.enableUserNotifications(BigInt(user.id), username);
+  }
+
+  @Delete(':username/notify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async disableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
+    return await this.usersService.disableUserNotifications(BigInt(user.id), username);
   }
 }

@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["fullTextSearchPostgres"]
 }
 
@@ -18,6 +18,8 @@ model User {
   createdAt                DateTime                  @default(now()) @map("created_at")
   languageCode             LanguageCode              @default(EN) @map("language_code")
   deletedAt                DateTime?                 @map("deleted_at")
+  followersCount           Int                       @default(0) @map("followers_count")
+  followingCount           Int                       @default(0) @map("following_count")
   blockedBy                Block[]                   @relation("blocks_blocked_idTousers")
   blockedUsers             Block[]                   @relation("blocks_user_idTousers")
   conversationParticipants ConversationParticipant[]
@@ -41,8 +43,11 @@ model User {
   userDevices              UserDevice[]
   gender                   Gender?
   userExternalAccounts     UserExternalAccount[]
+  sessions                 Session[]
   interests                String[]                  @default([])
 
+  @@index([username], map: "users_username_idx")
+  @@index([followersCount], map: "users_followers_count_idx")
   @@map("users")
 }
 
@@ -71,17 +76,34 @@ model Profile {
 }
 
 model RefreshToken {
-  id         BigInt     @id @default(autoincrement())
-  deviceId   BigInt     @unique @map("device_id")
-  userId     BigInt     @map("user_id")
-  tokenHash  String     @unique @map("token_hash")
-  expiresAt  DateTime   @map("expires_at")
-  lastUsedAt DateTime?  @map("last_used_at")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  userDevice UserDevice @relation(fields: [deviceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user       User       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id         BigInt      @id @default(autoincrement())
+  deviceId   BigInt?     @unique @map("device_id")
+  sessionId  BigInt      @unique @map("session_id")
+  userId     BigInt      @map("user_id")
+  tokenHash  String      @unique @map("token_hash")
+  expiresAt  DateTime    @map("expires_at")
+  lastUsedAt DateTime?   @map("last_used_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  userDevice UserDevice? @relation(fields: [deviceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User        @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  session    Session     @relation(fields: [sessionId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+model Session {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt    @map("user_id")
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address") @db.Inet
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastSeenAt DateTime  @default(now()) @updatedAt @map("last_seen_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  refreshToken RefreshToken?
+
+  @@map("sessions")
 }
 
 model UserExternalAccount {
@@ -98,14 +120,15 @@ model UserExternalAccount {
 
 model UserDevice {
   id           BigInt        @id @default(autoincrement())
-  userId       BigInt        @map("user_id")
-  fcmToken     String?       @map("fcm_token")
+  userId       BigInt?       @map("user_id")
+  fcmToken     String?       @unique @map("fcm_token")
+  pushEnabled  Boolean       @default(true) @map("push_enabled")
   ipAddress    String?       @map("ip_address") @db.Inet
   deviceType   String?       @map("device_type")
   lastUsedAt   DateTime      @default(now()) @map("last_used_at")
   createdAt    DateTime      @default(now()) @map("created_at")
   refreshToken RefreshToken?
-  user         User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("user_devices")
 }
@@ -119,6 +142,7 @@ model Tweet {
   hasMentions    Boolean        @default(false) @map("has_mentions")
   replyToTweetId BigInt?        @map("reply_to_tweet_id")
   quotedTweetId  BigInt?        @map("quoted_tweet_id")
+  rootTweetId    BigInt?        @map("root_tweet_id")
   likeCount      Int            @default(0) @map("like_count")
   retweetCount   Int            @default(0) @map("retweet_count")
   replyCount     Int            @default(0) @map("reply_count")
@@ -136,8 +160,11 @@ model Tweet {
   quotes         Tweet[]        @relation("tweets_quoted_tweet_idTotweets")
   replyToTweet   Tweet?         @relation("tweets_reply_to_tweet_idTotweets", fields: [replyToTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies        Tweet[]        @relation("tweets_reply_to_tweet_idTotweets")
+  rootTweet      Tweet?         @relation("tweets_root_tweet_idTotweets", fields: [rootTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  threadTweets    Tweet[]       @relation("tweets_root_tweet_idTotweets")
   user           User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([rootTweetId], map: "tweets_root_tweet_id_idx")
   @@index([replyToTweetId], map: "tweets_reply_to_tweet_id_idx")
   @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
   @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
@@ -216,6 +243,9 @@ model TrendingKeyword {
   tweetHashtags TweetHashtag[]
 
   @@unique([keyword, isHashtag])
+  @@index([isHashtag, keyword, count(sort: Desc)], map: "trending_hashtags_search_idx")
+  @@index([keyword, count(sort: Desc)], map: "trending_keywords_keyword_count_idx")
+  @@index([keyword], map: "trending_keywords_keyword_idx")
   @@map("trending_keywords")
 }
 
@@ -254,9 +284,15 @@ model Message {
   conversationWithLastMessage Conversation?             @relation("conversations_last_message_idTomessages")
   conversation                Conversation              @relation("messages_conversation_idToconversations", fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user                        User                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mediaId                     BigInt?                   @unique @map("media_id")
+  media                       Media?                    @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   mediaUrl                    String?                   @map("media_url")
   isDeletedSender             Boolean                   @default(false) @map("is_deleted_sender")
   isDeletedReceiver           Boolean                   @default(false) @map("is_deleted_receiver")
+  reactionSender              String?                   @map("reaction_sender")
+  reactionSenderAt            DateTime?                 @map("reaction_sender_at")
+  reactionReceiver            String?                   @map("reaction_receiver")
+  reactionReceiverAt          DateTime?                 @map("reaction_receiver_at")
 
   @@index([conversationId, createdAt])
   @@map("messages")
@@ -305,7 +341,7 @@ model Notification {
   receiver      User             @relation("notifications_receiver_idTousers", fields: [receiverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweet         Tweet?           @relation(fields: [tweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([receiverId, createdAt])
+  @@index([receiverId, latestEventAt(sort: Desc), id(sort: Desc)])
   @@map("notifications")
 }
 
@@ -334,6 +370,7 @@ model Media {
   createdAt  DateTime     @default(now()) @map("created_at")
   user       User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tweetMedia TweetMedia[]
+  message    Message?
 
   @@index([userId])
   @@map("media")

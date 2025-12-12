@@ -8,7 +8,9 @@ export const CONVERSATIONS_ERROR_CODES = {
   MESSAGE_CREATION_FAILED: 'MESSAGE_CREATION_FAILED',
   UPDATE_LAST_SEEN_FAILED: 'UPDATE_LAST_SEEN_FAILED',
   ASSERT_PARTICPANT_FAILED: 'ASSERT_PARTICPANT_FAILED',
-};
+  REACTION_CREATION_FAILED: 'REACTION_CREATION_FAILED',
+  INVALID_MEDIA: 'INVALID_MEDIA',
+} as const;
 
 export const CONVERSATIONS_ERROR_MESSAGES = {
   BLOCKED_USER: 'You can no longer send messages to this person',
@@ -20,4 +22,6 @@ export const CONVERSATIONS_ERROR_MESSAGES = {
   MESSAGE_CREATION_FAILED: 'Failed to create message',
   UPDATE_LAST_SEEN_FAILED: 'Failed to update last seen message',
   ASSERT_PARTICPANT_FAILED: 'Failed to assert conversation participants',
-};
+  REACTION_CREATION_FAILED: 'Failed to add reaction to the message',
+  INVALID_MEDIA: 'The media ID provided is invalid or does not belong to you',
+} as const;

@@ -11,6 +11,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { MediaModule } from 'src/media/media.module';
 import { MentionsController } from './mentions/mentions.controller';
 import { ContentParsingModule } from 'src/content-parsing/content-parsing.module';
+import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
 
 @Module({
   controllers: [UsersController, MeController, SettingsController, MentionsController],
@@ -20,9 +21,13 @@ import { ContentParsingModule } from 'src/content-parsing/content-parsing.module
     BullModule.registerQueue({
       name: 'email',
     }),
+    BullModule.registerQueue({
+      name: 'timeline-following',
+    }),
     RedisModule,
     PrismaModule,
     MediaModule,
+    RefreshTokensModule,
     forwardRef(() => ContentParsingModule),
   ],
 })

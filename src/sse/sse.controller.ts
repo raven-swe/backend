@@ -7,12 +7,15 @@ import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { SSE_CONNECTION_TIMEOUT } from './constants/sse-constants';
 import { ConversationsRepository } from 'src/conversations/conversations.repository';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
 
 interface SseEvent {
   event?: string;
   id?: bigint;
   data: unknown;
 }
+
+const ALLOWED_TOPICS = ['dm', 'notifications'];
 
 @Controller('stream')
 export class SseController {
@@ -22,6 +25,7 @@ export class SseController {
     private readonly sse: SseService,
     private readonly sseEvents: SseEventsService,
     private readonly conversationsRepository: ConversationsRepository,
+    private readonly notificationsRepository: NotificationsRepository,
   ) {}
 
   private async publishUnseenCountEvent(userId: bigint): Promise<void> {
@@ -30,23 +34,42 @@ export class SseController {
     await this.sseEvents.publishUnseenCount(userId, unseenCount);
   }
 
+  private async publishUnseenNotificationCountEvent(userId: bigint): Promise<void> {
+    this.logger.log(`Publishing unseen_notifications_count (on initial load) to user ${userId}`);
+    const unseenNotificationCount = await this.notificationsRepository.getUnseenCount(userId);
+    await this.sseEvents.publishUnseenNotificationCount(userId, unseenNotificationCount);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard)
   async stream(
     @User() user: RequestUser,
     @Res({ passthrough: false }) res: Response,
-    @Query('topics') topics?: string,
+    @Query('topics') topicsQuery?: string,
   ) {
-    if (topics !== 'dm') {
+    if (!topicsQuery) {
       res.status(400).json({
-        message: 'Invalid topics parameter. Only "dm" is supported.',
+        message: 'Missing topics parameter. Example: ?topics=dm,notifications',
+        code: 'MISSING_TOPICS',
+      });
+      return;
+    }
+
+    const requestedTopics = topicsQuery.split(',').map((t) => t.trim());
+
+    const validTopics = requestedTopics.filter((t) => ALLOWED_TOPICS.includes(t));
+
+    if (validTopics.length === 0) {
+      res.status(400).json({
+        message: `Invalid topics. Allowed: ${ALLOWED_TOPICS.join(', ')}`,
         code: 'INVALID_TOPICS',
       });
       return;
     }
+
     const userId = user.id;
 
-    const subject = await this.sse.subscribe(userId);
+    const subject = await this.sse.subscribe(userId, validTopics);
 
     if (!subject) {
       this.logger.warn(`SSE connection limit reached - User: ${userId}`);
@@ -64,10 +87,17 @@ export class SseController {
     });
     res.flushHeaders?.();
 
-    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, topics: validTopics })}\n\n`);
 
     this.publishUnseenCountEvent(BigInt(userId)).catch((err: unknown) => {
-      this.logger.error(`Failed to send initial unseen count for user ${userId}`, err);
+      this.logger.error(`Failed to send initial unseen messages count for user ${userId}`, err);
+    });
+
+    this.publishUnseenNotificationCountEvent(BigInt(userId)).catch((err: unknown) => {
+      this.logger.error(
+        `Failed to send initial unseen notifications count for user ${userId}`,
+        err,
+      );
     });
 
     this.logger.log(

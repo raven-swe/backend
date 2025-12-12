@@ -1,19 +1,30 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
 import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';
 import { UsersService } from 'src/users/users.service';
+import Groq from 'groq-sdk';
 
 @Injectable()
 export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
+  private groq: Groq;
 
   constructor(
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly trendingService: TrendingService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const apiKey = this.configService.get<string>('SUMMARY_API_KEY');
+    if (!apiKey) {
+      this.logger.error('SUMMARY_API_KEY is not configured');
+      throw new Error('SUMMARY_API_KEY environment variable is required');
+    }
+    this.groq = new Groq({ apiKey: apiKey });
+  }
 
   /**
    *
@@ -112,5 +123,62 @@ export class ContentParsingService {
       mentions: usernames,
       hashtags: hashtags,
     };
+  }
+
+  /**
+   * Generate a summary of a tweet using Gemini 2.0 Flash Lite
+   * @param content The tweet content to summarize
+   * @returns A concise summary of the tweet
+   */
+  async generateTweetSummary(content: string, langcode?: string): Promise<string> {
+    try {
+      const modelId = 'openai/gpt-oss-120b';
+
+      let language = 'en-US';
+      if (langcode) {
+        language = langcode;
+      }
+
+      const englishPrompt = `
+      Summarize the following tweet in english in a very simple and concise way.
+      The summary MUST start with: "The tweet is talking about ..."
+      Keep it shorter than the original tweet.
+
+      Tweet:
+      ${content}
+      `;
+
+      const arabicPrompt = `
+      لخص التغريدة التالية باللهجة المصرية بطريقة بسيطة ومختصرة جداً.
+      يجب أن يبدأ الملخص بعبارة: "التغريدة تتحدث عن ..."
+      ويجب أن يكون أقصر من التغريدة الأصلية.
+
+      التغريدة:
+      ${content}
+      `;
+
+      const prompt = language.startsWith('ar') ? arabicPrompt : englishPrompt;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: modelId,
+      });
+
+      const summary = completion.choices[0]?.message?.content || '';
+
+      this.logger.log(`Generated summary for tweet content using ${modelId}`);
+      return summary.trim();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(`Failed to generate tweet summary: ${errorMessage}`, errorStack);
+      throw new Error('Failed to generate tweet summary');
+    }
   }
 }

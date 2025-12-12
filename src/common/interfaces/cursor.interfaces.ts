@@ -21,3 +21,14 @@ export type FeedCursor = {
   createdAt: Date;
   id: string;
 };
+
+export type TimelineCursor = {
+  createdAt: Date;
+  id: string;
+  seenIds: string[];
+};
+
+export type NotificationCursor = {
+  latestEventAt: Date;
+  id: string;
+};

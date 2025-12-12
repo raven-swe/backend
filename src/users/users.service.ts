@@ -13,7 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -27,8 +27,14 @@ import { MediaFolder } from 'src/media/enums';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from './constants';
 import { PlainMention } from 'src/tweets/interfaces';
+import { PeopleSearchFilter } from 'src/search/dtos';
+import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { UserRelationshipDto } from './dtos/relationship-dto';
+import { RedisService } from 'src/redis/redis.service';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
+import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @Injectable()
 export class UsersService {
@@ -38,10 +44,13 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
     private readonly mediaService: MediaService,
+    private readonly redisService: RedisService,
     @Inject(forwardRef(() => ContentParsingService))
     private readonly contentParsingService: ContentParsingService,
     @InjectQueue('email')
     private emailQueue: Queue,
+    @InjectQueue('timeline-following') private timelineFollowingQueue: Queue,
+    private readonly domainEvents: DomainEventsService,
   ) {}
 
   async findByEmail(email: string) {
@@ -284,6 +293,10 @@ export class UsersService {
           .catch((err) => this.logger.warn('Failed to delete old avatar', err));
       }
 
+      // invalidates cache pessimistically
+      this.logger.debug(`Invalidating cache for user ID: ${user.id} after profile update`);
+      await this.invalidateUserCache(user.id);
+
       return {
         message: 'Profile updated successfully',
         ...profile,
@@ -344,6 +357,11 @@ export class UsersService {
 
   async updateUsernameById(userId: bigint, newUsername: string) {
     await this.usersRepository.updateUsernameById(userId, newUsername);
+
+    this.logger.debug(
+      `Username updated for user ID: ${userId} to ${newUsername}, invalidating cache`,
+    );
+    await this.invalidateUserCache(userId);
 
     return { message: 'Username updated successfully.' };
   }
@@ -423,6 +441,26 @@ export class UsersService {
     }
 
     await this.usersRepository.followUser(followerId, followedId);
+
+    //dispatch follow backfill job
+    const backfillJobData: BackfillFollowJob = {
+      followerId: followerId.toString(),
+      followedId: followedId.toString(),
+      followedAt: new Date(),
+    };
+
+    await this.timelineFollowingQueue.add('backfill-follow', backfillJobData, {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+
+    await this.domainEvents.emitUserFollowed({
+      actorId: followerId,
+      receiverId: followedId,
+    });
 
     this.logger.log(`User ID: ${followerId} followed User ID: ${followedId}`);
     return { message: 'User followed successfully.' };
@@ -876,7 +914,6 @@ export class UsersService {
     return { message: 'Session terminated successfully.' };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadBanner(userId: bigint, banner: Express.Multer.File) {
     const { url: bannerUrl } = await this.mediaService.uploadAndSaveMedia(
       banner,
@@ -889,7 +926,6 @@ export class UsersService {
     return { message: 'Banner uploaded successfully', bannerUrl };
   }
 
-  // NOTE: This is a temporary function (it is not atomic operation since it is gonna be deleted anyways)
   async uploadAvatar(userId: bigint, avatar: Express.Multer.File) {
     const { url: avatarUrl } = await this.mediaService.uploadAndSaveMedia(
       avatar,
@@ -1005,8 +1041,85 @@ export class UsersService {
         HttpStatus.NOT_FOUND,
       );
     }
-
     const map = await this.usersRepository.getUsersRelationshipsMap(userId, [requestedUser.id]);
     return map.get(requestedUser.id) || null;
+  }
+  async searchUsers(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor: UserSearchCursor | undefined,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return this.usersRepository.searchUsers(
+      currentUserId,
+      query,
+      limit,
+      decodedCursor,
+      excludeMutedAndBlocked,
+      peopleFilter,
+    );
+  }
+
+  async getUsersRelationshipsMap(
+    currentUserId: bigint,
+    userIds: bigint[],
+  ): Promise<Map<bigint, UserRelationshipDto>> {
+    return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
+  }
+
+  /**
+   * @param userId the user id posting a tweet
+   * @returns array of follower IDs to whom the tweet should be fanouted (non muting and non blocking followers)
+   */
+  async getFollowersIds(userId: bigint): Promise<bigint[]> {
+    return await this.usersRepository.getFollowersUnPaginated(userId);
+  }
+
+  async enableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, true);
+
+    this.logger.log(`User ID: ${userId} enabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications enabled for user successfully',
+    };
+  }
+
+  async disableUserNotifications(userId: bigint, username: string) {
+    const requestedUser = await this.usersRepository.findByUsername(username);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.usersRepository.toggleUserNotifications(userId, requestedUser.id, false);
+
+    this.logger.log(`User ID: ${userId} disabled notifications for User ID: ${requestedUser.id}`);
+    return {
+      message: 'Notifications disabled for user successfully',
+    };
+  }
+
+  async invalidateUserCache(userId: bigint) {
+    await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
   }
 }

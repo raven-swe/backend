@@ -5,6 +5,7 @@ import type { RequestUser } from '../common/interfaces';
 import { generateUsernames } from 'src/common/utils';
 import { UsersRepository } from 'src/users/users.repository';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import { ONBOARDING_CONSTANTS } from './constants';
 
 @Controller('onboarding')
 export class OnboardingController {
@@ -31,10 +32,31 @@ export class OnboardingController {
       displayName,
       existingUser.email,
       typed,
-      3,
+      ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
       false,
     );
 
+    return { suggestions };
+  }
+
+  @Get('follow-suggestions')
+  @UseGuards(JwtAuthGuard)
+  async getFollowSuggestions(@User() user: RequestUser, @Query('limit') limit?: string) {
+    let suggestionLimit: number = ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT;
+
+    if (limit) {
+      let parsedLimit: number = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit <= 0) {
+        parsedLimit = ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT;
+      }
+      suggestionLimit = Math.min(parsedLimit, ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT);
+    }
+
+    const userId = BigInt(user.id);
+    const suggestions = await this.usersRepository.getOnboardingFollowSuggestions(
+      userId,
+      suggestionLimit,
+    );
     return { suggestions };
   }
 }
