@@ -44,7 +44,7 @@ export function detectMediaType(file: Express.Multer.File): MediaType {
 
   throw new BadRequestException(
     createValidationError('file', {
-      unsupportedMediaType: `Unsupported file type: ${ext || mimeType}. Only image (jpg, jpeg, png, gif) and video (mp4, mkv, webm) files are allowed.`,
+      unsupportedMediaType: `Unsupported file type: ${ext || mimeType}. Only image (jpg, jpeg, png, gif) and video (mp4, mov) files are allowed.`,
     }),
   );
 }
