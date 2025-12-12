@@ -974,6 +974,7 @@ export class TimelineService {
         tweets,
         generatedAt: Date.now(),
       };
+      await this.redisClient.del(REDIS_TIMELINE_KEYS.getForYouSeenKey(userId)); // reset seen cache
 
       await this.cacheForYouFeed(feedKey, rankedFeed);
     } else if (!isRefresh) {
@@ -1046,7 +1047,7 @@ export class TimelineService {
   private applyCursorToFeed(
     rankedFeed: ForYouFeedCache,
     cursor?: { score: number; id: string },
-  ): { id: string; score: number }[] {
+  ): { id: string; score: number; retweeterId?: string }[] {
     if (!cursor) return rankedFeed.tweets;
 
     return rankedFeed.tweets.filter((t) => {
@@ -1073,7 +1074,7 @@ export class TimelineService {
    */
   private async fetchAndValidateForYouTweets(
     userId: bigint,
-    unseenTweets: Array<{ id: string; score: number }>,
+    unseenTweets: Array<{ id: string; score: number; retweeterId?: string }>,
     limit: number,
   ): Promise<TweetDto[]> {
     const validTweets: TweetDto[] = [];
@@ -1095,10 +1096,10 @@ export class TimelineService {
         break;
       }
 
-      const batchTweetIds = batchTweets.map((t) => BigInt(t.id));
-
       // Get tweet data from DB
-      const tweetsFromDb = await this.tweetsRepository.getTweetsByIds(batchTweetIds);
+      const tweetsFromDb = await this.tweetsRepository.getTweetsByIds(
+        batchTweets.map((t) => BigInt(t.id)),
+      );
       const tweetMap = new Map(tweetsFromDb.map((t) => [t.id, t]));
 
       const existingBatch = batchTweets.filter((item) => tweetMap.has(item.id));
@@ -1118,8 +1119,15 @@ export class TimelineService {
       if (uniqueFiltered.length > 0) {
         // Build timeline items format for hydration
         const orderedTimelineItems: string[] = uniqueFiltered.map((item) => {
-          const tweet = tweetMap.get(item.id)!;
-          return `${tweet.authorId}:${tweet.id}:T`;
+          const tweet = tweetMap.get(item.id)!; // sure to exist
+          if (item.retweeterId) {
+            return REDIS_TIMELINE_KEYS.getTimelineRetweetItem(
+              BigInt(tweet.authorId),
+              BigInt(tweet.id),
+              BigInt(item.retweeterId),
+            );
+          }
+          return REDIS_TIMELINE_KEYS.getTimelineTweetItem(BigInt(tweet.authorId), BigInt(tweet.id));
         });
 
         // Hydrate static data
@@ -1186,7 +1194,9 @@ export class TimelineService {
    * 2. Tweets matching user's interests (from DB)
    * Then rank by recency and engagement
    */
-  private async generateForYouFeed(userId: bigint): Promise<Array<{ id: string; score: number }>> {
+  private async generateForYouFeed(
+    userId: bigint,
+  ): Promise<Array<{ id: string; score: number; retweeterId?: string }>> {
     this.logger.debug(`Generating For You feed for user ${userId}`);
 
     // 1. Get user interests from database
@@ -1226,7 +1236,10 @@ export class TimelineService {
     this.logger.debug(`Got ${interestTweets.length} interest-based tweets for user ${userId}`);
 
     // 4. Deduplicate candidates (following tweets take priority)
-    const candidatesMap = new Map<string, { id: string; authorId: string; createdAt: Date }>();
+    const candidatesMap = new Map<
+      string,
+      { id: string; authorId: string; createdAt: Date; retweeterId?: string }
+    >();
     for (const tweet of followingTweets) {
       candidatesMap.set(tweet.id, tweet);
     }
@@ -1276,37 +1289,34 @@ export class TimelineService {
     const followingIds = await this.usersRepository.getFollowingIds(userId);
     const followingSet = new Set(followingIds.map((id) => id.toString()));
 
-    // 7. Score and rank tweets
     const scored = validCandidates.map((candidate) => {
       const counts = countsMap.get(candidate.id);
+      const now = Date.now();
+      const ageInHours = (now - candidate.createdAt.getTime()) / (1000 * 60 * 60);
+
       let score = 0;
 
-      // Recency score (exponential decay over 24 hours)
-      // More recent = higher score
-      const ageInHours = (Date.now() - candidate.createdAt.getTime()) / (1000 * 60 * 60);
+      // exp decay with 24hr half life
       const recencyScore = Math.exp(-ageInHours / 24) * 100;
       score += recencyScore;
 
-      // Engagement score (logarithmic to prevent viral tweet domination)
       if (counts) {
-        const totalEngagement =
-          counts.likeCounts + counts.retweetCounts * 2 + counts.replyCounts * 1.5;
-        const engagementScore = Math.log10(totalEngagement + 1) * 30;
-        score += engagementScore;
+        const likeValue = Math.log1p(counts.likeCounts);
+        const retweetValue = Math.log1p(counts.retweetCounts) * 5;
+        const replyValue = Math.log1p(counts.replyCounts) * 2;
+
+        score += (likeValue + retweetValue + replyValue) * 5;
       }
 
-      // Following boost:
-      // - Tweets from Following timeline always get the boost
-      // - Interest tweets get boost if author is followed
       const isFromFollowingTimeline = followingTweetIds.has(candidate.id);
       const isAuthorFollowed = followingSet.has(candidate.authorId);
       if (isFromFollowingTimeline || isAuthorFollowed) {
-        score += 20;
+        score += 30;
       }
 
       return {
         id: candidate.id,
-        score: Math.round(score * 1000) / 1000, // Round to 3 decimal places
+        score: Math.round(score * 1000) / 1000,
       };
     });
 
@@ -1318,7 +1328,19 @@ export class TimelineService {
       return b.id.localeCompare(a.id);
     });
 
-    const rankedFeed = scored.slice(0, FOR_YOU_FEED_SIZE);
+    const validCandidateMap = validCandidates.reduce((map, candidate) => {
+      map.set(candidate.id, candidate);
+      return map;
+    }, new Map<string, { id: string; authorId: string; createdAt: Date; retweeterId?: string }>()); // for easier access
+
+    const rankedFeed = scored.slice(0, FOR_YOU_FEED_SIZE).map((scored) => {
+      const candidate = validCandidateMap.get(scored.id);
+      return {
+        id: scored.id,
+        score: scored.score,
+        retweeterId: candidate?.retweeterId,
+      };
+    });
 
     this.logger.debug(
       `Generated ranked For You feed with ${rankedFeed.length} tweets for user ${userId}`,
@@ -1349,18 +1371,24 @@ export class TimelineService {
       'WITHSCORES',
     );
 
-    const candidates: { id: string; authorId: string; createdAt: Date }[] = [];
+    const candidates: { id: string; authorId: string; createdAt: Date; retweeterId?: string }[] =
+      [];
     if (membersAndScores) {
       for (let i = 0; i < membersAndScores.length; i += 2) {
         const member = membersAndScores[i];
         const score = membersAndScores[i + 1];
-        const [authorId, tweetId] = member.split(':');
-
-        candidates.push({
+        const parts = member.split(':');
+        const [authorId, tweetId, actionType] = parts;
+        const candidate: { id: string; authorId: string; createdAt: Date; retweeterId?: string } = {
           id: tweetId,
           authorId: authorId,
           createdAt: new Date(Number(score)),
-        });
+        };
+        if (actionType === 'R' && parts[3]) {
+          candidate.retweeterId = parts[3];
+        }
+
+        candidates.push(candidate);
       }
     }
     return candidates;
