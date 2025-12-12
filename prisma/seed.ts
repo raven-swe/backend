@@ -24,6 +24,7 @@ async function main() {
   await prisma.media.deleteMany();
   await prisma.tweetHashtag.deleteMany();
   await prisma.trendingKeyword.deleteMany();
+  await prisma.trendingKeywordCategory.deleteMany();
   await prisma.tweetMention.deleteMany();
   await prisma.tweet.deleteMany();
   await prisma.mute.deleteMany();
@@ -41,6 +42,7 @@ async function main() {
   await prisma.$executeRaw`ALTER SEQUENCE "user_devices_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "tweets_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "trending_keywords_id_seq" RESTART WITH 1;`;
+  await prisma.$executeRaw`ALTER SEQUENCE "trending_keyword_categories_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "messages_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "conversations_id_seq" RESTART WITH 1;`;
   await prisma.$executeRaw`ALTER SEQUENCE "notifications_id_seq" RESTART WITH 1;`;
