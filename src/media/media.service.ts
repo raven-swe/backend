@@ -10,6 +10,7 @@ import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenorResponse } from './interfaces';
+import { UploadedGifResponse } from './dtos/uploaded-gif-response';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -235,7 +236,7 @@ export class MediaService {
     return { ...items, message: 'Media uploaded successfully.' };
   }
 
-  async uploadGif(currentUserId: bigint, tenorId: string): Promise<{ url: string; id: string }> {
+  async uploadGif(currentUserId: bigint, tenorId: string): Promise<UploadedGifResponse> {
     const tenorApiKey = process.env.RAVEN_TENOR_KEY;
     if (!tenorApiKey) {
       this.logger.error('Tenor API key is not configured');
@@ -258,7 +259,6 @@ export class MediaService {
     }
 
     const tenorData = (await tenorResponse.json()) as TenorResponse;
-    console.log({ tenorData });
 
     if ((tenorData && !tenorData.results) || tenorData.results.length === 0) {
       throw new HttpException(
@@ -291,9 +291,21 @@ export class MediaService {
 
     const savedMedia = await this.mediaRepository.saveMedia(mediaDto);
 
+    const uploadedGifResponse = {
+      id: savedMedia.id.toString(),
+      url: gifUrl,
+      width,
+      height,
+      altText: gifData.content_description,
+      variations: {
+        tinygifUrl: gifData.media_formats.tinygif.url,
+        nanogifUrl: gifData.media_formats.nanogif.url,
+      },
+    };
+
     this.logger.log(`GIF metadata saved with ID: ${savedMedia.id}`);
 
-    return { url: gifUrl, id: savedMedia.id.toString() };
+    return uploadedGifResponse;
   }
 
   /**
