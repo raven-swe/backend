@@ -41,10 +41,10 @@ export class SearchController {
     );
   }
 
-  @Get('hashtags/top')
+  @Get('/suggestions')
   @UseGuards(JwtAuthGuard)
   async getTopHashtags(@Query() queryDto: QueryDto) {
-    return this.trendingService.getTrendingHashtags(queryDto.query, 3);
+    return this.trendingService.getTrendingWords(queryDto.query, 3);
   }
 
   @Get('users')

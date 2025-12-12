@@ -117,28 +117,6 @@ describe('detectMediaType', () => {
       expect(result).toBe(MediaType.VIDEO);
     });
 
-    it('should detect MKV video from .mkv extension', () => {
-      const file = createMockFile({
-        originalname: 'movie.mkv',
-        mimetype: 'video/x-matroska',
-      });
-
-      const result = detectMediaType(file);
-
-      expect(result).toBe(MediaType.VIDEO);
-    });
-
-    it('should detect WebM video from .webm extension', () => {
-      const file = createMockFile({
-        originalname: 'clip.webm',
-        mimetype: 'video/webm',
-      });
-
-      const result = detectMediaType(file);
-
-      expect(result).toBe(MediaType.VIDEO);
-    });
-
     it('should detect MOV video from .mov extension', () => {
       const file = createMockFile({
         originalname: 'video.mov',

@@ -1,17 +1,17 @@
 meta {
-  name: get-top-hashtags
+  name: get-suggestions
   type: http
   seq: 3
 }
 
 get {
-  url: http://localhost:3000/search/tweets?query=life
+  url: http://localhost:3000/search/suggestions?query=su
   body: none
   auth: bearer
 }
 
 params:query {
-  query: life
+  query: su
 }
 
 auth:bearer {

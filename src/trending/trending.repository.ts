@@ -106,22 +106,29 @@ export class TrendingRepository {
     });
   }
 
-  async getTopHashtagsByKeyword(query: string, limit: number): Promise<string[]> {
+  async getTopWords(
+    query: string,
+    limit: number,
+    isHashtagQuery: boolean = false,
+  ): Promise<{ keyword: string; isHashtag: boolean }[]> {
+    // Escape sql wildcards % and _
+    query = query.replace(/[%_]/g, '\\$&');
     const results = await this.prisma.trendingKeyword.findMany({
       where: {
-        isHashtag: true,
         keyword: {
           startsWith: query.toLowerCase(),
         },
+        ...(isHashtagQuery && { isHashtag: true }),
       },
       select: {
         keyword: true,
-        count: true,
+        isHashtag: true,
       },
       orderBy: { count: 'desc' },
       take: limit,
     });
-    return results.map((result) => result.keyword);
+
+    return results;
   }
 
   async upsertKeywordCategory(

@@ -249,6 +249,8 @@ model TrendingKeyword {
   @@unique([keyword, isHashtag])
   @@index([isHashtag, keyword, count(sort: Desc)], map: "trending_hashtags_search_idx")
   @@index([lastUpdatedAt])
+  @@index([keyword, count(sort: Desc)], map: "trending_keywords_keyword_count_idx")
+  @@index([keyword], map: "trending_keywords_keyword_idx")
   @@map("trending_keywords")
 }
 
