@@ -80,8 +80,8 @@ export class TrendingService {
     now: Date,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
-    const keyword = item.keyword;
     const isHashtag = item.keyword.startsWith('#');
+    const keyword = isHashtag ? item.keyword.slice(1).toLowerCase() : item.keyword.toLowerCase();
 
     const incomingOcc = item.top_related_topics.reduce(
       (sum, topic) => sum + topic.occurence_in_category,
