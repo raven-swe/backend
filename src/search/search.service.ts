@@ -89,9 +89,11 @@ export class SearchService {
       };
     }
 
+    const isRelevanceSearch = !tab || tab === SearchTab.Top || tab == SearchTab.Media;
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
     const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
-    const decodedCursor = this.decodeCursor(prevCursor);
+    const decodedCursor = this.decodeCursor(prevCursor, isRelevanceSearch);
+    console.log('decodedCursor', decodedCursor);
 
     const items = await this.fetchTweetsByTab(
       tab,
@@ -104,23 +106,37 @@ export class SearchService {
       peopleFilter,
     );
 
-    const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
-      return {
-        createdAt: tweet.createdAt,
-        id: tweet.id.toString(),
-      };
-    });
+    // Create cursor with correct field based on search type
+    const pagination = isRelevanceSearch
+      ? paginateComposite(items, limit, prevCursor, (tweet) => {
+          return {
+            rank: tweet.rank,
+            id: tweet.id.toString(),
+          };
+        })
+      : paginateComposite(items, limit, prevCursor, (tweet) => {
+          return {
+            createdAt: tweet.createdAt,
+            id: tweet.id.toString(),
+          };
+        });
 
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
     return { items, pagination };
   }
 
-  private decodeCursor(prevCursor?: string): TweetRelationsCursor | TweetRankCursor | undefined {
+  private decodeCursor(
+    prevCursor?: string,
+    isRelevanceSearch: boolean = true,
+  ): TweetRankCursor | TweetRelationsCursor | undefined {
     if (!prevCursor) return undefined;
 
     try {
-      return decodeCompositeCursor<TweetRelationsCursor | TweetRankCursor>(prevCursor);
+      if (isRelevanceSearch) {
+        return decodeCompositeCursor<TweetRankCursor>(prevCursor);
+      }
+      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
     } catch {
       throw new HttpException(
         {
