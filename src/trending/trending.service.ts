@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TrendingRepository } from './trending.repository';
 import { Prisma } from '@prisma/client';
 import { PlainHashtag } from 'src/tweets/interfaces';
+import { extractHashtag, isSingleHashtagQuery } from 'src/search/utils/search-query.util';
 
 @Injectable()
 export class TrendingService {
@@ -13,23 +14,39 @@ export class TrendingService {
    * @param tx transaction client passed from the create tweet function in tweet service
    * @returns The actual IDs for the keywords along with the given starting position and keyword, creating new IDs for non-existing keywords
    */
-  async createOrIncrementHashtags(
+  async createOrGetHashtags(
     hashtags: PlainHashtag[],
     tx: Prisma.TransactionClient,
   ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
-    return await this.TrendingRepository.createOrIncrementHashtags(hashtags, tx);
+    return await this.TrendingRepository.createOrGetHashtags(hashtags, tx);
   }
 
   async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
     return await this.TrendingRepository.getHashtagId(hashtag);
   }
 
-  async getTrendingHashtags(query: string, limit: number): Promise<string[]> {
-    if (!query || query.trim() === '') {
+  async getTrendingWords(query: string, limit: number): Promise<string[]> {
+    if (!query || query.trim() === '' || !/[a-z0-9]/i.test(query)) {
       return [];
     }
 
-    const hashtags = await this.TrendingRepository.getTopHashtagsByKeyword(query, limit);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
+    }
+
+    let isHashtagQuery = false;
+    // If the query is a hashtag, remove the leading '#'
+    if (isSingleHashtagQuery(rawQuery)) {
+      isHashtagQuery = true;
+      rawQuery = extractHashtag(rawQuery);
+    }
+
+    const results = await this.TrendingRepository.getTopWords(rawQuery, limit, isHashtagQuery);
+    const hashtags = results.map((word) => (word.isHashtag ? `#${word.keyword}` : word.keyword));
     return hashtags;
   }
 }

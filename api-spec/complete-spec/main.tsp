@@ -140,6 +140,12 @@ model UnauthorizedResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("standard 410 Gone response")
+model GoneResponse {
+  ...Response<410>;
+  ...Body<ApiErrorResponse>;
+}
+
 @doc("Standard 403 Forbidden response")
 model ForbiddenResponse {
   ...Response<403>;
@@ -584,7 +590,7 @@ model UploadImageRequest {
 }
 
 model UploadVideoRequest {
-  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  @doc("Video file to upload (mp4, mov). Max size: 10MB")
   file: HttpPart<bytes>;
 
   @doc("Alt text for accessibility (optional)")
@@ -1885,7 +1891,7 @@ namespace Timeline {
   @summary("Get the personalized 'For You' feed for the authenticated user")
   op getForYouFeed(
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse | GoneResponse;
 
   @get
   @route("/following")
@@ -1977,8 +1983,13 @@ namespace Tweets {
   @get
   @route("/{id}/summary")
   @summary("Get AI-generated summary of a tweet")
-  @doc("Generates a concise summary of the tweet content using Gemini 2.0 Flash Lite")
-  op getTweetSummary(@path id: string):
+  @doc("Generates a concise summary of the tweet content using AI")
+  op getTweetSummary(
+    @path id: string,
+    @query
+    @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
+    locale?: "ar-EG" | "en-US",
+  ):
     | DataResponse<TweetSummaryResponse>
     | NotFoundResponse
     | UnauthorizedResponse
@@ -2215,15 +2226,15 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant trending words for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
-  @route("/hashtags/top")
+  @route("/suggestions")
   op getTopHashtags(
     @doc("The search query")
     @query
     query: string,
   ):
-    | DataResponse<TopHashtags>
+    | DataResponse<string[]>
     | NotFoundResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

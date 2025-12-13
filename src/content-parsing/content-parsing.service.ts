@@ -1,16 +1,16 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
 import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';
 import { UsersService } from 'src/users/users.service';
+import Groq from 'groq-sdk';
 
 @Injectable()
 export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
-  private readonly genAI: GoogleGenerativeAI;
+  private groq: Groq;
 
   constructor(
     @Inject(forwardRef(() => UsersService))
@@ -23,7 +23,7 @@ export class ContentParsingService {
       this.logger.error('SUMMARY_API_KEY is not configured');
       throw new Error('SUMMARY_API_KEY environment variable is required');
     }
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.groq = new Groq({ apiKey: apiKey });
   }
 
   /**
@@ -51,7 +51,7 @@ export class ContentParsingService {
       plainMentions,
       tx,
     );
-    const hashtags = await this.trendingService.createOrIncrementHashtags(plainHashtags, tx);
+    const hashtags = await this.trendingService.createOrGetHashtags(plainHashtags, tx);
     return { mentions, hashtags };
   }
 
@@ -130,21 +130,53 @@ export class ContentParsingService {
    * @param content The tweet content to summarize
    * @returns A concise summary of the tweet
    */
-  async generateTweetSummary(content: string): Promise<string> {
+  async generateTweetSummary(content: string, langcode?: string): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+      const modelId = 'openai/gpt-oss-120b';
 
-      const prompt = `Summarize the following tweet in a concise manner (Summary To Be SHORTER than tweet) (1 sentence or 2 for really long tweets):\n\n${content}`;
+      let language = 'en-US';
+      if (langcode) {
+        language = langcode;
+      }
 
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const summary = response.text();
+      const englishPrompt = `
+      Summarize the following tweet in english in a very simple and concise way.
+      The summary MUST start with: "The tweet is talking about ..."
+      Keep it shorter than the original tweet.
 
-      this.logger.log(`Generated summary for tweet content`);
+      Tweet:
+      ${content}
+      `;
+
+      const arabicPrompt = `
+      لخص التغريدة التالية باللهجة المصرية بطريقة بسيطة ومختصرة جداً.
+      يجب أن يبدأ الملخص بعبارة: "التغريدة تتحدث عن ..."
+      ويجب أن يكون أقصر من التغريدة الأصلية.
+
+      التغريدة:
+      ${content}
+      `;
+
+      const prompt = language.startsWith('ar') ? arabicPrompt : englishPrompt;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: modelId,
+      });
+
+      const summary = completion.choices[0]?.message?.content || '';
+
+      this.logger.log(`Generated summary for tweet content using ${modelId}`);
       return summary.trim();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
+
       this.logger.error(`Failed to generate tweet summary: ${errorMessage}`, errorStack);
       throw new Error('Failed to generate tweet summary');
     }

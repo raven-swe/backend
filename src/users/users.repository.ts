@@ -454,35 +454,66 @@ export class UsersRepository {
   }
 
   async followUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.create({
-        data: { followerId, followedId },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { increment: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { increment: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.create({
+          data: { followerId, followedId },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { increment: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { increment: 1 } },
+        }),
+      ])
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
 
   async unfollowUser(followerId: bigint, followedId: bigint) {
-    await this.prisma.$transaction([
-      this.prisma.follow.delete({
-        where: { followerId_followedId: { followerId, followedId } },
-      }),
-      this.prisma.user.update({
-        where: { id: followerId },
-        data: { followingCount: { decrement: 1 } },
-      }),
-      this.prisma.user.update({
-        where: { id: followedId },
-        data: { followersCount: { decrement: 1 } },
-      }),
-    ]);
+    await this.prisma
+      .$transaction([
+        this.prisma.follow.delete({
+          where: { followerId_followedId: { followerId, followedId } },
+        }),
+        this.prisma.user.update({
+          where: { id: followerId },
+          data: { followingCount: { decrement: 1 } },
+        }),
+        this.prisma.user.update({
+          where: { id: followedId },
+          data: { followersCount: { decrement: 1 } },
+        }),
+        this.prisma.notification.deleteMany({
+          where: { receiverId: followedId, actorId: followerId, type: 'FOLLOW' },
+        }),
+      ])
+      .catch((e) => {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: USERS_ERROR_MESSAGES.ALREADY_NOT_FOLLOWING,
+              code: USERS_ERROR_CODES.ALREADY_NOT_FOLLOWING,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
   async getUserIdsFollowedBy(userId: bigint): Promise<bigint[]> {
     const follows = await this.prisma.follow.findMany({
@@ -580,6 +611,17 @@ export class UsersRepository {
   }
 
   /**
+   * Get all user IDs that a given user follows
+   */
+  async getFollowingIds(userId: bigint): Promise<bigint[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+    return follows.map((f) => f.followedId);
+  }
+
+  /**
    * Blocks a user and removes any existing follow relationships between the users.
    */
   async blockUser(userId: bigint, blockedId: bigint) {
@@ -591,15 +633,74 @@ export class UsersRepository {
         },
       });
 
-      // Remove follow relationships in both directions
-      await tx.follow.deleteMany({
-        where: {
-          OR: [
-            { followerId: userId, followedId: blockedId },
-            { followerId: blockedId, followedId: userId },
-          ],
-        },
-      });
+      // Decrement following and followers counts if there was a follow relationship
+      const [followFromUserToBlocked, followFromBlockedToUser] = await Promise.all([
+        tx.follow.findUnique({
+          where: {
+            followerId_followedId: {
+              followerId: userId,
+              followedId: blockedId,
+            },
+          },
+        }),
+
+        tx.follow.findUnique({
+          where: {
+            followerId_followedId: {
+              followerId: blockedId,
+              followedId: userId,
+            },
+          },
+        }),
+      ]);
+
+      if (followFromUserToBlocked) {
+        // Decrement following count for userId and follower count for blockedId
+        await Promise.all([
+          tx.user.update({
+            where: { id: userId },
+            data: { followingCount: { decrement: 1 } },
+          }),
+
+          tx.user.update({
+            where: { id: blockedId },
+            data: { followersCount: { decrement: 1 } },
+          }),
+
+          tx.follow.delete({
+            where: {
+              followerId_followedId: {
+                followerId: userId,
+                followedId: blockedId,
+              },
+            },
+          }),
+        ]);
+      }
+
+      if (followFromBlockedToUser) {
+        // Decrement following count for blockedId and follower count for userId
+        await Promise.all([
+          tx.user.update({
+            where: { id: blockedId },
+            data: { followingCount: { decrement: 1 } },
+          }),
+
+          tx.user.update({
+            where: { id: userId },
+            data: { followersCount: { decrement: 1 } },
+          }),
+
+          tx.follow.delete({
+            where: {
+              followerId_followedId: {
+                followerId: blockedId,
+                followedId: userId,
+              },
+            },
+          }),
+        ]);
+      }
     });
   }
 

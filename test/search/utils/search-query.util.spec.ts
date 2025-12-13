@@ -10,7 +10,7 @@ describe('prepareSearchQuery', () => {
   });
 
   it('should remove special characters except underscores', () => {
-    expect(prepareSearchQuery('hello@world#test')).toBe('hello:* | worldtest:*');
+    expect(prepareSearchQuery('hello@world#test')).toBe('helloworldtest:*');
   });
 
   it('should handle multiple spaces', () => {

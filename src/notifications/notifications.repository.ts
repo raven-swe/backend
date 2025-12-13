@@ -69,6 +69,10 @@ export class NotificationsRepository {
     };
   }
 
+  async deleteByOptions(options: NotificationTriggerOptions) {
+    return await this.prisma.notification.deleteMany({ where: options });
+  }
+
   async findByIdForPush(notificationId: bigint) {
     return await this.prisma.notification.findUnique({
       where: { id: notificationId },
