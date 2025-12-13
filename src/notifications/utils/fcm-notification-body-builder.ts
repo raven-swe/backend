@@ -1,31 +1,35 @@
-import { NotificationType } from '@prisma/client';
+import { NotificationType, LanguageCode } from '@prisma/client';
 import IntlMessageFormat from 'intl-messageformat';
 
-const DEFAULT_LOCALE = 'en';
+const DEFAULT_LOCALE: LanguageCode = LanguageCode.EN;
 
 const TEMPLATES: Record<string, Record<string, string>> = {
-  en: {
+  EN: {
     'like.single': '{actor} liked your tweet',
     'like.aggregated': '{actor} and {count} others liked your tweet',
     'follow.single': '{actor} followed you',
     'follow.aggregated': '{actor} and {count} others followed you',
     'reply.single': '{actor} replied: "{snippet}"',
+    'reply.aggregated': '{actor} and {count} others replied to your tweet"',
     'mention.single': '{actor} mentioned you: "{snippet}"',
     'quote.single': '{actor} quoted: "{snippet}"',
+    'qoute.aggregated': '{actor} and {count} others quoted your tweet',
     'retweet.single': '{actor} retweeted your tweet',
     'retweet.aggregated': '{actor} and {count} others retweeted your tweet',
     'author.tweet': '{actor} posted a new tweet',
     generic: 'New interaction',
     'generic.body': 'You have a new notification',
   },
-  ar: {
+  AR: {
     'like.single': 'أعجب {actor} بتغريدتك',
     'like.aggregated': 'أعجب {actor} و{count} آخرون بتغريدتك',
     'follow.single': '{actor} تابعك',
     'follow.aggregated': '{actor} و{count} آخرون تابعوك',
     'reply.single': '{actor} رد: "{snippet}"',
+    'reply.aggregated': '{actor} و{count} آخرون ردوا على تغريدتك',
     'mention.single': '{actor} ذكرك: "{snippet}"',
     'quote.single': '{actor} اقتبس: "{snippet}"',
+    'qoute.aggregated': '{actor} و{count} آخرون اقتبسوا تغريدتك',
     'retweet.single': '{actor} أعاد تغريد تغريدتك',
     'retweet.aggregated': '{actor} و{count} آخرون أعادوا تغريد تغريدتك',
     'author.tweet': '{actor} نشر تغريدة جديدة',
@@ -66,7 +70,7 @@ export function buildFcmNotificationText(opts: {
   previewActors?: string[];
   totalActorCount?: number;
   tweetSnippet?: string | null;
-  locale?: string;
+  locale?: LanguageCode;
 }): { title: string; body?: string } {
   const {
     notificationType,
@@ -74,10 +78,10 @@ export function buildFcmNotificationText(opts: {
     previewActors = [],
     totalActorCount = 1,
     tweetSnippet,
-    locale = DEFAULT_LOCALE,
+    locale,
   } = opts;
 
-  const templates = TEMPLATES[locale] ?? TEMPLATES[DEFAULT_LOCALE];
+  const templates = locale ? TEMPLATES[locale] : TEMPLATES[DEFAULT_LOCALE];
 
   const leadActor = previewActors[0] ?? 'Someone';
   const remainingCount = Math.max(0, (totalActorCount ?? 1) - 1);
@@ -109,9 +113,16 @@ export function buildFcmNotificationText(opts: {
       break;
 
     case NotificationType.REPLY:
-      key = 'reply.single';
-      params.actor = leadActor;
-      params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      if (isAggregated && remainingCount > 0) {
+        key = 'reply.aggregated';
+        params.actor = leadActor;
+        params.count = remainingCount;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      } else {
+        key = 'reply.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     case NotificationType.MENTION:
@@ -121,9 +132,16 @@ export function buildFcmNotificationText(opts: {
       break;
 
     case NotificationType.QUOTE:
-      key = 'quote.single';
-      params.actor = leadActor;
-      params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      if (isAggregated && remainingCount > 0) {
+        key = 'qoute.aggregated';
+        params.actor = leadActor;
+        params.count = remainingCount;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      } else {
+        key = 'quote.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     case NotificationType.RETWEET:

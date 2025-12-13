@@ -7,6 +7,7 @@ import { NotificationType } from '@prisma/client';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { Logger } from '@nestjs/common';
 import { buildFcmNotificationText } from './utils/fcm-notification-body-builder';
+import { NotificationPayloadDto } from './dtos/notification-payload.dto';
 
 interface FcmNotificationData {
   id: string;
@@ -38,6 +39,7 @@ export class NotificationProcessor extends WorkerHost {
     try {
       const notification = await this.notificationsRepository.findByIdForPush(
         BigInt(notificationId),
+        BigInt(userId),
       );
       if (!notification) {
         this.logger.warn(
@@ -45,7 +47,12 @@ export class NotificationProcessor extends WorkerHost {
         );
         return;
       }
-      const devices = await this.devicesRepository.getUserDevices(BigInt(userId));
+      const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
+        count: 1,
+        actors: [],
+      };
+
+      const { devices, languageCode } = await this.devicesRepository.getUserDevices(BigInt(userId));
       if (!devices.length) {
         this.logger.warn(`No devices found for user ${userId}, skipping push notification`);
         return;
@@ -57,29 +64,38 @@ export class NotificationProcessor extends WorkerHost {
         notification.actor.profile?.displayName ?? notification.actor.username,
       ];
       const tweetSnippet = notification.tweet?.content ?? null;
-      const locale = 'en'; //TODO: fetch user locale
 
       const { title, body } = buildFcmNotificationText({
         notificationType: notification.type,
         isAggregated: Boolean(notification.isAggregated),
         previewActors,
-        totalActorCount: notification.isAggregated ? 2 : 1, //TODO: fetch actual count
+        totalActorCount: currentPayload.count,
         tweetSnippet,
-        locale,
+        locale: languageCode,
       });
+
+      const actors = [
+        {
+          username: notification.actor.username,
+          displayName: notification.actor.profile?.displayName,
+          avatarUrl: notification.actor.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          isFollowing: notification.actor.followers.length > 0,
+        },
+      ].concat(
+        currentPayload.actors.map((a) => ({
+          username: a.username,
+          displayName: a.displayName ?? DEFAULT_PROFILE_PICTURE,
+          avatarUrl: a.avatarUrl,
+          isFollowing: a.ifFollowing,
+        })),
+      );
 
       const fcmData: FcmNotificationData = {
         id: notification.id.toString(),
         type: notification.type,
         isSeen: String(notification.seen),
         latestEventAt: notification.latestEventAt.toISOString(),
-        actorSummary: JSON.stringify([
-          {
-            username: notification.actor.username,
-            displayName: notification.actor.profile?.displayName,
-            avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-          },
-        ]),
+        actorSummary: JSON.stringify(actors),
         tweetSubjectIds: JSON.stringify([notification.tweet?.id?.toString()]),
       };
 
