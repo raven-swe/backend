@@ -15,11 +15,23 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
-  private generateDedupeKey(options: NotificationTriggerOptions): string {
+  private generateDedupeKey(
+    options: NotificationTriggerOptions,
+    additional?: { replyToTweetId?: bigint; quoteToTweetId?: bigint },
+  ): string {
     switch (options.type) {
       case 'FOLLOW':
         return `${options.type}:USER:${options.receiverId}`;
-      default:
+      case 'QUOTE':
+        return `${options.type}:TWEET:${additional?.quoteToTweetId}`;
+      case 'MENTION':
+        return `${options.type}:${options.actorId}:${options.receiverId}:${options.tweetId}`;
+      case 'REPLY':
+        return `${options.type}:TWEET:${additional?.replyToTweetId}`;
+      case 'LIKE':
+      case 'RETWEET':
+      case 'TWEET':
+      case 'MESSAGE':
         return `${options.type}:TWEET:${options.tweetId}`;
     }
   }
@@ -52,23 +64,23 @@ export class NotificationsService {
       return existing;
     }
 
-    const dedubeKey = this.generateDedupeKey(options);
+    const dedupeKey = this.generateDedupeKey(options, additional);
 
     let notification = null;
 
-    if (dedubeKey) {
-      notification = await this.notificationsRepository.findOpenNotification(
-        options.receiverId,
-        dedubeKey,
-      );
-    }
+    notification = await this.notificationsRepository.findOpenNotification(
+      options.receiverId,
+      dedupeKey,
+    );
 
     if (notification) {
       const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
         count: 1,
         actors: [],
       };
+
       const previousActor = {
+        id: notification.actor.id.toString(),
         username: notification.actor.username,
         displayName: notification.actor.profile?.displayName || null,
         avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
@@ -86,17 +98,22 @@ export class NotificationsService {
       >();
 
       if (currentPayload.actors) {
-        currentPayload.actors.forEach((a) => actorsMap.set(a.username, a));
+        currentPayload.actors.forEach((a) => actorsMap.set(a.id, a));
       }
 
-      actorsMap.set(previousActor.username, previousActor);
+      actorsMap.set(previousActor.id.toString(), previousActor);
+      const exist = actorsMap.delete(options.actorId.toString());
       const subjectIds = new Set(currentPayload.subjectIds || []);
       if (options.tweetId) {
         subjectIds.add(options.tweetId.toString());
       }
+      let inc = 1;
+      if (exist) {
+        inc = 0;
+      }
 
       const payload: Prisma.JsonObject = {
-        count: (currentPayload.count || 0) + 1,
+        count: (currentPayload.count || 0) + inc,
         actors: Array.from(actorsMap.values()),
         subjectIds: Array.from(subjectIds),
       };
@@ -106,6 +123,13 @@ export class NotificationsService {
         options,
         payload,
       );
+
+      if (exist) {
+        this.logger.log(
+          `Found existing notification with id ${notification.id}, updating instead of creating a new one`,
+        );
+        return notification;
+      }
     } else {
       const payload: Prisma.JsonObject = {
         count: 1,
@@ -116,7 +140,7 @@ export class NotificationsService {
       notification = await this.notificationsRepository.createNotification(
         options,
         payload,
-        dedubeKey,
+        dedupeKey,
       );
     }
 
@@ -148,6 +172,91 @@ export class NotificationsService {
     );
 
     return notification;
+  }
+
+  async handleUndo(options: NotificationTriggerOptions) {
+    const dedupeKey = this.generateDedupeKey(options);
+
+    const undoingActorId = options.actorId.toString();
+    const notification = await this.notificationsRepository.findOpenNotification(
+      options.receiverId,
+      dedupeKey,
+    );
+    if (!notification) return;
+
+    const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
+      count: 1,
+      actors: [],
+    };
+
+    const previousActor = {
+      id: notification.actor.id.toString(),
+      username: notification.actor.username,
+      displayName: notification.actor.profile?.displayName || null,
+      avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      ifFollowing: notification.actor.followers.length > 0,
+    };
+
+    const actorsMap = new Map<
+      string,
+      {
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        ifFollowing: boolean;
+      }
+    >();
+
+    if (currentPayload.actors) {
+      currentPayload.actors.forEach((a) => actorsMap.set(a.id, a));
+    }
+
+    actorsMap.set(previousActor.id.toString(), previousActor);
+
+    const exist = actorsMap.delete(undoingActorId);
+    if (!exist) {
+      return;
+    }
+
+    const currentCount = actorsMap.size;
+
+    if (currentCount <= 0) {
+      await this.notificationsRepository.deleteById(notification.id);
+
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, notification.id, count);
+      return;
+    }
+
+    let facingActorId = notification.actor.id;
+
+    if (facingActorId.toString() === undoingActorId) {
+      const nextFace = Array.from(actorsMap.keys())[0];
+      if (nextFace) {
+        facingActorId = BigInt(nextFace);
+        actorsMap.delete(facingActorId.toString());
+      }
+    } else {
+      actorsMap.delete(facingActorId.toString());
+    }
+
+    const payload: Prisma.JsonObject = {
+      count: currentCount,
+      actors: Array.from(actorsMap.values()),
+    };
+
+    options.actorId = facingActorId;
+
+    const updated = await this.notificationsRepository.updtateNotificationByIdAggregation(
+      notification.id,
+      options,
+      payload,
+    );
+
+    const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+    const dto = this.notificationsRepository.mapToNotificationDto(updated);
+    await this.sseEvents.publishNotificationUpdate(options.receiverId, dto, count);
   }
 
   async markAllAsSeen(receiverId: bigint) {

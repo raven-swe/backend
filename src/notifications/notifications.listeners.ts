@@ -66,12 +66,15 @@ export class NotificationsListeners {
 
         if (parentTweet && parentTweet.userId !== authorId) {
           authorsIdsNotified.add(parentTweet.userId);
-          await this.notificationsService.trigger({
-            type: 'REPLY',
-            actorId: authorId,
-            receiverId: parentTweet.userId,
-            tweetId: tweetId,
-          });
+          await this.notificationsService.trigger(
+            {
+              type: 'REPLY',
+              actorId: authorId,
+              receiverId: parentTweet.userId,
+              tweetId: tweetId,
+            },
+            { replyToTweetId },
+          );
         }
       }
       if (quoteToTweetId) {
@@ -79,12 +82,15 @@ export class NotificationsListeners {
 
         if (quotedTweet && quotedTweet.userId !== authorId) {
           authorsIdsNotified.add(quotedTweet.userId);
-          await this.notificationsService.trigger({
-            type: 'QUOTE',
-            actorId: authorId,
-            receiverId: quotedTweet.userId,
-            tweetId: tweetId,
-          });
+          await this.notificationsService.trigger(
+            {
+              type: 'QUOTE',
+              actorId: authorId,
+              receiverId: quotedTweet.userId,
+              tweetId: tweetId,
+            },
+            { quoteToTweetId },
+          );
         }
       }
 
