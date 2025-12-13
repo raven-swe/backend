@@ -892,12 +892,17 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+
+  repostedBy: {
+    @doc("The username of the user who reposted this tweet.")
+    username: string;
+
+    @doc("The display name of the user who reposted this tweet.")
+    displayName: string;
+
+  }
 }
 
-model ProfileTweet extends Tweet {
-  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
-  isRepost: boolean;
-}
 
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
@@ -1694,7 +1699,7 @@ namespace Users {
   @get
   @route("/{username}/tweets")
   op getUserTweets(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<Tweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;

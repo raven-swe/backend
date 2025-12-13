@@ -38,6 +38,7 @@ import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { ExploreModule } from './explore/explore.module';
 import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
 
 @Module({
@@ -93,6 +94,7 @@ import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
     NotificationsModule,
     EventsModule,
     FirebaseModule,
+    ExploreModule,
   ],
   controllers: [HealthController],
   providers: [
