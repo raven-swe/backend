@@ -703,6 +703,28 @@ model UploadVideoRequest {
   folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
 }
 
+model UploadGifBody {
+  @doc("Tenor GIF ID to attach")
+  tenorId: string;
+}
+
+model UploadGifResponse {
+  @doc("Unique identifier for the uploaded GIF")
+  id: string;
+
+  @doc("URL to access the uploaded GIF")
+  url: string;
+
+  @doc("Width of the GIF in pixels")
+  width: integer;
+
+  @doc("Height of the GIF in pixels")
+  height: integer;
+
+  @doc("Alt text for accessibility (if provided)")
+  altText?: string;
+}
+
 @doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
   @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
@@ -1875,6 +1897,15 @@ namespace Media {
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/gif")
+  @summary("Upload a GIF by tenor ID")
+  op uploadGif(@body body: UploadGifBody):
+    | DataResponse<UploadGifResponse>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
 }
 
 @tag("Tweets")
@@ -1992,6 +2023,7 @@ namespace Tweets {
   @doc("Generates a concise summary of the tweet content using Gemini 2.0 Flash Lite")
   op getTweetSummary(
     @path id: string,
+
     @query
     @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
     locale?: "ar-EG" | "en-US",
@@ -2165,11 +2197,7 @@ namespace Search {
     @doc("The search query")
     @query
     query: string,
-  ):
-    | DataResponse<string[]>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  ): DataResponse<string[]> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @summary("Get suggested users from following/follower list, used in mentions")
   @get
