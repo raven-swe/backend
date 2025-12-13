@@ -1183,12 +1183,13 @@ export class TimelineService {
             authors.set(authorId, author);
           }
         }
-
+        const fullAuthorsMap = await this.tweetsRepository.getAuthorRelationships(userId, authors);
         // Assemble tweets
         const assembledBatch = this.assembleTimelineTweets(
           orderedTimelineItems,
           tweets,
           authors,
+          fullAuthorsMap,
           dynamicData,
         );
 
