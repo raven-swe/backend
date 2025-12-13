@@ -255,7 +255,13 @@ export class MediaService {
     const tenorResponse = await fetch(tenorUrl);
 
     if (!tenorResponse.ok) {
-      throw new Error(`Tenor API request failed: ${tenorResponse.statusText}`);
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+          code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const tenorData = (await tenorResponse.json()) as TenorResponse;
@@ -297,10 +303,6 @@ export class MediaService {
       width,
       height,
       altText: gifData.content_description,
-      variations: {
-        tinygifUrl: gifData.media_formats.tinygif.url,
-        nanogifUrl: gifData.media_formats.nanogif.url,
-      },
     };
 
     this.logger.log(`GIF metadata saved with ID: ${savedMedia.id}`);

@@ -4,8 +4,4 @@ export class UploadedGifResponse {
   width: number;
   height: number;
   altText?: string;
-  variations: {
-    tinygifUrl: string;
-    nanogifUrl: string;
-  };
 }
