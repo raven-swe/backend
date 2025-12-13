@@ -322,11 +322,12 @@ export class TweetsRepository {
       where: { id: tweetId },
       data: { isDeleted: true },
     });
-
     await prismaClient.retweet.deleteMany({
       where: { tweetId },
     });
-
+    await prismaClient.notification.deleteMany({
+      where: { tweetId },
+    });
     await prismaClient.like.deleteMany({
       where: { tweetId },
     });
@@ -439,6 +440,10 @@ export class TweetsRepository {
           },
         });
 
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'LIKE' },
+        });
+
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -509,6 +514,10 @@ export class TweetsRepository {
               tweetId,
             },
           },
+        });
+
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'RETWEET' },
         });
 
         await tx.tweet.update({
@@ -1425,6 +1434,23 @@ export class TweetsRepository {
     return validFollows.map((f) => f.followedId);
   }
 
+  async filterNonMutedAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+    const validAuthors = await this.prisma.user.findMany({
+      where: {
+        id: { in: authorIds },
+        deletedAt: null,
+        mutedBy: {
+          none: {
+            userId: userId,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return validAuthors.map((f) => f.id);
+  }
+
   /**
    * Filters tweet IDs to return only those not deleted
    * @param tweetIds Array of tweet IDs to validate
@@ -1550,5 +1576,88 @@ export class TweetsRepository {
       }
     });
     return authors;
+  }
+  /**
+   * Get user's interests from their profile
+   */
+  async getUserInterests(userId: bigint): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { interests: true },
+    });
+
+    return user?.interests || [];
+  }
+
+  /**
+   * Get recent tweets from users the person follows
+   */
+  async getRecentTweetsFromFollowing(
+    userId: bigint,
+    limit: number,
+  ): Promise<Array<{ id: string; authorId: string; createdAt: Date }>> {
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+
+    if (following.length === 0) {
+      return [];
+    }
+
+    const followingIds = following.map((f) => f.followedId);
+
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        userId: { in: followingIds },
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+      },
+    });
+
+    return tweets.map((t) => ({
+      id: t.id.toString(),
+      authorId: t.userId.toString(),
+      createdAt: t.createdAt,
+    }));
+  }
+
+  /**
+   * Get tweets matching user's interests (from tweet.class field)
+   */
+  async getTweetsMatchingInterests(
+    interests: string[],
+    limit: number,
+  ): Promise<Array<{ id: string; authorId: string; createdAt: Date }>> {
+    if (interests.length === 0) {
+      return [];
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Use = ANY() to match class against array of interests
+    const tweets = await this.prisma.$queryRaw<
+      Array<{ id: bigint; user_id: bigint; created_at: Date }>
+    >`
+    SELECT id, user_id, created_at
+    FROM tweets
+    WHERE class = ANY(${interests}::text[])
+      AND is_deleted = false
+      AND created_at >= ${sevenDaysAgo}::timestamp
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
+
+    return tweets.map((t) => ({
+      id: t.id.toString(),
+      authorId: t.user_id.toString(),
+      createdAt: t.created_at,
+    }));
   }
 }

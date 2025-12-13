@@ -492,8 +492,8 @@ export class UsersService {
     }
 
     await this.usersRepository.unfollowUser(followerId, followedId);
-    this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
 
+    this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
     return { message: 'User unfollowed successfully.' };
   }
 

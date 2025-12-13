@@ -14,7 +14,7 @@ export class UsersController {
   @Post(':username/following')
   @UseGuards(JwtAuthGuard)
   @Throttle({
-    default: {
+    short: {
       limit: 10,
       ttl: 60,
     },
