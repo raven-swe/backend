@@ -29,8 +29,14 @@ export class NotificationProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<{ notificationId: string; userId: string }>) {
-    const { notificationId, userId } = job.data;
+  async process(
+    job: Job<{
+      notificationId: string;
+      userId: string;
+      type: 'new_notification' | 'update_notification';
+    }>,
+  ): Promise<void> {
+    const { notificationId, userId, type } = job.data;
 
     this.logger.log(
       `Processing push notification job for notification id ${notificationId} to user ${userId}`,
@@ -47,10 +53,7 @@ export class NotificationProcessor extends WorkerHost {
         );
         return;
       }
-      const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
-        count: 1,
-        actors: [],
-      };
+      const currentPayload = notification.payload as unknown as NotificationPayloadDto;
 
       const { devices, languageCode } = await this.devicesRepository.getUserDevices(BigInt(userId));
       if (!devices.length) {
@@ -60,42 +63,39 @@ export class NotificationProcessor extends WorkerHost {
 
       this.logger.log(`Found ${devices.length} devices for user ${userId}`);
 
-      const previewActors = [
-        notification.actor.profile?.displayName ?? notification.actor.username,
-      ];
+      const previewActors = currentPayload.actorsPreview.map((a) => ({
+        username: a.username,
+        displayName: a.displayName ?? undefined,
+        avatarUrl: a.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        isFollowing: a.ifFollowing,
+      }));
+
+      if (type === 'new_notification') {
+        previewActors.push({
+          username: notification.actor.username,
+          displayName: notification.actor.profile?.displayName,
+          avatarUrl: notification.actor.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          isFollowing: notification.actor.followers.length > 0,
+        });
+      }
+
       const tweetSnippet = notification.tweet?.content ?? null;
 
       const { title, body } = buildFcmNotificationText({
         notificationType: notification.type,
         isAggregated: Boolean(notification.isAggregated),
-        previewActors,
-        totalActorCount: currentPayload.count,
+        previewActors: previewActors.map((a) => a.displayName || a.username),
+        totalActorCount: currentPayload.actorsIds?.length,
         tweetSnippet,
         locale: languageCode,
       });
-
-      const actors = [
-        {
-          username: notification.actor.username,
-          displayName: notification.actor.profile?.displayName,
-          avatarUrl: notification.actor.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
-          isFollowing: notification.actor.followers.length > 0,
-        },
-      ].concat(
-        currentPayload.actors.map((a) => ({
-          username: a.username,
-          displayName: a.displayName ?? DEFAULT_PROFILE_PICTURE,
-          avatarUrl: a.avatarUrl,
-          isFollowing: a.ifFollowing,
-        })),
-      );
 
       const fcmData: FcmNotificationData = {
         id: notification.id.toString(),
         type: notification.type,
         isSeen: String(notification.seen),
         latestEventAt: notification.latestEventAt.toISOString(),
-        actorSummary: JSON.stringify(actors),
+        actorSummary: JSON.stringify(previewActors),
         tweetSubjectIds: JSON.stringify([notification.tweet?.id?.toString()]),
       };
 
@@ -105,12 +105,12 @@ export class NotificationProcessor extends WorkerHost {
         `Sending push notification for notification id ${notificationId} to ${devices.length} devices`,
       );
 
-      //TODO: add proper title and body and localize
       const payload = {
         token: null,
         notification: {
           title,
           body: body ?? undefined,
+          image: previewActors[0]?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
         },
         data: fcmData as unknown as Record<string, string>,
         android: {
@@ -119,6 +119,7 @@ export class NotificationProcessor extends WorkerHost {
             channel_id: 'default',
             sound: 'default',
             color: '#e5e7ff',
+            tag: notification.dedupeKey ?? undefined,
           },
         },
       };
@@ -127,7 +128,6 @@ export class NotificationProcessor extends WorkerHost {
 
       const tokens = devices.map((d) => d.fcmToken).filter((t): t is string => !!t);
 
-      //TODO: use sendMulticast when available in firebase-admin also sendEach for list of messages when needed
       const response = await admin.messaging().sendEachForMulticast({
         tokens: tokens,
         notification: payload.notification,

@@ -48,11 +48,9 @@ export class NotificationsRepository {
   ) {}
 
   mapToNotificationDto(n: NotificationWithDetails): NotificationResponseDto {
-    const currentPayload = (n.payload as unknown as NotificationPayloadDto) || {
-      count: 1,
-      actors: [],
-    };
-    const actors = [
+    const currentPayload = n.payload as unknown as NotificationPayloadDto;
+
+    const actorsPreview = [
       {
         username: n.actor.username,
         displayName: n.actor.profile?.displayName,
@@ -60,7 +58,7 @@ export class NotificationsRepository {
         isFollowing: n.actor.followers.length > 0,
       },
     ].concat(
-      currentPayload.actors.map((a) => ({
+      currentPayload.actorsPreview.map((a) => ({
         username: a.username,
         displayName: a.displayName ?? DEFAULT_PROFILE_PICTURE,
         avatarUrl: a.avatarUrl,
@@ -72,12 +70,11 @@ export class NotificationsRepository {
       id: n.id.toString(),
       type: n.type,
       actorSummary: {
-        totalCount: 1,
-        previewActors: actors,
+        totalCount: currentPayload.actorsIds!.length,
+        previewActors: actorsPreview,
       },
       tweetSummary: {
         totalCount: n.tweet?.id ? 1 : 0,
-        subjectIds: n.tweet?.id ? [n.tweet.id.toString()] : [],
         primaryTweet: n.tweet ? this.tweetRepository.mapToTweetDto(n.tweet) : null,
       },
       latestEventAt: n.latestEventAt,
@@ -128,6 +125,7 @@ export class NotificationsRepository {
         latestEventAt: true,
         seen: true,
         isAggregated: true,
+        dedupeKey: true,
         payload: true,
         tweet: {
           select: { id: true, content: true },

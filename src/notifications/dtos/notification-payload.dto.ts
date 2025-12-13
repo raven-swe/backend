@@ -1,11 +1,10 @@
 export class NotificationPayloadDto {
-  count: number;
-  actors: Array<{
+  actorsPreview: Array<{
     id: string;
     username: string;
     displayName: string | null;
     avatarUrl: string;
     ifFollowing: boolean;
   }>;
-  subjectIds?: Array<string>;
+  actorsIds?: Array<string>;
 }
