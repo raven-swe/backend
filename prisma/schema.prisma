@@ -125,6 +125,7 @@ model UserDevice {
   pushEnabled  Boolean       @default(true) @map("push_enabled")
   ipAddress    String?       @map("ip_address") @db.Inet
   deviceType   String?       @map("device_type")
+  languageCode LanguageCode  @default(EN)
   lastUsedAt   DateTime      @default(now()) @map("last_used_at")
   createdAt    DateTime      @default(now()) @map("created_at")
   refreshToken RefreshToken?
