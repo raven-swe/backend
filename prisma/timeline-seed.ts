@@ -5,7 +5,21 @@ const prisma = new PrismaClient();
 
 async function getOrCreateHashtag(tag: string) {
   const keyword = tag.toLowerCase();
-  return prisma.trendingKeyword.upsert({
+
+  // Create hashtag in hashtags table for tweet linking
+  const hashtag = await prisma.hashtag.upsert({
+    where: {
+      keyword,
+    },
+    update: {},
+    create: {
+      keyword,
+    },
+  });
+
+  // Also create/increment in trending_keywords for scoring
+  // this uses trending_keywords
+  await prisma.trendingKeyword.upsert({
     where: {
       keyword_isHashtag: {
         keyword,
@@ -21,6 +35,8 @@ async function getOrCreateHashtag(tag: string) {
       count: 1,
     },
   });
+
+  return hashtag;
 }
 
 async function main() {
@@ -31,6 +47,7 @@ async function main() {
   await prisma.retweet.deleteMany({});
   await prisma.tweet.deleteMany({});
   await prisma.follow.deleteMany({});
+  await prisma.hashtag.deleteMany({});
   await prisma.trendingKeyword.deleteMany({});
 
   // Step 2: Create the 5 specified user accounts.
