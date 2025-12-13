@@ -21,6 +21,7 @@ describe('NotificationsService', () => {
     getUnseenCount: jest.fn(),
     getNotifications: jest.fn(),
     mapToNotificationDto: jest.fn(),
+    findOpenNotification: jest.fn(),
   };
 
   const mockSseEventsService: jest.Mocked<Partial<SseEventsService>> = {
@@ -54,29 +55,49 @@ describe('NotificationsService', () => {
   });
 
   describe('trigger', () => {
+    const userId = BigInt(10);
+    const mockNotification = {
+      id: BigInt(1),
+      type: 'LIKE',
+      actor: {
+        username: 'testuser',
+        profile: {
+          displayName: 'Test User',
+          avatarUrl: 'http://example.com/avatar.jpg',
+        },
+        followers: [{ followerId: userId, followedId: BigInt(2) }],
+      },
+      tweet: {
+        id: BigInt(100),
+        content: 'Test tweet',
+        userId: BigInt(2),
+      },
+      latestEventAt: new Date('2024-01-01'),
+      seen: false,
+    };
+    const mockTriggerOpitions = {
+      actorId: BigInt(1),
+      receiverId: BigInt(userId),
+      tweetId: BigInt(3),
+      type: 'LIKE' as const,
+    };
     it('should create a notification if none exists and actorId != receiverId', async () => {
-      const mockNotification = { id: 10n, actorId: 1n, receiverId: 2n, type: 'LIKE' };
+      const dedupeKey = `${mockTriggerOpitions.type}:TWEET:${mockTriggerOpitions.tweetId}`;
+
       (mockNotificationsRepository.findExisting as jest.Mock).mockResolvedValue(null);
+      (mockNotificationsRepository.findOpenNotification as jest.Mock).mockResolvedValue(null);
       (mockNotificationsRepository.createNotification as jest.Mock).mockResolvedValue(
         mockNotification,
       );
 
-      const result = await service.trigger({
-        actorId: BigInt(mockNotification.actorId),
-        receiverId: BigInt(mockNotification.receiverId),
-        type: 'LIKE',
-      });
+      const result = await service.trigger(mockTriggerOpitions);
 
-      expect(mockNotificationsRepository.findExisting).toHaveBeenCalledWith({
-        actorId: BigInt(mockNotification.actorId),
-        receiverId: BigInt(mockNotification.receiverId),
-        type: 'LIKE',
-      });
-      expect(mockNotificationsRepository.createNotification).toHaveBeenCalledWith({
-        actorId: BigInt(mockNotification.actorId),
-        receiverId: BigInt(mockNotification.receiverId),
-        type: 'LIKE',
-      });
+      expect(mockNotificationsRepository.findExisting).toHaveBeenCalledWith(mockTriggerOpitions);
+      expect(mockNotificationsRepository.findOpenNotification).toHaveBeenCalledWith(
+        mockTriggerOpitions.receiverId,
+        dedupeKey,
+      );
+
       expect(result).toEqual(mockNotification);
     });
 
@@ -415,8 +436,6 @@ describe('NotificationsService', () => {
       ]);
 
       const result = await service.getNotifications(userId);
-
-      console.log(result.items[0].actorSummary.previewActors);
 
       expect(result.items[0].actorSummary.previewActors[0]).toEqual({
         username: 'testuser',
