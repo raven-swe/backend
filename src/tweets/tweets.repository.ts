@@ -6,7 +6,11 @@ import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
+import {
+  UserInteractionsCursor,
+  TweetRelationsCursor,
+  TweetRankCursor,
+} from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
@@ -1179,9 +1183,9 @@ export class TweetsRepository {
 
   private buildTweetFilters(
     currentUserId: bigint,
-    hasMedia: boolean = false,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    hasMedia: boolean = false,
     cursor?: TweetRelationsCursor,
   ) {
     const cursorCondition = cursor
@@ -1232,17 +1236,16 @@ export class TweetsRepository {
     };
   }
 
-  async getTweetsByQuery(
+  async getLatestTweetsByQuery(
     currentUserId: bigint,
     query: string,
-    hasMedia: boolean = false,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
     limit: number,
     cursor?: TweetRelationsCursor,
   ) {
     const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
-      this.buildTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter, cursor);
+      this.buildTweetFilters(currentUserId, excludeMutedAndBlocked, peopleFilter, false, cursor);
 
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
@@ -1291,6 +1294,89 @@ export class TweetsRepository {
     return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
   }
 
+  async getRankedTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    limit: number,
+    cursor?: TweetRankCursor,
+  ) {
+    const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildTweetFilters(currentUserId, excludeMutedAndBlocked, peopleFilter, hasMedia);
+
+    const cursorCondition = cursor
+      ? Prisma.sql`
+    AND (
+      rank < ${cursor.rank}
+      OR (
+        rank = ${cursor.rank}
+        AND t.id <= ${BigInt(cursor.id)}
+      )
+    ) 
+    `
+      : Prisma.empty;
+
+    const sqlQuery = Prisma.sql`
+    SELECT t.id, 
+    (
+      ts_rank(t.search_document, to_tsquery('simple', ${query})) * 10 + 
+      LOG(GREATEST(t.like_count, 1)) * 0.3 +
+      LOG(GREATEST(t.retweet_count, 1)) * 0.5 +
+      LOG(GREATEST(t.reply_count, 1)) * 0.2 
+    ) AS rank
+    FROM tweets t
+    WHERE t.search_document @@ to_tsquery('simple', ${query})
+      AND t.is_deleted = false
+      ${mediaCondition}
+      ${cursorCondition}
+      ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
+    ORDER BY rank DESC, t.id DESC
+    LIMIT ${limit}
+  `;
+
+    const tweetIds = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        rank: number;
+      }[]
+    >(sqlQuery);
+
+    if (tweetIds.length === 0) {
+      return [];
+    }
+
+    console.log('=== PRISMA SQL DEBUG ===');
+    console.log('Query string:', sqlQuery.strings);
+    console.log('Query values:', sqlQuery.values);
+    console.log('========================');
+
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds.map((row) => row.id) },
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+    });
+
+    // Maintain the order from the search query
+    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
+    const orderedTweets = tweetIds
+      .map((row) => tweetMap.get(row.id.toString()))
+      .filter((tweet) => tweet !== undefined);
+
+    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
+  }
+
   async getTweetIdsLinkedToHashtag(
     hashtagId: bigint,
     currentUserId: bigint,
@@ -1303,9 +1389,9 @@ export class TweetsRepository {
     const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
       this.buildTweetFilters(
         currentUserId,
-        hasMedia,
         excludeMutedAndBlocked,
         peopleFilter,
+        hasMedia,
         prevCursor,
       );
 

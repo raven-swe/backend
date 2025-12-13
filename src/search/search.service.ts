@@ -12,7 +12,7 @@ import {
   isSingleHashtagQuery,
   prepareSearchQuery,
 } from './utils/search-query.util';
-import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
+import { TweetRankCursor, TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
 import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
@@ -116,11 +116,11 @@ export class SearchService {
     return { items, pagination };
   }
 
-  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
+  private decodeCursor(prevCursor?: string): TweetRelationsCursor | TweetRankCursor | undefined {
     if (!prevCursor) return undefined;
 
     try {
-      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      return decodeCompositeCursor<TweetRelationsCursor | TweetRankCursor>(prevCursor);
     } catch {
       throw new HttpException(
         {
@@ -138,7 +138,7 @@ export class SearchService {
     cleanedQuery: string,
     currentUserId: bigint,
     limit: number,
-    decodedCursor: TweetRelationsCursor | undefined,
+    decodedCursor: TweetRelationsCursor | TweetRankCursor | undefined,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter?: PeopleSearchFilter,
   ): Promise<GetTweetResponseDto[]> {
@@ -150,29 +150,40 @@ export class SearchService {
         currentUserId,
         limit,
         withMedia,
-        decodedCursor,
+        decodedCursor as TweetRelationsCursor | undefined,
         excludeMutedAndBlocked,
         peopleFilter,
       );
     }
 
-    return withMedia
-      ? this.tweetsService.getTweetsWithMediaByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        )
-      : this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
+    if (tab === SearchTab.Latest) {
+      return this.tweetsService.getLatestTweetsByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRelationsCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    } else if (tab === SearchTab.Media) {
+      return this.tweetsService.getTweetsWithMediaByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRankCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    } else {
+      return this.tweetsService.getTopTweetsByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRankCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    }
   }
 
   async searchUsers(
