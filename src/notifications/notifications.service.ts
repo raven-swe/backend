@@ -66,10 +66,7 @@ export class NotificationsService {
     }
 
     if (notification) {
-      const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
-        count: 1,
-        actors: [],
-      };
+      const currentPayload = notification.payload as unknown as NotificationPayloadDto;
 
       const previousActor = {
         id: notification.actor.id.toString(),
@@ -89,9 +86,12 @@ export class NotificationsService {
         }
       >();
 
-      if (currentPayload.actors) {
-        currentPayload.actors.forEach((a) => actorsMap.set(a.id, a));
+      if (currentPayload.actorsPreview) {
+        currentPayload.actorsPreview.forEach((a) => actorsMap.set(a.id, a));
       }
+
+      const actorsIdsSet = new Set(currentPayload.actorsIds);
+      actorsIdsSet.add(options.actorId.toString());
 
       if (actorsMap.size >= 3) {
         // Limit to 3 actors in aggregation
@@ -101,20 +101,10 @@ export class NotificationsService {
       }
       actorsMap.set(previousActor.id.toString(), previousActor);
 
-      const exist = actorsMap.delete(options.actorId.toString());
-      const subjectIds = new Set(currentPayload.subjectIds || []);
-      if (options.tweetId) {
-        subjectIds.add(options.tweetId.toString());
-      }
-      let inc = 1;
-      if (exist) {
-        inc = 0;
-      }
-
       const payload: Prisma.JsonObject = {
-        count: (currentPayload.count || 0) + inc,
-        actors: Array.from(actorsMap.values()),
-        subjectIds: Array.from(subjectIds),
+        count: actorsIdsSet.size,
+        actorsPreview: Array.from(actorsMap.values()),
+        actorsIds: Array.from(actorsIdsSet),
       };
 
       notification = await this.notificationsRepository.updtateNotificationByIdAggregation(
@@ -122,18 +112,10 @@ export class NotificationsService {
         options,
         payload,
       );
-
-      if (exist) {
-        this.logger.log(
-          `Found existing notification with id ${notification.id}, updating instead of creating a new one`,
-        );
-        return notification;
-      }
     } else {
       const payload: Prisma.JsonObject = {
-        count: 1,
-        actors: [],
-        subjectIds: options.tweetId ? [options.tweetId.toString()] : [],
+        actorsIds: [options.actorId.toString()],
+        actorsPreview: [],
       };
 
       notification = await this.notificationsRepository.createNotification(
@@ -159,11 +141,18 @@ export class NotificationsService {
 
     await this.notificationsQueue.add(
       'sendPush',
-      { notificationId: notification.id.toString(), userId: options.receiverId.toString() },
+      {
+        notificationId: notification.id.toString(),
+        userId: options.receiverId.toString(),
+        type: 'new_notification',
+      },
       {
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
+        jobId: `PUSH:${options.receiverId}:${dedupeKey || notification.id}`, // Dedupe at queue level
+        delay: 2000, // 2 second delay
+        removeOnFail: false,
       },
     );
     this.logger.log(
@@ -187,10 +176,15 @@ export class NotificationsService {
     );
     if (!notification) return;
 
-    const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
-      count: 1,
-      actors: [],
-    };
+    const currentPayload = notification.payload as unknown as NotificationPayloadDto;
+
+    const actorsIdsSet = new Set(currentPayload.actorsIds || []);
+
+    const wasPresent = actorsIdsSet.delete(undoingActorId);
+
+    if (!wasPresent) {
+      return;
+    }
 
     const previousActor = {
       id: notification.actor.id.toString(),
@@ -210,18 +204,14 @@ export class NotificationsService {
       }
     >();
 
-    if (currentPayload.actors) {
-      currentPayload.actors.forEach((a) => actorsMap.set(a.id, a));
+    if (currentPayload.actorsPreview) {
+      currentPayload.actorsPreview.forEach((a) => actorsMap.set(a.id, a));
     }
 
     actorsMap.set(previousActor.id.toString(), previousActor);
 
-    const exist = actorsMap.delete(undoingActorId);
-    if (!exist) {
-      return;
-    }
-
-    const currentCount = currentPayload.count - 1;
+    actorsMap.delete(undoingActorId);
+    const currentCount = actorsIdsSet.size;
 
     if (currentCount <= 0) {
       await this.notificationsRepository.deleteById(notification.id);
@@ -238,15 +228,14 @@ export class NotificationsService {
       const nextFace = Array.from(actorsMap.keys())[0];
       if (nextFace) {
         facingActorId = BigInt(nextFace);
-        actorsMap.delete(facingActorId.toString());
       }
-    } else {
-      actorsMap.delete(facingActorId.toString());
     }
+    actorsMap.delete(facingActorId.toString());
 
     const payload: Prisma.JsonObject = {
       count: currentCount,
-      actors: Array.from(actorsMap.values()),
+      actorsPreview: Array.from(actorsMap.values()),
+      actorsIds: Array.from(actorsIdsSet),
     };
 
     options.actorId = facingActorId;
@@ -260,6 +249,26 @@ export class NotificationsService {
     const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
     const dto = this.notificationsRepository.mapToNotificationDto(updated);
     await this.sseEvents.publishNotificationUpdate(options.receiverId, dto, count);
+
+    await this.notificationsQueue.add(
+      'sendPush',
+      {
+        notificationId: notification.id.toString(),
+        userId: options.receiverId.toString(),
+        type: 'update_notification',
+      },
+      {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+        jobId: `PUSH_${options.receiverId}_${dedupeKey || notification.id}`, // Dedupe at queue level
+        delay: 2000, // 2 second delay
+        removeOnFail: false,
+      },
+    );
+    this.logger.log(
+      `Enqueued push notification job for notification id ${notification.id} to user ${options.receiverId}`,
+    );
   }
 
   async markAllAsSeen(receiverId: bigint) {
