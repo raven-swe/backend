@@ -25,7 +25,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:create": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:reset": "prisma migrate reset --force && prisma db seed",
+    "db:reset": "prisma migrate reset --force",
     "db:seed": "prisma db seed",
     "db:seed-timeline": "ts-node prisma/timeline-seed.ts",
     "db:seed-large-timeline": "ts-node prisma/seed-large-timeline.ts",
