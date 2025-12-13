@@ -7,6 +7,7 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
 import { imageFileFilter, videoFileFilter } from './validators/media-file.validator';
 import { UploadMedia } from './dtos/upload-media.dto';
+import { UploadGif } from './dtos/upload-gif.dto';
 
 @Controller('media')
 export class MediaController {
@@ -42,5 +43,11 @@ export class MediaController {
     @Body() body: UploadMedia,
   ) {
     return this.mediaService.uploadMedia(BigInt(user.id), file, body.folder, body.altText);
+  }
+
+  @Post('upload/gif')
+  @UseGuards(JwtAuthGuard)
+  async uploadGif(@User() user: RequestUser, @Body() body: UploadGif) {
+    return this.mediaService.uploadGif(BigInt(user.id), body.tenorId);
   }
 }

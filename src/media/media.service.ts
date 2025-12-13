@@ -9,7 +9,8 @@ import { MediaType } from '@prisma/client';
 import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
-
+import { TenorResponse } from './interfaces';
+import { UploadedGifResponse } from './dtos/uploaded-gif-response';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -233,6 +234,80 @@ export class MediaService {
 
     const items = await this.uploadAndSaveMedia(file, userId, folder, altText, true);
     return { ...items, message: 'Media uploaded successfully.' };
+  }
+
+  async uploadGif(currentUserId: bigint, tenorId: string): Promise<UploadedGifResponse> {
+    const tenorApiKey = process.env.RAVEN_TENOR_KEY;
+    if (!tenorApiKey) {
+      this.logger.error('Tenor API key is not configured');
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+          code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    const tenorUrl = `https://tenor.googleapis.com/v2/posts?key=${tenorApiKey}&ids=${tenorId}&client_key=my_app`;
+    this.logger.log(`Fetching GIF from Tenor with ID: ${tenorId}`);
+
+    const tenorResponse = await fetch(tenorUrl);
+
+    if (!tenorResponse.ok) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+          code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const tenorData = (await tenorResponse.json()) as TenorResponse;
+
+    if ((tenorData && !tenorData.results) || tenorData.results.length === 0) {
+      throw new HttpException(
+        {
+          message: MEDIA_MESSAGES.GIF_NOT_FOUND,
+          code: MEDIA_CODES.GIF_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const gifData = tenorData.results[0];
+
+    // Get the GIF URL and dimensions from the response
+    const gifUrl = gifData.media_formats.gif.url;
+    const [width, height] = gifData.media_formats.gif.dims;
+
+    this.logger.log(`GIF URL from Tenor: ${gifUrl}`);
+
+    // Save metadata to database
+    const mediaDto: MediaDto = {
+      userId: currentUserId,
+      url: gifUrl,
+      type: MediaType.GIF,
+      width,
+      height,
+      altText: gifData.content_description,
+      pending: true,
+    };
+
+    const savedMedia = await this.mediaRepository.saveMedia(mediaDto);
+
+    const uploadedGifResponse = {
+      id: savedMedia.id.toString(),
+      url: gifUrl,
+      width,
+      height,
+      altText: gifData.content_description,
+    };
+
+    this.logger.log(`GIF metadata saved with ID: ${savedMedia.id}`);
+
+    return uploadedGifResponse;
   }
 
   /**
