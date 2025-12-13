@@ -19,6 +19,7 @@ export class NotificationsService {
     private readonly usersRepository: UsersRepository,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
+
   async trigger(options: NotificationTriggerOptions) {
     this.logger.log(
       `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,

@@ -494,7 +494,8 @@ export class TweetsService {
       COUNT_CACHE_TTL,
     );
 
-    this.logger.debug(`User ${userId} unliked tweet ${tweetId} successfully`);
+    this.logger.log(`User ${userId} unliked tweet ${tweetId} successfully`);
+
     return { message: 'Tweet unliked successfully' };
   }
 
