@@ -496,6 +496,9 @@ export class UsersRepository {
           where: { id: followedId },
           data: { followersCount: { decrement: 1 } },
         }),
+        this.prisma.notification.deleteMany({
+          where: { receiverId: followedId, actorId: followerId, type: 'FOLLOW' },
+        }),
       ])
       .catch((e) => {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
@@ -604,6 +607,17 @@ export class UsersRepository {
       },
     });
     return !!follow;
+  }
+
+  /**
+   * Get all user IDs that a given user follows
+   */
+  async getFollowingIds(userId: bigint): Promise<bigint[]> {
+    const follows = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+    return follows.map((f) => f.followedId);
   }
 
   /**

@@ -1,6 +1,22 @@
 // functions to get the keys for timeline caches
 
-export const REDIS_TIMELINE_KEYS = {
+export const REDIS_TIMELINE_KEYS: {
+  getUserTimelineKey: (userId: bigint) => string;
+  getTimelineTweetItem: (authorId: bigint, tweetId: bigint) => string;
+  getTimelineRetweetItem: (authorId: bigint, tweetId: bigint, retweeterId: bigint) => string;
+  getUserTimelineEmptyPlaceholderKey: (userId: bigint) => string;
+  getTweetStaticDataKey: (tweetId: bigint) => string;
+  getAuthorDataKey: (authorId: bigint) => string;
+  getTweetLikesCountKey: (tweetId: bigint) => string;
+  getTweetRetweetsCountKey: (tweetId: bigint) => string;
+  getTweetRepliesCountKey: (tweetId: bigint) => string;
+  getUserTweetInteractionKey: (userId: bigint, tweetId: bigint) => string;
+  getUserInteractionsKey: (userId: bigint) => string;
+  getUserInteractionsLikeItem: (tweetId: bigint) => string;
+  getUserInteractionsRetweetItem: (tweetId: bigint) => string;
+  getForYouFeedKey: (userId: bigint) => string;
+  getForYouSeenKey: (userId: bigint) => string;
+} = {
   getUserTimelineKey: (userId: bigint): string => {
     return `timeline:${userId}`;
   },
@@ -31,4 +47,9 @@ export const REDIS_TIMELINE_KEYS = {
   getUserInteractionsLikeItem: (tweetId: bigint): string => `like:${tweetId}`,
 
   getUserInteractionsRetweetItem: (tweetId: bigint): string => `retweet:${tweetId}`,
+
+  // For You feed keys
+  getForYouFeedKey: (userId: bigint): string => `foryou:${userId}:feed`,
+
+  getForYouSeenKey: (userId: bigint): string => `foryou:${userId}:seen`,
 };
