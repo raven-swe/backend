@@ -3,7 +3,6 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { UsersRepository } from 'src/users/users.repository';
-import { RedisService } from 'src/redis/redis.service';
 import { TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from 'src/tweets/constants';
 import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
@@ -16,6 +15,7 @@ import { DomainEventsService } from 'src/events/domain-events.service';
 import { MediaType } from '@prisma/client';
 import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { RedisService } from 'src/redis/redis.service';
 import { TrendingService } from 'src/trending/trending.service';
 
 const encodeCompositeCursor = (cursorObject: object): string => {
