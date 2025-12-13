@@ -58,7 +58,7 @@ export class ExploreService {
   > {
     const trendingKeywords = await this.exploreRepository.getTrendingKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
-      hashtag: keyword.keyword,
+      hashtag: keyword.isHashtag ? '#' + keyword.keyword : keyword.keyword,
       tweetsCount: keyword.count,
       category: this.mapCategory(keyword.topCategory?.category),
     }));
@@ -71,7 +71,7 @@ export class ExploreService {
   > {
     const trendingKeywords = await this.exploreRepository.getEntertainmentKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
-      hashtag: keyword.keyword,
+      hashtag: keyword.isHashtag ? '#' + keyword.keyword : keyword.keyword,
       tweetsCount: keyword.categoryOccurenceCount,
       category: this.mapCategory(keyword.category),
     }));
@@ -82,7 +82,7 @@ export class ExploreService {
   async getNewsKeywords(): Promise<{ hashtag: string; tweetsCount: number; category: string }[]> {
     const trendingKeywords = await this.exploreRepository.getNewsKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
-      hashtag: keyword.keyword,
+      hashtag: keyword.isHashtag ? '#' + keyword.keyword : keyword.keyword,
       tweetsCount: keyword.categoryOccurenceCount,
       category: this.mapCategory(keyword.category),
     }));
@@ -93,7 +93,7 @@ export class ExploreService {
   async getSportsKeywords(): Promise<{ hashtag: string; tweetsCount: number; category: string }[]> {
     const trendingKeywords = await this.exploreRepository.getSportsKeywords();
     const filteredKeywords = trendingKeywords.map((keyword) => ({
-      hashtag: keyword.keyword,
+      hashtag: keyword.isHashtag ? '#' + keyword.keyword : keyword.keyword,
       tweetsCount: keyword.categoryOccurenceCount,
       category: this.mapCategory(keyword.category),
     }));

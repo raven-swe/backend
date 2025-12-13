@@ -224,6 +224,7 @@ export class ExploreRepository {
         keyword: {
           select: {
             keyword: true,
+            isHashtag: true,
           },
         },
       },
@@ -232,6 +233,7 @@ export class ExploreRepository {
     return keywords.map((k) => ({
       ...k,
       keyword: k.keyword.keyword,
+      isHashtag: k.keyword.isHashtag,
     }));
   }
 
@@ -244,6 +246,7 @@ export class ExploreRepository {
         keyword: {
           select: {
             keyword: true,
+            isHashtag: true,
           },
         },
       },
@@ -252,6 +255,7 @@ export class ExploreRepository {
     return keywords.map((k) => ({
       ...k,
       keyword: k.keyword.keyword,
+      isHashtag: k.keyword.isHashtag,
     }));
   }
 
@@ -264,6 +268,7 @@ export class ExploreRepository {
         keyword: {
           select: {
             keyword: true,
+            isHashtag: true,
           },
         },
       },
@@ -272,6 +277,7 @@ export class ExploreRepository {
     return keywords.map((k) => ({
       ...k,
       keyword: k.keyword.keyword,
+      isHashtag: k.keyword.isHashtag,
     }));
   }
 }
