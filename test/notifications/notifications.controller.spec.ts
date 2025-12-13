@@ -77,7 +77,6 @@ describe('NotificationsController', () => {
           },
           tweetSummary: {
             totalCount: 1,
-            subjectIds: ['100'],
             primaryTweet: { id: '100', content: 'Test tweet' },
           },
           latestEventAt: new Date('2024-01-01'),
