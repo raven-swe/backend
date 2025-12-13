@@ -1419,12 +1419,17 @@ export class TweetsRepository {
     return validFollows.map((f) => f.followedId);
   }
 
-  async filterNonMutedAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+  async filterNonMutedNonBlockedAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
     const validAuthors = await this.prisma.user.findMany({
       where: {
         id: { in: authorIds },
         deletedAt: null,
         mutedBy: {
+          none: {
+            userId: userId,
+          },
+        },
+        blockedBy: {
           none: {
             userId: userId,
           },
