@@ -6,6 +6,7 @@ import { tweetInclude, TweetsRepository } from 'src/tweets/tweets.repository';
 import { Prisma } from '@prisma/client';
 import { NotificationResponseDto } from './dtos/notification-response.dto';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { NotificationPayloadDto } from './dtos/notification-payload.dto';
 
 export const notificationSelect = (userId: bigint) =>
   ({
@@ -47,19 +48,32 @@ export class NotificationsRepository {
   ) {}
 
   mapToNotificationDto(n: NotificationWithDetails): NotificationResponseDto {
+    const currentPayload = (n.payload as unknown as NotificationPayloadDto) || {
+      count: 1,
+      actors: [],
+    };
+    const actors = [
+      {
+        username: n.actor.username,
+        displayName: n.actor.profile?.displayName,
+        avatarUrl: n.actor.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+        isFollowing: n.actor.followers.length > 0,
+      },
+    ].concat(
+      currentPayload.actors.map((a) => ({
+        username: a.username,
+        displayName: a.displayName ?? DEFAULT_PROFILE_PICTURE,
+        avatarUrl: a.avatarUrl,
+        isFollowing: a.ifFollowing,
+      })),
+    );
+
     return {
       id: n.id.toString(),
       type: n.type,
       actorSummary: {
         totalCount: 1,
-        previewActors: [
-          {
-            username: n.actor.username,
-            displayName: n.actor.profile?.displayName,
-            avatarUrl: n.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-            isFollowing: n.actor.followers.length > 0,
-          },
-        ],
+        previewActors: actors,
       },
       tweetSummary: {
         totalCount: n.tweet?.id ? 1 : 0,
@@ -73,6 +87,10 @@ export class NotificationsRepository {
 
   async deleteById(notificationId: bigint) {
     return await this.prisma.notification.deleteMany({ where: { id: notificationId } });
+  }
+
+  async deleteExisting(options: NotificationTriggerOptions) {
+    return await this.prisma.notification.deleteMany({ where: options });
   }
 
   async findOpenNotification(receiverId: bigint, dedupeKey: string) {
@@ -100,7 +118,7 @@ export class NotificationsRepository {
     });
   }
 
-  async findByIdForPush(notificationId: bigint) {
+  async findByIdForPush(notificationId: bigint, receiverId: bigint) {
     return await this.prisma.notification.findUnique({
       where: { id: notificationId },
       select: {
@@ -110,6 +128,7 @@ export class NotificationsRepository {
         latestEventAt: true,
         seen: true,
         isAggregated: true,
+        payload: true,
         tweet: {
           select: { id: true, content: true },
         },
@@ -122,6 +141,7 @@ export class NotificationsRepository {
                 avatarUrl: true,
               },
             },
+            followers: { where: { followerId: receiverId } },
           },
         },
       },
@@ -131,7 +151,7 @@ export class NotificationsRepository {
   async createNotification(
     data: NotificationTriggerOptions,
     payload: Prisma.JsonObject,
-    dedupeKey: string,
+    dedupeKey: string | null,
   ): Promise<NotificationWithDetails> {
     return await this.prisma.notification.create({
       data: { ...data, payload, dedupeKey },
