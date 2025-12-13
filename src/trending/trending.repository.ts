@@ -13,7 +13,7 @@ export class TrendingRepository {
    * @param prismaClient
    * @returns Array of hashtag ids in the same order as input
    */
-  async createOrIncrementHashtags(
+  async createOrGetHashtags(
     hashtags: PlainHashtag[],
     prismaClient: Prisma.TransactionClient = this.prisma,
   ): Promise<(PlainHashtag & { hashtagId: bigint })[]> {
@@ -24,11 +24,12 @@ export class TrendingRepository {
     // counts once per tweet, lowercase
     const keywords = Array.from(new Set(hashtags.map((hashtag) => hashtag.keyword.toLowerCase())));
 
+    // Create or get hashtags in the new hashtags table (for tweet linking and searching)
     const results = await prismaClient.$queryRaw<{ id: bigint; keyword: string }[]>`
-      INSERT INTO "trending_keywords" (keyword, "is_hashtag", count)
-      VALUES ${Prisma.join(keywords.map((keyword) => Prisma.sql`(${keyword}, true, 1)`))}
-      ON CONFLICT (keyword, "is_hashtag")
-      DO UPDATE SET count = "trending_keywords".count + 1
+      INSERT INTO "hashtags" (keyword)
+      VALUES ${Prisma.join(keywords.map((keyword) => Prisma.sql`(${keyword})`))}
+      ON CONFLICT (keyword)
+      DO UPDATE SET keyword = EXCLUDED.keyword
       RETURNING id, keyword
     `;
 
@@ -50,13 +51,10 @@ export class TrendingRepository {
    * @returns - The ID of the hashtag if it exists, or null if it does not.
    */
   async getHashtagId(hashtag: string): Promise<{ id: bigint } | null> {
-    return await this.prisma.trendingKeyword.findUnique({
+    return await this.prisma.hashtag.findUnique({
       select: { id: true },
       where: {
-        keyword_isHashtag: {
-          keyword: hashtag.toLowerCase(),
-          isHashtag: true,
-        },
+        keyword: hashtag.toLowerCase(),
       },
     });
   }

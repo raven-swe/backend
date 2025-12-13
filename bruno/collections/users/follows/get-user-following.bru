@@ -5,14 +5,9 @@ meta {
 }
 
 get {
-  url: {{base_url}}/users/:username/following?limit=2&cursor=eyJmb2xsb3dlcklkIjoiNCIsImZvbGxvd2VkSWQiOiIyIn0=
+  url: {{base_url}}/users/:username/following
   body: none
   auth: bearer
-}
-
-params:query {
-  limit: 2
-  cursor: eyJmb2xsb3dlcklkIjoiNCIsImZvbGxvd2VkSWQiOiIyIn0=
 }
 
 params:path {
@@ -21,6 +16,10 @@ params:path {
 
 auth:bearer {
   token: {{access_token}}
+}
+
+vars:pre-request {
+  base_url: http://localhost:3000
 }
 
 settings {

@@ -51,7 +51,7 @@ export class ContentParsingService {
       plainMentions,
       tx,
     );
-    const hashtags = await this.trendingService.createOrIncrementHashtags(plainHashtags, tx);
+    const hashtags = await this.trendingService.createOrGetHashtags(plainHashtags, tx);
     return { mentions, hashtags };
   }
 
