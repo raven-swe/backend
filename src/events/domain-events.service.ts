@@ -5,7 +5,10 @@ import {
   TweetCreatedEvent,
   TweetLikedEvent,
   TweetRetweetedEvent,
+  TweetUnlikedEvent,
+  TweetUnretweetedEvent,
   UserFollowedEvent,
+  UserUnfollowedEvent,
 } from './interfaces/event.interface';
 
 @Injectable()
@@ -25,5 +28,17 @@ export class DomainEventsService {
   }
   async emitTweetCreated(payload: TweetCreatedEvent) {
     await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Created, payload);
+  }
+
+  async emitTweetUnliked(payload: TweetUnlikedEvent) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Unliked, payload);
+  }
+
+  async emitTweetUnretweeted(payload: TweetUnretweetedEvent) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Unretweeted, payload);
+  }
+
+  async emitUserUnfollowed(payload: UserUnfollowedEvent) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.User_Unfollowed, payload);
   }
 }

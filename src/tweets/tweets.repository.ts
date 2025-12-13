@@ -425,10 +425,6 @@ export class TweetsRepository {
           },
         });
 
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'LIKE' },
-        });
-
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -499,10 +495,6 @@ export class TweetsRepository {
               tweetId,
             },
           },
-        });
-
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'RETWEET' },
         });
 
         await tx.tweet.update({

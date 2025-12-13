@@ -496,9 +496,6 @@ export class UsersRepository {
           where: { id: followedId },
           data: { followersCount: { decrement: 1 } },
         }),
-        this.prisma.notification.deleteMany({
-          where: { receiverId: followedId, actorId: followerId, type: 'FOLLOW' },
-        }),
       ])
       .catch((e) => {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
