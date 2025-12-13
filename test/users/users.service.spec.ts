@@ -120,6 +120,7 @@ describe('UsersService', () => {
   const mockDomainEventsService = {
     publish: jest.fn(),
     emitUserFollowed: jest.fn(),
+    emitUserUnfollowed: jest.fn(),
   };
 
   beforeEach(async () => {

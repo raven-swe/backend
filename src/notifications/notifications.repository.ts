@@ -92,7 +92,7 @@ export class NotificationsRepository {
 
   async findOpenNotification(receiverId: bigint, dedupeKey: string) {
     return await this.prisma.notification.findUnique({
-      where: { dedupeKey },
+      where: { dedupeKey, seen: true },
       select: notificationSelect(receiverId),
     });
   }
