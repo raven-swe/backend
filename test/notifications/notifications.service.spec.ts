@@ -210,10 +210,9 @@ describe('NotificationsService', () => {
             },
             tweetSummary:
               notification.type === 'FOLLOW'
-                ? { totalCount: 0, subjectIds: [], primaryTweet: null }
+                ? { totalCount: 0, primaryTweet: null }
                 : {
                     totalCount: 1,
-                    subjectIds: [notification.tweet?.id.toString()],
                     primaryTweet: {
                       id: notification.tweet?.id.toString(),
                       content: notification.tweet?.content,
@@ -256,7 +255,6 @@ describe('NotificationsService', () => {
         },
         tweetSummary: {
           totalCount: 1,
-          subjectIds: ['100'],
           primaryTweet: {
             id: '100',
             content: 'Test tweet',
@@ -385,7 +383,6 @@ describe('NotificationsService', () => {
 
       expect(result.items[0].tweetSummary).toEqual({
         totalCount: 0,
-        subjectIds: [],
         primaryTweet: null,
       });
       // expect(mockTweetsRepository.mapToTweetDto).not.toHaveBeenCalled();
