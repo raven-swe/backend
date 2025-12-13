@@ -15,24 +15,15 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
-  private generateDedupeKey(
-    options: NotificationTriggerOptions,
-    additional?: { replyToTweetId?: bigint; quoteToTweetId?: bigint },
-  ): string {
+  private generateDedupeKey(options: NotificationTriggerOptions): string | null {
     switch (options.type) {
       case 'FOLLOW':
         return `${options.type}:USER:${options.receiverId}`;
-      case 'QUOTE':
-        return `${options.type}:TWEET:${additional?.quoteToTweetId}`;
-      case 'MENTION':
-        return `${options.type}:${options.actorId}:${options.receiverId}:${options.tweetId}`;
-      case 'REPLY':
-        return `${options.type}:TWEET:${additional?.replyToTweetId}`;
       case 'LIKE':
       case 'RETWEET':
-      case 'TWEET':
-      case 'MESSAGE':
         return `${options.type}:TWEET:${options.tweetId}`;
+      default:
+        return null;
     }
   }
   private readonly logger = new Logger(NotificationsService.name);
@@ -42,7 +33,6 @@ export class NotificationsService {
     private readonly usersRepository: UsersRepository,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
-
   async trigger(options: NotificationTriggerOptions) {
     this.logger.log(
       `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
@@ -64,14 +54,16 @@ export class NotificationsService {
       return existing;
     }
 
-    const dedupeKey = this.generateDedupeKey(options, additional);
+    const dedupeKey = this.generateDedupeKey(options);
 
     let notification = null;
 
-    notification = await this.notificationsRepository.findOpenNotification(
-      options.receiverId,
-      dedupeKey,
-    );
+    if (dedupeKey) {
+      notification = await this.notificationsRepository.findOpenNotification(
+        options.receiverId,
+        dedupeKey,
+      );
+    }
 
     if (notification) {
       const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
@@ -101,7 +93,14 @@ export class NotificationsService {
         currentPayload.actors.forEach((a) => actorsMap.set(a.id, a));
       }
 
+      if (actorsMap.size >= 3) {
+        // Limit to 3 actors in aggregation
+        const firstTwo = Array.from(actorsMap.entries()).slice(0, 2);
+        actorsMap.clear();
+        firstTwo.forEach(([key, value]) => actorsMap.set(key, value));
+      }
       actorsMap.set(previousActor.id.toString(), previousActor);
+
       const exist = actorsMap.delete(options.actorId.toString());
       const subjectIds = new Set(currentPayload.subjectIds || []);
       if (options.tweetId) {
@@ -176,8 +175,12 @@ export class NotificationsService {
 
   async handleUndo(options: NotificationTriggerOptions) {
     const dedupeKey = this.generateDedupeKey(options);
+    if (!dedupeKey) {
+      return await this.notificationsRepository.deleteExisting(options);
+    }
 
     const undoingActorId = options.actorId.toString();
+
     const notification = await this.notificationsRepository.findOpenNotification(
       options.receiverId,
       dedupeKey,
@@ -218,7 +221,7 @@ export class NotificationsService {
       return;
     }
 
-    const currentCount = actorsMap.size;
+    const currentCount = currentPayload.count - 1;
 
     if (currentCount <= 0) {
       await this.notificationsRepository.deleteById(notification.id);
