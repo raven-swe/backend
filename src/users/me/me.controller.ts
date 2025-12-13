@@ -32,7 +32,7 @@ export class MeController {
 
   @Put('password')
   @Throttle({
-    default: {
+    short: {
       limit: RATE_LIMIT.PASSWORD_CHANGE.LIMIT,
       ttl: RATE_LIMIT.PASSWORD_CHANGE.WINDOW_MS,
     },

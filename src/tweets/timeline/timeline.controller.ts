@@ -21,4 +21,16 @@ export class TimelineController {
       ...timelineTweets,
     };
   }
+
+  @Get('for-you')
+  @HttpCode(200)
+  async getForYouTimeline(@Query() pagination: PaginationQueryDto, @User() user: RequestUser) {
+    const userId = BigInt(user.id);
+    const { limit, cursor } = pagination;
+    const timelineTweets = await this.timelineService.getForYouFeed(userId, cursor, limit);
+    return {
+      message: 'For You Timeline retrieved successfully',
+      ...timelineTweets,
+    };
+  }
 }

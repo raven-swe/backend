@@ -2,7 +2,6 @@ import { TweetEntitiesDto } from './tweet-entitites.dto';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { DeletedTweet } from '../types';
 import { CompactAuthorDto } from './compact-author.dto';
-
 export class TweetDto {
   id: string;
   author: CompactAuthorDto;
