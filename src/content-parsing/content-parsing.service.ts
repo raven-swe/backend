@@ -126,7 +126,6 @@ export class ContentParsingService {
   }
 
   /**
-   * Generate a summary of a tweet using Gemini 2.0 Flash Lite
    * @param content The tweet content to summarize
    * @returns A concise summary of the tweet
    */
@@ -140,18 +139,26 @@ export class ContentParsingService {
       }
 
       const englishPrompt = `
-      Summarize the following tweet in english in a very simple and concise way.
-      The summary MUST start with: "The tweet is talking about ..."
-      Keep it shorter than the original tweet.
+      You are generating a short explanation for users in the app UI.
+
+      Summarize the following tweet in a simple, user-friendly sentence.
+      The sentence MUST start with: "The tweet is talking about ..."
+
+      The goal is clarity for users, not strict character length comparison.
+      If the tweet is very short, empty, or unclear, still provide a brief meaningful explanation.
 
       Tweet:
       ${content}
       `;
 
       const arabicPrompt = `
-      لخص التغريدة التالية باللهجة المصرية بطريقة بسيطة ومختصرة جداً.
-      يجب أن يبدأ الملخص بعبارة: "التغريدة تتحدث عن ..."
-      ويجب أن يكون أقصر من التغريدة الأصلية.
+      أنت تقوم بإنشاء شرح قصير لعرضه للمستخدم داخل واجهة التطبيق.
+
+      لخص التغريدة التالية باللهجة المصرية بجملة بسيطة وواضحة.
+      يجب أن يبدأ الشرح بعبارة: "التغريدة تتحدث عن ..."
+
+      الهدف هو التوضيح للمستخدم، وليس الالتزام بعدد أحرف أقل من التغريدة.
+      إذا كانت التغريدة قصيرة جداً أو غير واضحة، قدّم شرحاً مختصراً مفيداً.
 
       التغريدة:
       ${content}
