@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 if (process.env.SEED_ENV === 'true') {
+  console.log('Started seeding database...');
   const prisma = new PrismaClient();
 
   async function main() {
@@ -1345,4 +1346,6 @@ if (process.env.SEED_ENV === 'true') {
       await prisma.$disconnect();
       process.exit(1);
     });
+} else {
+  console.log('Seeding is skipped in production environment.');
 }
