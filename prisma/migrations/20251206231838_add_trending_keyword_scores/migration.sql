@@ -11,8 +11,6 @@ ALTER TYPE "Categories" ADD VALUE 'GENERAL';
 
 -- AlterTable
 ALTER TABLE "trending_keywords"
-    RENAME COLUMN "count" TO "occurrence_count";
-ALTER TABLE "trending_keywords"
     ADD COLUMN "overall_score" DOUBLE PRECISION NOT NULL DEFAULT 0.0;
     
 -- CreateTable
@@ -21,19 +19,19 @@ CREATE TABLE "trending_keyword_categories" (
     "trendingKeywordId" BIGINT NOT NULL,
     "category" "Categories" NOT NULL,
     "score" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    "occurrence_count" INTEGER NOT NULL DEFAULT 0,
+    "count" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "trending_keyword_categories_pkey" PRIMARY KEY ("id")
 );
 
 -- Copy existing category data into the new table
 INSERT INTO "trending_keyword_categories"
-  ("trendingKeywordId", "category", "score", "occurrence_count")
+  ("trendingKeywordId", "category", "score", "count")
 SELECT
   "id"              AS "trendingKeywordId",
   "category",
   0.0               AS "score",
-  "occurrence_count"
+  "count"
 FROM "trending_keywords"
 WHERE "category" IS NOT NULL;
 

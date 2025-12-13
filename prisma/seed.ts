@@ -585,10 +585,10 @@ if (process.env.SEED_ENV === 'true') {
     });
 
     const getHashtag = async (tag: string) => {
-      return prisma.trendingKeyword.upsert({
-        where: { keyword_isHashtag: { keyword: tag, isHashtag: true } },
-        update: { count: { increment: 1 } },
-        create: { keyword: tag, isHashtag: true, count: 1 },
+      return prisma.hashtag.upsert({
+        where: { keyword: tag },
+        update: {},
+        create: { keyword: tag },
       });
     };
 

@@ -239,12 +239,9 @@ model TrendingKeyword {
   categoryScores TrendingKeywordCategory[]     @relation("keyword_scores")
   lastUpdatedAt       DateTime?                       @map("last_updated_at")
   isHashtag           Boolean       @default(false)   @map("is_hashtag")
-  count     Int           @default(1)       @map("occurrence_count")
+  count     Int           @default(1)       @map("count")
   overallScore        Float         @default(0.0)     @map("overall_score")
   createdAt           DateTime      @default(now())   @map("created_at")
-
-
-  tweetHashtags TweetHashtag[]
 
   @@unique([keyword, isHashtag])
   @@index([isHashtag, keyword, count(sort: Desc)], map: "trending_hashtags_search_idx")
@@ -259,7 +256,7 @@ model TrendingKeywordCategory {
   trendingKeywordId  BigInt
   category           Categories
   score              Float            @default(0.0)
-  categoryOccurenceCount      Int              @default(0) @map("occurrence_count")
+  categoryOccurenceCount      Int              @default(0) @map("count")
 
   keyword            TrendingKeyword  @relation(fields: [trendingKeywordId], references: [id], onDelete: Cascade, name: "keyword_scores")
 
@@ -274,7 +271,6 @@ model Hashtag {
   createdAt     DateTime       @default(now()) @map("created_at")
   tweetHashtags TweetHashtag[]
 
-  @@index([keyword])
   @@map("hashtags")
 }
 
