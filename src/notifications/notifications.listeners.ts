@@ -6,6 +6,9 @@ import type {
   TweetLikedEvent,
   TweetCreatedEvent,
   TweetRetweetedEvent,
+  TweetUnlikedEvent,
+  UserUnfollowedEvent,
+  TweetUnretweetedEvent,
   UserFollowedEvent,
 } from 'src/events/interfaces/event.interface';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
@@ -106,6 +109,46 @@ export class NotificationsListeners {
       }
     } catch (error) {
       this.logger.error('Error processing Tweet_Created event:', error);
+    }
+  }
+  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Unliked) async handleTweetUnliked(payload: TweetUnlikedEvent) {
+    try {
+      await this.notificationsService.handleUndo({
+        actorId: payload.actorId,
+        receiverId: payload.receiverId,
+        tweetId: payload.tweetId,
+        type: 'LIKE',
+      });
+    } catch (error) {
+      this.logger.error('Error processing Tweet_Unliked event:', error);
+    }
+  }
+
+  @OnEvent(DOMAIN_EVENT_NAMES.User_Unfollowed) async handleUserUnfollowed(
+    payload: UserUnfollowedEvent,
+  ) {
+    try {
+      await this.notificationsService.handleUndo({
+        actorId: payload.actorId,
+        receiverId: payload.receiverId,
+        type: 'FOLLOW',
+      });
+    } catch (error) {
+      this.logger.error('Error processing User_Unfollowed event:', error);
+    }
+  }
+  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Unretweeted) async handleTweetUnRetweeted(
+    payload: TweetUnretweetedEvent,
+  ) {
+    try {
+      await this.notificationsService.handleUndo({
+        actorId: payload.actorId,
+        receiverId: payload.receiverId,
+        tweetId: payload.tweetId,
+        type: 'RETWEET',
+      });
+    } catch (error) {
+      this.logger.error('Error processing Tweet_Unretweeted event:', error);
     }
   }
 }
