@@ -95,6 +95,7 @@ export class NotificationsListeners {
           // Avoid sending duplicate notifications to users already notified for reply or quote
           if (authorsIdsNotified.has(targetId)) continue;
 
+          authorsIdsNotified.add(targetId);
           await this.notificationsService.trigger({
             type: 'MENTION',
             actorId: authorId,
