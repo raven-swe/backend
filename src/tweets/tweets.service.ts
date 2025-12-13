@@ -239,6 +239,13 @@ export class TweetsService {
       );
     }
 
+    if (createTweetDto.replyToTweetId) {
+      await this.redisService.safeIncr(
+        REDIS_TIMELINE_KEYS.getTweetRepliesCountKey(tweetId),
+        COUNT_CACHE_TTL,
+      );
+    }
+
     return this.formatTweetDto(
       tweet,
       mentions,
