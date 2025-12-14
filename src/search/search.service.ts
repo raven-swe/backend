@@ -99,7 +99,6 @@ export class SearchService {
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
     const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
     const decodedCursor = this.decodeCursor(prevCursor, isRelevanceSearch);
-    console.log('decodedCursor', decodedCursor);
 
     const items = await this.fetchTweetsByTab(
       tab,
@@ -239,7 +238,7 @@ export class SearchService {
   async searchUsers(
     currentUserId: bigint,
     searchUsersQueryDto: SearchUsersQueryDto,
-    limit: number,
+    limit: number = 20,
     prevCursor?: string,
   ) {
     const { query, peopleFilter, excludeMutedAndBlocked } = searchUsersQueryDto;
