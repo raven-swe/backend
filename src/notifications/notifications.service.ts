@@ -150,7 +150,7 @@ export class NotificationsService {
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
-        jobId: `PUSH:${options.receiverId}:${dedupeKey || notification.id}`, // Dedupe at queue level
+        jobId: `PUSH_${options.receiverId}_${dedupeKey || notification.id}`,
         delay: 2000, // 2 second delay
         removeOnFail: false,
       },
