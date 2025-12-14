@@ -23,7 +23,7 @@ import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './co
 import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
-export const tweetInclude = (currentUserId: bigint) =>
+export const tweetInclude = (currentUserId: bigint | null) =>
   ({
     user: {
       select: {
@@ -37,16 +37,19 @@ export const tweetInclude = (currentUserId: bigint) =>
         },
       },
     },
-    _count: {
-      select: {
-        likes: {
-          where: { userId: currentUserId },
-        },
-        retweets: {
-          where: { userId: currentUserId },
+    ...(currentUserId && {
+      _count: {
+        select: {
+          likes: {
+            where: { userId: currentUserId },
+          },
+          retweets: {
+            where: { userId: currentUserId },
+          },
         },
       },
-    },
+    }),
+
     tweetMentions: {
       select: {
         startPosition: true,
@@ -190,7 +193,7 @@ export class TweetsRepository {
 
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { isRepost?: boolean; repostedBy?: { username: string; displayName: string } } = {},
+    context: { repostedBy?: { username: string; displayName: string } } = {},
   ): TweetDto {
     let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {
@@ -215,8 +218,8 @@ export class TweetsRepository {
       replyCount: tweet.replyCount,
       retweetCount: tweet.retweetCount,
       likeCount: tweet.likeCount,
-      isLiked: tweet._count.likes > 0,
-      isRetweeted: tweet._count.retweets > 0,
+      isLiked: tweet._count ? tweet._count.likes > 0 : false,
+      isRetweeted: tweet._count ? tweet._count.retweets > 0 : false,
       entities: {
         mentions: tweet.tweetMentions.map((mention) => ({
           username: mention.user.username,
@@ -564,7 +567,7 @@ export class TweetsRepository {
 
   async getDetailedTweetById(
     tweetId: bigint,
-    currentUserId: bigint,
+    currentUserId: bigint | null,
   ): Promise<GetTweetResponseDto | null> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
@@ -1080,7 +1083,6 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       rootTweetId: tweet.rootTweetId?.toString() ?? null,
-      isRepost: false,
       repostedBy: undefined,
     }));
   }

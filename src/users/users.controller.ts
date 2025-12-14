@@ -5,6 +5,7 @@ import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { OptionalAuth } from 'src/common/decorators/optional-auth.decorator';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
@@ -14,7 +15,7 @@ export class UsersController {
   @Post(':username/following')
   @UseGuards(JwtAuthGuard)
   @Throttle({
-    default: {
+    short: {
       limit: 10,
       ttl: 60,
     },
@@ -35,8 +36,9 @@ export class UsersController {
 
   // TODO: This should be optional guard (if logged in, provide more details (just the relations))
   @UseGuards(JwtAuthGuard)
+  @OptionalAuth()
   async getUserProfile(@Param('username') username: string, @User() user: RequestUser) {
-    const currentUserId = BigInt(user.id);
+    const currentUserId = user ? BigInt(user.id) : undefined;
 
     return this.usersService.getUserProfile(username, currentUserId);
   }

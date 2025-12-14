@@ -287,15 +287,16 @@ export class UsersRepository {
       // TODO: Get mutual followers count and names
     }
 
-    const relationship: UserRelationshipDto | null = isMyProfile
-      ? null
-      : {
-          blocking: isBlocking,
-          blockedBy: isBlockedBy,
-          following: isFollowing,
-          follower: isFollower,
-          muted: isMuted,
-        };
+    const relationship: UserRelationshipDto | null =
+      isMyProfile || !currentUserId
+        ? null
+        : {
+            blocking: isBlocking,
+            blockedBy: isBlockedBy,
+            following: isFollowing,
+            follower: isFollower,
+            muted: isMuted,
+          };
 
     return {
       username: user.username,
@@ -632,15 +633,74 @@ export class UsersRepository {
         },
       });
 
-      // Remove follow relationships in both directions
-      await tx.follow.deleteMany({
-        where: {
-          OR: [
-            { followerId: userId, followedId: blockedId },
-            { followerId: blockedId, followedId: userId },
-          ],
-        },
-      });
+      // Decrement following and followers counts if there was a follow relationship
+      const [followFromUserToBlocked, followFromBlockedToUser] = await Promise.all([
+        tx.follow.findUnique({
+          where: {
+            followerId_followedId: {
+              followerId: userId,
+              followedId: blockedId,
+            },
+          },
+        }),
+
+        tx.follow.findUnique({
+          where: {
+            followerId_followedId: {
+              followerId: blockedId,
+              followedId: userId,
+            },
+          },
+        }),
+      ]);
+
+      if (followFromUserToBlocked) {
+        // Decrement following count for userId and follower count for blockedId
+        await Promise.all([
+          tx.user.update({
+            where: { id: userId },
+            data: { followingCount: { decrement: 1 } },
+          }),
+
+          tx.user.update({
+            where: { id: blockedId },
+            data: { followersCount: { decrement: 1 } },
+          }),
+
+          tx.follow.delete({
+            where: {
+              followerId_followedId: {
+                followerId: userId,
+                followedId: blockedId,
+              },
+            },
+          }),
+        ]);
+      }
+
+      if (followFromBlockedToUser) {
+        // Decrement following count for blockedId and follower count for userId
+        await Promise.all([
+          tx.user.update({
+            where: { id: blockedId },
+            data: { followingCount: { decrement: 1 } },
+          }),
+
+          tx.user.update({
+            where: { id: userId },
+            data: { followersCount: { decrement: 1 } },
+          }),
+
+          tx.follow.delete({
+            where: {
+              followerId_followedId: {
+                followerId: blockedId,
+                followedId: userId,
+              },
+            },
+          }),
+        ]);
+      }
     });
   }
 

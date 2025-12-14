@@ -29,7 +29,6 @@ import { AppLogger } from './logger/logger.service';
 import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
 import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
-import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TimelineModule } from './tweets/timeline/timeline.module';
 import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
 import { SessionsModule } from './sessions/sessions.module';
@@ -39,6 +38,8 @@ import { SseController } from './sse/sse.controller';
 import cors from 'cors';
 import { EventsModule } from './events/events.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { ExploreModule } from './explore/explore.module';
+import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
 
 @Module({
   imports: [
@@ -46,6 +47,12 @@ import { FirebaseModule } from './firebase/firebase.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
+          name: 'short',
+          ttl: RATE_LIMIT.WRITE.TTL,
+          limit: RATE_LIMIT.WRITE.LIMIT,
+        },
+        {
+          name: 'default',
           ttl: RATE_LIMIT.GLOBAL.TTL,
           limit: RATE_LIMIT.GLOBAL.LIMIT,
         },
@@ -87,12 +94,13 @@ import { FirebaseModule } from './firebase/firebase.module';
     NotificationsModule,
     EventsModule,
     FirebaseModule,
+    ExploreModule,
   ],
   controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: IpThrottlerGuard,
+      useClass: RequestThrottlerGuard,
     },
     {
       provide: APP_FILTER,
