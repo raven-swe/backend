@@ -48,7 +48,10 @@ export class NotificationsRepository {
   ) {}
 
   mapToNotificationDto(n: NotificationWithDetails): NotificationResponseDto {
-    const currentPayload = n.payload as unknown as NotificationPayloadDto;
+    const currentPayload = (n.payload as unknown as NotificationPayloadDto) || {
+      actorsPreview: [],
+      actorsIds: [],
+    };
 
     const actorsPreview = [
       {
