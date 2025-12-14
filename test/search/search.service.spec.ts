@@ -23,6 +23,7 @@ describe('SearchService', () => {
   const mockTweetsService = {
     getTopTweetsByQuery: jest.fn(),
     getTweetsWithMediaByQuery: jest.fn(),
+    getLatestTweetsByQuery: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -181,14 +182,14 @@ describe('SearchService', () => {
       excludeMutedAndBlocked: false,
     };
 
-    mockTweetsService.getTopTweetsByQuery.mockResolvedValueOnce(mockTweets);
+    mockTweetsService.getLatestTweetsByQuery.mockResolvedValueOnce(mockTweets);
     (SearchUtils.prepareSearchQuery as jest.Mock) = jest
       .fn()
       .mockReturnValue('latest:* | search:*');
 
     const result = await service.searchTweets(currentUserId, queryDto, limit);
 
-    expect(mockTweetsService.getTopTweetsByQuery).toHaveBeenCalledWith(
+    expect(mockTweetsService.getLatestTweetsByQuery).toHaveBeenCalledWith(
       currentUserId,
       'latest:* | search:*',
       limit,
@@ -232,29 +233,31 @@ describe('SearchService', () => {
   it('should handle cursor pagination correctly', async () => {
     const lastTweet = mockTweets[mockTweets.length - 1];
     const cursor = encodeCompositeCursor({
+      type: 'relations', // Add type field
       createdAt: lastTweet.createdAt.toISOString(),
       id: lastTweet.id.toString(),
     });
 
     const queryDto = {
       query: 'pagination test',
-      tab: SearchTab.Top,
+      tab: SearchTab.Latest,
       peopleFilter: undefined,
       excludeMutedAndBlocked: false,
     };
 
-    mockTweetsService.getTopTweetsByQuery.mockResolvedValueOnce(mockTweets);
+    mockTweetsService.getLatestTweetsByQuery.mockResolvedValueOnce(mockTweets);
     (SearchUtils.prepareSearchQuery as jest.Mock) = jest
       .fn()
       .mockReturnValue('pagination:* | test:*');
 
     const result = await service.searchTweets(currentUserId, queryDto, limit, cursor);
 
-    expect(mockTweetsService.getTopTweetsByQuery).toHaveBeenCalledWith(
+    expect(mockTweetsService.getLatestTweetsByQuery).toHaveBeenCalledWith(
       currentUserId,
       'pagination:* | test:*',
       limit,
       {
+        type: 'relations', // Add type field to expected object
         createdAt: lastTweet.createdAt.toISOString(),
         id: lastTweet.id.toString(),
       },
