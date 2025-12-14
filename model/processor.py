@@ -47,6 +47,11 @@ class TweetProcessor:
             text = tweet.content
             
             if not text.strip():
+                self.logger.debug(f"Tweet {tweet_id}: Empty content, classifying as General")
+                processed_tweets.append({
+                    "id": tweet_id,
+                    "class": "General"
+                })
                 continue
 
             has_arabic = bool(re.search(r'[\u0600-\u06FF]', text))
