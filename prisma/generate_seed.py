@@ -39,7 +39,6 @@ PROFILE_PIC_URLS = [
 # Expanded list of real public image URLs (from Unsplash, Pexels, etc.)
 IMAGE_URLS = [
     "https://images.unsplash.com/photo-1518770660439-4636190af475?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "https://images.unsplash.com/photo-1505373877841-5d097bf5bdc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
     "https://images.unsplash.com/photo-1519389951292-2d96bdcb0f1a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
     "https://images.pexels.com/photos/358492/pexels-photo-358492.jpeg?auto=compress&cs=tinysrgb&w=1920",
     "https://images.pexels.com/photos/442559/pexels-photo-442559.jpeg?auto=compress&cs=tinysrgb&w=1920",
@@ -247,10 +246,12 @@ def generate_users(n=1000):
     return users
 
 def extract_hashtags(content):
-    return list(set(re.findall(r'#(\w+)', content)))
+    # Use word boundary to ensure hashtags are properly separated
+    return list(set(re.findall(r'(?:^|(?<=\s))#(\w+)', content)))
 
 def extract_mentions(content, usernames):
-    mentions = re.findall(r'@(\w+)', content)
+    # Use word boundary to ensure mentions are properly separated
+    mentions = re.findall(r'(?:^|(?<=\s))@(\w+)', content)
     valid_mentions = [m for m in mentions if m in usernames]
     return valid_mentions
 
@@ -369,11 +370,14 @@ def generate_tweets(users, n=5000):
             emojis = ["🚀", "🔥", "🤯", "😂", "☕", "🌟", "✈️", "📈", "⚽", "🎉", "😱", "🧐"]
             content += " " + " ".join(random.sample(emojis, k=random.randint(1, 3)))
 
-        # Add mentions sometimes
+        # Add mentions sometimes (with proper spacing)
         if random.random() > 0.8 and tweet_type in ["reply", "combined"]:
             possible_mentions = random.sample(list(usernames - {user["username"]}), k=min(2, len(usernames)-1))
+            mention_strings = []
             for m in possible_mentions[:random.randint(1, 2)]:
-                content = "@" + m + " " + content
+                mention_strings.append("@" + m)
+            if mention_strings:
+                content = " ".join(mention_strings) + " " + content
 
         hashtags = extract_hashtags(content)
         mentions = extract_mentions(content, usernames)
