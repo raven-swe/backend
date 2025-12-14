@@ -19,7 +19,7 @@ from config import (
 class TweetProcessor:
     def __init__(self):
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.DEBUG,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
