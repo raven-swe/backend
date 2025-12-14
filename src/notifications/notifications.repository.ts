@@ -95,7 +95,7 @@ export class NotificationsRepository {
 
   async findOpenNotification(receiverId: bigint, dedupeKey: string) {
     return await this.prisma.notification.findUnique({
-      where: { dedupeKey, seen: true },
+      where: { dedupeKey },
       select: notificationSelect(receiverId),
     });
   }
@@ -135,6 +135,7 @@ export class NotificationsRepository {
         },
         actor: {
           select: {
+            id: true,
             username: true,
             profile: {
               select: {
