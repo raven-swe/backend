@@ -5,5 +5,5 @@ export class GetTweetResponseDto extends TweetDto {
   replyToTweet?: TweetDto;
 
   @Exclude()
-  rank?: number;
+  rank?: string;
 }

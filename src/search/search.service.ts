@@ -110,7 +110,7 @@ export class SearchService {
     const pagination = isRelevanceSearch
       ? paginateComposite(items, limit, prevCursor, (tweet) => {
           return {
-            rank: tweet.rank,
+            rank: tweet.rank?.toString(),
             id: tweet.id.toString(),
           };
         })

@@ -95,7 +95,7 @@ type TweetWithIncludes = BaseTweetWithIncludes & {
 type DetailedTweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
   replyToTweet?: (BaseTweetWithIncludes & { replyToTweet?: null }) | null;
-  rank?: number;
+  rank?: string;
 };
 
 @Injectable()
@@ -325,12 +325,12 @@ export class TweetsRepository {
 
   mapToDetailedTweetDto(
     tweet: DetailedTweetWithIncludes,
-  ): TweetDto & { replyToTweet?: TweetDto; rank?: number | undefined } {
+  ): TweetDto & { replyToTweet?: TweetDto; rank?: string | undefined } {
     const baseTweet = this.mapToTweetDto(tweet);
 
     return {
       ...baseTweet,
-      rank: tweet.rank ? tweet.rank : undefined,
+      rank: tweet.rank ? tweet.rank.toString() : undefined,
       replyToTweet: tweet.replyToTweet ? this.mapToTweetDto(tweet.replyToTweet) : undefined,
     };
   }
@@ -1226,7 +1226,7 @@ export class TweetsRepository {
   }
 
   private async fetchAndOrderTweetsForSearch(
-    tweetIds: { id: bigint; rank?: number; created_at?: Date }[],
+    tweetIds: { id: bigint; rank?: bigint; created_at?: Date }[],
     currentUserId: bigint,
   ) {
     const tweets = await this.prisma.tweet.findMany({
@@ -1251,7 +1251,7 @@ export class TweetsRepository {
         const tweet = tweetMap.get(row.id.toString());
         if (!tweet) return null;
 
-        return { ...tweet, rank: row.rank };
+        return { ...tweet, rank: row.rank ? row.rank.toString() : undefined };
       })
       .filter((item) => item !== null);
 
@@ -1318,35 +1318,29 @@ export class TweetsRepository {
     limit: number,
     cursor?: TweetRankCursor,
   ) {
-    console.log({ cursor });
     const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
       this.buildBasicTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter);
 
     const rankCalculation = Prisma.sql`
-        ts_rank(t.search_document, to_tsquery('simple', ${query})) * 10 + 
-        LOG(GREATEST(t.like_count, 1)) * 0.3 +
-        LOG(GREATEST(t.retweet_count, 1)) * 0.5 +
-        LOG(GREATEST(t.reply_count, 1)) * 0.2 
+    (
+      CAST(ts_rank(t.search_document, to_tsquery('simple', ${query})) * 10000000 AS BIGINT) + 
+      CAST(LOG(GREATEST(t.like_count, 1)) * 300000 AS BIGINT) +
+      CAST(LOG(GREATEST(t.retweet_count, 1)) * 500000 AS BIGINT) +
+      CAST(LOG(GREATEST(t.reply_count, 1)) * 200000 AS BIGINT)
+    )
   `;
 
-    const SCALING_FACTOR = 1000000;
+    const cursorScore = cursor ? BigInt(cursor.rank) : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
 
     const cursorCondition = cursor
       ? Prisma.sql`
-    AND (
-      FLOOR(${rankCalculation} * ${SCALING_FACTOR}) < FLOOR(${Number(cursor.rank * SCALING_FACTOR)})
-      OR (
-        FLOOR(${rankCalculation} * ${SCALING_FACTOR}) = FLOOR(${Number(cursor.rank * SCALING_FACTOR)})
-        AND t.id <= ${BigInt(cursor.id)} 
+      AND (
+        ${rankCalculation} < ${cursorScore}
+        OR (${rankCalculation} = ${cursorScore} AND t.id <= ${cursorId})
       )
-    )
-  `
+    `
       : Prisma.empty;
-
-    console.log(
-      'Cursor rank calculation after scaling: ',
-      Number(cursor ? cursor?.rank : 0) * SCALING_FACTOR,
-    );
 
     const sqlQuery = Prisma.sql`
     SELECT t.id, ${rankCalculation} AS rank
@@ -1364,16 +1358,9 @@ export class TweetsRepository {
     const tweetIds = await this.prisma.$queryRaw<
       {
         id: bigint;
-        rank: number;
+        rank: bigint;
       }[]
     >(sqlQuery);
-
-    console.log(
-      'Last rank for next cursor: ',
-      tweetIds.length > 0 ? Number(tweetIds[tweetIds.length - 1].rank * SCALING_FACTOR) : null,
-    );
-
-    console.log(tweetIds);
 
     if (tweetIds.length === 0) {
       return [];
