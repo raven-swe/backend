@@ -17,10 +17,10 @@ export class PushSenderService {
 
     this.logger.log(`Found ${devices.length} devices for user ${userId}`);
 
-    const tokens = devices.map((d) => d.fcmToken).filter((t): t is string => !!t);
-    if (!tokens.length) return;
-
     try {
+      const tokens = devices.map((d) => d.fcmToken).filter((t): t is string => !!t);
+      if (!tokens.length) return;
+
       const response = await admin.messaging().sendEachForMulticast({
         tokens,
         notification: payload.notification,
