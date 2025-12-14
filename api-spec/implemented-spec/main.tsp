@@ -247,6 +247,12 @@ model UnauthorizedResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("standard 410 Gone response")
+model GoneResponse {
+  ...Response<410>;
+  ...Body<ApiErrorResponse>;
+}
+
 @doc("Standard 403 Forbidden response")
 model ForbiddenResponse {
   ...Response<403>;
@@ -683,6 +689,28 @@ model UploadVideoRequest {
   folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
 }
 
+model UploadGifBody {
+  @doc("Tenor GIF ID to attach")
+  tenorId: string;
+}
+
+model UploadGifResponse {
+  @doc("Unique identifier for the uploaded GIF")
+  id: string;
+
+  @doc("URL to access the uploaded GIF")
+  url: string;
+
+  @doc("Width of the GIF in pixels")
+  width: integer;
+
+  @doc("Height of the GIF in pixels")
+  height: integer;
+
+  @doc("Alt text for accessibility (if provided)")
+  altText?: string;
+}
+
 @doc("Request body for updating profile (at least one property must be provided)")
 model UpdateProfileRequest {
   @doc("JSON string containing profile data fields (It is not required if either the avatar or banner is provided)")
@@ -850,9 +878,15 @@ model Tweet {
 }
 
 model TweetReposter {
+
+  @doc("The username of the user who reposted this tweet.")
   username: string;
+
+  @doc("The display name of the user who reposted this tweet.")
   displayName: string;
 }
+
+
 
 model TweetWithoutQuotedTweet {
   ...CompactTweet;
@@ -1785,6 +1819,13 @@ namespace Timeline {
   op getFollowingFeed(
     ...CursorPaginationParameters,
   ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+
+  @get
+  @route("/for-you")
+  @summary("Get the personalized 'For You' feed for the authenticated user")
+  op getForYouFeed(
+    ...CursorPaginationParameters,
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse | GoneResponse;
 }
 
 @tag("Notifications")
@@ -1865,6 +1906,15 @@ namespace Media {
         id: string;
         message: string;
       }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/gif")
+  @summary("Upload a GIF by tenor ID")
+  op uploadGif(@body body: UploadGifBody):
+    | DataResponse<UploadGifResponse>
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

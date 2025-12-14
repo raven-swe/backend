@@ -140,6 +140,12 @@ model UnauthorizedResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("standard 410 Gone response")
+model GoneResponse {
+  ...Response<410>;
+  ...Body<ApiErrorResponse>;
+}
+
 @doc("Standard 403 Forbidden response")
 model ForbiddenResponse {
   ...Response<403>;
@@ -581,6 +587,28 @@ model UploadVideoRequest {
   folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
 }
 
+model UploadGifBody {
+  @doc("Tenor GIF ID to attach")
+  tenorId: string;
+}
+
+model UploadGifResponse {
+  @doc("Unique identifier for the uploaded GIF")
+  id: string;
+
+  @doc("URL to access the uploaded GIF")
+  url: string;
+
+  @doc("Width of the GIF in pixels")
+  width: integer;
+
+  @doc("Height of the GIF in pixels")
+  height: integer;
+
+  @doc("Alt text for accessibility (if provided)")
+  altText?: string;
+}
+
 @doc("The type of media file.")
 enum MediaType {
   IMAGE,
@@ -681,9 +709,15 @@ model Tweet {
 }
 
 model TweetReposter {
+
+  @doc("Username of the user who reposted this tweet")
   username: string;
+
+  @doc("Display name of the user who reposted this tweet")
   displayName: string;
 }
+
+
 
 model CreatedTweet {
   id: string;
@@ -1878,7 +1912,7 @@ namespace Timeline {
   @summary("Get the personalized 'For You' feed for the authenticated user")
   op getForYouFeed(
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse | GoneResponse;
 
   @get
   @route("/following")
@@ -2387,6 +2421,15 @@ namespace Media {
         id: string;
         message: string;
       }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/gif")
+  @summary("Upload a GIF by tenor ID")
+  op uploadGif(@body body: UploadGifBody):
+    | DataResponse<UploadGifResponse>
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

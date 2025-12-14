@@ -245,6 +245,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(payload.conversationId).emit('conversation_seen_update', {
       conversationId: payload.conversationId,
       username,
+      performerUsername: user.username,
       lastSeenMessageId,
       unseenCount,
       seenAt,
