@@ -19,7 +19,7 @@ export class TimelineEventsService {
     this.redisClient = redisService.getClient();
   }
 
-  @Cron('0 */1 * * * *')
+  @Cron('0 */2 * * * *')
   async handleNewTweetsCheck() {
     this.logger.debug('Checking for online users with following timeline SSE connections');
 
@@ -46,16 +46,17 @@ export class TimelineEventsService {
         let newActorIds: string[] = [];
         // transaction result is [[err, Set<string>], [err, number of deleted keys]]
         if (execResult && Array.isArray(execResult) && execResult[0] && !execResult[0][0]) {
-          newActorIds = Array.isArray(execResult[0][1]) ? (execResult[0][1] as string[]) : [];
+          newActorIds = Array.isArray(execResult[0][1])
+            ? (execResult[0][1] as string[]).slice(0, 3)
+            : [];
         }
 
         if (newActorIds.length > 0) {
-          const uniqueActorIds = [...new Set(newActorIds)].slice(0, 3);
           const authors = await this.usersRepository.findAvatarUrlsByUserIds(
-            uniqueActorIds.map((id) => BigInt(id)),
+            newActorIds.map((id) => BigInt(id)),
           );
 
-          const authorAvatarsOrdered = uniqueActorIds.map((id) => authors.get(id)!);
+          const authorAvatarsOrdered = newActorIds.map((id) => authors.get(id)!);
 
           await this.sseEventsService.publishTimelineFollowingTweets(
             BigInt(userId),
