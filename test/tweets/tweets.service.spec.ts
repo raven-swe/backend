@@ -59,6 +59,8 @@ describe('TweetsService', () => {
     getMediaTweetsForUser: jest.fn(),
     validateReferences: jest.fn(),
     getTweetsByQuery: jest.fn(),
+    getLatestTweetsByQuery: jest.fn(),
+    getRankedTweetsByQuery: jest.fn(),
     getParentTweets: jest.fn(),
     getTweetOrDeleted: jest.fn(),
   };
@@ -1893,16 +1895,16 @@ describe('TweetsService', () => {
     });
 
     describe('getTopTweetsByQuery', () => {
-      it('should call getTweetsByQuery with hasMedia=false', async () => {
+      it('should call getRankedTweetsByQuery with hasMedia=false', async () => {
         const currentUserId = BigInt(1);
         const query = 'test query';
         const limit = 10;
 
-        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+        mockTweetsRepository.getRankedTweetsByQuery.mockResolvedValueOnce(mockTweets);
 
         await service.getTopTweetsByQuery(currentUserId, query, limit);
 
-        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+        expect(mockTweetsRepository.getRankedTweetsByQuery).toHaveBeenCalledWith(
           currentUserId,
           query,
           false,
@@ -1920,7 +1922,7 @@ describe('TweetsService', () => {
         const excludeMutedAndBlocked = true;
         const peopleFilter = PeopleSearchFilter.Anyone;
 
-        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+        mockTweetsRepository.getRankedTweetsByQuery.mockResolvedValueOnce(mockTweets);
 
         await service.getTopTweetsByQuery(
           currentUserId,
@@ -1931,7 +1933,7 @@ describe('TweetsService', () => {
           peopleFilter,
         );
 
-        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+        expect(mockTweetsRepository.getRankedTweetsByQuery).toHaveBeenCalledWith(
           currentUserId,
           query,
           false,
@@ -1943,20 +1945,19 @@ describe('TweetsService', () => {
       });
     });
 
-    describe('getTweetsWithMediaByQuery', () => {
-      it('should call getTweetsByQuery with hasMedia=true', async () => {
+    describe('getLatestTweetsByQuery', () => {
+      it('should call getLatestTweetsByQuery with correct parameters', async () => {
         const currentUserId = BigInt(1);
         const query = 'test query';
         const limit = 10;
 
-        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+        mockTweetsRepository.getLatestTweetsByQuery.mockResolvedValueOnce(mockTweets);
 
-        await service.getTweetsWithMediaByQuery(currentUserId, query, limit);
+        await service.getLatestTweetsByQuery(currentUserId, query, limit);
 
-        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+        expect(mockTweetsRepository.getLatestTweetsByQuery).toHaveBeenCalledWith(
           currentUserId,
           query,
-          true,
           undefined,
           undefined,
           limit + 1,
@@ -1968,10 +1969,63 @@ describe('TweetsService', () => {
         const currentUserId = BigInt(1);
         const query = 'test query';
         const limit = 10;
-        const decodedCursor = { createdAt: new Date(), id: '100' };
+        const decodedCursor = {
+          type: 'relations' as const,
+          createdAt: new Date('2024-01-01'),
+          id: '50',
+        };
         const excludeMutedAndBlocked = true;
 
-        mockTweetsRepository.getTweetsByQuery.mockResolvedValueOnce(mockTweets);
+        mockTweetsRepository.getLatestTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getLatestTweetsByQuery(
+          currentUserId,
+          query,
+          limit,
+          decodedCursor,
+          excludeMutedAndBlocked,
+        );
+
+        expect(mockTweetsRepository.getLatestTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          excludeMutedAndBlocked,
+          undefined,
+          limit + 1,
+          decodedCursor,
+        );
+      });
+    });
+
+    describe('getTweetsWithMediaByQuery', () => {
+      it('should call getRankedTweetsByQuery with hasMedia=true', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+
+        mockTweetsRepository.getRankedTweetsByQuery.mockResolvedValueOnce(mockTweets);
+
+        await service.getTweetsWithMediaByQuery(currentUserId, query, limit);
+
+        expect(mockTweetsRepository.getRankedTweetsByQuery).toHaveBeenCalledWith(
+          currentUserId,
+          query,
+          true, // hasMedia = true for media tab
+          undefined,
+          undefined,
+          limit + 1,
+          undefined,
+        );
+      });
+
+      it('should pass cursor and filters to repository', async () => {
+        const currentUserId = BigInt(1);
+        const query = 'test query';
+        const limit = 10;
+        const decodedCursor = { type: 'rank' as const, rank: '100', id: '50' };
+        const excludeMutedAndBlocked = true;
+
+        mockTweetsRepository.getRankedTweetsByQuery.mockResolvedValueOnce(mockTweets);
 
         await service.getTweetsWithMediaByQuery(
           currentUserId,
@@ -1981,10 +2035,10 @@ describe('TweetsService', () => {
           excludeMutedAndBlocked,
         );
 
-        expect(mockTweetsRepository.getTweetsByQuery).toHaveBeenCalledWith(
+        expect(mockTweetsRepository.getRankedTweetsByQuery).toHaveBeenCalledWith(
           currentUserId,
           query,
-          true,
+          true, // hasMedia = true
           excludeMutedAndBlocked,
           undefined,
           limit + 1,
