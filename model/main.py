@@ -97,7 +97,8 @@ async def analyze_tweets(request: TweetRequest):
         
         result = processor.process_tweets(request.tweets)
         
-        
+        #log whole response at debug level
+        logger.info(f"Analyze response: {result}")
         return result
     
     except HTTPException:
