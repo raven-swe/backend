@@ -1322,17 +1322,6 @@ if (process.env.SEED_ENV === 'true') {
         { actorId: 8, receiverId: 4, type: NotificationType.RETWEET, tweetId: anasTweet1.id },
         { actorId: 5, receiverId: 7, type: NotificationType.QUOTE, tweetId: gelgelQuoteTweet.id },
         { actorId: 10, receiverId: 12, type: NotificationType.RETWEET, tweetId: fatmaTweet1.id },
-        { actorId: 4, receiverId: 1, type: NotificationType.MESSAGE },
-        { actorId: 4, receiverId: 2, type: NotificationType.MESSAGE },
-        { actorId: 1, receiverId: 4, type: NotificationType.MESSAGE },
-        { actorId: 1, receiverId: 2, type: NotificationType.MESSAGE },
-        { actorId: 2, receiverId: 4, type: NotificationType.MESSAGE },
-        { actorId: 2, receiverId: 1, type: NotificationType.MESSAGE },
-        { actorId: 6, receiverId: 3, type: NotificationType.MESSAGE },
-        { actorId: 8, receiverId: 12, type: NotificationType.MESSAGE },
-        { actorId: 8, receiverId: 9, type: NotificationType.MESSAGE },
-        { actorId: 12, receiverId: 8, type: NotificationType.MESSAGE },
-        { actorId: 12, receiverId: 9, type: NotificationType.MENTION },
       ],
     });
   }
