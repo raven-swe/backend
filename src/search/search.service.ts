@@ -256,7 +256,7 @@ export class SearchService {
       };
     }
 
-    const cleanedQuery = prepareSearchQuery(rawQuery);
+    const cleanedQuery = rawQuery.trim().toLowerCase();
     let decodedCursor: UserSearchCursor | undefined;
     try {
       decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;

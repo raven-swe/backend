@@ -1397,13 +1397,13 @@ export class UsersRepository {
       SELECT 
         id as user_id 
         FROM users WHERE deleted_at IS NULL
-        AND (LOWER(username) % ${query})
+        AND SIMILARITY(LOWER(username), ${query}) >= 0.4
 
       UNION
 
       SELECT user_id 
       FROM profiles
-      WHERE LOWER(display_name) % ${query}
+      WHERE SIMILARITY(LOWER(display_name), ${query}) >= 0.4
     ),
 
   ranked_users AS (
