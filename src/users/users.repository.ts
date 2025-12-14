@@ -287,15 +287,16 @@ export class UsersRepository {
       // TODO: Get mutual followers count and names
     }
 
-    const relationship: UserRelationshipDto | null = isMyProfile
-      ? null
-      : {
-          blocking: isBlocking,
-          blockedBy: isBlockedBy,
-          following: isFollowing,
-          follower: isFollower,
-          muted: isMuted,
-        };
+    const relationship: UserRelationshipDto | null =
+      isMyProfile || !currentUserId
+        ? null
+        : {
+            blocking: isBlocking,
+            blockedBy: isBlockedBy,
+            following: isFollowing,
+            follower: isFollower,
+            muted: isMuted,
+          };
 
     return {
       username: user.username,
