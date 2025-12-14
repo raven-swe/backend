@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -18,24 +18,37 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 import { TweetsBackfill } from './timeline/interfaces';
 import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
-import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+
+export const authorSelect = (currentUserId: bigint | null) =>
+  ({
+    username: true,
+    profile: {
+      select: {
+        displayName: true,
+        avatarUrl: true,
+      },
+    },
+    ...(currentUserId && {
+      followers: { where: { followerId: currentUserId } },
+      following: { where: { followedId: currentUserId } },
+      blockedBy: { where: { userId: currentUserId } },
+      mutedBy: { where: { userId: currentUserId } },
+      blockedUsers: { where: { blockedId: currentUserId } },
+    }),
+  }) satisfies Prisma.UserSelect;
+
+export type RawAuthor = Prisma.UserGetPayload<{
+  select: ReturnType<typeof authorSelect>;
+}>;
 
 export const tweetInclude = (currentUserId: bigint | null) =>
   ({
     user: {
-      select: {
-        username: true,
-        id: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
-          },
-        },
-      },
+      select: authorSelect(currentUserId),
     },
     ...(currentUserId && {
       _count: {
@@ -191,6 +204,21 @@ export class TweetsRepository {
     }));
   }
 
+  mapToAuthorDto(user: RawAuthor): AuthorDto {
+    return {
+      username: user.username,
+      displayName: user.profile?.displayName ?? '',
+      avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        following: user.followers ? user.followers.length > 0 : false,
+        follower: user.following ? user.following.length > 0 : false,
+        blocking: user.blockedBy ? user.blockedBy.length > 0 : false,
+        muted: user.mutedBy ? user.mutedBy.length > 0 : false,
+        blockedBy: user.blockedUsers ? user.blockedUsers.length > 0 : false,
+      },
+    };
+  }
+
   mapToTweetDto(
     tweet: TweetWithIncludes,
     context: { repostedBy?: { username: string; displayName: string } } = {},
@@ -208,11 +236,7 @@ export class TweetsRepository {
 
     return {
       id: tweet.id.toString(),
-      author: {
-        username: tweet.user.username,
-        displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-      },
+      author: this.mapToAuthorDto(tweet.user),
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
@@ -826,6 +850,7 @@ export class TweetsRepository {
           following: { where: { followedId: currentUserId } },
           blockedBy: { where: { userId: currentUserId } },
           mutedBy: { where: { userId: currentUserId } },
+          blockedUsers: { where: { blockedId: currentUserId } },
         },
       },
     } as const;
@@ -856,20 +881,19 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      const dto = plainToInstance(UserInteractionDto, {
+      const dto = plainToInstance(CompactUserDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl,
-        bio: user.profile?.bio
-          ? {
-              text: user.profile.bio,
-              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
-            }
-          : null,
-        isFollowing: user.followers.length > 0,
-        isFollower: user.following.length > 0,
-        isBlocked: user.blockedBy.length > 0,
-        isMuted: user.mutedBy.length > 0,
+        bio: user.profile?.bio ?? null,
+        bioEntities: (user.profile?.bioEntities as unknown as BioEntitiesDto) ?? null,
+        relationship: {
+          following: user.followers.length > 0,
+          follower: user.following.length > 0,
+          blocking: user.blockedBy.length > 0,
+          muted: user.mutedBy.length > 0,
+          blocked: user.blockedUsers.length > 0,
+        },
       });
 
       return {
