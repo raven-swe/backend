@@ -22,6 +22,9 @@ export class TweetAnalyzeService implements OnModuleInit {
   private readonly analyzeApiUrl: string;
   private readonly LOCK_KEY = 'tweet-analyze:lock';
   private readonly LOCK_TTL_SECONDS = 300; // 5 minutes
+  private readonly CURSOR_KEY = 'tweet-analyze:last-classified-id';
+  private readonly CURSOR_TTL_SECONDS = 86400 * 7; // 7 days
+  private readonly redisClient;
 
   constructor(
     private readonly configService: ConfigService,
@@ -30,6 +33,8 @@ export class TweetAnalyzeService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly trendingService: TrendingService,
   ) {
+    this.redisClient = redisService.getClient();
+
     this.analyzeEnabled = this.configService.get<string>('CLASSIFY_TWEETS') === 'true';
     this.intervalMinutes = parseInt(
       this.configService.get<string>('CLASSIFICATION_INTERVAL_MINUTES') || '5',
@@ -76,7 +81,22 @@ export class TweetAnalyzeService implements OnModuleInit {
     this.logger.log('=== Starting Tweet Analysis Job ===');
 
     try {
-      const tweetsToAnalyze = await this.getTweetsToAnalyze();
+      // Should not be needed but just in case
+      const autoClassifiedCount = await this.repository.classifyEmptyContentTweets();
+      if (autoClassifiedCount > 0) {
+        this.logger.log(
+          `Auto-classified ${autoClassifiedCount} tweets with empty content as 'General'`,
+        );
+      }
+
+      const cursorId = await this.getLastClassifiedCursor();
+      if (cursorId) {
+        this.logger.log(`Starting classification from cursor: ${cursorId}`);
+      } else {
+        this.logger.log('No cursor found, starting from beginning');
+      }
+
+      const tweetsToAnalyze = await this.getTweetsToAnalyzeFromCursor(cursorId);
 
       if (tweetsToAnalyze.length === 0) {
         this.logger.log('No tweets to analyze');
@@ -93,6 +113,7 @@ export class TweetAnalyzeService implements OnModuleInit {
 
       let totalAnalyzedTweets = 0;
       let allBatchesSucceeded = true;
+      let lastProcessedTweetId: bigint | null = null;
 
       // Accumulate trending data across all batches
       const accumulatedTrendingKeywords: TrendingKeyword[] = [];
@@ -105,6 +126,11 @@ export class TweetAnalyzeService implements OnModuleInit {
         try {
           const batchResult = await this.processBatch(batch);
           totalAnalyzedTweets += batchResult.analyzedTweetsCount;
+
+          // Track the last processed tweet ID
+          if (batch.length > 0) {
+            lastProcessedTweetId = batch[batch.length - 1].id;
+          }
 
           // Accumulate trending keywords from this batch
           if (batchResult.trending_keywords) {
@@ -144,6 +170,12 @@ export class TweetAnalyzeService implements OnModuleInit {
         this.logger.log('Trending scores updated successfully');
       }
 
+      // Update cursor if we processed any tweets
+      if (lastProcessedTweetId && allBatchesSucceeded) {
+        await this.updateLastClassifiedCursor(lastProcessedTweetId);
+        this.logger.log(`Updated cursor to: ${lastProcessedTweetId}`);
+      }
+
       if (allBatchesSucceeded) {
         this.logger.log(
           `=== Tweet Analysis Job Completed Successfully (${totalAnalyzedTweets} tweets) ===`,
@@ -165,8 +197,7 @@ export class TweetAnalyzeService implements OnModuleInit {
 
   private async acquireLock(): Promise<boolean> {
     try {
-      const redis = this.redisService.getClient();
-      const result = await redis.set(
+      const result = await this.redisClient.set(
         this.LOCK_KEY,
         Date.now().toString(),
         'EX',
@@ -199,9 +230,44 @@ export class TweetAnalyzeService implements OnModuleInit {
     }
   }
 
-  private async getTweetsToAnalyze(): Promise<Array<{ id: bigint; content: string }>> {
-    this.logger.debug('Fetching tweets to analyze from repository');
-    const tweets = await this.repository.findTweetsToClassify();
+  private async getLastClassifiedCursor(): Promise<bigint | null> {
+    try {
+      const cursorStr = await this.redisClient.get(this.CURSOR_KEY);
+      if (cursorStr) {
+        return BigInt(cursorStr);
+      }
+    } catch (error) {
+      this.logger.warn(
+        'Failed to get cursor from Redis, falling back to database',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    // Fallback: get last classified tweet from database
+    return await this.repository.getLastClassifiedTweetId();
+  }
+
+  private async updateLastClassifiedCursor(tweetId: bigint): Promise<void> {
+    try {
+      await this.redisClient.set(
+        this.CURSOR_KEY,
+        tweetId.toString(),
+        'EX',
+        this.CURSOR_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to update cursor in Redis',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  private async getTweetsToAnalyzeFromCursor(
+    cursorId: bigint | null,
+  ): Promise<Array<{ id: bigint; content: string }>> {
+    this.logger.debug(`Fetching tweets to analyze from cursor: ${cursorId ?? 'none'}`);
+    const tweets = await this.repository.findTweetsToClassifyFromCursor(cursorId);
 
     const validTweets = tweets.filter((tweet) => tweet.content !== null) as Array<{
       id: bigint;
