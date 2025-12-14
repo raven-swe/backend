@@ -53,7 +53,10 @@ export class NotificationProcessor extends WorkerHost {
         );
         return;
       }
-      const currentPayload = notification.payload as unknown as NotificationPayloadDto;
+      const currentPayload = (notification.payload as unknown as NotificationPayloadDto) || {
+        actorsPreview: [],
+        actorsIds: [notification.actor.id.toString()],
+      };
 
       const { devices, languageCode } = await this.devicesRepository.getUserDevices(BigInt(userId));
       if (!devices.length) {
