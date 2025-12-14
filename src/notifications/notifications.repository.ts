@@ -50,7 +50,7 @@ export class NotificationsRepository {
   mapToNotificationDto(n: NotificationWithDetails): NotificationResponseDto {
     const currentPayload = (n.payload as unknown as NotificationPayloadDto) || {
       actorsPreview: [],
-      actorsIds: [],
+      actorsIds: [n.actor.id.toString()],
     };
 
     const actorsPreview = [
