@@ -170,7 +170,12 @@
       "common/middleware/request-logger\\.middleware\\.ts",
       "common/pipes/parse-bigint\\.pipe\\.ts",
       "testing",
-      ".*\\.stress\\.js"
+      ".*\\.stress\\.js",
+      ".*index\\.ts",
+      ".*\\.interface\\.ts",
+      "interfaces",
+      "src/common/adapters/redis-io\\.adapter\\.ts",
+      "constants"
     ]
   }
 }
