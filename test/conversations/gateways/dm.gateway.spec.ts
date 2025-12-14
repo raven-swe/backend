@@ -186,6 +186,7 @@ describe('DmGateway', () => {
         lastSeenMessageId: '12',
         unseenCount: 0,
         seenAt: expect.any(Date) as Date,
+        performerUsername: mockUser.username,
       });
     });
 

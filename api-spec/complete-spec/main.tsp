@@ -140,6 +140,12 @@ model UnauthorizedResponse {
   ...Body<ApiErrorResponse>;
 }
 
+@doc("standard 410 Gone response")
+model GoneResponse {
+  ...Response<410>;
+  ...Body<ApiErrorResponse>;
+}
+
 @doc("Standard 403 Forbidden response")
 model ForbiddenResponse {
   ...Response<403>;
@@ -305,6 +311,9 @@ model CompactUser {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
+
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
 }
 
 @doc("Public-facing user profile (visible to others)")
@@ -419,16 +428,11 @@ model UserMetadataWithFollowing {
 
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
-  ...UserMetadataWithFollowInfo;
+  ...UserMetadata;
+  ...UserBio;
 
-  @doc("The user's biography with structured entities")
-  bio: UserBio | null;
-
-  @doc("True if the current user has blocked this user")
-  isBlocked: boolean;
-
-  @doc("True if the current user has muted this user")
-  isMuted: boolean;
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
 }
 
 @doc("Block relationship state between two users")
@@ -443,27 +447,24 @@ model BlockRelationship {
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
 model UserRelationship {
   @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
-  blocking: boolean;
+  blocking?: boolean;
 
   @doc("True if this user has blocked the current user.")
-  blockedBy: boolean;
+  blockedBy?: boolean;
 
   @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
-  muted: boolean;
+  muted?: boolean;
 
   @doc("Is the user followed by the current logged-in user")
-  following: boolean;
+  following?: boolean;
 
   @doc("Is the user following the current logged-in user")
-  follower: boolean;
+  follower?: boolean;
 }
 
 @doc("Complete user profile with full account details and relationship context.")
 model UserProfile {
   ...PublicUser;
-
-  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship | null; // null if get my profile
 
   @doc("The number of users this user is following")
   followingCount: int64;
@@ -577,7 +578,7 @@ model UploadImageRequest {
 }
 
 model UploadVideoRequest {
-  @doc("Video file to upload (mp4, mov, webm, mkv). Max size: 10MB")
+  @doc("Video file to upload (mp4, mov). Max size: 10MB")
   file: HttpPart<bytes>;
 
   @doc("Alt text for accessibility (optional)")
@@ -585,6 +586,28 @@ model UploadVideoRequest {
 
   @doc("Folder to store the media in (avatars, banners, tweets, messages)")
   folder: HttpPart<"avatars" | "banners" | "tweets" | "messages">;
+}
+
+model UploadGifBody {
+  @doc("Tenor GIF ID to attach")
+  tenorId: string;
+}
+
+model UploadGifResponse {
+  @doc("Unique identifier for the uploaded GIF")
+  id: string;
+
+  @doc("URL to access the uploaded GIF")
+  url: string;
+
+  @doc("Width of the GIF in pixels")
+  width: integer;
+
+  @doc("Height of the GIF in pixels")
+  height: integer;
+
+  @doc("Alt text for accessibility (if provided)")
+  altText?: string;
 }
 
 @doc("The type of media file.")
@@ -681,12 +704,21 @@ model Tweet {
 
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
+
+  @doc("User who reposted this tweet.")
+  repostedBy?: TweetReposter;
 }
 
-model ProfileTweet extends Tweet {
-  @doc("Indicates if this tweet is a repost (retweet) by the profile owner.")
-  isRepost: boolean;
+model TweetReposter {
+
+  @doc("Username of the user who reposted this tweet")
+  username: string;
+
+  @doc("Display name of the user who reposted this tweet")
+  displayName: string;
 }
+
+
 
 model CreatedTweet {
   id: string;
@@ -989,13 +1021,6 @@ model MessageCreatedResponse<TMessage extends string> {
   }>;
 }
 
-model FollowingUser {
-  ...CompactUser;
-  isFollowing: boolean;
-  followsYou: boolean;
-  isBlocked: boolean;
-}
-
 model AccountInfo {
   username: string;
   email: string | null;
@@ -1032,8 +1057,8 @@ enum InterestCode {
   TRAVEL,
 }
 
-alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
-alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowingListResponse = DataResponseWithPagination<CompactUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<CompactUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias SessionListResponse = DataResponse<SessionResponse[]>;
@@ -1357,6 +1382,16 @@ namespace Oauth {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @route("/{username}/relationship")
+  @get
+  @summary("Get relationship status with a user by their username")
+  op getUserRelationship(@path username: string):
+    | DataResponse<UserRelationship>
+    | BadRequestResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   @summary("Get a user's profile preview.")
   @get
   @route("/{username}/preview")
@@ -1388,7 +1423,7 @@ namespace Users {
   @get
   @route("/{username}/tweets")
   op getUserTweets(@path username: string, ...CursorPaginationParameters):
-    | DataResponseWithPagination<ProfileTweet[]>
+    | DataResponseWithPagination<Tweet[]>
     | UnauthorizedResponse
     | NotFoundResponse
     | InternalServerErrorResponse;
@@ -1889,7 +1924,7 @@ namespace Timeline {
   @summary("Get the personalized 'For You' feed for the authenticated user")
   op getForYouFeed(
     ...CursorPaginationParameters,
-  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse;
+  ): DataResponseWithPagination<Tweet[]> | UnauthorizedResponse | InternalServerErrorResponse | GoneResponse;
 
   @get
   @route("/following")
@@ -1981,8 +2016,14 @@ namespace Tweets {
   @get
   @route("/{id}/summary")
   @summary("Get AI-generated summary of a tweet")
-  @doc("Generates a concise summary of the tweet content using Gemini 2.0 Flash Lite")
-  op getTweetSummary(@path id: string):
+  @doc("Generates a concise summary of the tweet content using AI")
+  op getTweetSummary(
+    @path id: string,
+
+    @query
+    @doc("Language locale for the summary (ar-EG for Arabic, en-US for English). Defaults to en-US if not provided.")
+    locale?: "ar-EG" | "en-US",
+  ):
     | DataResponse<TweetSummaryResponse>
     | NotFoundResponse
     | UnauthorizedResponse
@@ -2091,7 +2132,7 @@ namespace Onboarding {
   @get
   @route("/follow-suggestions")
   @summary("Get follow suggestions for the authenticated user")
-  @doc("""    
+  @doc("""
     **Suggestion Algorithm:**
     - Prioritizes users with mutual followers (friends of friends)
     - Secondary sorting by follower count (popularity)
@@ -2219,18 +2260,14 @@ namespace Conversations {
 @route("/search")
 @useAuth(BearerAuth)
 namespace Search {
-  @summary("Get top 3 relevant hashtags for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
+  @summary("Get top 3 relevant trending words for the current search query (If it contains #), or suggested hashtags whilst typing anyform of a post")
   @get
-  @route("/hashtags/top")
+  @route("/suggestions")
   op getTopHashtags(
     @doc("The search query")
     @query
     query: string,
-  ):
-    | DataResponse<TopHashtags>
-    | NotFoundResponse
-    | UnauthorizedResponse
-    | InternalServerErrorResponse;
+  ): DataResponse<string[]> | NotFoundResponse | UnauthorizedResponse | InternalServerErrorResponse;
 
   @summary("Get suggested users from following/follower list, used in mentions")
   @get
@@ -2396,6 +2433,15 @@ namespace Media {
         id: string;
         message: string;
       }>
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
+  @post
+  @route("/upload/gif")
+  @summary("Upload a GIF by tenor ID")
+  op uploadGif(@body body: UploadGifBody):
+    | DataResponse<UploadGifResponse>
     | BadRequestResponse
     | UnauthorizedResponse
     | InternalServerErrorResponse;

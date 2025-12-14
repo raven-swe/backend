@@ -161,7 +161,7 @@ model Tweet {
   replyToTweet   Tweet?         @relation("tweets_reply_to_tweet_idTotweets", fields: [replyToTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies        Tweet[]        @relation("tweets_reply_to_tweet_idTotweets")
   rootTweet      Tweet?         @relation("tweets_root_tweet_idTotweets", fields: [rootTweetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  threadTweets    Tweet[]       @relation("tweets_root_tweet_idTotweets")
+  threadTweets   Tweet[]        @relation("tweets_root_tweet_idTotweets")
   user           User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([rootTweetId], map: "tweets_root_tweet_id_idx")
@@ -169,6 +169,7 @@ model Tweet {
   @@index([quotedTweetId], map: "tweets_quoted_tweet_id_idx")
   @@index([userId, createdAt], map: "tweets_user_id_created_at_idx")
   @@index([createdAt(sort: Desc), id(sort: Desc)], map: "tweets_cursor_idx")
+  @@index([class, createdAt(sort: Desc), id(sort: Desc)], map: "tweets_class_created_at_id_idx")
   @@map("tweets")
 }
 
@@ -233,26 +234,52 @@ model Like {
 }
 
 model TrendingKeyword {
-  id            BigInt         @id @default(autoincrement())
-  keyword       String         @db.VarChar(100)
-  category      Categories?
-  lastUpdatedAt DateTime?      @map("last_updated_at")
-  isHashtag     Boolean        @default(false) @map("is_hashtag")
-  count         Int            @default(1)
-  createdAt     DateTime       @default(now()) @map("created_at")
-  tweetHashtags TweetHashtag[]
+  id                  BigInt        @id @default(autoincrement())
+  keyword             String        @db.VarChar(100)
+  categoryScores TrendingKeywordCategory[]     @relation("keyword_scores")
+  lastUpdatedAt       DateTime?                       @map("last_updated_at")
+  isHashtag           Boolean       @default(false)   @map("is_hashtag")
+  count     Int           @default(1)       @map("count")
+  overallScore        Float         @default(0.0)     @map("overall_score")
+  createdAt           DateTime      @default(now())   @map("created_at")
 
   @@unique([keyword, isHashtag])
   @@index([isHashtag, keyword, count(sort: Desc)], map: "trending_hashtags_search_idx")
+  @@index([lastUpdatedAt])
+  @@index([keyword, count(sort: Desc)], map: "trending_keywords_keyword_count_idx")
+  @@index([keyword], map: "trending_keywords_keyword_idx")
   @@map("trending_keywords")
 }
 
+model TrendingKeywordCategory {
+  id                 BigInt           @id @default(autoincrement())
+  trendingKeywordId  BigInt
+  category           Categories
+  score              Float            @default(0.0)
+  categoryOccurenceCount      Int              @default(0) @map("count")
+
+  keyword            TrendingKeyword  @relation(fields: [trendingKeywordId], references: [id], onDelete: Cascade, name: "keyword_scores")
+
+  @@unique([trendingKeywordId, category])
+  @@index([trendingKeywordId])
+  @@map("trending_keyword_categories")
+ }
+ 
+model Hashtag {
+  id            BigInt         @id @default(autoincrement())
+  keyword       String         @unique @db.VarChar(100)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  tweetHashtags TweetHashtag[]
+
+  @@map("hashtags")
+}
+
 model TweetHashtag {
-  tweetId       BigInt          @map("tweet_id")
-  hashtagId     BigInt          @map("hashtag_id")
-  startPosition Int             @map("starting_index")
-  hashtag       TrendingKeyword @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tweet         Tweet           @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tweetId       BigInt  @map("tweet_id")
+  hashtagId     BigInt  @map("hashtag_id")
+  startPosition Int     @map("starting_index")
+  hashtag       Hashtag @relation(fields: [hashtagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tweet         Tweet   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([hashtagId, tweetId, startPosition])
   @@index([tweetId, hashtagId])
@@ -416,6 +443,7 @@ enum Categories {
   NEWS
   SPORTS
   ENTERTAINMENT
+  GENERAL
 }
 
 enum NotificationDeliveryStatus {

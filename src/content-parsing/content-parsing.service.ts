@@ -1,16 +1,16 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedContent } from 'src/common/interfaces/parsed-content.interface';
 import { TrendingService } from 'src/trending/trending.service';
 import { PlainHashtag, PlainMention } from 'src/tweets/interfaces';
 import { UsersService } from 'src/users/users.service';
+import Groq from 'groq-sdk';
 
 @Injectable()
 export class ContentParsingService {
   private readonly logger = new Logger(ContentParsingService.name);
-  private readonly genAI: GoogleGenerativeAI;
+  private groq: Groq;
 
   constructor(
     @Inject(forwardRef(() => UsersService))
@@ -23,7 +23,7 @@ export class ContentParsingService {
       this.logger.error('SUMMARY_API_KEY is not configured');
       throw new Error('SUMMARY_API_KEY environment variable is required');
     }
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.groq = new Groq({ apiKey: apiKey });
   }
 
   /**
@@ -51,7 +51,7 @@ export class ContentParsingService {
       plainMentions,
       tx,
     );
-    const hashtags = await this.trendingService.createOrIncrementHashtags(plainHashtags, tx);
+    const hashtags = await this.trendingService.createOrGetHashtags(plainHashtags, tx);
     return { mentions, hashtags };
   }
 
@@ -126,25 +126,64 @@ export class ContentParsingService {
   }
 
   /**
-   * Generate a summary of a tweet using Gemini 2.0 Flash Lite
    * @param content The tweet content to summarize
    * @returns A concise summary of the tweet
    */
-  async generateTweetSummary(content: string): Promise<string> {
+  async generateTweetSummary(content: string, langcode?: string): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+      const modelId = 'openai/gpt-oss-120b';
 
-      const prompt = `Summarize the following tweet in a concise manner (Summary To Be SHORTER than tweet) (1 sentence or 2 for really long tweets):\n\n${content}`;
+      let language = 'en-US';
+      if (langcode) {
+        language = langcode;
+      }
 
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const summary = response.text();
+      const englishPrompt = `
+      You are generating a short explanation for users in the app UI.
 
-      this.logger.log(`Generated summary for tweet content`);
+      Summarize the following tweet in a simple, user-friendly sentence.
+      The sentence MUST start with: "The tweet is talking about ..."
+
+      The goal is clarity for users, not strict character length comparison.
+      If the tweet is very short, empty, or unclear, still provide a brief meaningful explanation.
+
+      Tweet:
+      ${content}
+      `;
+
+      const arabicPrompt = `
+      أنت تقوم بإنشاء شرح قصير لعرضه للمستخدم داخل واجهة التطبيق.
+
+      لخص التغريدة التالية باللهجة المصرية بجملة بسيطة وواضحة.
+      يجب أن يبدأ الشرح بعبارة: "التغريدة تتحدث عن ..."
+
+      الهدف هو التوضيح للمستخدم، وليس الالتزام بعدد أحرف أقل من التغريدة.
+      إذا كانت التغريدة قصيرة جداً أو غير واضحة، قدّم شرحاً مختصراً مفيداً.
+
+      التغريدة:
+      ${content}
+      `;
+
+      const prompt = language.startsWith('ar') ? arabicPrompt : englishPrompt;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        model: modelId,
+      });
+
+      const summary = completion.choices[0]?.message?.content || '';
+
+      this.logger.log(`Generated summary for tweet content using ${modelId}`);
       return summary.trim();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
+
       this.logger.error(`Failed to generate tweet summary: ${errorMessage}`, errorStack);
       throw new Error('Failed to generate tweet summary');
     }

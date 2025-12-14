@@ -13,7 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { NewUser } from './interfaces';
 import { comparePassword, hashPassword } from 'src/auth/utils';
 import { VALIDATION_ERROR_CODES } from 'src/common/constants';
-import { ChangePasswordBasicDto, UpdateProfileDto, UserRelationshipDto } from './dtos';
+import { ChangePasswordBasicDto, UpdateProfileDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { decodeCompositeCursor, paginateComposite, createValidationError } from 'src/common/utils';
@@ -30,6 +30,7 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
+import { UserRelationshipDto } from './dtos/relationship-dto';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
@@ -492,8 +493,8 @@ export class UsersService {
     }
 
     await this.usersRepository.unfollowUser(followerId, followedId);
-    this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
 
+    this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
     return { message: 'User unfollowed successfully.' };
   }
 
@@ -685,14 +686,6 @@ export class UsersService {
       }
     }
 
-    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
-
-    const blockedIdsSet = new Set<bigint>();
-
-    for (const blocked of blockedUsers) {
-      blockedIdsSet.add(blocked.blockedId);
-    }
-
     const followers = await this.usersRepository.getUserFollowers(
       requestedUser.id,
       limit + 1,
@@ -705,28 +698,21 @@ export class UsersService {
     }));
     const followerIds = followers.map((f) => f.followerUser.id);
 
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(
       authUserId,
       followerIds,
     );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
-
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
 
     const items = followers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      isFollowing: followingSet.has(f.followerUser.id),
-      followsYou: followsYouSet.has(f.followerUser.id),
-      isBlocked: blockedIdsSet.has(f.followerUser.id),
+      relationship: (relationMap.get(f.followerUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
+      },
     }));
 
     return { items, pagination };
@@ -761,14 +747,6 @@ export class UsersService {
       }
     }
 
-    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
-
-    const blockedIdsSet = new Set<bigint>();
-
-    for (const blocked of blockedUsers) {
-      blockedIdsSet.add(blocked.blockedId);
-    }
-
     const authFollowedIds = await this.usersRepository.getUserIdsFollowedBy(authUserId);
 
     const mutualFollowers = await this.usersRepository.getUserMutualFollowers(
@@ -784,28 +762,19 @@ export class UsersService {
     }));
 
     const mutualIds = mutualFollowers.map((f) => f.followerUser.id);
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
-      authUserId,
-      mutualIds,
-    );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
 
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(authUserId, mutualIds);
 
     const items = mutualFollowers.map((f) => ({
       ...f.followerUser.profile,
       username: f.followerUser.username,
-      isFollowing: followingSet.has(f.followerUser.id),
-      followsYou: followsYouSet.has(f.followerUser.id),
-      isBlocked: blockedIdsSet.has(f.followerUser.id),
+      relationship: (relationMap.get(f.followerUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
+      },
     }));
     return { items, pagination };
   }
@@ -839,14 +808,6 @@ export class UsersService {
       }
     }
 
-    const blockedUsers = await this.usersRepository.getUserBlocks(authUserId);
-
-    const blockedIdsSet = new Set<bigint>();
-
-    for (const blocked of blockedUsers) {
-      blockedIdsSet.add(blocked.blockedId);
-    }
-
     const followings = await this.usersRepository.getUserFollowings(
       requestedUser.id,
       limit + 1,
@@ -859,28 +820,22 @@ export class UsersService {
     }));
 
     const followingIds = followings.map((f) => f.followedUser.id);
-    const authUserFollowRelations = await this.usersRepository.getUserFollowRelations(
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(
       authUserId,
       followingIds,
     );
-    const followsYouSet = new Set<bigint>();
-    const followingSet = new Set<bigint>();
-
-    for (const relation of authUserFollowRelations) {
-      if (relation.followedId === authUserId) {
-        followsYouSet.add(relation.followerId);
-      }
-      if (relation.followerId === authUserId) {
-        followingSet.add(relation.followedId);
-      }
-    }
 
     const items = followings.map((f) => ({
       ...f.followedUser.profile,
       username: f.followedUser.username,
-      isFollowing: followingSet.has(f.followedUser.id),
-      followsYou: followsYouSet.has(f.followedUser.id),
-      isBlocked: blockedIdsSet.has(f.followedUser.id),
+      relationship: (relationMap.get(f.followedUser.id) as UserRelationshipDto) || {
+        following: false,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
+      },
     }));
 
     return { items, pagination };
@@ -1004,11 +959,23 @@ export class UsersService {
     return { message: 'Banner deleted successfully' };
   }
   async getUserMutes(userId: bigint, limit: number, prevCursor: MutesCursor | undefined) {
-    return this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+    const mutedUsers = await this.usersRepository.getUserMutedUsers(userId, limit, prevCursor);
+
+    const mutedIds = mutedUsers.map((m) => m.mutedId);
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(userId, mutedIds);
+
+    return { mutedUsers, relationMap };
   }
 
   async getUserBlocks(userId: bigint, limit: number, prevCursor: BlocksCursor | undefined) {
-    return this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+    const blockedUsers = await this.usersRepository.getUserBlockedUsers(userId, limit, prevCursor);
+
+    const blockedIds = blockedUsers.map((b) => b.blockedId);
+
+    const relationMap = await this.usersRepository.getUsersRelationshipsMap(userId, blockedIds);
+
+    return { blockedUsers, relationMap };
   }
 
   /**
@@ -1062,6 +1029,21 @@ export class UsersService {
     return await this.usersRepository.getUserFollowRelations(userId, userIds);
   }
 
+  async getUserRelationship(userId: bigint, targetUsername: string) {
+    const requestedUser = await this.usersRepository.findByUsername(targetUsername);
+
+    if (!requestedUser) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const map = await this.usersRepository.getUsersRelationshipsMap(userId, [requestedUser.id]);
+    return (map.get(requestedUser.id) as UserRelationshipDto) || null;
+  }
   async searchUsers(
     currentUserId: bigint,
     query: string,
@@ -1080,10 +1062,7 @@ export class UsersService {
     );
   }
 
-  async getUsersRelationshipsMap(
-    currentUserId: bigint,
-    userIds: bigint[],
-  ): Promise<Map<bigint, UserRelationshipDto>> {
+  async getUsersRelationshipsMap(currentUserId: bigint, userIds: bigint[]) {
     return this.usersRepository.getUsersRelationshipsMap(currentUserId, userIds);
   }
 

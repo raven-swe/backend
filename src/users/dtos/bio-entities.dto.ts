@@ -6,6 +6,6 @@ export class BioEntitiesDto {
 }
 
 export class BioDto {
-  text: string;
+  bio: string;
   bioEntities: BioEntitiesDto;
 }

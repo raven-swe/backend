@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthorDto, TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -14,40 +14,57 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 import { TweetsBackfill } from './timeline/interfaces';
-import { MAX_TWEET_DEPTH } from './constants';
+import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
-export const tweetInclude = (currentUserId: bigint) =>
+export const authorSelect = (currentUserId: bigint | null) =>
+  ({
+    username: true,
+    profile: {
+      select: {
+        displayName: true,
+        avatarUrl: true,
+      },
+    },
+    ...(currentUserId && {
+      followers: { where: { followerId: currentUserId } },
+      following: { where: { followedId: currentUserId } },
+      blockedBy: { where: { userId: currentUserId } },
+      mutedBy: { where: { userId: currentUserId } },
+      blockedUsers: { where: { blockedId: currentUserId } },
+    }),
+  }) satisfies Prisma.UserSelect;
+
+export type RawAuthor = Prisma.UserGetPayload<{
+  select: ReturnType<typeof authorSelect>;
+}>;
+
+export const tweetInclude = (currentUserId: bigint | null) =>
   ({
     user: {
-      select: {
-        username: true,
-        id: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
+      select: authorSelect(currentUserId),
+    },
+    ...(currentUserId && {
+      _count: {
+        select: {
+          likes: {
+            where: { userId: currentUserId },
+          },
+          retweets: {
+            where: { userId: currentUserId },
           },
         },
-        blockedBy: { where: { userId: currentUserId } },
-        blockedUsers: { where: { blockedId: currentUserId } },
-        mutedBy: { where: { userId: currentUserId } },
-        followers: { where: { followerId: currentUserId } },
-        following: { where: { followedId: currentUserId } },
       },
-    },
-    _count: {
-      select: {
-        likes: {
-          where: { userId: currentUserId },
-        },
-        retweets: {
-          where: { userId: currentUserId },
-        },
-      },
-    },
+      blockedBy: { where: { userId: currentUserId } },
+      blockedUsers: { where: { blockedId: currentUserId } },
+      mutedBy: { where: { userId: currentUserId } },
+      followers: { where: { followerId: currentUserId } },
+      following: { where: { followedId: currentUserId } },
+    }),
+
     tweetMentions: {
       select: {
         startPosition: true,
@@ -188,6 +205,21 @@ export class TweetsRepository {
     }));
   }
 
+  mapToAuthorDto(user: RawAuthor): AuthorDto {
+    return {
+      username: user.username,
+      displayName: user.profile?.displayName ?? '',
+      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      relationship: {
+        following: user.followers ? user.followers.length > 0 : false,
+        follower: user.following ? user.following.length > 0 : false,
+        blocking: user.blockedBy ? user.blockedBy.length > 0 : false,
+        muted: user.mutedBy ? user.mutedBy.length > 0 : false,
+        blockedBy: user.blockedUsers ? user.blockedUsers.length > 0 : false,
+      },
+    };
+  }
+
   mapToTweetDto(
     tweet: TweetWithIncludes,
     context: {
@@ -208,25 +240,14 @@ export class TweetsRepository {
 
     return {
       id: tweet.id.toString(),
-      author: {
-        username: tweet.user.username,
-        displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-        relationship: {
-          blocking: tweet.user.blockedBy.length > 0,
-          blockedBy: tweet.user.blockedUsers.length > 0,
-          muted: tweet.user.mutedBy.length > 0,
-          following: tweet.user.following.length > 0,
-          follower: tweet.user.followers.length > 0,
-        },
-      },
+      author: this.mapToAuthorDto(tweet.user),
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
       retweetCount: tweet.retweetCount,
       likeCount: tweet.likeCount,
-      isLiked: tweet._count.likes > 0,
-      isRetweeted: tweet._count.retweets > 0,
+      isLiked: tweet._count ? tweet._count.likes > 0 : false,
+      isRetweeted: tweet._count ? tweet._count.retweets > 0 : false,
       entities: {
         mentions: tweet.tweetMentions.map((mention) => ({
           username: mention.user.username,
@@ -296,14 +317,16 @@ export class TweetsRepository {
   async checkExistingTweet(tweetId: bigint): Promise<{
     exists: boolean;
     replyToTweetId: bigint | null;
+    quoteToTweetId: bigint | null;
   }> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
-      select: { id: true, replyToTweetId: true },
+      select: { id: true, replyToTweetId: true, quotedTweetId: true },
     });
     return {
       exists: !!tweet,
       replyToTweetId: tweet ? tweet.replyToTweetId : null,
+      quoteToTweetId: tweet ? tweet.quotedTweetId : null,
     };
   }
 
@@ -315,24 +338,19 @@ export class TweetsRepository {
     return !!tweet;
   }
 
-  async deleteTweet(tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: { isDeleted: true },
-      });
-
-      await tx.retweet.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
-
-      await tx.like.deleteMany({
-        where: {
-          tweetId,
-        },
-      });
+  async deleteTweet(tweetId: bigint, prismaClient: Prisma.TransactionClient) {
+    await prismaClient.tweet.update({
+      where: { id: tweetId },
+      data: { isDeleted: true },
+    });
+    await prismaClient.retweet.deleteMany({
+      where: { tweetId },
+    });
+    await prismaClient.notification.deleteMany({
+      where: { tweetId },
+    });
+    await prismaClient.like.deleteMany({
+      where: { tweetId },
     });
   }
 
@@ -397,87 +415,155 @@ export class TweetsRepository {
   }
 
   async likeTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.like.create({
-        data: {
-          userId,
-          tweetId,
-        },
-      });
-
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          likeCount: {
-            increment: 1,
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.like.create({
+          data: {
+            userId,
+            tweetId,
           },
-        },
+        });
+
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            likeCount: {
+              increment: 1,
+            },
+          },
+        });
+      })
+      .catch((e) => {
+        //unique constraint
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_LIKE,
+              code: TWEETS_ERROR_CODES.CONFLICTING_LIKE,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.like.delete({
-        where: {
-          userId_tweetId: {
-            userId,
-            tweetId,
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.like.delete({
+          where: {
+            userId_tweetId: {
+              userId,
+              tweetId,
+            },
           },
-        },
-      });
+        });
 
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          likeCount: {
-            decrement: 1,
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'LIKE' },
+        });
+
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            likeCount: {
+              decrement: 1,
+            },
           },
-        },
+        });
+      })
+      .catch((e) => {
+        // record not found
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_LIKE,
+              code: TWEETS_ERROR_CODES.CONFLICTING_LIKE,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
   }
 
   async retweetTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.retweet.create({
-        data: {
-          userId,
-          tweetId,
-        },
-      });
-
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          retweetCount: {
-            increment: 1,
-          },
-        },
-      });
-    });
-  }
-
-  async unretweetTweet(userId: bigint, tweetId: bigint) {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.retweet.delete({
-        where: {
-          userId_tweetId: {
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.retweet.create({
+          data: {
             userId,
             tweetId,
           },
-        },
-      });
+        });
 
-      await tx.tweet.update({
-        where: { id: tweetId },
-        data: {
-          retweetCount: {
-            decrement: 1,
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            retweetCount: {
+              increment: 1,
+            },
           },
-        },
+        });
+      })
+      .catch((e) => {
+        //unique constraint
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_RETWEET,
+              code: TWEETS_ERROR_CODES.CONFLICTING_RETWEET,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
       });
-    });
+  }
+
+  async unretweetTweet(userId: bigint, tweetId: bigint) {
+    await this.prisma
+      .$transaction(async (tx) => {
+        await tx.retweet.delete({
+          where: {
+            userId_tweetId: {
+              userId,
+              tweetId,
+            },
+          },
+        });
+
+        await tx.notification.deleteMany({
+          where: { tweetId, actorId: userId, type: 'RETWEET' },
+        });
+
+        await tx.tweet.update({
+          where: { id: tweetId },
+          data: {
+            retweetCount: {
+              decrement: 1,
+            },
+          },
+        });
+      })
+      .catch((e) => {
+        //record not found
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+          throw new HttpException(
+            {
+              message: TWEETS_ERROR_MESSAGES.CONFLICTING_RETWEET,
+              code: TWEETS_ERROR_CODES.CONFLICTING_RETWEET,
+            },
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          throw e;
+        }
+      });
   }
 
   async hasUserLikedTweet(userId: bigint, tweetId: bigint): Promise<boolean> {
@@ -506,7 +592,7 @@ export class TweetsRepository {
 
   async getDetailedTweetById(
     tweetId: bigint,
-    currentUserId: bigint,
+    currentUserId: bigint | null,
   ): Promise<GetTweetResponseDto | null> {
     const tweet = await this.prisma.tweet.findUnique({
       where: { id: tweetId, isDeleted: false },
@@ -765,6 +851,7 @@ export class TweetsRepository {
           following: { where: { followedId: currentUserId } },
           blockedBy: { where: { userId: currentUserId } },
           mutedBy: { where: { userId: currentUserId } },
+          blockedUsers: { where: { blockedId: currentUserId } },
         },
       },
     } as const;
@@ -795,20 +882,19 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      const dto = plainToInstance(UserInteractionDto, {
+      const dto = plainToInstance(CompactUserDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl,
-        bio: user.profile?.bio
-          ? {
-              text: user.profile.bio,
-              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
-            }
-          : null,
-        isFollowing: user.followers.length > 0,
-        isFollower: user.following.length > 0,
-        isBlocked: user.blockedBy.length > 0,
-        isMuted: user.mutedBy.length > 0,
+        bio: user.profile?.bio ?? null,
+        bioEntities: (user.profile?.bioEntities as unknown as BioEntitiesDto) ?? null,
+        relationship: {
+          following: user.followers.length > 0,
+          follower: user.following.length > 0,
+          blocking: user.blockedBy.length > 0,
+          muted: user.mutedBy.length > 0,
+          blocked: user.blockedUsers.length > 0,
+        },
       });
 
       return {
@@ -1022,7 +1108,6 @@ export class TweetsRepository {
       replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
       quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
       rootTweetId: tweet.rootTweetId?.toString() ?? null,
-      isRepost: false,
       repostedBy: undefined,
     }));
   }
@@ -1369,6 +1454,23 @@ export class TweetsRepository {
     return validFollows.map((f) => f.followedId);
   }
 
+  async filterNonMutedAuthors(userId: bigint, authorIds: bigint[]): Promise<bigint[]> {
+    const validAuthors = await this.prisma.user.findMany({
+      where: {
+        id: { in: authorIds },
+        deletedAt: null,
+        mutedBy: {
+          none: {
+            userId: userId,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return validAuthors.map((f) => f.id);
+  }
+
   /**
    * Filters tweet IDs to return only those not deleted
    * @param tweetIds Array of tweet IDs to validate
@@ -1494,5 +1596,88 @@ export class TweetsRepository {
       }
     });
     return authors;
+  }
+  /**
+   * Get user's interests from their profile
+   */
+  async getUserInterests(userId: bigint): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { interests: true },
+    });
+
+    return user?.interests || [];
+  }
+
+  /**
+   * Get recent tweets from users the person follows
+   */
+  async getRecentTweetsFromFollowing(
+    userId: bigint,
+    limit: number,
+  ): Promise<Array<{ id: string; authorId: string; createdAt: Date }>> {
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followedId: true },
+    });
+
+    if (following.length === 0) {
+      return [];
+    }
+
+    const followingIds = following.map((f) => f.followedId);
+
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        userId: { in: followingIds },
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+      },
+    });
+
+    return tweets.map((t) => ({
+      id: t.id.toString(),
+      authorId: t.userId.toString(),
+      createdAt: t.createdAt,
+    }));
+  }
+
+  /**
+   * Get tweets matching user's interests (from tweet.class field)
+   */
+  async getTweetsMatchingInterests(
+    interests: string[],
+    limit: number,
+  ): Promise<Array<{ id: string; authorId: string; createdAt: Date }>> {
+    if (interests.length === 0) {
+      return [];
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Use = ANY() to match class against array of interests
+    const tweets = await this.prisma.$queryRaw<
+      Array<{ id: bigint; user_id: bigint; created_at: Date }>
+    >`
+    SELECT id, user_id, created_at
+    FROM tweets
+    WHERE class = ANY(${interests}::text[])
+      AND is_deleted = false
+      AND created_at >= ${sevenDaysAgo}::timestamp
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
+
+    return tweets.map((t) => ({
+      id: t.id.toString(),
+      authorId: t.user_id.toString(),
+      createdAt: t.created_at,
+    }));
   }
 }
