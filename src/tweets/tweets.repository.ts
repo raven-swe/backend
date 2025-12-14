@@ -241,10 +241,14 @@ export class TweetsRepository {
   }
 
   async create(tweetData: CreateTweetData, prismaClient: Prisma.TransactionClient = this.prisma) {
+    const content = tweetData.content ?? '';
+    const isEmptyContent = !content || content.trim() === '';
+
     return prismaClient.tweet.create({
       data: {
         userId: tweetData.userId,
-        content: tweetData.content ?? '',
+        content,
+        class: isEmptyContent ? 'General' : null,
         replyToTweetId: tweetData.replyToTweetId,
         quotedTweetId: tweetData.quotedTweetId,
         rootTweetId: tweetData.rootTweetId ?? null,
