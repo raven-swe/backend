@@ -175,7 +175,7 @@ class TweetProcessor:
         
         self.logger.info(f"Generated {len(trending_hashtags)} trending hashtags")
         self.logger.info(f"Total trending items: {len(all_trending)}")
-        self.logger.info(f"Done Proccessing batch of {len(tweets)} tweets")
+        self.logger.info(f"Done Proccessing batch of {len(processed_tweets)} tweets")
 
         return {
             "batch_meta": {

@@ -97,8 +97,6 @@ async def analyze_tweets(request: TweetRequest):
         
         result = processor.process_tweets(request.tweets)
         
-        logger.info(f"Successfully processed {result['batch_meta']['total_tweets']} tweets")
-        logger.info(f"Returning {len(result['trending_keywords'])} trending items")
         
         return result
     
