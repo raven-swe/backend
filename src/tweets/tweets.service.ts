@@ -354,6 +354,7 @@ export class TweetsService {
         : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
+      repostedBy: undefined,
     };
   }
 
