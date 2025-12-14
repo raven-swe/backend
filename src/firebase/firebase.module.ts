@@ -3,9 +3,11 @@ import * as admin from 'firebase-admin';
 import { ServiceAccount } from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
 import { PushSenderService } from './push-sender.service';
+import { DevicesModule } from 'src/devices/devices.module';
 
 @Global()
 @Module({
+  imports: [DevicesModule],
   providers: [
     PushSenderService,
     {
@@ -24,6 +26,6 @@ import { PushSenderService } from './push-sender.service';
       inject: [ConfigService],
     },
   ],
-  exports: ['FIREBASE_ADMIN'],
+  exports: ['FIREBASE_ADMIN', PushSenderService],
 })
 export class FirebaseModule {}
