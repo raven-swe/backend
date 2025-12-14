@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthorDto, Retweeter, TweetDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
@@ -19,7 +19,7 @@ import { TweetsBackfill } from './timeline/interfaces';
 import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 
-export const authorSelect = (currentUserId: bigint) =>
+export const authorSelect = (currentUserId: bigint | null) =>
   ({
     username: true,
     profile: {
@@ -28,11 +28,13 @@ export const authorSelect = (currentUserId: bigint) =>
         avatarUrl: true,
       },
     },
-    followers: { where: { followerId: currentUserId } },
-    following: { where: { followedId: currentUserId } },
-    blockedBy: { where: { userId: currentUserId } },
-    mutedBy: { where: { userId: currentUserId } },
-    blockedUsers: { where: { blockedId: currentUserId } },
+    ...(currentUserId && {
+      followers: { where: { followerId: currentUserId } },
+      following: { where: { followedId: currentUserId } },
+      blockedBy: { where: { userId: currentUserId } },
+      mutedBy: { where: { userId: currentUserId } },
+      blockedUsers: { where: { blockedId: currentUserId } },
+    }),
   }) satisfies Prisma.UserSelect;
 
 export type RawAuthor = Prisma.UserGetPayload<{
@@ -203,11 +205,11 @@ export class TweetsRepository {
       displayName: user.profile?.displayName ?? '',
       avatarUrl: user.profile?.avatarUrl,
       relationship: {
-        following: user.followers.length > 0,
-        follower: user.following.length > 0,
-        blocking: user.blockedBy.length > 0,
-        muted: user.mutedBy.length > 0,
-        blockedBy: user.blockedUsers.length > 0,
+        following: user.followers ? user.followers.length > 0 : false,
+        follower: user.following ? user.following.length > 0 : false,
+        blocking: user.blockedBy ? user.blockedBy.length > 0 : false,
+        muted: user.mutedBy ? user.mutedBy.length > 0 : false,
+        blockedBy: user.blockedUsers ? user.blockedUsers.length > 0 : false,
       },
     };
   }
