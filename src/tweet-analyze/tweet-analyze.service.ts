@@ -22,6 +22,9 @@ export class TweetAnalyzeService implements OnModuleInit {
   private readonly analyzeApiUrl: string;
   private readonly LOCK_KEY = 'tweet-analyze:lock';
   private readonly LOCK_TTL_SECONDS = 300; // 5 minutes
+  private readonly LOCK_EXTENSION_INTERVAL = 60; // Extend lock every 1 minute
+  private readonly LIMIT_PER_JOB = 100; // Max tweets to process per job run
+  private lockExtensionInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly configService: ConfigService,
@@ -76,6 +79,9 @@ export class TweetAnalyzeService implements OnModuleInit {
     this.logger.log('=== Starting Tweet Analysis Job ===');
 
     try {
+      // Start lock extension mechanism
+      this.startLockExtension();
+
       const tweetsToAnalyze = await this.getTweetsToAnalyze();
 
       if (tweetsToAnalyze.length === 0) {
@@ -83,9 +89,21 @@ export class TweetAnalyzeService implements OnModuleInit {
         return;
       }
 
-      this.logger.log(`Retrieved ${tweetsToAnalyze.length} tweets for analysis`);
+      // Apply limit per job
+      const tweetsToProcess =
+        tweetsToAnalyze.length > this.LIMIT_PER_JOB
+          ? tweetsToAnalyze.slice(0, this.LIMIT_PER_JOB)
+          : tweetsToAnalyze;
 
-      const batches = this.splitIntoBatches(tweetsToAnalyze, this.requestLimit);
+      if (tweetsToAnalyze.length > this.LIMIT_PER_JOB) {
+        this.logger.log(
+          `Retrieved ${tweetsToAnalyze.length} tweets, but limiting to ${this.LIMIT_PER_JOB} for this job run`,
+        );
+      } else {
+        this.logger.log(`Retrieved ${tweetsToAnalyze.length} tweets for analysis`);
+      }
+
+      const batches = this.splitIntoBatches(tweetsToProcess, this.requestLimit);
 
       this.logger.log(
         `Split into ${batches.length} batch(es) (limit: ${this.requestLimit} tweets/batch)`,
@@ -159,6 +177,7 @@ export class TweetAnalyzeService implements OnModuleInit {
         error instanceof Error ? error.stack : String(error),
       );
     } finally {
+      this.stopLockExtension();
       await this.releaseLock();
     }
   }
@@ -196,6 +215,30 @@ export class TweetAnalyzeService implements OnModuleInit {
         'Failed to release distributed lock',
         error instanceof Error ? error.stack : String(error),
       );
+    }
+  }
+
+  private startLockExtension(): void {
+    this.lockExtensionInterval = setInterval(async () => {
+      try {
+        const redis = this.redisService.getClient();
+        await redis.expire(this.LOCK_KEY, this.LOCK_TTL_SECONDS);
+        this.logger.debug(`Extended distributed lock TTL to ${this.LOCK_TTL_SECONDS}s`);
+      } catch (error) {
+        this.logger.error(
+          'Failed to extend distributed lock TTL',
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }, this.LOCK_EXTENSION_INTERVAL * 1000);
+    this.logger.debug(`Started lock extension (every ${this.LOCK_EXTENSION_INTERVAL}s)`);
+  }
+
+  private stopLockExtension(): void {
+    if (this.lockExtensionInterval) {
+      clearInterval(this.lockExtensionInterval);
+      this.lockExtensionInterval = null;
+      this.logger.debug('Stopped lock extension');
     }
   }
 
