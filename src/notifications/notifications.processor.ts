@@ -1,13 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import * as admin from 'firebase-admin';
 import { NotificationsRepository } from './notifications.repository';
-import { DevicesRepository } from 'src/devices/devices.repository';
 import { NotificationType } from '@prisma/client';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { Logger } from '@nestjs/common';
 import { buildFcmNotificationText } from './utils/fcm-notification-body-builder';
 import { NotificationPayloadDto } from './dtos/notification-payload.dto';
+import { UsersRepository } from 'src/users/users.repository';
+import { PushSenderService } from 'src/firebase/push-sender.service';
 
 interface FcmNotificationData {
   id: string;
@@ -24,7 +24,8 @@ export class NotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationProcessor.name);
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
-    private readonly devicesRepository: DevicesRepository,
+    private readonly usersRepository: UsersRepository,
+    private readonly pushService: PushSenderService,
   ) {
     super();
   }
@@ -57,13 +58,7 @@ export class NotificationProcessor extends WorkerHost {
         actorsIds: [notification.actor.id.toString()],
       };
 
-      const { devices, languageCode } = await this.devicesRepository.getUserDevices(BigInt(userId));
-      if (!devices.length) {
-        this.logger.warn(`No devices found for user ${userId}, skipping push notification`);
-        return;
-      }
-
-      this.logger.log(`Found ${devices.length} devices for user ${userId}`);
+      const languageCode = await this.usersRepository.getUserLocale(BigInt(userId));
 
       let previewActors = [
         {
@@ -103,12 +98,6 @@ export class NotificationProcessor extends WorkerHost {
         tweetSubjectIds: JSON.stringify([notification.tweet?.id?.toString()]),
       };
 
-      this.logger.log(`FCM Data: ${JSON.stringify(fcmData)}`);
-
-      this.logger.log(
-        `Sending push notification for notification id ${notificationId} to ${devices.length} devices`,
-      );
-
       const payload = {
         token: null,
         notification: {
@@ -130,37 +119,7 @@ export class NotificationProcessor extends WorkerHost {
 
       this.logger.debug(`FCM Payload: ${JSON.stringify(payload)}`);
 
-      const tokens = devices.map((d) => d.fcmToken).filter((t): t is string => !!t);
-
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens: tokens,
-        notification: payload.notification,
-        data: payload.data,
-        android: payload.android,
-      });
-
-      if (response.failureCount > 0) {
-        const failedTokens: string[] = [];
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            const error = resp.error;
-            if (
-              error?.code === 'messaging/invalid-registration-token' ||
-              error?.code === 'messaging/registration-token-not-registered'
-            ) {
-              failedTokens.push(tokens[idx]);
-            }
-            this.logger.warn(
-              `Failed to send notification to token ${tokens[idx]}: ${error?.message}`,
-            );
-          }
-        });
-
-        if (failedTokens.length > 0) {
-          await this.devicesRepository.deleteDevicesByTokens(failedTokens);
-          this.logger.log(`Deleted ${failedTokens.length} invalid device tokens`);
-        }
-      }
+      await this.pushService.sendToDevices(userId, payload);
     } catch (err) {
       this.logger.error(
         `Failed to process push notification job for notification id ${notificationId} to user ${userId}`,

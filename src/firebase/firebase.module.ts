@@ -2,10 +2,12 @@ import { Module, Global } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { ServiceAccount } from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
+import { PushSenderService } from './push-sender.service';
 
 @Global()
 @Module({
   providers: [
+    PushSenderService,
     {
       provide: 'FIREBASE_ADMIN',
       useFactory: (config: ConfigService): admin.app.App => {
