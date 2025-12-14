@@ -355,6 +355,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       conversationId: BigInt(conversationId),
       messagePreview: message.content.slice(0, 100),
       hasMedia: !!message.mediaUrl,
+      mediaType: message.media?.type || null,
     });
 
     this.server.to(conversationId).emit('message_received', {
@@ -556,16 +557,19 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const { reactionDb, sender, receiver, message } = reactionState;
 
-    await this.domainEventsService.emitReactionSent({
-      actorId: sender!.user.id,
-      receiverId: receiver!.user.id,
-      conversationId: BigInt(conversationId),
-      reaction:
-        sender!.user.username === user.username
-          ? reactionDb.reactionSender
-          : reactionDb.reactionReceiver,
-      messagePreview: message.content.slice(0, 100),
-    });
+    const reaction =
+      sender!.user.username === user.username
+        ? reactionDb.reactionSender
+        : reactionDb.reactionReceiver;
+
+    if (reaction)
+      await this.domainEventsService.emitReactionSent({
+        actorId: sender!.user.id,
+        receiverId: receiver!.user.id,
+        conversationId: BigInt(conversationId),
+        reaction,
+        messagePreview: message.content.slice(0, 100),
+      });
 
     const socketPayload = {
       conversationId,

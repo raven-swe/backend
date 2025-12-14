@@ -1,4 +1,4 @@
-import { NotificationType, LanguageCode } from '@prisma/client';
+import { NotificationType, LanguageCode, MediaType } from '@prisma/client';
 import IntlMessageFormat from 'intl-messageformat';
 
 const DEFAULT_LOCALE: LanguageCode = LanguageCode.EN;
@@ -14,6 +14,10 @@ const TEMPLATES: Record<string, Record<string, string>> = {
     'quote.single': '{actor} quoted: "{snippet}"',
     'retweet.single': '{actor} retweeted your tweet',
     'retweet.aggregated': '{actor} and {count} other{s} retweeted your tweet',
+    'message.single': '{actor} sent you a message: "{snippet}"',
+    'message.reacted': '{actor} reacted {reaction} to your message: "{snippet}"',
+    'message.photo': '{actor} sent you a photo',
+    'message.video': '{actor} sent you a video',
     'author.tweet': '{actor} posted a new tweet',
     generic: 'New interaction',
     'generic.body': 'You have a new notification',
@@ -28,6 +32,10 @@ const TEMPLATES: Record<string, Record<string, string>> = {
     'quote.single': '{actor} اقتبس: "{snippet}"',
     'retweet.single': '{actor} أعاد تغريد تغريدتك',
     'retweet.aggregated': '{actor} و{count} آخر{sar} أعادوا تغريد تغريدتك',
+    'message.single': '{actor} أرسل لك رسالة: "{snippet}"',
+    'message.reacted': '{actor} تفاعل {reaction} مع رسالتك: "{snippet}"',
+    'message.photo': '{actor} أرسل لك صورة',
+    'message.video': '{actor} أرسل لك فيديو',
     'author.tweet': '{actor} نشر تغريدة جديدة',
     generic: 'تفاعل جديد',
     'generic.body': 'لديك إشعار جديد',
@@ -67,6 +75,9 @@ export function buildFcmNotificationText(opts: {
   totalActorCount?: number;
   tweetSnippet?: string | null;
   locale?: LanguageCode;
+  reaction?: string | null;
+  hasMedia?: boolean;
+  mediaType?: MediaType | null;
 }): { title: string; body?: string } {
   const {
     notificationType,
@@ -159,6 +170,25 @@ export function buildFcmNotificationText(opts: {
     case NotificationType.TWEET:
       key = 'author.tweet';
       params.actor = leadActor;
+      break;
+    case NotificationType.MESSAGE:
+      if (opts.reaction) {
+        key = 'message.reacted';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+        params.reaction = opts.reaction;
+      } else if (opts.hasMedia) {
+        if (opts.mediaType === MediaType.VIDEO) {
+          key = 'message.video';
+        } else {
+          key = 'message.photo';
+        }
+        params.actor = leadActor;
+      } else {
+        key = 'message.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     default:
