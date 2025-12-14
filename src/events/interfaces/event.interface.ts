@@ -1,3 +1,5 @@
+import { MediaType } from '@prisma/client';
+
 export const DOMAIN_EVENT_NAMES = {
   User_Followed: 'user.followed',
   Tweet_Liked: 'tweet.liked',
@@ -27,6 +29,7 @@ interface MessageEvent {
   conversationId: bigint;
   messagePreview: string;
   hasMedia: boolean;
+  mediaType: MediaType | null;
 }
 
 interface ReactionEvent {
