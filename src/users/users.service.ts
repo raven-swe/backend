@@ -34,6 +34,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
 import { DomainEventsService } from 'src/events/domain-events.service';
+import { buildTsQuery } from './utils/user-search-query.util';
 
 @Injectable()
 export class UsersService {
@@ -1070,9 +1071,12 @@ export class UsersService {
     excludeMutedAndBlocked: boolean = false,
     peopleFilter?: PeopleSearchFilter,
   ) {
+    const { tsQuery, firstWord } = buildTsQuery(query);
+
     return this.usersRepository.searchUsers(
       currentUserId,
-      query,
+      tsQuery,
+      firstWord,
       limit,
       decodedCursor,
       excludeMutedAndBlocked,

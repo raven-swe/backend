@@ -74,7 +74,8 @@ export const USERS_ERROR_MESSAGES = {
 } as const;
 
 export const USER_SEARCH_RANKING_WEIGHTS = {
-  SIMILARITY: 1000000, // Primary factor: text similarity
+  PREFIX_BONUS: 1000000, // Highest priority: prefix matches
+  SIMILARITY: 500000, // Primary factor: text similarity
   I_FOLLOW: 500, // Strong: users I follow
   FOLLOWS_ME: 300, // Good: users who follow me
   FOLLOWERS: 100, // Moderate: popularity (per follower)

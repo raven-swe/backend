@@ -243,7 +243,13 @@ export class SearchService {
   ) {
     const { query, peopleFilter, excludeMutedAndBlocked } = searchUsersQueryDto;
 
-    const rawQuery = decodeURIComponent(query);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
+    }
 
     if (!rawQuery || rawQuery.trim() === '') {
       return {
@@ -256,7 +262,7 @@ export class SearchService {
       };
     }
 
-    const cleanedQuery = rawQuery.trim().toLowerCase();
+    const cleanedQuery = rawQuery.toLowerCase().trim();
     let decodedCursor: UserSearchCursor | undefined;
     try {
       decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;
