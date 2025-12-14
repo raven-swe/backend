@@ -12,7 +12,13 @@ import {
   isSingleHashtagQuery,
   prepareSearchQuery,
 } from './utils/search-query.util';
-import { TweetRankCursor, TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
+import {
+  isTweetRankCursor,
+  isTweetRelationsCursor,
+  TweetRankCursor,
+  TweetRelationsCursor,
+  UserSearchCursor,
+} from 'src/common/types/cursors';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
 import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
@@ -110,15 +116,17 @@ export class SearchService {
     const pagination = isRelevanceSearch
       ? paginateComposite(items, limit, prevCursor, (tweet) => {
           return {
+            type: 'rank',
             rank: tweet.rank?.toString(),
             id: tweet.id.toString(),
-          };
+          } as TweetRankCursor;
         })
       : paginateComposite(items, limit, prevCursor, (tweet) => {
           return {
+            type: 'relations',
             createdAt: tweet.createdAt,
             id: tweet.id.toString(),
-          };
+          } as TweetRelationsCursor;
         });
 
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
@@ -126,17 +134,20 @@ export class SearchService {
     return { items, pagination };
   }
 
+  /**
+   * Decodes cursor and validates it matches the expected search type
+   * Throws error if cursor is invalid or wrong type for search mode
+   */
   private decodeCursor(
     prevCursor?: string,
     isRelevanceSearch: boolean = true,
   ): TweetRankCursor | TweetRelationsCursor | undefined {
     if (!prevCursor) return undefined;
 
+    let decoded: TweetRankCursor | TweetRelationsCursor | undefined;
+
     try {
-      if (isRelevanceSearch) {
-        return decodeCompositeCursor<TweetRankCursor>(prevCursor);
-      }
-      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      decoded = decodeCompositeCursor<TweetRankCursor | TweetRelationsCursor>(prevCursor);
     } catch {
       throw new HttpException(
         {
@@ -146,6 +157,29 @@ export class SearchService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // Validate cursor type matches search mode
+    if (isRelevanceSearch && !isTweetRankCursor(decoded)) {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!isRelevanceSearch && !isTweetRelationsCursor(decoded)) {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return decoded;
   }
 
   private async fetchTweetsByTab(

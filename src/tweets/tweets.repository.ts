@@ -1321,6 +1321,8 @@ export class TweetsRepository {
     const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
       this.buildBasicTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter);
 
+    // weights: relevance : likes : retweets : replies
+    //            100        30        50        20
     const rankCalculation = Prisma.sql`
     (
       CAST(ts_rank(t.search_document, to_tsquery('simple', ${query})) * 10000000 AS BIGINT) + 
