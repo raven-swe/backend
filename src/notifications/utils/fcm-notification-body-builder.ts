@@ -6,32 +6,28 @@ const DEFAULT_LOCALE: LanguageCode = LanguageCode.EN;
 const TEMPLATES: Record<string, Record<string, string>> = {
   EN: {
     'like.single': '{actor} liked your tweet',
-    'like.aggregated': '{actor} and {count} others liked your tweet',
+    'like.aggregated': '{actor} and {count} other{s} liked your tweet',
     'follow.single': '{actor} followed you',
-    'follow.aggregated': '{actor} and {count} others followed you',
+    'follow.aggregated': '{actor} and {count} other{s} followed you',
     'reply.single': '{actor} replied: "{snippet}"',
-    'reply.aggregated': '{actor} and {count} others replied to your tweet"',
     'mention.single': '{actor} mentioned you: "{snippet}"',
     'quote.single': '{actor} quoted: "{snippet}"',
-    'qoute.aggregated': '{actor} and {count} others quoted your tweet',
     'retweet.single': '{actor} retweeted your tweet',
-    'retweet.aggregated': '{actor} and {count} others retweeted your tweet',
+    'retweet.aggregated': '{actor} and {count} other{s} retweeted your tweet',
     'author.tweet': '{actor} posted a new tweet',
     generic: 'New interaction',
     'generic.body': 'You have a new notification',
   },
   AR: {
     'like.single': 'أعجب {actor} بتغريدتك',
-    'like.aggregated': 'أعجب {actor} و{count} آخرون بتغريدتك',
+    'like.aggregated': 'أعجب {actor} و{count} آخر{sar} بتغريدتك',
     'follow.single': '{actor} تابعك',
-    'follow.aggregated': '{actor} و{count} آخرون تابعوك',
+    'follow.aggregated': '{actor} و{count} آخر{sar} تابعوك',
     'reply.single': '{actor} رد: "{snippet}"',
-    'reply.aggregated': '{actor} و{count} آخرون ردوا على تغريدتك',
     'mention.single': '{actor} ذكرك: "{snippet}"',
     'quote.single': '{actor} اقتبس: "{snippet}"',
-    'qoute.aggregated': '{actor} و{count} آخرون اقتبسوا تغريدتك',
     'retweet.single': '{actor} أعاد تغريد تغريدتك',
-    'retweet.aggregated': '{actor} و{count} آخرون أعادوا تغريد تغريدتك',
+    'retweet.aggregated': '{actor} و{count} آخر{sar} أعادوا تغريد تغريدتك',
     'author.tweet': '{actor} نشر تغريدة جديدة',
     generic: 'تفاعل جديد',
     'generic.body': 'لديك إشعار جديد',
@@ -89,6 +85,11 @@ export function buildFcmNotificationText(opts: {
   let key = 'generic';
   const params: Record<string, unknown> = {};
 
+  if (locale === LanguageCode.AR && isAggregated && remainingCount > 0) {
+    params.sar = remainingCount === 1 ? '' : 'ون';
+  } else if (locale === LanguageCode.EN && isAggregated && remainingCount > 0) {
+    params.s = remainingCount === 1 ? '' : 's';
+  }
   switch (notificationType) {
     case NotificationType.LIKE:
       if (isAggregated && remainingCount > 0) {

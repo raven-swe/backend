@@ -144,7 +144,6 @@ export class NotificationsService {
       {
         notificationId: notification.id.toString(),
         userId: options.receiverId.toString(),
-        type: 'new_notification',
       },
       {
         attempts: 5,
@@ -255,7 +254,6 @@ export class NotificationsService {
       {
         notificationId: notification.id.toString(),
         userId: options.receiverId.toString(),
-        type: 'update_notification',
       },
       {
         attempts: 5,
