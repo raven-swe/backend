@@ -2,15 +2,26 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List
 from contextlib import asynccontextmanager
+import logging
 from processor import TweetProcessor
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 processor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global processor
+    logger.info("Starting FastAPI application...")
+    logger.info("Initializing TweetProcessor...")
     processor = TweetProcessor()
+    logger.info("TweetProcessor initialized successfully")
     yield
+    logger.info("Shutting down FastAPI application...")
 
 app = FastAPI(
     title="Tweet Analysis API",
@@ -78,15 +89,27 @@ class TweetResponse(BaseModel):
 )
 async def analyze_tweets(request: TweetRequest):
     try:
+        logger.info(f"Received analyze request with {len(request.tweets)} tweets")
+        
         if not request.tweets:
+            logger.warning("Request received with no tweets")
             raise HTTPException(status_code=400, detail="No tweets provided")
         
         result = processor.process_tweets(request.tweets)
+        
+        logger.info(f"Successfully processed {result['batch_meta']['total_tweets']} tweets")
+        logger.info(f"Returning {len(result['trending_keywords'])} trending items")
+        
         return result
     
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error processing tweets: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
 @app.get("/health", summary="Health check", description="Check if the API is running and models are loaded")
 async def health_check():
-    return {"status": "healthy", "models_loaded": processor is not None}
+    is_healthy = processor is not None
+    logger.debug(f"Health check: models_loaded={is_healthy}")
+    return {"status": "healthy" if is_healthy else "unhealthy", "models_loaded": is_healthy}
