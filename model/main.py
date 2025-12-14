@@ -91,7 +91,7 @@ async def analyze_tweets(request: TweetRequest):
     try:
         logger.info(f"Received analyze request with {len(request.tweets)} tweets")
         # log the request content
-        logger.info(f"Request content: {request.json()}")
+        logger.debug(f"Request content: {request.json()}")
         
         if not request.tweets:
             logger.warning("Request received with no tweets")
@@ -99,7 +99,7 @@ async def analyze_tweets(request: TweetRequest):
         
         result = processor.process_tweets(request.tweets)
         
-        logger.info(f"Analyze response: {result}")
+        logger.debug(f"Analyze response: {result}")
         return result
     
     except HTTPException:
