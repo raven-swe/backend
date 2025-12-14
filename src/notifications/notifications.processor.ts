@@ -33,10 +33,9 @@ export class NotificationProcessor extends WorkerHost {
     job: Job<{
       notificationId: string;
       userId: string;
-      type: 'new_notification' | 'update_notification';
     }>,
   ): Promise<void> {
-    const { notificationId, userId, type } = job.data;
+    const { notificationId, userId } = job.data;
 
     this.logger.log(
       `Processing push notification job for notification id ${notificationId} to user ${userId}`,
@@ -66,21 +65,23 @@ export class NotificationProcessor extends WorkerHost {
 
       this.logger.log(`Found ${devices.length} devices for user ${userId}`);
 
-      const previewActors = currentPayload.actorsPreview.map((a) => ({
-        username: a.username,
-        displayName: a.displayName ?? undefined,
-        avatarUrl: a.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
-        isFollowing: a.ifFollowing,
-      }));
-
-      if (type === 'new_notification') {
-        previewActors.push({
+      let previewActors = [
+        {
           username: notification.actor.username,
           displayName: notification.actor.profile?.displayName,
           avatarUrl: notification.actor.profile?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
           isFollowing: notification.actor.followers.length > 0,
-        });
-      }
+        },
+      ];
+
+      previewActors = previewActors.concat(
+        currentPayload.actorsPreview.map((a) => ({
+          username: a.username,
+          displayName: a.displayName ?? undefined,
+          avatarUrl: a.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          isFollowing: a.ifFollowing,
+        })),
+      );
 
       const tweetSnippet = notification.tweet?.content ?? null;
 
