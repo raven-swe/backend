@@ -89,6 +89,8 @@ export class NotificationProcessor extends WorkerHost {
         locale: languageCode,
       });
 
+      this.logger.log(`FCM Notification Text - Title: ${title}, Body: ${body}`);
+
       const fcmData: FcmNotificationData = {
         id: notification.id.toString(),
         type: notification.type,
@@ -117,7 +119,7 @@ export class NotificationProcessor extends WorkerHost {
         },
       };
 
-      this.logger.debug(`FCM Payload: ${JSON.stringify(payload)}`);
+      this.logger.log(`FCM Payload: ${JSON.stringify(payload)}`);
 
       await this.pushService.sendToDevices(userId, payload);
     } catch (err) {
