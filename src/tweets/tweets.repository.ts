@@ -58,11 +58,6 @@ export const tweetInclude = (currentUserId: bigint | null) =>
           },
         },
       },
-      blockedBy: { where: { userId: currentUserId } },
-      blockedUsers: { where: { blockedId: currentUserId } },
-      mutedBy: { where: { userId: currentUserId } },
-      followers: { where: { followerId: currentUserId } },
-      following: { where: { followedId: currentUserId } },
     }),
 
     tweetMentions: {
@@ -106,7 +101,7 @@ type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
   include: ReturnType<typeof tweetInclude>;
 }>;
 
-type TweetWithIncludes = BaseTweetWithIncludes & {
+export type TweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
 };
 
