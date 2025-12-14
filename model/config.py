@@ -7,6 +7,7 @@ TOP_TREND_LIMIT_KWS = 15
 TOP_K_SUBTOPICS = 1
 MIN_SCORE = 0.85
 
+
 CUSTOM_IGNORE_LIST = [
     'day', 'today', 'yesterday', 'tomorrow', 'week', 'year', 'month', 'time', 'finally',
     'people', 'thing', 'something', 'world', 'life', 'season', 'matter', 'key', 'small',
