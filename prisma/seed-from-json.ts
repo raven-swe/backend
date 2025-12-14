@@ -13,6 +13,7 @@ interface UserData {
   interests?: string[];
   location?: string;
   avatarUrl?: string;
+  createdAt?: string;
 }
 
 interface MediaData {
@@ -35,6 +36,7 @@ interface TweetData {
   media?: MediaData[];
   quotedTweetIndex?: number; // Index in tweets array to quote
   replyToTweetIndex?: number; // Index in tweets array to reply to
+  createdAt?: string;
 }
 
 interface RetweetData {
@@ -43,12 +45,23 @@ interface RetweetData {
   daysAgo?: number;
   hoursAgo?: number;
   minutesAgo?: number;
+  createdAt?: string;
+}
+
+interface LikeData {
+  userIndex: number;
+  tweetIndex: number;
+  daysAgo?: number;
+  hoursAgo?: number;
+  minutesAgo?: number;
+  createdAt?: string;
 }
 
 interface SeedData {
   users: UserData[];
   tweets: TweetData[];
   retweets?: RetweetData[];
+  likes?: LikeData[];
 }
 
 function parseHashtags(content: string): string[] {
@@ -207,11 +220,9 @@ async function main() {
         .map((username) => usernameToId.get(username.toLowerCase()))
         .filter((id) => id !== undefined);
 
-      const createdAt = calculateCreatedAt(
-        tweetData.daysAgo,
-        tweetData.hoursAgo,
-        tweetData.minutesAgo,
-      );
+      const createdAt = tweetData.createdAt
+        ? new Date(tweetData.createdAt)
+        : calculateCreatedAt(tweetData.daysAgo, tweetData.hoursAgo, tweetData.minutesAgo);
 
       // Handle quoted tweet reference
       let quotedTweetId = null;
@@ -319,11 +330,9 @@ async function main() {
           continue;
         }
 
-        const createdAt = calculateCreatedAt(
-          retweetData.daysAgo,
-          retweetData.hoursAgo,
-          retweetData.minutesAgo,
-        );
+        const createdAt = retweetData.createdAt
+          ? new Date(retweetData.createdAt)
+          : calculateCreatedAt(retweetData.daysAgo, retweetData.hoursAgo, retweetData.minutesAgo);
 
         await prisma.retweet.create({
           data: {
@@ -346,6 +355,58 @@ async function main() {
     }
 
     console.log(`Created ${retweetCount} retweets`);
+    console.log(`Created ${retweetCount} retweets`);
+  }
+
+  // Create likes if present
+  if (data.likes && data.likes.length > 0) {
+    console.log(`\n Creating ${data.likes.length} likes...`);
+    let likeCount = 0;
+
+    for (const likeData of data.likes) {
+      try {
+        const user = createdUsers[likeData.userIndex];
+        const tweet = createdTweets[likeData.tweetIndex];
+
+        if (!user || !tweet) {
+          console.error(
+            `   ❌ Invalid like reference: user ${likeData.userIndex}, tweet ${likeData.tweetIndex}`,
+          );
+          continue;
+        }
+
+        const createdAt = likeData.createdAt
+          ? new Date(likeData.createdAt)
+          : calculateCreatedAt(likeData.daysAgo, likeData.hoursAgo, likeData.minutesAgo);
+
+        await prisma.like.create({
+          data: {
+            userId: user.id,
+            tweetId: tweet.id,
+            createdAt,
+          },
+        });
+
+        // Update like count on the tweet
+        await prisma.tweet.update({
+          where: { id: tweet.id },
+          data: { likeCount: { increment: 1 } },
+        });
+
+        likeCount++;
+
+        if (likeCount % 500 === 0) {
+          console.log(`  Created ${likeCount}/${data.likes.length} likes`);
+        }
+      } catch (error) {
+        // Ignore duplicates smoothly
+        if (!error.message.includes('Unique constraint')) {
+          console.error(`   ❌ Failed to create like:`, error.message);
+        }
+      }
+    }
+
+    console.log(`Created ${likeCount} likes`);
   }
 
   // Create some random follows for engagement
@@ -413,6 +474,8 @@ async function main() {
   console.log(`   Quotes: ${quotedCount}`);
   console.log(`   Media: ${mediaCount}`);
   console.log(`   Follows: ${uniqueFollows.length}`);
+  console.log(`   Follows: ${uniqueFollows.length}`);
+  console.log(`   Likes: ${data.likes?.length || 0}`);
 }
 
 main()
