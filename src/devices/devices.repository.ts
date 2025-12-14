@@ -70,19 +70,13 @@ export class DevicesRepository {
   }
 
   async getUserDevices(userId: bigint) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { languageCode: true },
-    });
-
-    const devices = await this.prisma.userDevice.findMany({
+    return await this.prisma.userDevice.findMany({
       where: {
         userId: userId,
         fcmToken: { not: null },
         pushEnabled: true,
       },
     });
-    return { languageCode: user?.languageCode, devices };
   }
 
   async deleteDevicesByTokens(fcmTokens: string[]) {

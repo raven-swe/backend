@@ -1789,4 +1789,28 @@ export class UsersRepository {
       },
     }));
   }
+
+  async getUserMetadataById(id: bigint) {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getUserLocale(userId: bigint) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { languageCode: true },
+    });
+    return user?.languageCode;
+  }
 }
