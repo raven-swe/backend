@@ -101,7 +101,9 @@ export class TimelineService {
     };
   }
 
-  // 1 - check the empty placeholder to fail fast (no following tweets)
+  // reviewer, don't delete these comments please they keep me sane, I will delete them myself (or not)
+  // this should be exactly like for you, just the extra step to get the ids from multiple sorted sets instead of one
+  // 1 - check the empty placeholder to fail fast (no following tweets, or no interests at all for for you)
   // 2 - get the actual ids (tweets and authors) from redis sorted set (timeline, paginated) (pagination)
   // 3 - hydrate all static data from redis (tweets and authors), get back the missing ones too
   // 4 - backfill the missing ones from db to redis
@@ -1181,12 +1183,13 @@ export class TimelineService {
             authors.set(authorId, author);
           }
         }
-
+        const fullAuthorsMap = await this.tweetsRepository.getAuthorRelationships(userId, authors);
         // Assemble tweets
         const assembledBatch = this.assembleTimelineTweets(
           orderedTimelineItems,
           tweets,
           authors,
+          fullAuthorsMap,
           dynamicData,
         );
 
