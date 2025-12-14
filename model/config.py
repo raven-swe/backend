@@ -3,7 +3,7 @@ ENGLISH_MODEL = "cardiffnlp/tweet-topic-21-multi"
 KEYWORD_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
 TOP_X_KEYWORDS = 2
-TOP_TREND_LIMIT = 15
+TOP_TREND_LIMIT_KWS = 15
 TOP_K_SUBTOPICS = 1
 MIN_SCORE = 0.85
 

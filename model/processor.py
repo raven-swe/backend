@@ -8,7 +8,7 @@ from config import (
     ENGLISH_MODEL,
     KEYWORD_MODEL,
     TOP_X_KEYWORDS,
-    TOP_TREND_LIMIT,
+    TOP_TREND_LIMIT_KWS,
     TOP_K_SUBTOPICS,
     MIN_SCORE,
     CUSTOM_IGNORE_LIST,
@@ -166,7 +166,7 @@ class TweetProcessor:
                 trending_keywords.append(keyword_obj)
 
         trending_keywords.sort(key=lambda x: x["general_trend_score"], reverse=True)
-        trending_keywords = trending_keywords[:TOP_TREND_LIMIT]
+        trending_keywords = trending_keywords[:TOP_TREND_LIMIT_KWS]
         
         trending_hashtags.sort(key=lambda x: x["general_trend_score"], reverse=True)
         
