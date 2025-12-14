@@ -179,10 +179,6 @@ export class ConversationsService {
       (participant) => participant.userId === userId,
     )!;
 
-    console.log('otherParticipant', otherParticipant);
-
-    console.log('whole payload', conversationData);
-
     return {
       id: conversationData.id.toString(),
       participant: {
