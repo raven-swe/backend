@@ -19,6 +19,7 @@ export interface NewMessagePayload {
 export const SSE_EVENTS = {
   DM_UNSEEN_COUNT: 'dm.unseen_conversations_count',
   DM_NEW_MESSAGE: 'dm.new_message',
+  TIMELINE_FOLLOWING: 'timeline.following',
 } as const;
 
 @Injectable()
@@ -85,6 +86,14 @@ export class SseEventsService {
       data: { count },
     });
   }
+  async publishTimelineFollowingTweets(userId: bigint, authors: string[] | null): Promise<void> {
+    this.logger.debug(`Publishing timeline-following update to user ${userId}`);
+    await this.publisher.publishToUser(userId.toString(), {
+      event: SSE_EVENTS.TIMELINE_FOLLOWING,
+      data: { authors },
+    });
+  }
+
   async publishNotificationDeleted(receiverId: bigint, updatedCount: number): Promise<void> {
     this.logger.log(`Publishing notification deleted event to user ${receiverId}`);
     await this.publisher.publishToUser(receiverId.toString(), {
