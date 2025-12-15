@@ -1465,6 +1465,11 @@ export class TweetsRepository {
             userId: userId,
           },
         },
+        blockedUsers: {
+          none: {
+            blockedId: userId,
+          },
+        },
       },
       select: { id: true },
     });
