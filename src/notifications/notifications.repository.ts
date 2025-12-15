@@ -113,7 +113,7 @@ export class NotificationsRepository {
         latestEventAt: new Date(),
         isAggregated: true,
         payload,
-        ...(isAgg ? { seen: true } : {}),
+        ...(isAgg ? { seen: false } : {}),
       },
       select: notificationSelect(options.receiverId),
     });
