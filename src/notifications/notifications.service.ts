@@ -89,6 +89,8 @@ export class NotificationsService {
       if (currentPayload.actorsPreview) {
         currentPayload.actorsPreview.forEach((a) => actorsMap.set(a.id, a));
       }
+      actorsMap.set(previousActor.id.toString(), previousActor);
+      actorsMap.delete(options.actorId.toString());
 
       const actorsIdsSet = new Set(currentPayload.actorsIds);
       actorsIdsSet.add(options.actorId.toString());
@@ -99,7 +101,6 @@ export class NotificationsService {
         actorsMap.clear();
         firstTwo.forEach(([key, value]) => actorsMap.set(key, value));
       }
-      actorsMap.set(previousActor.id.toString(), previousActor);
 
       const payload: Prisma.JsonObject = {
         count: actorsIdsSet.size,
@@ -242,6 +243,31 @@ export class NotificationsService {
       }
     }
     actorsMap.delete(facingActorId.toString());
+    if (actorsMap.size < 3 && actorsIdsSet.size > actorsMap.size + 1) {
+      const idsToFetch: string[] = [];
+
+      for (const id of actorsIdsSet) {
+        if (id !== facingActorId.toString() && !actorsMap.has(id)) {
+          idsToFetch.push(id);
+          if (idsToFetch.length >= 3 - actorsMap.size) break;
+        }
+      }
+
+      if (idsToFetch.length > 0) {
+        const newUsers = await this.usersRepository.getUsersMetadataById(
+          idsToFetch.map((id) => BigInt(id)),
+        );
+
+        newUsers.forEach((u) => {
+          actorsMap.set(u.id.toString(), {
+            username: u.username,
+            displayName: u.profile?.displayName || null,
+            avatarUrl: u.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+            ifFollowing: false,
+          });
+        });
+      }
+    }
 
     const payload: Prisma.JsonObject = {
       count: currentCount,

@@ -36,7 +36,8 @@ export class MessagesPushProcessor extends WorkerHost {
     );
 
     try {
-      const actorMetadata = await this.usersRepository.getUserMetadataById(BigInt(actorId));
+      const actorsMetadata = await this.usersRepository.getUsersMetadataById([BigInt(actorId)]);
+      const actorMetadata = actorsMetadata[0];
       if (!actorMetadata) {
         this.logger.warn(`Actor with id ${actorId} not found, skipping push notification`);
         return;

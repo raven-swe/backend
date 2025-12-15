@@ -1859,10 +1859,9 @@ export class UsersRepository {
     }));
   }
 
-
-  async getUserMetadataById(id: bigint) {
-    return await this.prisma.user.findUnique({
-      where: { id },
+  async getUsersMetadataById(ids: bigint[]) {
+    return await this.prisma.user.findMany({
+      where: { id: { in: ids } },
       select: {
         id: true,
         username: true,
@@ -1905,7 +1904,6 @@ export class UsersRepository {
     });
     return user ? { username: user.username, displayName: user.profile!.displayName } : null;
   }
-
 
   async getUserLocale(userId: bigint) {
     const user = await this.prisma.user.findUnique({

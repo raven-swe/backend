@@ -63,7 +63,7 @@ export class NotificationsRepository {
     ].concat(
       currentPayload.actorsPreview.map((a) => ({
         username: a.username,
-        displayName: a.displayName ?? DEFAULT_PROFILE_PICTURE,
+        displayName: a.displayName ?? undefined,
         avatarUrl: a.avatarUrl,
         isFollowing: a.ifFollowing,
       })),
