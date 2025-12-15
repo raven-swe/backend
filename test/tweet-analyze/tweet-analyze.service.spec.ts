@@ -148,7 +148,9 @@ describe('TweetAnalyzeService', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {} as any,
+        config: {
+          headers: undefined,
+        } as AxiosResponse<ModelApiResponse>['config'],
       };
       httpService.post.mockReturnValue(of(axiosResponse));
     });
@@ -162,10 +164,10 @@ describe('TweetAnalyzeService', () => {
           if (key === 'CLASSIFICATION_API_URL') return 'http://localhost:5000/analyze';
           return '';
         }),
-      };
+      } as unknown as ConfigService;
 
       const disabledService = new TweetAnalyzeService(
-        disabledConfigService as any,
+        disabledConfigService,
         httpService,
         repository,
         redisService,
@@ -189,7 +191,9 @@ describe('TweetAnalyzeService', () => {
       await service.analyzeTweets();
 
       expect(mockRedisClient.set).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.findTweetsToClassify).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).toHaveBeenCalledWith('http://localhost:5000/analyze', {
         tweets: [
           { id: '1', content: 'Test tweet 1' },
@@ -197,11 +201,14 @@ describe('TweetAnalyzeService', () => {
           { id: '3', content: 'Test tweet 3' },
         ],
       });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledTimes(3);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(trendingService.updateTrendScores).toHaveBeenCalledWith({
         batch_meta: { total_tweets: 3 },
         trending_keywords: mockTrendingKeywords,
       });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(redisService.del).toHaveBeenCalled();
     });
 
@@ -210,8 +217,11 @@ describe('TweetAnalyzeService', () => {
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(trendingService.updateTrendScores).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(redisService.del).toHaveBeenCalled();
     });
 
@@ -229,6 +239,7 @@ describe('TweetAnalyzeService', () => {
       await service.analyzeTweets();
 
       // Should make 2 calls: 50, 50 (based on CLASSIFY_REQ_LIMIT=50)
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).toHaveBeenCalledTimes(2);
     });
 
@@ -237,7 +248,9 @@ describe('TweetAnalyzeService', () => {
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(redisService.del).toHaveBeenCalled();
     });
 
@@ -260,7 +273,9 @@ describe('TweetAnalyzeService', () => {
             status: 200,
             statusText: 'OK',
             headers: {},
-            config: {} as any,
+            config: {
+              headers: undefined,
+            } as AxiosResponse<ModelApiResponse>['config'],
           }),
         )
         .mockReturnValueOnce(throwError(() => new Error('Batch 2 failed')));
@@ -268,8 +283,10 @@ describe('TweetAnalyzeService', () => {
       await service.analyzeTweets();
 
       // First batch should have been processed
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledTimes(3);
       // Should stop after first batch failure
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).toHaveBeenCalledTimes(2);
     });
 
@@ -297,13 +314,16 @@ describe('TweetAnalyzeService', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {} as any,
+        config: {
+          headers: undefined,
+        } as AxiosResponse<ModelApiResponse>['config'],
       };
       httpService.post.mockReturnValue(of(axiosResponse));
 
       await service.analyzeTweets();
 
       // Should only process tweets with valid content
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).toHaveBeenCalledWith('http://localhost:5000/analyze', {
         tweets: [
           { id: '1', content: 'Valid tweet' },
@@ -322,13 +342,17 @@ describe('TweetAnalyzeService', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {} as any,
+        config: {
+          headers: undefined,
+        } as AxiosResponse<ModelApiResponse>['config'],
       };
       httpService.post.mockReset().mockReturnValue(of(emptyResponse));
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(trendingService.updateTrendScores).not.toHaveBeenCalled();
     });
 
@@ -349,6 +373,7 @@ describe('TweetAnalyzeService', () => {
       await service.analyzeTweets();
 
       // Should fetch tweets at least 2 times (run 1: 150 found -> process 100, run 2: 50 found -> process 50)
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.findTweetsToClassify).toHaveBeenCalledTimes(2);
     });
 
@@ -357,6 +382,7 @@ describe('TweetAnalyzeService', () => {
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(redisService.del).toHaveBeenCalled();
     });
 
@@ -370,6 +396,7 @@ describe('TweetAnalyzeService', () => {
       await service.analyzeTweets();
 
       // Should continue updating other tweets even if one fails
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledTimes(3);
     });
 
@@ -412,7 +439,9 @@ describe('TweetAnalyzeService', () => {
             status: 200,
             statusText: 'OK',
             headers: {},
-            config: {} as any,
+            config: {
+              headers: undefined,
+            } as AxiosResponse<ModelApiResponse>['config'],
           }),
         )
         .mockReturnValueOnce(
@@ -425,13 +454,16 @@ describe('TweetAnalyzeService', () => {
             status: 200,
             statusText: 'OK',
             headers: {},
-            config: {} as any,
+            config: {
+              headers: undefined,
+            } as AxiosResponse<ModelApiResponse>['config'],
           }),
         );
 
       await service.analyzeTweets();
 
       // Should accumulate keywords from both batches
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(trendingService.updateTrendScores).toHaveBeenCalledWith({
         batch_meta: { total_tweets: 100 },
         trending_keywords: [...batch1Keywords, ...batch2Keywords],
@@ -448,6 +480,7 @@ describe('TweetAnalyzeService', () => {
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(httpService.post).toHaveBeenCalledWith('http://localhost:5000/analyze', {
         tweets: [{ id: '9999999999999999', content: 'Large ID tweet' }],
       });
@@ -456,8 +489,11 @@ describe('TweetAnalyzeService', () => {
     it('should correctly convert string IDs back to BigInt for database updates', async () => {
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledWith(BigInt(1), 'technology');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledWith(BigInt(2), 'sports');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledWith(BigInt(3), 'entertainment');
     });
   });
