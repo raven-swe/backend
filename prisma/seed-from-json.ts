@@ -1,3 +1,9 @@
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -97,14 +103,6 @@ function calculateCreatedAt(daysAgo?: number, hoursAgo?: number, minutesAgo?: nu
   // Random time in last 30 days if nothing specified
   const randomDays = Math.floor(Math.random() * 30);
   return new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
-}
-
-async function getOrCreateHashtag(keyword: string) {
-  return prisma.hashtag.upsert({
-    where: { keyword },
-    update: {},
-    create: { keyword },
-  });
 }
 
 async function main() {
@@ -251,6 +249,7 @@ async function main() {
   // Bulk insert media
   if (allMediaData.length > 0) {
     await prisma.media.createMany({
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       data: allMediaData.map(({ _tweetIndex, _mediaOrder, ...data }) => data),
       skipDuplicates: true,
     });
@@ -308,6 +307,7 @@ async function main() {
 
   // Bulk insert tweets
   await prisma.tweet.createMany({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     data: tweetDataToCreate.map(
       ({ _originalIndex, _hashtags, _mentions, _mentionedUserIds, _mediaUrls, ...data }) => data,
     ),
