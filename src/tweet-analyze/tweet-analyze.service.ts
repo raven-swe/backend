@@ -256,17 +256,19 @@ export class TweetAnalyzeService implements OnModuleInit {
   }
 
   private startLockExtension(): void {
-    this.lockExtensionInterval = setInterval(async () => {
-      try {
-        const redis = this.redisService.getClient();
-        await redis.expire(this.LOCK_KEY, this.LOCK_TTL_SECONDS);
-        this.logger.debug(`Extended distributed lock TTL to ${this.LOCK_TTL_SECONDS}s`);
-      } catch (error) {
-        this.logger.error(
-          'Failed to extend distributed lock TTL',
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
+    this.lockExtensionInterval = setInterval(() => {
+      void (async () => {
+        try {
+          const redis = this.redisService.getClient();
+          await redis.expire(this.LOCK_KEY, this.LOCK_TTL_SECONDS);
+          this.logger.debug(`Extended distributed lock TTL to ${this.LOCK_TTL_SECONDS}s`);
+        } catch (error) {
+          this.logger.error(
+            'Failed to extend distributed lock TTL',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      })();
     }, this.LOCK_EXTENSION_INTERVAL * 1000);
     this.logger.debug(`Started lock extension (every ${this.LOCK_EXTENSION_INTERVAL}s)`);
   }
