@@ -24,7 +24,7 @@ import {
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
 import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
-import { CompactAuthorDto, TweetDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fanout-job.interface';
@@ -318,17 +318,13 @@ export class TweetsService {
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
     media: MediaResponseDto[],
-    compactAuthorDto: CompactAuthorDto,
+    author: AuthorDto,
     createTweetDto: CreateTweetDto,
     referencedTweet: GetTweetResponseDto | undefined | null,
   ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
-      author: {
-        username: compactAuthorDto.username,
-        displayName: compactAuthorDto.displayName,
-        avatarUrl: compactAuthorDto.avatarUrl,
-      },
+      author,
       content: tweet.content,
       createdAt: tweet.createdAt,
       replyCount: 0,
@@ -696,6 +692,7 @@ export class TweetsService {
           repostedBy:
             item.type === 'repost'
               ? {
+                  id: requestedUser.id.toString(),
                   username: requestedUser?.username || '',
                   displayName: requestedUser.profile?.displayName || '',
                 }
