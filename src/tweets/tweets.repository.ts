@@ -980,7 +980,6 @@ export class TweetsRepository {
   }
 
   async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
-    console.log(authUserId);
     return await this.prisma.tweet.findMany({
       where: {
         id: { in: tweetIds },

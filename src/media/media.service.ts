@@ -10,7 +10,7 @@ import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenorResponse } from './interfaces';
-import { UploadedGifResponse } from './dtos/uploaded-gif-response';
+import { UploadedGifResponse } from './dtos/uploaded-gif-response.dto';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
