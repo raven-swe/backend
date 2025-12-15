@@ -5,9 +5,13 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/tweets/1/summary
+  url: http://localhost:3000/tweets/6/summary?locale=ar-EG
   body: none
   auth: bearer
+}
+
+params:query {
+  locale: ar-EG
 }
 
 auth:bearer {

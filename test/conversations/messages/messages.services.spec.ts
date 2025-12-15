@@ -589,6 +589,7 @@ describe('MessagesService', () => {
         reactionDb: mockReactionDb,
         sender: mockParticipants[0],
         receiver: mockParticipants[1],
+        message: mockMessage,
       });
     });
 

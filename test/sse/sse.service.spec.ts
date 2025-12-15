@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { SseService } from 'src/sse/sse.service';
 import { RedisService } from 'src/redis/redis.service';
 import { Redis } from 'ioredis';
 import { Subject } from 'rxjs';
 import { take } from 'rxjs/operators';
+import { Logger } from '@nestjs/common';
 
 describe('SseService', () => {
   let service: SseService;
@@ -12,6 +14,12 @@ describe('SseService', () => {
   let mockRedisService: Partial<RedisService>;
 
   beforeEach(async () => {
+    // Suppress logger output
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+
     mockSubClient = {
       psubscribe: jest.fn().mockResolvedValue(undefined),
       on: jest.fn(),
@@ -21,6 +29,8 @@ describe('SseService', () => {
     mockPubClient = {
       publish: jest.fn(),
       duplicate: jest.fn().mockReturnValue(mockSubClient),
+      sadd: jest.fn().mockResolvedValue(1),
+      srem: jest.fn().mockResolvedValue(1),
     } as unknown as Redis;
 
     mockRedisService = {
@@ -331,6 +341,399 @@ describe('SseService', () => {
       await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
       expect(events2).toEqual([validPayload]);
+      sub2.unsubscribe();
+    });
+  });
+
+  describe('topic filtering', () => {
+    it('should only forward events to connections subscribed to matching topics', async () => {
+      const userId = 'user-topic-filter';
+
+      const dmEvents: unknown[] = [];
+      const notificationEvents: unknown[] = [];
+
+      const dmSubject = expectSubject(await service.subscribe(userId, ['dm']));
+      const notificationSubject = expectSubject(await service.subscribe(userId, ['notifications']));
+
+      const dmSub = dmSubject.subscribe((event: unknown) => {
+        dmEvents.push(event);
+      });
+
+      const notificationSub = notificationSubject.subscribe((event: unknown) => {
+        notificationEvents.push(event);
+      });
+
+      const dmEvent = { event: 'dm.new_message', data: 'hello' };
+      const notificationEvent = { event: 'notifications.mention', data: 'you were mentioned' };
+
+      void service.publish(userId, dmEvent);
+      void service.publish(userId, notificationEvent);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(dmEvents).toEqual([dmEvent]);
+      expect(notificationEvents).toEqual([notificationEvent]);
+
+      dmSub.unsubscribe();
+      notificationSub.unsubscribe();
+    });
+
+    it('should forward events to connections with multiple topic subscriptions', async () => {
+      const userId = 'user-multi-topics';
+
+      const events: unknown[] = [];
+      const subject = expectSubject(await service.subscribe(userId, ['dm', 'notifications']));
+
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const dmEvent = { event: 'dm.new_message', data: 'hello' };
+      const notificationEvent = { event: 'notifications.like', data: 'someone liked your post' };
+
+      void service.publish(userId, dmEvent);
+      void service.publish(userId, notificationEvent);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events).toEqual([dmEvent, notificationEvent]);
+      sub.unsubscribe();
+    });
+
+    it('should handle events with dots in topic name correctly', async () => {
+      const userId = 'user-dot-topic';
+
+      const events: unknown[] = [];
+      const subject = expectSubject(await service.subscribe(userId, ['notifications']));
+
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const event1 = { event: 'notifications.follow.new', data: 'new follower' };
+      const event2 = { event: 'notifications.like.post', data: 'post liked' };
+
+      void service.publish(userId, event1);
+      void service.publish(userId, event2);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events).toEqual([event1, event2]);
+      sub.unsubscribe();
+    });
+
+    it('should not forward events if topic does not match', async () => {
+      const userId = 'user-no-match';
+
+      const events: unknown[] = [];
+      const subject = expectSubject(await service.subscribe(userId, ['dm']));
+
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const notificationEvent = { event: 'notifications.mention', data: 'you were mentioned' };
+
+      void service.publish(userId, notificationEvent);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events).toEqual([]);
+      sub.unsubscribe();
+    });
+
+    it('should handle events with missing event property', async () => {
+      const userId = 'user-no-event-prop';
+
+      const events: unknown[] = [];
+      const subject = expectSubject(await service.subscribe(userId, ['dm']));
+
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const eventWithoutProp = { data: 'no event property' };
+
+      void service.publish(userId, eventWithoutProp);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events).toEqual([]);
+      sub.unsubscribe();
+    });
+
+    it('should handle events with numeric event property', async () => {
+      const userId = 'user-numeric-event';
+
+      const events: unknown[] = [];
+      const subject = expectSubject(await service.subscribe(userId, ['123']));
+
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const numericEvent = { event: 123, data: 'numeric topic' };
+
+      void service.publish(userId, numericEvent);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events).toEqual([numericEvent]);
+      sub.unsubscribe();
+    });
+  });
+
+  describe('timeline topic', () => {
+    it('should add user to Redis set when subscribing to timeline topic', async () => {
+      const userId = 'user-timeline';
+
+      await service.subscribe(userId, ['timeline']);
+
+      expect(mockPubClient.sadd).toHaveBeenCalledWith('sse:online:following_timeline', userId);
+    });
+
+    it('should not add user to Redis set when not subscribing to timeline topic', async () => {
+      const userId = 'user-no-timeline';
+
+      await service.subscribe(userId, ['dm', 'notifications']);
+
+      expect(mockPubClient.sadd).not.toHaveBeenCalled();
+    });
+
+    it('should remove user from Redis set when unsubscribing from timeline and no other timeline connections exist', async () => {
+      const userId = 'user-timeline-unsub';
+
+      const subject = expectSubject(await service.subscribe(userId, ['timeline']));
+
+      jest.clearAllMocks();
+
+      service.unsubscribe(userId, subject);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(mockPubClient.srem).toHaveBeenCalledWith('sse:online:following_timeline', userId);
+    });
+
+    it('should not remove user from Redis set when unsubscribing but other timeline connections exist', async () => {
+      const userId = 'user-multiple-timeline';
+
+      const subject1 = expectSubject(await service.subscribe(userId, ['timeline']));
+      const subject2 = expectSubject(await service.subscribe(userId, ['timeline']));
+
+      jest.clearAllMocks();
+
+      service.unsubscribe(userId, subject1);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(mockPubClient.srem).not.toHaveBeenCalled();
+
+      service.unsubscribe(userId, subject2);
+    });
+
+    it('should handle Redis srem error gracefully', async () => {
+      const userId = 'user-srem-error';
+
+      (mockPubClient.srem as jest.Mock).mockRejectedValueOnce(new Error('Redis error'));
+
+      const subject = expectSubject(await service.subscribe(userId, ['timeline']));
+
+      expect(() => {
+        service.unsubscribe(userId, subject);
+      }).not.toThrow();
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(Logger.prototype.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to remove user'),
+        expect.any(Error),
+      );
+    });
+  });
+
+  describe('Redis lifecycle', () => {
+    it('should initialize Redis pub/sub on module init', () => {
+      expect(mockPubClient.duplicate).toHaveBeenCalled();
+      expect(mockSubClient.psubscribe).toHaveBeenCalledWith('sse:user:*');
+      expect(Logger.prototype.log).toHaveBeenCalledWith('SseService Redis pub/sub initialized');
+    });
+
+    it('should register Redis error handler', () => {
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [string, (err: Error) => void][];
+      const errorHandler = calls.find((call) => call[0] === 'error')?.[1];
+
+      expect(errorHandler).toBeDefined();
+
+      const testError = new Error('Test Redis error');
+      errorHandler!(testError);
+
+      expect(Logger.prototype.error).toHaveBeenCalledWith('Redis sub client error', testError);
+    });
+
+    it('should register Redis reconnecting handler', () => {
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [string, () => void][];
+      const reconnectHandler = calls.find((call) => call[0] === 'reconnecting')?.[1];
+
+      expect(reconnectHandler).toBeDefined();
+
+      reconnectHandler!();
+
+      expect(Logger.prototype.warn).toHaveBeenCalledWith('Redis sub client reconnecting...');
+    });
+
+    it('should quit sub client on module destroy', async () => {
+      await service.onModuleDestroy();
+
+      expect(mockSubClient.quit).toHaveBeenCalled();
+    });
+  });
+
+  describe('message handling', () => {
+    it('should handle raw string messages that are not JSON', async () => {
+      const userId = 'user-raw-string';
+      const events: unknown[] = [];
+
+      const subject = expectSubject(await service.subscribe(userId, ['dm']));
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      // Simulate receiving a raw string message (will be kept as string, but won't match topic filter)
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
+
+      expect(pmessageHandler).toBeDefined();
+
+      // Raw string without event property won't match topic filter
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, 'raw string message');
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+
+      // Raw string messages without proper event structure won't be forwarded
+      expect(events).toEqual([]);
+      sub.unsubscribe();
+    });
+
+    it('should parse JSON messages correctly', async () => {
+      const userId = 'user-json-msg';
+      const events: unknown[] = [];
+
+      const subject = expectSubject(await service.subscribe(userId, ['notifications']));
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
+
+      const jsonMessage = { event: 'notifications.test', data: 'parsed' };
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, JSON.stringify(jsonMessage));
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+
+      expect(events).toEqual([jsonMessage]);
+      sub.unsubscribe();
+    });
+
+    it('should extract userId from channel correctly', async () => {
+      const userId = 'user-channel-extract';
+      const events: unknown[] = [];
+
+      const subject = expectSubject(await service.subscribe(userId, ['dm']));
+      const sub = subject.subscribe((event: unknown) => {
+        events.push(event);
+      });
+
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
+
+      const event = { event: 'dm.message', data: 'test' };
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, JSON.stringify(event));
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+
+      expect(events).toEqual([event]);
+      sub.unsubscribe();
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should return 0 for connection count of non-existent user', () => {
+      expect(service.getConnectionCount('non-existent-user')).toBe(0);
+    });
+
+    it('should handle unsubscribing a subject that does not exist in connections', async () => {
+      const userId = 'user-exists';
+      const otherSubject = new Subject<unknown>();
+
+      await service.subscribe(userId, ['dm']);
+
+      expect(() => {
+        service.unsubscribe(userId, otherSubject);
+      }).not.toThrow();
+    });
+
+    it('should delete user from connections map when last connection is removed', async () => {
+      const userId = 'user-delete-from-map';
+
+      const subject = expectSubject(await service.subscribe(userId, ['dm']));
+
+      expect(service.getConnectionCount(userId)).toBe(1);
+
+      service.unsubscribe(userId, subject);
+
+      expect(service.getConnectionCount(userId)).toBe(0);
+    });
+
+    it('should handle rapid subscribe/unsubscribe cycles', async () => {
+      const userId = 'user-rapid-cycle';
+
+      for (let i = 0; i < 10; i += 1) {
+        const subject = expectSubject(await service.subscribe(userId, ['dm']));
+        service.unsubscribe(userId, subject);
+      }
+
+      expect(service.getConnectionCount(userId)).toBe(0);
+    });
+
+    it('should maintain separate topic sets for each connection', async () => {
+      const userId = 'user-separate-topics';
+
+      const events1: unknown[] = [];
+      const events2: unknown[] = [];
+
+      const subject1 = expectSubject(await service.subscribe(userId, ['dm']));
+      const subject2 = expectSubject(await service.subscribe(userId, ['notifications']));
+
+      const sub1 = subject1.subscribe((event: unknown) => {
+        events1.push(event);
+      });
+
+      const sub2 = subject2.subscribe((event: unknown) => {
+        events2.push(event);
+      });
+
+      const dmEvent = { event: 'dm.msg', data: 'dm data' };
+      const notifEvent = { event: 'notifications.alert', data: 'notif data' };
+
+      void service.publish(userId, dmEvent);
+      void service.publish(userId, notifEvent);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      expect(events1).toEqual([dmEvent]);
+      expect(events2).toEqual([notifEvent]);
+
+      sub1.unsubscribe();
       sub2.unsubscribe();
     });
   });

@@ -1,0 +1,23 @@
+name: Run command on SSH on push
+
+on:
+  push:
+    branches:
+      - feat/model-api
+
+jobs:
+  ssh-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Test SSH
+        run: ssh -o StrictHostKeyChecking=no root@${{ secrets.SSH_HOST }} "echo 'SSH connection established'"
+
+      - name: Run command on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@${{ secrets.SSH_HOST }} "cd /root/raven-backend/raven-backend && git pull origin feat/model-api"

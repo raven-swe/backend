@@ -41,10 +41,10 @@ export class SearchController {
     );
   }
 
-  @Get('hashtags/top')
+  @Get('/suggestions')
   @UseGuards(JwtAuthGuard)
   async getTopHashtags(@Query() queryDto: QueryDto) {
-    return this.trendingService.getTrendingHashtags(queryDto.query, 3);
+    return this.trendingService.getTrendingWords(queryDto.query, 3);
   }
 
   @Get('users')
@@ -57,7 +57,7 @@ export class SearchController {
     @Query('excludeMutedAndBlocked', ParseBooleanPipe) excludeMutedAndBlocked?: boolean,
   ) {
     const currentUserId = BigInt(user.id);
-    const parsedLimit = limit ? parseInt(limit, 10) : 200;
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
 
     searchUsersQueryDto.excludeMutedAndBlocked = excludeMutedAndBlocked;
     return this.searchService.searchUsers(currentUserId, searchUsersQueryDto, parsedLimit, cursor);

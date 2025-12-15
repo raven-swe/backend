@@ -61,7 +61,7 @@ export class SettingsController {
 
   @Put('email')
   @Throttle({
-    default: {
+    short: {
       limit: SettingsController.EMAIL_UPDATE_LIMIT,
       ttl: SettingsController.EMAIL_UPDATE_WINDOW,
     },
@@ -98,7 +98,7 @@ export class SettingsController {
 
   @Patch('username')
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ short: { limit: 10, ttl: 60_000 } })
   async updateUsername(@Body() updateUsernameDto: UpdateUsernameDto, @User() user: RequestUser) {
     const userId = BigInt(user.id);
     return this.settingsService.updateUsername(userId, updateUsernameDto);

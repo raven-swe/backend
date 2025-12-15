@@ -5,6 +5,7 @@ import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
 import { ParseBigIntPipe } from 'src/common/pipes';
 import { CreateTweetDto } from './dtos';
+import { OptionalAuth } from 'src/common/decorators/optional-auth.decorator';
 
 @Controller('tweets')
 @UseGuards(JwtAuthGuard)
@@ -50,8 +51,9 @@ export class TweetsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
+  @OptionalAuth()
   async getTweet(@User() user: RequestUser, @Param('id', ParseBigIntPipe) tweetId: bigint) {
-    const userId = BigInt(user.id);
+    const userId = user ? BigInt(user.id) : null;
     return await this.tweetsService.getTweet(tweetId, userId);
   }
 
@@ -109,7 +111,17 @@ export class TweetsController {
 
   @Get(':id/summary')
   @UseGuards(JwtAuthGuard)
-  async getTweetSummary(@Param('id', ParseBigIntPipe) tweetId: bigint) {
-    return await this.tweetsService.getTweetSummary(tweetId);
+  async getTweetSummary(
+    @Param('id', ParseBigIntPipe) tweetId: bigint,
+    @Query('locale') langcode?: string,
+  ) {
+    const AVAILABLE_LANGUAGES = ['en-US', 'ar-EG'];
+    if (langcode && AVAILABLE_LANGUAGES.indexOf(langcode) === -1) {
+      langcode = 'en-US';
+    } else if (!langcode) {
+      langcode = 'en-US';
+    }
+
+    return await this.tweetsService.getTweetSummary(tweetId, langcode);
   }
 }

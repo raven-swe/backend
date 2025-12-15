@@ -1,17 +1,13 @@
 meta {
-  name: get-top-hashtags
+  name: entertainment top keywords
   type: http
   seq: 3
 }
 
 get {
-  url: http://localhost:3000/search/tweets?query=life
+  url: http://localhost:3000/explore/sports
   body: none
   auth: bearer
-}
-
-params:query {
-  query: life
 }
 
 auth:bearer {

@@ -26,6 +26,7 @@ import { MarkSeenDto } from './dto/mark-seen.dto';
 import { TypingIndicatorDto } from './dto/typing-indicator.dto';
 import { ReactionDto } from './dto/react-message.dto';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 @WebSocketGateway({
   namespace: '/ws/dm',
@@ -41,6 +42,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly conversationsService: ConversationsService,
     private readonly messagesService: MessagesService,
     private readonly sseEvents: SseEventsService,
+    private readonly domainEventsService: DomainEventsService,
   ) {
     this.logger.log('DmGateway initialized');
   }
@@ -245,6 +247,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(payload.conversationId).emit('conversation_seen_update', {
       conversationId: payload.conversationId,
       username,
+      performerUsername: user.username,
       lastSeenMessageId,
       unseenCount,
       seenAt,
@@ -340,6 +343,20 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.currentConversationId = conversationId;
       this.logger.log(`User ${user.id} joined room: ${conversationId}`);
     }
+
+    const otherParticipant = await this.conversationsService.getOtherParticipant(
+      BigInt(conversationId),
+      BigInt(user.id),
+    );
+
+    await this.domainEventsService.emitMessageCreated({
+      actorId: BigInt(user.id),
+      receiverId: BigInt(otherParticipant!.userId),
+      conversationId: BigInt(conversationId),
+      messagePreview: message.content.slice(0, 100),
+      hasMedia: !!message.mediaUrl,
+      mediaType: message.media?.type || null,
+    });
 
     this.server.to(conversationId).emit('message_received', {
       conversationId,
@@ -538,7 +555,21 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    const { reactionDb, sender, receiver } = reactionState;
+    const { reactionDb, sender, receiver, message } = reactionState;
+
+    if (user.username !== sender!.user.username) {
+      const reaction = reactionDb.reactionReceiver;
+
+      if (reaction) {
+        await this.domainEventsService.emitReactionSent({
+          actorId: BigInt(user.id),
+          receiverId: sender!.user.id,
+          conversationId: BigInt(conversationId),
+          reaction,
+          messagePreview: message.content.slice(0, 100),
+        });
+      }
+    }
 
     const socketPayload = {
       conversationId,

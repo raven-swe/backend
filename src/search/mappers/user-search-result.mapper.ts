@@ -1,6 +1,7 @@
 import { JsonArray, JsonObject } from '@prisma/client/runtime/binary';
-import { BioEntitiesDto, UserRelationshipDto } from 'src/users/dtos';
+import { BioEntitiesDto } from 'src/users/dtos';
 import { UserSearchResultItem } from '../dtos/user-search-result.dto';
+import { UserRelationshipDto } from 'src/users/dtos/relationship.dto';
 
 export function mapToUserSearchResultDto(
   items: {

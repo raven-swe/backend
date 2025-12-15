@@ -198,6 +198,17 @@ export class AuthService {
       ipAddress: ipAddress || 'unknown',
       userAgent: deviceType,
     };
+    // check if email exists (maybe user registered in the meanwhile from another device)
+    const existingUser = await this.usersService.findByEmail(registrationData.email);
+    if (existingUser) {
+      throw new HttpException(
+        {
+          message: AUTH_ERROR_MESSAGES.EMAIL_REGISTERED,
+          code: AUTH_ERROR_CODES.EMAIL_REGISTERED,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const userId = await this.createUserAndSessionAndToken(userData, newSession, refreshToken);
     const accessToken = await this.jwtService.signAsync({ id: userId.toString() });
 

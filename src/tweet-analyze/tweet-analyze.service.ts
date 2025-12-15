@@ -2,125 +2,219 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { TweetAnalyzeRepository } from './tweet-analyze.repository';
-import { ClassificationRequest, ClassificationResponse, ClassifiedTweet } from './interfaces';
+import {
+  ModelApiRequest,
+  ModelApiResponse,
+  ClassifiedTweet,
+  TrendingKeyword,
+  BatchMeta,
+} from './interfaces';
 import { firstValueFrom } from 'rxjs';
 import { RedisService } from 'src/redis/redis.service';
+import { TrendingService } from 'src/trending/trending.service';
 
 @Injectable()
 export class TweetAnalyzeService implements OnModuleInit {
   private readonly logger = new Logger(TweetAnalyzeService.name);
-  private readonly classifyEnabled: boolean;
+  private readonly analyzeEnabled: boolean;
   private readonly intervalMinutes: number;
   private readonly requestLimit: number;
-  private readonly classificationApiUrl: string;
+  private readonly analyzeApiUrl: string;
   private readonly LOCK_KEY = 'tweet-analyze:lock';
   private readonly LOCK_TTL_SECONDS = 300; // 5 minutes
+  private readonly LOCK_EXTENSION_INTERVAL = 60; // Extend lock every 1 minute
+  private readonly LIMIT_PER_JOB = 100; // Max tweets to process per job run
+  private lockExtensionInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     private readonly repository: TweetAnalyzeRepository,
     private readonly redisService: RedisService,
+    private readonly trendingService: TrendingService,
   ) {
-    this.classifyEnabled = this.configService.get<string>('CLASSIFY_TWEETS') === 'true';
+    this.analyzeEnabled = this.configService.get<string>('CLASSIFY_TWEETS') === 'true';
     this.intervalMinutes = parseInt(
       this.configService.get<string>('CLASSIFICATION_INTERVAL_MINUTES') || '5',
     );
     this.requestLimit = parseInt(this.configService.get<string>('CLASSIFY_REQ_LIMIT') || '50');
-    this.classificationApiUrl = this.configService.get<string>(
-      'CLASSIFICATION_API_URL',
-      '/analyze',
-    );
+    this.analyzeApiUrl = this.configService.get<string>('CLASSIFICATION_API_URL', '/analyze');
 
     this.logger.log(
-      `Tweet Analyze Service initialized - Enabled: ${this.classifyEnabled}, ` +
-        `Interval: ${this.intervalMinutes} minutes, Request Limit: ${this.requestLimit}`,
+      `Tweet Analysis Service initialized - Enabled: ${this.analyzeEnabled}, ` +
+        `Interval: ${this.intervalMinutes} min, Request Limit: ${this.requestLimit}/batch`,
     );
   }
 
   onModuleInit() {
-    if (this.classifyEnabled) {
+    if (this.analyzeEnabled) {
       const intervalMs = this.intervalMinutes * 60 * 1000;
-      this.logger.log(
-        `Starting classification cron job with ${this.intervalMinutes} minute interval`,
-      );
+      this.logger.log(`Starting tweet analysis cron job (interval: ${this.intervalMinutes} min)`);
 
+      // Run first job immediately
+      this.analyzeTweets().catch((error) => {
+        this.logger.error(
+          'Initial tweet analysis failed',
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+      // Schedule periodic jobs
       setInterval(() => {
-        this.classifyTweets().catch((error) => {
+        this.analyzeTweets().catch((error) => {
           this.logger.error(
-            'Error occurred during scheduled tweet classification',
+            'Scheduled tweet analysis failed',
             error instanceof Error ? error.stack : String(error),
           );
         });
       }, intervalMs);
     } else {
-      this.logger.log('Classification job is disabled');
+      this.logger.log('Tweet analysis cron job is disabled');
     }
   }
 
-  async classifyTweets() {
-    if (!this.classifyEnabled) {
-      this.logger.debug('Tweet classification is disabled, skipping...');
+  async analyzeTweets() {
+    if (!this.analyzeEnabled) {
+      this.logger.debug('Tweet analysis is disabled, skipping');
       return;
     }
 
-    // Try to acquire distributed lock
     const lockAcquired = await this.acquireLock();
     if (!lockAcquired) {
-      this.logger.debug('Another instance is already running classification job, skipping...');
+      this.logger.debug('Analysis job already running in another instance, skipping');
       return;
     }
 
-    this.logger.log('Starting tweet classification job...');
+    this.logger.log('=== Starting Tweet Analysis Job ===');
 
     try {
-      const tweetsToClassify = await this.getTweetsToClassify();
+      // Start lock extension mechanism
+      this.startLockExtension();
 
-      if (tweetsToClassify.length === 0) {
-        this.logger.log('No tweets to classify');
-        return;
-      }
+      let totalProcessedAcrossRuns = 0;
+      let runNumber = 0;
 
-      this.logger.log(`Found ${tweetsToClassify.length} tweets to classify`);
+      // Keep processing until no more tweets remain
+      while (true) {
+        runNumber++;
+        const tweetsToAnalyze = await this.getTweetsToAnalyze();
 
-      const batches = this.splitIntoBatches(tweetsToClassify, this.requestLimit);
-
-      this.logger.log(`Processing ${batches.length} batch(es) with limit ${this.requestLimit}`);
-
-      let allBatchesSucceeded = true;
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        this.logger.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} tweets`);
-
-        try {
-          await this.processBatch(batch);
-          this.logger.log(`Batch ${i + 1}/${batches.length} completed successfully`);
-        } catch (error) {
-          this.logger.error(
-            `Failed to process batch ${i + 1}/${batches.length}`,
-            error instanceof Error ? error.stack : String(error),
-          );
-          this.logger.warn(
-            `Stopping classification job after batch ${i + 1} failure. ` +
-              `${batches.length - i - 1} remaining batch(es) will be retried in next run.`,
-          );
-          allBatchesSucceeded = false;
+        if (tweetsToAnalyze.length === 0) {
+          if (runNumber === 1) {
+            this.logger.log('No tweets to analyze');
+          } else {
+            this.logger.log(
+              `All tweets processed across ${runNumber - 1} run(s) (${totalProcessedAcrossRuns} total tweets)`,
+            );
+          }
           break;
         }
-      }
 
-      if (allBatchesSucceeded) {
-        this.logger.log('Tweet classification job completed successfully');
-      } else {
-        this.logger.warn('Tweet classification job stopped due to batch failure');
+        // Apply limit per job run
+        const tweetsToProcess =
+          tweetsToAnalyze.length > this.LIMIT_PER_JOB
+            ? tweetsToAnalyze.slice(0, this.LIMIT_PER_JOB)
+            : tweetsToAnalyze;
+
+        const hasMoreTweets = tweetsToAnalyze.length > this.LIMIT_PER_JOB;
+
+        this.logger.log(`--- Starting run ${runNumber} ---`);
+
+        if (hasMoreTweets) {
+          this.logger.log(
+            `Retrieved ${tweetsToAnalyze.length} tweets, processing ${this.LIMIT_PER_JOB} in this run`,
+          );
+        } else {
+          this.logger.log(`Retrieved ${tweetsToAnalyze.length} tweets for analysis`);
+        }
+
+        const batches = this.splitIntoBatches(tweetsToProcess, this.requestLimit);
+
+        this.logger.log(
+          `Split into ${batches.length} batch(es) (limit: ${this.requestLimit} tweets/batch)`,
+        );
+
+        let runAnalyzedTweets = 0;
+        let allBatchesSucceeded = true;
+
+        // Accumulate trending data across all batches in this run
+        const accumulatedTrendingKeywords: TrendingKeyword[] = [];
+        let totalTweetsInRun = 0;
+
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          this.logger.log(`Processing batch ${i + 1}/${batches.length} (${batch.length} tweets)`);
+
+          try {
+            const batchResult = await this.processBatch(batch);
+            runAnalyzedTweets += batchResult.analyzedTweetsCount;
+
+            // Accumulate trending keywords from this batch
+            if (batchResult.trending_keywords) {
+              accumulatedTrendingKeywords.push(...batchResult.trending_keywords);
+            }
+            if (batchResult.batch_meta) {
+              totalTweetsInRun += batchResult.batch_meta.total_tweets;
+            }
+
+            this.logger.log(
+              `Batch ${i + 1}/${batches.length} completed ` +
+                `(analyzed: ${batchResult.analyzedTweetsCount}, keywords: ${batchResult.trending_keywords?.length || 0})`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Batch ${i + 1}/${batches.length} failed`,
+              error instanceof Error ? error.stack : String(error),
+            );
+            this.logger.warn(
+              `Stopping after batch ${i + 1} failure. ` +
+                `${batches.length - i - 1} batch(es) will retry in next job`,
+            );
+            allBatchesSucceeded = false;
+            break;
+          }
+        }
+
+        // Update trending scores for this run
+        if (accumulatedTrendingKeywords.length > 0) {
+          this.logger.log(
+            `Updating trending scores with ${accumulatedTrendingKeywords.length} keywords from run ${runNumber}`,
+          );
+          await this.trendingService.updateTrendScores({
+            batch_meta: { total_tweets: totalTweetsInRun },
+            trending_keywords: accumulatedTrendingKeywords,
+          });
+          this.logger.log('Trending scores updated successfully');
+        }
+
+        totalProcessedAcrossRuns += runAnalyzedTweets;
+
+        if (!allBatchesSucceeded) {
+          this.logger.warn(
+            `Run ${runNumber} stopped due to failure (${runAnalyzedTweets} tweets processed in this run)`,
+          );
+          break;
+        }
+
+        this.logger.log(`Run ${runNumber} completed successfully (${runAnalyzedTweets} tweets)`);
+
+        // If no more tweets remain, exit the loop
+        if (!hasMoreTweets) {
+          this.logger.log(
+            `=== Tweet Analysis Job Completed Successfully (${totalProcessedAcrossRuns} total tweets across ${runNumber} run(s)) ===`,
+          );
+          break;
+        }
+
+        this.logger.log('More tweets remain, continuing to next run immediately...');
       }
     } catch (error) {
       this.logger.error(
-        'Tweet classification job failed',
+        'Tweet analysis job failed',
         error instanceof Error ? error.stack : String(error),
       );
     } finally {
-      // Always release the lock when done
+      this.stopLockExtension();
       await this.releaseLock();
     }
   }
@@ -135,10 +229,14 @@ export class TweetAnalyzeService implements OnModuleInit {
         this.LOCK_TTL_SECONDS,
         'NX',
       );
-      return result === 'OK';
+      const acquired = result === 'OK';
+      if (acquired) {
+        this.logger.debug(`Acquired distributed lock (TTL: ${this.LOCK_TTL_SECONDS}s)`);
+      }
+      return acquired;
     } catch (error) {
       this.logger.error(
-        'Failed to acquire lock',
+        'Failed to acquire distributed lock',
         error instanceof Error ? error.stack : String(error),
       );
       return false;
@@ -148,22 +246,52 @@ export class TweetAnalyzeService implements OnModuleInit {
   private async releaseLock(): Promise<void> {
     try {
       await this.redisService.del(this.LOCK_KEY);
-      this.logger.debug('Released classification lock');
+      this.logger.debug('Released distributed lock');
     } catch (error) {
       this.logger.error(
-        'Failed to release lock',
+        'Failed to release distributed lock',
         error instanceof Error ? error.stack : String(error),
       );
     }
   }
 
-  private async getTweetsToClassify(): Promise<Array<{ id: bigint; content: string }>> {
+  private startLockExtension(): void {
+    this.lockExtensionInterval = setInterval(() => {
+      void (async () => {
+        try {
+          const redis = this.redisService.getClient();
+          await redis.expire(this.LOCK_KEY, this.LOCK_TTL_SECONDS);
+          this.logger.debug(`Extended distributed lock TTL to ${this.LOCK_TTL_SECONDS}s`);
+        } catch (error) {
+          this.logger.error(
+            'Failed to extend distributed lock TTL',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      })();
+    }, this.LOCK_EXTENSION_INTERVAL * 1000);
+    this.logger.debug(`Started lock extension (every ${this.LOCK_EXTENSION_INTERVAL}s)`);
+  }
+
+  private stopLockExtension(): void {
+    if (this.lockExtensionInterval) {
+      clearInterval(this.lockExtensionInterval);
+      this.lockExtensionInterval = null;
+      this.logger.debug('Stopped lock extension');
+    }
+  }
+
+  private async getTweetsToAnalyze(): Promise<Array<{ id: bigint; content: string }>> {
+    this.logger.debug('Fetching tweets to analyze from repository');
     const tweets = await this.repository.findTweetsToClassify();
 
-    return tweets.filter((tweet) => tweet.content !== null) as Array<{
+    const validTweets = tweets.filter((tweet) => tweet.content !== null) as Array<{
       id: bigint;
       content: string;
     }>;
+
+    this.logger.debug(`Found ${validTweets.length} valid tweets with content`);
+    return validTweets;
   }
 
   private splitIntoBatches<T>(items: T[], batchSize: number): T[][] {
@@ -174,51 +302,76 @@ export class TweetAnalyzeService implements OnModuleInit {
     return batches;
   }
 
-  private async processBatch(tweets: Array<{ id: bigint; content: string }>): Promise<void> {
-    const requestPayload: ClassificationRequest = {
+  private async processBatch(tweets: Array<{ id: bigint; content: string }>): Promise<{
+    analyzedTweetsCount: number;
+    batch_meta: BatchMeta | null;
+    trending_keywords: TrendingKeyword[] | null;
+  }> {
+    const requestPayload: ModelApiRequest = {
       tweets: tweets.map((tweet) => ({
         id: tweet.id.toString(),
         content: tweet.content,
       })),
     };
 
-    this.logger.debug(
-      `Sending ${tweets.length} tweets to classification API: ${this.classificationApiUrl}`,
-    );
+    this.logger.debug(`Sending ${tweets.length} tweets to analysis API`);
 
     const response = await firstValueFrom(
-      this.httpService.post<ClassificationResponse>(this.classificationApiUrl, requestPayload),
+      this.httpService.post<ModelApiResponse>(this.analyzeApiUrl, requestPayload),
     );
 
-    const classifiedTweets = response.data.tweets_detail;
+    const { batch_meta, trending_keywords, tweets_detail } = response.data;
 
-    if (!classifiedTweets || classifiedTweets.length === 0) {
-      this.logger.warn('Classification API returned no results');
-      return;
+    if (!tweets_detail || tweets_detail.length === 0) {
+      this.logger.warn('Analysis API returned no tweet results');
+      return {
+        analyzedTweetsCount: 0,
+        batch_meta: null,
+        trending_keywords: null,
+      };
     }
 
-    this.logger.log(`Received ${classifiedTweets.length} classified tweets from API`);
+    this.logger.debug(
+      `Received response: ${tweets_detail.length} tweets, ${trending_keywords?.length || 0} keywords`,
+    );
 
-    await this.updateTweetClassifications(classifiedTweets);
+    await this.updateTweetAnalysis(tweets_detail);
+
+    return {
+      analyzedTweetsCount: tweets_detail.length,
+      batch_meta: batch_meta || null,
+      trending_keywords: trending_keywords || null,
+    };
   }
 
-  private async updateTweetClassifications(
-    classifiedTweets: Array<ClassifiedTweet>,
-  ): Promise<void> {
-    for (const classified of classifiedTweets) {
-      try {
-        const tweetId = BigInt(classified.id);
-        await this.repository.updateTweetClass(tweetId, classified.class);
+  private async updateTweetAnalysis(analyzedTweets: Array<ClassifiedTweet>): Promise<void> {
+    this.logger.debug(`Updating ${analyzedTweets.length} tweets in database`);
 
-        this.logger.debug(`Updated tweet ${classified.id} with class: ${classified.class}`);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const analyzed of analyzedTweets) {
+      try {
+        const tweetId = BigInt(analyzed.id);
+        await this.repository.updateTweetClass(tweetId, analyzed.class);
+        successCount++;
+
+        this.logger.debug(`Updated tweet ${analyzed.id} → class: ${analyzed.class}`);
       } catch (error) {
+        failCount++;
         this.logger.error(
-          `Failed to update tweet ${classified.id}`,
+          `Failed to update tweet ${analyzed.id}`,
           error instanceof Error ? error.stack : String(error),
         );
       }
     }
 
-    this.logger.log(`Successfully updated ${classifiedTweets.length} tweets`);
+    if (failCount > 0) {
+      this.logger.warn(
+        `Tweet update completed with errors (success: ${successCount}, failed: ${failCount})`,
+      );
+    } else {
+      this.logger.debug(`All ${successCount} tweets updated successfully`);
+    }
   }
 }
