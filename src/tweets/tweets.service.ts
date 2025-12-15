@@ -22,9 +22,13 @@ import {
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants/pagination-error-codes';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import {
+  TweetRankCursor,
+  TweetRelationsCursor,
+  UserInteractionsCursor,
+} from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
-import { CompactAuthorDto, TweetDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { RetweetFanoutJob, TweetFanoutJob } from './timeline/interfaces/tweet-fanout-job.interface';
@@ -280,15 +284,20 @@ export class TweetsService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.tweetsRepository.deleteTweet(tweetId, tx);
+    const receivers = await this.prisma.$transaction(async (tx) => {
+      const receivers = await this.tweetsRepository.deleteTweet(tweetId, tx);
       if (replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(replyToTweetId, false, tx);
       }
       if (quoteToTweetId) {
         await this.tweetsRepository.updateTweetRetweetCount(quoteToTweetId, false, tx);
       }
+      return receivers;
     });
+    if (receivers && receivers.length > 0) {
+      this.logger.debug(`Emitting tweet deleted event for tweet ID: ${tweetId}`);
+      await this.domainEvents.emitTweetDeleted({ receivers });
+    }
     this.logger.debug(`User ${userId} deleted tweet ${tweetId} successfully`);
 
     await this.invalidateTweetCache(tweetId);
@@ -318,17 +327,13 @@ export class TweetsService {
     mentions: PlainMention[],
     hashtags: PlainHashtag[],
     media: MediaResponseDto[],
-    compactAuthorDto: CompactAuthorDto,
+    author: AuthorDto,
     createTweetDto: CreateTweetDto,
     referencedTweet: GetTweetResponseDto | undefined | null,
   ): GetTweetResponseDto {
     return {
       id: tweet.id.toString(),
-      author: {
-        username: compactAuthorDto.username,
-        displayName: compactAuthorDto.displayName,
-        avatarUrl: compactAuthorDto.avatarUrl,
-      },
+      author,
       content: tweet.content,
       createdAt: tweet.createdAt,
       replyCount: 0,
@@ -354,6 +359,7 @@ export class TweetsService {
         : null,
       quotedTweet: createTweetDto.quoteToTweetId ? referencedTweet || undefined : undefined,
       replyToTweet: createTweetDto.replyToTweetId ? referencedTweet || undefined : undefined,
+      repostedBy: undefined,
     };
   }
 
@@ -473,7 +479,7 @@ export class TweetsService {
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    await this.checkIfTweetExists(tweetId);
+    const tweet = await this.checkIfTweetExists(tweetId);
 
     // Tweet already not liked by user
     const hasLiked = await this.tweetsRepository.hasUserLikedTweet(userId, tweetId);
@@ -488,6 +494,12 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unlikeTweet(userId, tweetId);
+
+    await this.domainEvents.emitTweetUnliked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId,
+    });
 
     await this.redisService.safeDecr(
       REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
@@ -586,6 +598,13 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
+
+    await this.domainEvents.emitTweetUnretweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId,
+    });
+
     this.logger.debug(`User ${userId} unretweeted tweet ${tweetId} successfully`);
 
     //dispatch retweet purge job
@@ -695,6 +714,7 @@ export class TweetsService {
           repostedBy:
             item.type === 'repost'
               ? {
+                  id: requestedUser.id.toString(),
                   username: requestedUser?.username || '',
                   displayName: requestedUser.profile?.displayName || '',
                 }
@@ -962,11 +982,11 @@ export class TweetsService {
     currentUserId: bigint,
     query: string,
     limit: number,
-    decodedCursor?: TweetRelationsCursor,
+    decodedCursor?: TweetRankCursor,
     excludeMutedAndBlocked?: boolean,
     peopleFilter?: PeopleSearchFilter,
   ) {
-    return await this.tweetsRepository.getTweetsByQuery(
+    return await this.tweetsRepository.getRankedTweetsByQuery(
       currentUserId,
       query,
       false,
@@ -977,7 +997,7 @@ export class TweetsService {
     );
   }
 
-  async getTweetsWithMediaByQuery(
+  async getLatestTweetsByQuery(
     currentUserId: bigint,
     query: string,
     limit: number,
@@ -985,7 +1005,24 @@ export class TweetsService {
     excludeMutedAndBlocked?: boolean,
     peopleFilter?: PeopleSearchFilter,
   ) {
-    return await this.tweetsRepository.getTweetsByQuery(
+    return await this.tweetsRepository.getLatestTweetsByQuery(
+      currentUserId,
+      query,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+  async getTweetsWithMediaByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRankCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getRankedTweetsByQuery(
       currentUserId,
       query,
       true,

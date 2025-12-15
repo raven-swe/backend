@@ -567,12 +567,46 @@ async function main() {
     const follower = createdUsers[Math.floor(Math.random() * createdUsers.length)];
     const followed = createdUsers[Math.floor(Math.random() * createdUsers.length)];
 
-    if (follower.id !== followed.id) {
-      followsToCreate.push({
-        followerId: follower.id,
-        followedId: followed.id,
-      });
-    }
+    await prisma.notification.createMany({
+      data: [
+        { actorId: 1, receiverId: 2, type: NotificationType.FOLLOW, seen: true },
+        { actorId: 1, receiverId: 4, type: NotificationType.FOLLOW },
+        { actorId: 1, receiverId: 6, type: NotificationType.FOLLOW },
+        { actorId: 1, receiverId: 8, type: NotificationType.FOLLOW },
+        { actorId: 2, receiverId: 1, type: NotificationType.FOLLOW },
+        { actorId: 2, receiverId: 3, type: NotificationType.FOLLOW },
+        { actorId: 2, receiverId: 4, type: NotificationType.FOLLOW },
+        { actorId: 2, receiverId: 9, type: NotificationType.FOLLOW },
+        { actorId: 3, receiverId: 2, type: NotificationType.FOLLOW },
+        { actorId: 3, receiverId: 6, type: NotificationType.FOLLOW },
+        { actorId: 3, receiverId: 11, type: NotificationType.FOLLOW },
+        { actorId: 1, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+        { actorId: 2, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+        { actorId: 5, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+        { actorId: 8, receiverId: 4, type: NotificationType.LIKE, tweetId: anasTweet1.id },
+        { actorId: 1, receiverId: 2, type: NotificationType.LIKE, tweetId: omarGReply1.id },
+        { actorId: 4, receiverId: 2, type: NotificationType.LIKE, tweetId: omarGReply1.id },
+        { actorId: 10, receiverId: 1, type: NotificationType.LIKE, tweetId: omarHReply1.id },
+        { actorId: 1, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+        { actorId: 3, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+        { actorId: 7, receiverId: 6, type: NotificationType.LIKE, tweetId: laylaTweet1.id },
+        { actorId: 2, receiverId: 4, type: NotificationType.REPLY, tweetId: omarGReply1.id },
+        { actorId: 1, receiverId: 4, type: NotificationType.REPLY, tweetId: omarHReply1.id },
+        { actorId: 4, receiverId: 1, type: NotificationType.REPLY, tweetId: anasReply2.id },
+        { actorId: 8, receiverId: 4, type: NotificationType.REPLY, tweetId: saraReply1.id },
+        { actorId: 3, receiverId: 6, type: NotificationType.REPLY, tweetId: tasneemReply1.id },
+        { actorId: 12, receiverId: 6, type: NotificationType.REPLY, tweetId: fatmaReply1.id },
+        { actorId: 1, receiverId: 4, type: NotificationType.MENTION, tweetId: anasTweet1.id },
+        { actorId: 2, receiverId: 4, type: NotificationType.MENTION, tweetId: omarGReply1.id },
+        { actorId: 4, receiverId: 1, type: NotificationType.MENTION, tweetId: anasReply2.id },
+        { actorId: 3, receiverId: 6, type: NotificationType.MENTION, tweetId: laylaTweet1.id },
+        { actorId: 2, receiverId: 6, type: NotificationType.RETWEET, tweetId: laylaTweet1.id },
+        { actorId: 3, receiverId: 4, type: NotificationType.RETWEET, tweetId: anasTweet1.id },
+        { actorId: 8, receiverId: 4, type: NotificationType.RETWEET, tweetId: anasTweet1.id },
+        { actorId: 5, receiverId: 7, type: NotificationType.QUOTE, tweetId: gelgelQuoteTweet.id },
+        { actorId: 10, receiverId: 12, type: NotificationType.RETWEET, tweetId: fatmaTweet1.id },
+      ],
+    });
   }
 
   // Remove duplicates

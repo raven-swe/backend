@@ -16,3 +16,6 @@ export const FOR_YOU_FEED_FRESH_TTL = 2 * 60; // 2 minutes
 export const FOR_YOU_FEED_SCROLL_TTL = 1 * 60 * 60; // 1 hours (sliding window)
 export const FOR_YOU_SEEN_CACHE_TTL = 30 * 60; // 30 minutes (works with scrolling only, resets on refresh)
 export const FOR_YOU_FEED_SIZE = 800;
+
+export const NEW_TWEETS_INDICATOR_MAX_AUTHORS = 3;
+export const NEW_TWEETS_INDICATOR_TTL = 5 * 60; // 5 minutes

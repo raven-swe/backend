@@ -9,6 +9,7 @@ import { NotificationsListeners } from './notifications.listeners';
 import { NotificationProcessor } from './notifications.processor';
 import { DevicesModule } from 'src/devices/devices.module';
 import { UsersModule } from 'src/users/users.module';
+import { FirebaseModule } from 'src/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsersModule } from 'src/users/users.module';
     UsersModule,
     DevicesModule,
     BullModule.registerQueue({ name: 'notifications' }),
+    FirebaseModule,
   ],
   controllers: [NotificationsController],
   providers: [

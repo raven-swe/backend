@@ -1,12 +1,16 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TweetDto, UserInteractionDto } from './dtos';
+import { AuthorDto, TweetDto } from './dtos';
 import { FeedCursor } from 'src/common/interfaces/cursor.interfaces';
 import { FeedSkeleton } from './interfaces';
 import { CreateTweetData } from './interfaces/create-tweet-data.interface';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { UserInteractionsCursor, TweetRelationsCursor } from 'src/common/types/cursors';
+import {
+  UserInteractionsCursor,
+  TweetRelationsCursor,
+  TweetRankCursor,
+} from 'src/common/types/cursors';
 import { BioEntitiesDto } from 'src/users/dtos';
 import { plainToInstance } from 'class-transformer';
 import { ReplyTweetDto } from './dtos/reply-tweet.dto';
@@ -14,24 +18,38 @@ import { CachedStaticTweet } from './interfaces/cached-static-tweet';
 import { CompactAuthorWithId } from './dtos/compact-author.dto';
 import { TIMELINE_MAX_SIZE } from './timeline/constants';
 import { PeopleSearchFilter } from 'src/search/dtos';
+import { CompactUserDto } from 'src/users/dtos/compact-user.dto';
 import { TweetsBackfill } from './timeline/interfaces';
 import { MAX_TWEET_DEPTH, TWEETS_ERROR_CODES, TWEETS_ERROR_MESSAGES } from './constants';
 import { DeletedTweet, TweetOrDeleted } from './types';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 
+export const authorSelect = (currentUserId: bigint | null) =>
+  ({
+    username: true,
+    profile: {
+      select: {
+        displayName: true,
+        avatarUrl: true,
+      },
+    },
+    ...(currentUserId && {
+      followers: { where: { followerId: currentUserId } },
+      following: { where: { followedId: currentUserId } },
+      blockedBy: { where: { userId: currentUserId } },
+      mutedBy: { where: { userId: currentUserId } },
+      blockedUsers: { where: { blockedId: currentUserId } },
+    }),
+  }) satisfies Prisma.UserSelect;
+
+export type RawAuthor = Prisma.UserGetPayload<{
+  select: ReturnType<typeof authorSelect>;
+}>;
+
 export const tweetInclude = (currentUserId: bigint | null) =>
   ({
     user: {
-      select: {
-        username: true,
-        id: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
-          },
-        },
-      },
+      select: authorSelect(currentUserId),
     },
     ...(currentUserId && {
       _count: {
@@ -87,13 +105,14 @@ type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
   include: ReturnType<typeof tweetInclude>;
 }>;
 
-type TweetWithIncludes = BaseTweetWithIncludes & {
+export type TweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
 };
 
 type DetailedTweetWithIncludes = BaseTweetWithIncludes & {
   quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
   replyToTweet?: (BaseTweetWithIncludes & { replyToTweet?: null }) | null;
+  rank?: string;
 };
 
 @Injectable()
@@ -186,9 +205,27 @@ export class TweetsRepository {
     }));
   }
 
+  mapToAuthorDto(user: RawAuthor): AuthorDto {
+    return {
+      username: user.username,
+      displayName: user.profile?.displayName ?? '',
+      avatarUrl: user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      relationship: {
+        following: user.followers ? user.followers.length > 0 : false,
+        follower: user.following ? user.following.length > 0 : false,
+        blocking: user.blockedBy ? user.blockedBy.length > 0 : false,
+        muted: user.mutedBy ? user.mutedBy.length > 0 : false,
+        blockedBy: user.blockedUsers ? user.blockedUsers.length > 0 : false,
+      },
+    };
+  }
+
   mapToTweetDto(
     tweet: TweetWithIncludes,
-    context: { repostedBy?: { username: string; displayName: string } } = {},
+    context: {
+      isRepost?: boolean;
+      repostedBy?: { username: string; displayName: string; id: string };
+    } = {},
   ): TweetDto {
     let quotedTweet: TweetDto | DeletedTweet | undefined = undefined;
     if (tweet.quotedTweet) {
@@ -203,11 +240,7 @@ export class TweetsRepository {
 
     return {
       id: tweet.id.toString(),
-      author: {
-        username: tweet.user.username,
-        displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
-      },
+      author: this.mapToAuthorDto(tweet.user),
       content: tweet.content ?? '',
       createdAt: tweet.createdAt,
       replyCount: tweet.replyCount,
@@ -313,19 +346,41 @@ export class TweetsRepository {
     await prismaClient.retweet.deleteMany({
       where: { tweetId },
     });
-    await prismaClient.notification.deleteMany({
-      where: { tweetId },
-    });
     await prismaClient.like.deleteMany({
       where: { tweetId },
     });
+
+    const result = await prismaClient.notification.findMany({
+      where: { tweetId },
+      select: { receiverId: true },
+    });
+
+    if (result.length > 0) {
+      await prismaClient.notification.deleteMany({
+        where: { tweetId },
+      });
+      const counts = await Promise.all(
+        result.map((user) =>
+          prismaClient.notification.count({
+            where: { receiverId: user.receiverId, seen: false },
+          }),
+        ),
+      );
+      return result.map((row, index) => ({
+        receiverId: row.receiverId,
+        unseenCount: counts[index],
+      }));
+    }
   }
 
-  mapToDetailedTweetDto(tweet: DetailedTweetWithIncludes): TweetDto & { replyToTweet?: TweetDto } {
+  mapToDetailedTweetDto(
+    tweet: DetailedTweetWithIncludes,
+  ): TweetDto & { replyToTweet?: TweetDto; rank?: string | undefined } {
     const baseTweet = this.mapToTweetDto(tweet);
 
     return {
       ...baseTweet,
+      rank: tweet.rank ? tweet.rank.toString() : undefined,
       replyToTweet: tweet.replyToTweet ? this.mapToTweetDto(tweet.replyToTweet) : undefined,
     };
   }
@@ -428,10 +483,6 @@ export class TweetsRepository {
           },
         });
 
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'LIKE' },
-        });
-
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -502,10 +553,6 @@ export class TweetsRepository {
               tweetId,
             },
           },
-        });
-
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'RETWEET' },
         });
 
         await tx.tweet.update({
@@ -818,6 +865,7 @@ export class TweetsRepository {
           following: { where: { followedId: currentUserId } },
           blockedBy: { where: { userId: currentUserId } },
           mutedBy: { where: { userId: currentUserId } },
+          blockedUsers: { where: { blockedId: currentUserId } },
         },
       },
     } as const;
@@ -848,20 +896,19 @@ export class TweetsRepository {
 
     const rawDtos = interactions.map((record) => {
       const user = record.user;
-      const dto = plainToInstance(UserInteractionDto, {
+      const dto = plainToInstance(CompactUserDto, {
         username: user.username,
         displayName: user.profile?.displayName ?? '',
         avatarUrl: user.profile?.avatarUrl,
-        bio: user.profile?.bio
-          ? {
-              text: user.profile.bio,
-              bioEntities: user.profile?.bioEntities as unknown as BioEntitiesDto,
-            }
-          : null,
-        isFollowing: user.followers.length > 0,
-        isFollower: user.following.length > 0,
-        isBlocked: user.blockedBy.length > 0,
-        isMuted: user.mutedBy.length > 0,
+        bio: user.profile?.bio ?? null,
+        bioEntities: (user.profile?.bioEntities as unknown as BioEntitiesDto) ?? null,
+        relationship: {
+          following: user.followers.length > 0,
+          follower: user.following.length > 0,
+          blocking: user.blockedBy.length > 0,
+          muted: user.mutedBy.length > 0,
+          blocked: user.blockedUsers.length > 0,
+        },
       });
 
       return {
@@ -944,6 +991,7 @@ export class TweetsRepository {
   }
 
   async hydrateTweetsInList(authUserId: bigint, tweetIds: bigint[]) {
+    console.log(authUserId);
     return await this.prisma.tweet.findMany({
       where: {
         id: { in: tweetIds },
@@ -1178,26 +1226,12 @@ export class TweetsRepository {
     }
     return interactionsMap;
   }
-
-  private buildTweetFilters(
+  private buildBasicTweetFilters(
     currentUserId: bigint,
-    hasMedia: boolean = false,
-    excludeMutedAndBlocked: boolean = false,
-    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
-    cursor?: TweetRelationsCursor,
+    hasMedia: boolean,
+    excludeMutedAndBlocked: boolean,
+    peopleFilter: PeopleSearchFilter,
   ) {
-    const cursorCondition = cursor
-      ? Prisma.sql`
-        AND (
-          t.created_at < ${cursor.createdAt}::timestamp
-          OR (
-            t.created_at = ${cursor.createdAt}::timestamp 
-            AND t.id <= ${BigInt(cursor.id)}
-          )
-        )
-      `
-      : Prisma.empty;
-
     const mutedAndBlockedCondition = excludeMutedAndBlocked
       ? Prisma.sql`
         AND NOT EXISTS (
@@ -1216,35 +1250,78 @@ export class TweetsRepository {
     const peopleFilterCondition =
       peopleFilter === PeopleSearchFilter.Following
         ? Prisma.sql`
-        AND EXISTS (
-          SELECT 1 
-          FROM follows f 
-          WHERE f.follower_id = ${currentUserId} AND f.followed_id = t.user_id
-        )
-      `
+          AND EXISTS (
+            SELECT 1 
+            FROM follows f 
+            WHERE f.follower_id = ${currentUserId} AND f.followed_id = t.user_id
+          )
+        `
         : Prisma.empty;
 
     const mediaCondition = hasMedia ? Prisma.sql`AND t.has_media = true` : Prisma.empty;
 
     return {
-      cursorCondition,
       mutedAndBlockedCondition,
       peopleFilterCondition,
       mediaCondition,
     };
   }
 
-  async getTweetsByQuery(
+  private async fetchAndOrderTweetsForSearch(
+    tweetIds: { id: bigint; rank?: bigint; created_at?: Date }[],
+    currentUserId: bigint,
+  ) {
+    const tweets = await this.prisma.tweet.findMany({
+      where: {
+        id: { in: tweetIds.map((row) => row.id) },
+      },
+      include: {
+        ...tweetInclude(currentUserId),
+        quotedTweet: {
+          include: tweetInclude(currentUserId),
+        },
+        replyToTweet: {
+          include: tweetInclude(currentUserId),
+        },
+      },
+    });
+
+    // Maintain the order from the search query
+    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
+    const orderedTweets = tweetIds
+      .map((row) => {
+        const tweet = tweetMap.get(row.id.toString());
+        if (!tweet) return null;
+
+        return { ...tweet, rank: row.rank ? row.rank.toString() : undefined };
+      })
+      .filter((item) => item !== null);
+
+    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
+  }
+
+  async getLatestTweetsByQuery(
     currentUserId: bigint,
     query: string,
-    hasMedia: boolean = false,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
     limit: number,
     cursor?: TweetRelationsCursor,
   ) {
-    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
-      this.buildTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter, cursor);
+    const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildBasicTweetFilters(currentUserId, false, excludeMutedAndBlocked, peopleFilter);
+
+    const cursorCondition = cursor
+      ? Prisma.sql`
+        AND (
+          t.created_at < ${cursor.createdAt}::timestamp
+          OR (
+            t.created_at = ${cursor.createdAt}::timestamp 
+            AND t.id <= ${BigInt(cursor.id)}
+          )
+        )
+      `
+      : Prisma.empty;
 
     const sqlQuery = Prisma.sql`
     SELECT t.id, t.created_at 
@@ -1270,27 +1347,71 @@ export class TweetsRepository {
       return [];
     }
 
-    const tweets = await this.prisma.tweet.findMany({
-      where: {
-        id: { in: tweetIds.map((row) => row.id) },
-      },
-      include: {
-        ...tweetInclude(currentUserId),
-        quotedTweet: {
-          include: tweetInclude(currentUserId),
-        },
-        replyToTweet: {
-          include: tweetInclude(currentUserId),
-        },
-      },
-    });
-    // Maintain the order from the search query
-    const tweetMap = new Map(tweets.map((t) => [t.id.toString(), t]));
-    const orderedTweets = tweetIds
-      .map((row) => tweetMap.get(row.id.toString()))
-      .filter((tweet) => tweet !== undefined);
+    const orderedTweets = await this.fetchAndOrderTweetsForSearch(tweetIds, currentUserId);
+    return orderedTweets;
+  }
 
-    return orderedTweets.map((tweet) => this.mapToDetailedTweetDto(tweet));
+  async getRankedTweetsByQuery(
+    currentUserId: bigint,
+    query: string,
+    hasMedia: boolean = false,
+    excludeMutedAndBlocked: boolean = false,
+    peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
+    limit: number,
+    cursor?: TweetRankCursor,
+  ) {
+    const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildBasicTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter);
+
+    // weights: relevance : likes : retweets : replies
+    //            100        30        50        20
+    const rankCalculation = Prisma.sql`
+    (
+      CAST(ts_rank(t.search_document, to_tsquery('simple', ${query})) * 10000000 AS BIGINT) + 
+      CAST(LOG(GREATEST(t.like_count, 1)) * 300000 AS BIGINT) +
+      CAST(LOG(GREATEST(t.retweet_count, 1)) * 500000 AS BIGINT) +
+      CAST(LOG(GREATEST(t.reply_count, 1)) * 200000 AS BIGINT)
+    )
+  `;
+
+    const cursorScore = cursor ? BigInt(cursor.rank) : null;
+    const cursorId = cursor ? BigInt(cursor.id) : null;
+
+    const cursorCondition = cursor
+      ? Prisma.sql`
+      AND (
+        ${rankCalculation} < ${cursorScore}
+        OR (${rankCalculation} = ${cursorScore} AND t.id <= ${cursorId})
+      )
+    `
+      : Prisma.empty;
+
+    const sqlQuery = Prisma.sql`
+    SELECT t.id, ${rankCalculation} AS rank
+    FROM tweets t
+    WHERE t.search_document @@ to_tsquery('simple', ${query})
+      AND t.is_deleted = false
+      ${mediaCondition}
+      ${cursorCondition}
+      ${mutedAndBlockedCondition}
+      ${peopleFilterCondition}
+    ORDER BY rank DESC, t.id DESC
+    LIMIT ${limit}
+  `;
+
+    const tweetIds = await this.prisma.$queryRaw<
+      {
+        id: bigint;
+        rank: bigint;
+      }[]
+    >(sqlQuery);
+
+    if (tweetIds.length === 0) {
+      return [];
+    }
+
+    const orderedTweets = await this.fetchAndOrderTweetsForSearch(tweetIds, currentUserId);
+    return orderedTweets;
   }
 
   async getTweetIdsLinkedToHashtag(
@@ -1302,14 +1423,20 @@ export class TweetsRepository {
     peopleFilter: PeopleSearchFilter = PeopleSearchFilter.Anyone,
     prevCursor?: TweetRelationsCursor,
   ): Promise<bigint[]> {
-    const { cursorCondition, mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
-      this.buildTweetFilters(
-        currentUserId,
-        hasMedia,
-        excludeMutedAndBlocked,
-        peopleFilter,
-        prevCursor,
-      );
+    const { mutedAndBlockedCondition, peopleFilterCondition, mediaCondition } =
+      this.buildBasicTweetFilters(currentUserId, hasMedia, excludeMutedAndBlocked, peopleFilter);
+
+    const cursorCondition = prevCursor
+      ? Prisma.sql`
+        AND (
+          t.created_at < ${prevCursor.createdAt}::timestamp
+          OR (
+            t.created_at = ${prevCursor.createdAt}::timestamp 
+            AND t.id <= ${BigInt(prevCursor.id)}
+          )
+        )
+      `
+      : Prisma.empty;
 
     const tweetHashtags = await this.prisma.$queryRaw<
       { id: bigint; created_at: Date }[]
@@ -1509,16 +1636,60 @@ export class TweetsRepository {
     }));
   }
 
-  /**
-   * Get user's interests from their profile
-   */
-  async getUserInterests(userId: bigint): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { interests: true },
-    });
+  async getAuthorRelationships(
+    userId: bigint,
+    authorMap: Map<string, CompactAuthorWithId>,
+  ): Promise<Map<string, AuthorDto>> {
+    const authorIds = Array.from(authorMap.keys()).map((id) => BigInt(id));
 
-    return user?.interests || [];
+    const relationships = await this.prisma.$queryRaw<
+      Array<{
+        author_id: bigint;
+        is_following: boolean;
+        is_follower: boolean;
+        is_blocked: boolean;
+        is_blocking: boolean;
+        is_muted: boolean;
+      }>
+    >`
+    SELECT 
+      a.id AS author_id,
+      EXISTS (
+        SELECT 1 FROM follows f WHERE f.follower_id = ${userId} AND f.followed_id = a.id
+      ) AS is_following,
+      EXISTS (
+        SELECT 1 FROM follows f WHERE f.follower_id = a.id AND f.followed_id = ${userId}
+      ) AS is_follower,
+      EXISTS (
+        SELECT 1 FROM blocks b WHERE b.user_id = ${userId} AND b.blocked_id = a.id
+      ) AS is_blocking,
+      EXISTS (
+        SELECT 1 FROM blocks b WHERE b.user_id = a.id AND b.blocked_id = ${userId}
+      ) AS is_blocked,
+      EXISTS (
+        SELECT 1 FROM mutes m WHERE m.user_id = ${userId} AND m.muted_id = a.id
+      ) AS is_muted
+    FROM users a
+    WHERE a.id = ANY(${authorIds}::bigint[])
+  `; // because I think prisma will do it with joins
+
+    const authors: Map<string, AuthorDto> = new Map();
+    relationships.forEach((rel) => {
+      const author = authorMap.get(rel.author_id.toString());
+      if (author) {
+        authors.set(rel.author_id.toString(), {
+          ...author,
+          relationship: {
+            following: rel.is_following,
+            follower: rel.is_follower,
+            blockedBy: rel.is_blocked,
+            blocking: rel.is_blocking,
+            muted: rel.is_muted,
+          },
+        });
+      }
+    });
+    return authors;
   }
 
   /**

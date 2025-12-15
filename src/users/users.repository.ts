@@ -3,26 +3,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
 import {
+  DEFAULT_PROFILE_PICTURE,
   USER_SEARCH_RANKING_WEIGHTS,
   USERS_ERROR_CODES,
   USERS_ERROR_MESSAGES,
 } from 'src/users/constants';
 
-import {
-  BioEntitiesDto,
-  MutualUserDto,
-  UpdateProfileDto,
-  UserProfileResponseDto,
-  UserRelationshipDto,
-} from './dtos';
+import { BioEntitiesDto, MutualUserDto, UpdateProfileDto, UserProfileResponseDto } from './dtos';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RankedUser } from './interfaces/ranked-user.interface';
-import { CompactAuthorDto } from 'src/tweets/dtos';
+import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
+import { UserRelationshipDto } from './dtos/relationship-dto';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { UserSearchCursor } from 'src/common/types/cursors';
 
@@ -281,7 +277,7 @@ export class UsersRepository {
         followingCount: user.followingCount,
         followersCount: user.followersCount,
         mutualsCount: null,
-        mutualUsers: null,
+        mutualUsers: [],
       };
 
       // TODO: Get mutual followers count and names
@@ -313,8 +309,10 @@ export class UsersRepository {
       followingCount: user.followingCount,
       followersCount: user.followersCount,
       mutualsCount: mutualsCount,
-      mutualUsers: mutualUsers,
+      mutualUsers: mutualUsers ?? [],
       email: isMyProfile ? user.email : undefined,
+      phone: user.phone || undefined,
+      languageCode: user.languageCode || undefined,
     };
   }
 
@@ -496,9 +494,6 @@ export class UsersRepository {
         this.prisma.user.update({
           where: { id: followedId },
           data: { followersCount: { decrement: 1 } },
-        }),
-        this.prisma.notification.deleteMany({
-          where: { receiverId: followedId, actorId: followerId, type: 'FOLLOW' },
         }),
       ])
       .catch((e) => {
@@ -771,12 +766,35 @@ export class UsersRepository {
     return !!mute;
   }
 
-  async getUserBlocks(userId: bigint) {
-    return await this.prisma.block.findMany({
+  async getUserBlockRelations(userId: bigint, userIds?: bigint[]) {
+    const hasUserIds = Array.isArray(userIds) && userIds.length > 0;
+
+    return this.prisma.block.findMany({
       where: {
-        userId,
+        OR: [
+          {
+            userId,
+            ...(hasUserIds && { blockedId: { in: userIds } }),
+          },
+          {
+            ...(hasUserIds && { userId: { in: userIds } }),
+            blockedId: userId,
+          },
+        ],
       },
+
       select: { userId: true, blockedId: true },
+    });
+  }
+
+  async getUserMuteRelations(userId: bigint, userIds: bigint[]) {
+    return await this.prisma.mute.findMany({
+      where: {
+        OR: [
+          { userId, mutedId: { in: userIds } }, // user-> them
+        ],
+      },
+      select: { userId: true, mutedId: true },
     });
   }
 
@@ -1407,7 +1425,7 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -1430,12 +1448,94 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        // self relationship
+        blocking: false,
+        blockedBy: false,
+        following: false,
+        follower: false,
+        muted: false,
+      },
     };
+  }
+
+  private buildSearchUsersSql(
+    tsQuery: string,
+    firstWord: string,
+    currentUserId: bigint,
+    rankingScoreSql: Prisma.Sql,
+    cursorCondition: Prisma.Sql,
+    mutedAndBlockedCondition: Prisma.Sql,
+    peopleFilterCondition: Prisma.Sql,
+    limit: number,
+  ) {
+    return Prisma.sql`
+    WITH matched_ids AS (
+      SELECT
+        user_id,
+        MAX(text_rank) AS text_rank,
+        MAX(prefix_bonus) AS prefix_bonus
+      FROM (
+        SELECT
+          id AS user_id,
+          ts_rank(to_tsvector('simple', LOWER(username)), to_tsquery('simple', ${tsQuery})) AS text_rank,
+          CASE WHEN LOWER(username) LIKE ${firstWord + '%'} THEN 1.0 ELSE 0.0 END AS prefix_bonus
+        FROM users
+        WHERE deleted_at IS NULL
+          AND to_tsvector('simple', LOWER(username)) @@ to_tsquery('simple', ${tsQuery})
+
+        UNION ALL
+
+        SELECT
+          user_id,
+          ts_rank(to_tsvector('simple', LOWER(display_name)), to_tsquery('simple', ${tsQuery})) AS text_rank,
+          CASE WHEN LOWER(display_name) LIKE ${firstWord + '%'} THEN 1.0 ELSE 0.0 END AS prefix_bonus
+        FROM profiles
+        WHERE to_tsvector('simple', LOWER(display_name)) @@ to_tsquery('simple', ${tsQuery})
+      ) matches
+      GROUP BY user_id
+    ),
+    ranked_users AS (
+      SELECT
+        u.id,
+        u.username,
+        u.created_at,
+        u.followers_count,
+        p.display_name,
+        p.avatar_url,
+        p.banner_url,
+        p.bio,
+        p.bio_entities,
+        m.text_rank,
+        m.prefix_bonus,
+        (f_out.follower_id IS NOT NULL) AS i_follow,
+        (f_in.follower_id IS NOT NULL) AS follows_me
+      FROM matched_ids m
+      JOIN users u ON m.user_id = u.id
+      JOIN profiles p ON m.user_id = p.user_id
+      LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
+      LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
+      WHERE 1 = 1
+        ${mutedAndBlockedCondition}
+        ${peopleFilterCondition}
+    ),
+    scored_users AS (
+      SELECT *, ${rankingScoreSql}
+      FROM ranked_users
+    )
+    SELECT *
+    FROM scored_users
+    WHERE 1 = 1
+      ${cursorCondition}
+    ORDER BY ranking_score DESC, id ASC
+    LIMIT ${limit};
+  `;
   }
 
   async searchUsers(
     currentUserId: bigint,
     query: string,
+    firstWord: string,
     limit: number,
     decodedCursor: UserSearchCursor | undefined,
     excludeMutedAndBlocked: boolean = false,
@@ -1451,56 +1551,16 @@ export class UsersRepository {
 
     const rankingScoreSql = this.buildUsersRankingScore();
 
-    const sqlQuery = Prisma.sql`
-   -- First get matching user ids with username or display name similar to query
-    WITH matched_ids AS (
-      SELECT 
-        id as user_id 
-        FROM users WHERE deleted_at IS NULL
-        AND (LOWER(username) % ${query})
-
-      UNION
-
-      SELECT user_id 
-      FROM profiles
-      WHERE LOWER(display_name) % ${query}
-    ),
-
-  ranked_users AS (
-    SELECT 
-      u.id, 
-      u.username,
-      u.created_at,
-      u.followers_count,
-      p.display_name,
-      p.avatar_url,
-      p.banner_url,
-      p.bio,
-      p.bio_entities,
-      SIMILARITY(LOWER(u.username), ${query}) AS sim_username,
-      COALESCE(SIMILARITY(LOWER(p.display_name), ${query}), 0) AS sim_display_name,
-      (f_out.follower_id IS NOT NULL) AS i_follow,
-      (f_in.follower_id IS NOT NULL) AS follows_me 
-    FROM matched_ids matched_user
-    JOIN users u ON matched_user.user_id = u.id
-    JOIN profiles p ON matched_user.user_id = p.user_id
-    LEFT JOIN follows f_out ON f_out.follower_id = ${currentUserId} AND f_out.followed_id = u.id
-    LEFT JOIN follows f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${currentUserId}
-    WHERE 1 = 1
-      ${mutedAndBlockedCondition}
-      ${peopleFilterCondition}
-    ),
-    scored_users AS (
-      SELECT *, ${rankingScoreSql} 
-      FROM ranked_users
-    )
-    SELECT *
-    FROM scored_users
-    WHERE 1=1
-    ${cursorCondition}
-    ORDER BY ranking_score DESC, id DESC
-    LIMIT ${limit};
-`;
+    const sqlQuery = this.buildSearchUsersSql(
+      query,
+      firstWord,
+      currentUserId,
+      rankingScoreSql,
+      cursorCondition,
+      mutedAndBlockedCondition,
+      peopleFilterCondition,
+      limit,
+    );
 
     const results = await this.prisma.$queryRaw<RankedUser[]>(sqlQuery);
 
@@ -1530,7 +1590,7 @@ export class UsersRepository {
       ? Prisma.sql`
         AND (
           ranking_score < ${cursorScore}
-          OR (ranking_score = ${cursorScore} AND id <= ${cursorId})
+          OR (ranking_score = ${cursorScore} AND id >= ${cursorId})
         )
       `
       : Prisma.empty;
@@ -1570,18 +1630,26 @@ export class UsersRepository {
 
   /**
    * Builds the ranking score SQL snippet for user search.
-   * Score = sim_score * sim_weight + followers_count * followers_weight + i_follow_weight + follows_me_weight
    */
   private buildUsersRankingScore() {
     return Prisma.sql`
     (
-      CAST( (COALESCE(sim_username, 0) + COALESCE(sim_display_name, 0)) * ${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY} AS BIGINT )  +
+      CAST(prefix_bonus * ${USER_SEARCH_RANKING_WEIGHTS.PREFIX_BONUS} AS BIGINT) +
+      CAST(text_rank * ${USER_SEARCH_RANKING_WEIGHTS.SIMILARITY} AS BIGINT) +
       (LEAST(followers_count, ${USER_SEARCH_RANKING_WEIGHTS.MAX_FOLLOWERS_COUNT}) * (${USER_SEARCH_RANKING_WEIGHTS.FOLLOWERS})::bigint) +
       (CASE WHEN i_follow THEN ${USER_SEARCH_RANKING_WEIGHTS.I_FOLLOW}::bigint ELSE 0 END) +
       (CASE WHEN follows_me THEN ${USER_SEARCH_RANKING_WEIGHTS.FOLLOWS_ME}::bigint ELSE 0 END)
     ) as ranking_score`;
   }
 
+  /**
+   * Get a map of user IDs to their relationship status with the current user.
+   *
+   * @param currentUserId - ID of the current user
+   * @param userIds - Array of user IDs to get relationships for
+   *
+   * @returns A map where the key is the user ID and the value is the UserRelationshipDto
+   */
   async getUsersRelationshipsMap(
     currentUserId: bigint,
     userIds: bigint[],
@@ -1627,9 +1695,7 @@ export class UsersRepository {
       WHERE u.id IN (${Prisma.join(userIds)});
     `;
 
-    // 3. Map results
     for (const row of results) {
-      // Boolean() conversion handles cases where DB driver returns 1/0 instead of true/false
       relationshipsMap.set(row.user_id, {
         blocking: Boolean(row.is_blocking),
         blockedBy: Boolean(row.is_blocked_by),
@@ -1791,5 +1857,71 @@ export class UsersRepository {
         isFollower: Boolean(row.is_follower),
       },
     }));
+  }
+
+  async getUsersMetadataById(ids: bigint[]) {
+    return await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findAvatarUrlsByUserIds(userIds: bigint[]): Promise<Map<string, string>> {
+    const profile = await this.prisma.profile.findMany({
+      where: { userId: { in: userIds } },
+      select: { avatarUrl: true, userId: true },
+    });
+    if (profile) {
+      return new Map(
+        profile.map((p) => [p.userId.toString(), p.avatarUrl || DEFAULT_PROFILE_PICTURE]),
+      );
+    }
+    return new Map();
+  }
+
+  async findUsernameAndDisplayNameById(
+    userId: bigint,
+  ): Promise<{ username: string; displayName: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+    return user ? { username: user.username, displayName: user.profile!.displayName } : null;
+  }
+
+  async getUserLocale(userId: bigint) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { languageCode: true },
+    });
+    return user?.languageCode;
+  }
+  async getUserInterests(userId: bigint): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { interests: true },
+    });
+
+    return (
+      user?.interests.map((interest) =>
+        interest ? interest[0].toUpperCase() + interest.slice(1).toLowerCase() : interest,
+      ) || []
+    );
   }
 }

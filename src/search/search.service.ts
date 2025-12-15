@@ -12,7 +12,13 @@ import {
   isSingleHashtagQuery,
   prepareSearchQuery,
 } from './utils/search-query.util';
-import { TweetRelationsCursor, UserSearchCursor } from 'src/common/types/cursors';
+import {
+  isTweetRankCursor,
+  isTweetRelationsCursor,
+  TweetRankCursor,
+  TweetRelationsCursor,
+  UserSearchCursor,
+} from 'src/common/types/cursors';
 import { SearchUsersQueryDto } from './dtos/search-users-query.dto';
 import { mapToUserSearchResultDto } from './mappers/user-search-result.mapper';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
@@ -89,9 +95,10 @@ export class SearchService {
       };
     }
 
+    const isRelevanceSearch = !tab || tab === SearchTab.Top || tab == SearchTab.Media;
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
     const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
-    const decodedCursor = this.decodeCursor(prevCursor);
+    const decodedCursor = this.decodeCursor(prevCursor, isRelevanceSearch);
 
     const items = await this.fetchTweetsByTab(
       tab,
@@ -104,23 +111,42 @@ export class SearchService {
       peopleFilter,
     );
 
-    const pagination = paginateComposite(items, limit, prevCursor, (tweet) => {
-      return {
-        createdAt: tweet.createdAt,
-        id: tweet.id.toString(),
-      };
-    });
+    // Create cursor with correct field based on search type
+    const pagination = isRelevanceSearch
+      ? paginateComposite(items, limit, prevCursor, (tweet) => {
+          return {
+            type: 'rank',
+            rank: tweet.rank?.toString(),
+            id: tweet.id.toString(),
+          } as TweetRankCursor;
+        })
+      : paginateComposite(items, limit, prevCursor, (tweet) => {
+          return {
+            type: 'relations',
+            createdAt: tweet.createdAt,
+            id: tweet.id.toString(),
+          } as TweetRelationsCursor;
+        });
 
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
     return { items, pagination };
   }
 
-  private decodeCursor(prevCursor?: string): TweetRelationsCursor | undefined {
+  /**
+   * Decodes cursor and validates it matches the expected search type
+   * Throws error if cursor is invalid or wrong type for search mode
+   */
+  private decodeCursor(
+    prevCursor?: string,
+    isRelevanceSearch: boolean = true,
+  ): TweetRankCursor | TweetRelationsCursor | undefined {
     if (!prevCursor) return undefined;
 
+    let decoded: TweetRankCursor | TweetRelationsCursor | undefined;
+
     try {
-      return decodeCompositeCursor<TweetRelationsCursor>(prevCursor);
+      decoded = decodeCompositeCursor<TweetRankCursor | TweetRelationsCursor>(prevCursor);
     } catch {
       throw new HttpException(
         {
@@ -130,6 +156,29 @@ export class SearchService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // Validate cursor type matches search mode
+    if (isRelevanceSearch && !isTweetRankCursor(decoded)) {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!isRelevanceSearch && !isTweetRelationsCursor(decoded)) {
+      throw new HttpException(
+        {
+          message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
+          code: PAGINATION_ERROR_CODES.INVALID_CURSOR,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return decoded;
   }
 
   private async fetchTweetsByTab(
@@ -138,7 +187,7 @@ export class SearchService {
     cleanedQuery: string,
     currentUserId: bigint,
     limit: number,
-    decodedCursor: TweetRelationsCursor | undefined,
+    decodedCursor: TweetRelationsCursor | TweetRankCursor | undefined,
     excludeMutedAndBlocked: boolean = false,
     peopleFilter?: PeopleSearchFilter,
   ): Promise<GetTweetResponseDto[]> {
@@ -150,40 +199,57 @@ export class SearchService {
         currentUserId,
         limit,
         withMedia,
-        decodedCursor,
+        decodedCursor as TweetRelationsCursor | undefined,
         excludeMutedAndBlocked,
         peopleFilter,
       );
     }
 
-    return withMedia
-      ? this.tweetsService.getTweetsWithMediaByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        )
-      : this.tweetsService.getTopTweetsByQuery(
-          currentUserId,
-          cleanedQuery,
-          limit,
-          decodedCursor,
-          excludeMutedAndBlocked,
-          peopleFilter,
-        );
+    if (tab === SearchTab.Latest) {
+      return this.tweetsService.getLatestTweetsByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRelationsCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    } else if (tab === SearchTab.Media) {
+      return this.tweetsService.getTweetsWithMediaByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRankCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    } else {
+      return this.tweetsService.getTopTweetsByQuery(
+        currentUserId,
+        cleanedQuery,
+        limit,
+        decodedCursor as TweetRankCursor | undefined,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+    }
   }
 
   async searchUsers(
     currentUserId: bigint,
     searchUsersQueryDto: SearchUsersQueryDto,
-    limit: number,
+    limit: number = 20,
     prevCursor?: string,
   ) {
     const { query, peopleFilter, excludeMutedAndBlocked } = searchUsersQueryDto;
 
-    const rawQuery = decodeURIComponent(query);
+    let rawQuery: string;
+    try {
+      rawQuery = decodeURIComponent(query);
+    } catch {
+      // If decoding fails, use the original query
+      rawQuery = query;
+    }
 
     if (!rawQuery || rawQuery.trim() === '') {
       return {
@@ -196,7 +262,7 @@ export class SearchService {
       };
     }
 
-    const cleanedQuery = prepareSearchQuery(rawQuery);
+    const cleanedQuery = rawQuery.toLowerCase().trim();
     let decodedCursor: UserSearchCursor | undefined;
     try {
       decodedCursor = prevCursor ? decodeCompositeCursor<UserSearchCursor>(prevCursor) : undefined;

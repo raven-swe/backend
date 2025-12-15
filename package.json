@@ -56,7 +56,7 @@
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^11.1.9",
-    "@prisma/client": "^6.16.3",
+    "@prisma/client": "^6.17.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.61.0",
@@ -171,7 +171,12 @@
       "common/middleware/request-logger\\.middleware\\.ts",
       "common/pipes/parse-bigint\\.pipe\\.ts",
       "testing",
-      ".*\\.stress\\.js"
+      ".*\\.stress\\.js",
+      ".*index\\.ts",
+      ".*\\.interface\\.ts",
+      "interfaces",
+      "src/common/adapters/redis-io\\.adapter\\.ts",
+      "constants"
     ]
   }
 }

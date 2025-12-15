@@ -9,7 +9,6 @@ import {
   Patch,
   Get,
   UseInterceptors,
-  BadRequestException,
   UploadedFile,
   UploadedFiles,
 } from '@nestjs/common';
@@ -20,11 +19,10 @@ import { JwtAuthGuard } from 'src/auth/guards';
 import type { RequestUser } from 'src/common/interfaces';
 import { User } from 'src/auth/decorators';
 import { RATE_LIMIT } from 'src/common/constants/rate-limit.constants';
-import { USERS_ERROR_MESSAGES } from 'src/users/constants';
-import { IMAGE_EXTENSIONS, MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
+import { MAX_FILE_SIZE_BYTES } from 'src/media/constants/media.constant';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
-import { createValidationError } from 'src/common/utils/create-validation-error.util';
 import { ParseJsonBodyPipe } from '../pipes/parse-json-body.pipe';
+import { profileImageFileFilter } from 'src/media/validators/media-file.validator';
 
 @Controller('me')
 export class MeController {
@@ -83,21 +81,7 @@ export class MeController {
         { name: 'banner', maxCount: 1 },
       ],
       {
-        fileFilter: (req, file, callback) => {
-          const ext = file.originalname.split('.').pop()?.toLowerCase();
-          if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
-            return callback(
-              new BadRequestException(
-                createValidationError(file.fieldname, {
-                  invalidFileType: 'Only image files are allowed (jpg, jpeg, png).',
-                }),
-              ),
-              false,
-            );
-          }
-
-          callback(null, true);
-        },
+        fileFilter: profileImageFileFilter,
         limits: { fileSize: MAX_FILE_SIZE_BYTES },
       },
     ),
@@ -124,20 +108,7 @@ export class MeController {
   @Post('profile-picture')
   @UseInterceptors(
     FileInterceptor('profilePicture', {
-      fileFilter: (req, file, callback) => {
-        const ext = file.originalname.split('.').pop()?.toLowerCase();
-        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
-          return callback(
-            new BadRequestException(
-              createValidationError(file.fieldname, {
-                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
-              }),
-            ),
-            false,
-          );
-        }
-        callback(null, true);
-      },
+      fileFilter: profileImageFileFilter,
       limits: { fileSize: MAX_FILE_SIZE_BYTES },
     }),
   )
@@ -154,20 +125,7 @@ export class MeController {
   @Post('banner')
   @UseInterceptors(
     FileInterceptor('banner', {
-      fileFilter: (req, file, callback) => {
-        const ext = file.originalname.split('.').pop()?.toLowerCase();
-        if (!ext || !IMAGE_EXTENSIONS.includes(ext)) {
-          return callback(
-            new BadRequestException(
-              createValidationError(file.fieldname, {
-                invalidFileType: USERS_ERROR_MESSAGES.ALLOWED_IMAGE_TYPES,
-              }),
-            ),
-            false,
-          );
-        }
-        callback(null, true);
-      },
+      fileFilter: profileImageFileFilter,
       limits: { fileSize: MAX_FILE_SIZE_BYTES },
     }),
   )

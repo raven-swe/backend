@@ -9,9 +9,23 @@ import { SseEventsService } from 'src/sse/sse-events.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { UsersRepository } from 'src/users/users.repository';
+import { NotificationPayloadDto } from './dtos/notification-payload.dto';
+import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
+  private generateDedupeKey(options: NotificationTriggerOptions): string | null {
+    switch (options.type) {
+      case 'FOLLOW':
+        return `${options.type}:USER:${options.receiverId}`;
+      case 'LIKE':
+      case 'RETWEET':
+        return `${options.type}:TWEET:${options.tweetId}`;
+      default:
+        return null;
+    }
+  }
   private readonly logger = new Logger(NotificationsService.name);
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
@@ -19,7 +33,6 @@ export class NotificationsService {
     private readonly usersRepository: UsersRepository,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
-
   async trigger(options: NotificationTriggerOptions) {
     this.logger.log(
       `Triggering notification of type ${options.type} from actor ${options.actorId} to receiver ${options.receiverId}`,
@@ -41,7 +54,79 @@ export class NotificationsService {
       return existing;
     }
 
-    const notification = await this.notificationsRepository.createNotification(options);
+    const dedupeKey = this.generateDedupeKey(options);
+
+    let notification = null;
+
+    if (dedupeKey) {
+      notification = await this.notificationsRepository.findOpenNotification(
+        options.receiverId,
+        dedupeKey,
+      );
+    }
+
+    if (notification) {
+      const currentPayload = notification.payload as unknown as NotificationPayloadDto;
+
+      const previousActor = {
+        id: notification.actor.id.toString(),
+        username: notification.actor.username,
+        displayName: notification.actor.profile?.displayName || null,
+        avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+        ifFollowing: notification.actor.followers.length > 0,
+      };
+
+      const actorsMap = new Map<
+        string,
+        {
+          username: string;
+          displayName: string | null;
+          avatarUrl: string | null;
+          ifFollowing: boolean;
+        }
+      >();
+
+      if (currentPayload.actorsPreview) {
+        currentPayload.actorsPreview.forEach((a) => actorsMap.set(a.id, a));
+      }
+      actorsMap.set(previousActor.id.toString(), previousActor);
+      actorsMap.delete(options.actorId.toString());
+
+      const actorsIdsSet = new Set(currentPayload.actorsIds);
+      actorsIdsSet.add(options.actorId.toString());
+
+      if (actorsMap.size >= 3) {
+        // Limit to 3 actors in aggregation
+        const firstTwo = Array.from(actorsMap.entries()).slice(0, 2);
+        actorsMap.clear();
+        firstTwo.forEach(([key, value]) => actorsMap.set(key, value));
+      }
+
+      const payload: Prisma.JsonObject = {
+        count: actorsIdsSet.size,
+        actorsPreview: Array.from(actorsMap.values()),
+        actorsIds: Array.from(actorsIdsSet),
+      };
+
+      notification = await this.notificationsRepository.updtateNotificationByIdAggregation(
+        notification.id,
+        options,
+        payload,
+        true,
+      );
+    } else {
+      const payload: Prisma.JsonObject = {
+        actorsIds: [options.actorId.toString()],
+        actorsPreview: [],
+      };
+
+      notification = await this.notificationsRepository.createNotification(
+        options,
+        payload,
+        dedupeKey,
+      );
+    }
+
     const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
 
     this.logger.log(
@@ -58,12 +143,17 @@ export class NotificationsService {
 
     await this.notificationsQueue.add(
       'sendPush',
-      { notificationId: notification.id.toString(), userId: options.receiverId.toString() },
+      {
+        notificationId: notification.id.toString(),
+        userId: options.receiverId.toString(),
+      },
       {
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: true,
-        jobId: `notification:push:${notification.id}`,
+        jobId: `PUSH_${options.receiverId}_${dedupeKey || notification.id}`,
+        delay: 2000, // 2 second delay
+        removeOnFail: false,
       },
     );
     this.logger.log(
@@ -73,6 +163,158 @@ export class NotificationsService {
     return notification;
   }
 
+  async handleUndo(options: NotificationTriggerOptions) {
+    const dedupeKey = this.generateDedupeKey(options);
+    if (!dedupeKey) {
+      await this.notificationsRepository.deleteExisting(options);
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
+      return;
+    }
+
+    const undoingActorId = options.actorId.toString();
+
+    const notification = await this.notificationsRepository.findOpenNotification(
+      options.receiverId,
+      dedupeKey,
+    );
+
+    if (!notification) {
+      await this.notificationsRepository.deleteExisting(options);
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
+      return;
+    }
+
+    const currentPayload = notification.payload as unknown as NotificationPayloadDto;
+
+    const actorsIdsSet = new Set(currentPayload.actorsIds || []);
+
+    const wasPresent = actorsIdsSet.delete(undoingActorId);
+
+    if (!wasPresent) {
+      return;
+    }
+
+    const previousActor = {
+      id: notification.actor.id.toString(),
+      username: notification.actor.username,
+      displayName: notification.actor.profile?.displayName || null,
+      avatarUrl: notification.actor.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      ifFollowing: notification.actor.followers.length > 0,
+    };
+
+    const actorsMap = new Map<
+      string,
+      {
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        ifFollowing: boolean;
+      }
+    >();
+
+    if (currentPayload.actorsPreview) {
+      currentPayload.actorsPreview.forEach((a) => actorsMap.set(a.id, a));
+    }
+
+    actorsMap.set(previousActor.id.toString(), previousActor);
+
+    actorsMap.delete(undoingActorId);
+    const currentCount = actorsIdsSet.size;
+
+    if (currentCount <= 0) {
+      await this.notificationsRepository.deleteById(notification.id);
+
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
+      return;
+    }
+
+    let facingActorId = notification.actor.id;
+
+    if (facingActorId.toString() === undoingActorId) {
+      const nextFace = Array.from(actorsMap.keys())[0];
+      if (nextFace) {
+        facingActorId = BigInt(nextFace);
+      }
+    }
+    actorsMap.delete(facingActorId.toString());
+    if (actorsMap.size < 3 && actorsIdsSet.size > actorsMap.size + 1) {
+      const idsToFetch: string[] = [];
+
+      for (const id of actorsIdsSet) {
+        if (id !== facingActorId.toString() && !actorsMap.has(id)) {
+          idsToFetch.push(id);
+          if (idsToFetch.length >= 3 - actorsMap.size) break;
+        }
+      }
+
+      if (idsToFetch.length > 0) {
+        const newUsers = await this.usersRepository.getUsersMetadataById(
+          idsToFetch.map((id) => BigInt(id)),
+        );
+
+        newUsers.forEach((u) => {
+          actorsMap.set(u.id.toString(), {
+            username: u.username,
+            displayName: u.profile?.displayName || null,
+            avatarUrl: u.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+            ifFollowing: false,
+          });
+        });
+      }
+    }
+
+    const payload: Prisma.JsonObject = {
+      count: currentCount,
+      actorsPreview: Array.from(actorsMap.values()),
+      actorsIds: Array.from(actorsIdsSet),
+    };
+
+    options.actorId = facingActorId;
+
+    const updated = await this.notificationsRepository.updtateNotificationByIdAggregation(
+      notification.id,
+      options,
+      payload,
+      false,
+    );
+
+    const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+    const dto = this.notificationsRepository.mapToNotificationDto(updated);
+    await this.sseEvents.publishNotificationUpdate(options.receiverId, dto, count);
+
+    await this.notificationsQueue.add(
+      'sendPush',
+      {
+        notificationId: notification.id.toString(),
+        userId: options.receiverId.toString(),
+      },
+      {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+        jobId: `PUSH_${options.receiverId}_${dedupeKey || notification.id}`, // Dedupe at queue level
+        delay: 2000, // 2 second delay
+        removeOnFail: false,
+      },
+    );
+    this.logger.log(
+      `Enqueued push notification job for notification id ${notification.id} to user ${options.receiverId}`,
+    );
+  }
+
+  async handleTweetDeletionNotifications(receivers: { receiverId: bigint; unseenCount: number }[]) {
+    await Promise.all(
+      receivers.map((row) =>
+        this.sseEvents.publishNotificationDeleted(BigInt(row.receiverId), Number(row.unseenCount)),
+      ),
+    );
+  }
   async markAllAsSeen(receiverId: bigint) {
     const { count } = await this.notificationsRepository.markAllAsSeen(receiverId);
 

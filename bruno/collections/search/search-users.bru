@@ -5,13 +5,15 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/search/users?query=oma
+  url: http://localhost:3000/search/users?query=omar&limit=6&cursor=eyJyYW5raW5nU2NvcmUiOiIxMDMwMzk2IiwiaWQiOiIyNyJ9
   body: none
   auth: bearer
 }
 
 params:query {
-  query: oma
+  query: omar
+  limit: 6
+  cursor: eyJyYW5raW5nU2NvcmUiOiIxMDMwMzk2IiwiaWQiOiIyNyJ9
 }
 
 auth:bearer {

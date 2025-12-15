@@ -1,10 +1,11 @@
 import { TweetEntitiesDto } from './tweet-entitites.dto';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { DeletedTweet } from '../types';
-import { CompactAuthorDto } from './compact-author.dto';
+import { AuthorDto } from './author.dto';
+
 export class TweetDto {
   id: string;
-  author: CompactAuthorDto;
+  author: AuthorDto;
   content: string | null;
   createdAt: Date;
 
@@ -27,4 +28,6 @@ export class TweetDto {
   repostedBy?: Retweeter;
 }
 
-type Retweeter = Omit<CompactAuthorDto, 'avatarUrl'>;
+type Retweeter = Omit<AuthorDto, 'relationship' | 'avatarUrl'> & {
+  id: string;
+};
