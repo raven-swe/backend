@@ -30,7 +30,7 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
-import { UserRelationshipDto } from './dtos/relationship-dto';
+import { UserRelationshipDto } from './dtos/relationship.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';

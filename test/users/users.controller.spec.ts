@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RequestUser } from 'src/common/interfaces';
 import { UsersController } from 'src/users/users.controller';
 import { UsersRepository } from 'src/users/users.repository';
 import { UsersService } from 'src/users/users.service';
@@ -160,7 +161,7 @@ describe('UsersController', () => {
       (mockUsersService.getUserProfile as jest.Mock).mockResolvedValue(expectedResult);
 
       // Act
-      const result = await controller.getUserProfile(username, undefined as any);
+      const result = await controller.getUserProfile(username, undefined as unknown as RequestUser);
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, undefined);

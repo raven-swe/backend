@@ -18,7 +18,7 @@ import { PeopleSearchFilter } from 'src/search/dtos';
 import { RankedUser } from './interfaces/ranked-user.interface';
 import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
-import { UserRelationshipDto } from './dtos/relationship-dto';
+import { UserRelationshipDto } from './dtos/relationship.dto';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { UserSearchCursor } from 'src/common/types/cursors';
 
