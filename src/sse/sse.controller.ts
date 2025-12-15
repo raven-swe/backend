@@ -15,7 +15,7 @@ interface SseEvent {
   data: unknown;
 }
 
-const ALLOWED_TOPICS = ['dm', 'notifications'];
+const ALLOWED_TOPICS = ['dm', 'notifications', 'timeline'];
 
 @Controller('stream')
 export class SseController {
