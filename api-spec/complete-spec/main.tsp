@@ -405,6 +405,7 @@ model UserMetadataWithLastSeen {
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
+
   relationship: UserRelationship;
 }
 
@@ -1397,6 +1398,17 @@ namespace Users {
   op getUserPreview(@path username: string):
     | DataResponse<UserPreview>
     | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get user metadata by id (used for retweeter caching in client)")
+  @get
+  @route("/id/{userId}")
+  op getUserMetadataById(@path userId: string):
+    | DataResponse<{
+        username: string;
+        displayName: string;
+      }>
     | NotFoundResponse
     | InternalServerErrorResponse;
 
