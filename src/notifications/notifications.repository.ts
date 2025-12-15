@@ -104,6 +104,7 @@ export class NotificationsRepository {
     id: bigint,
     options: NotificationTriggerOptions,
     payload: Prisma.JsonObject,
+    isAgg: boolean,
   ) {
     return await this.prisma.notification.update({
       where: { id },
@@ -112,6 +113,7 @@ export class NotificationsRepository {
         latestEventAt: new Date(),
         isAggregated: true,
         payload,
+        ...(isAgg ? {} : { seen: true }),
       },
       select: notificationSelect(options.receiverId),
     });

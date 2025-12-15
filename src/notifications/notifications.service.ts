@@ -111,6 +111,7 @@ export class NotificationsService {
         notification.id,
         options,
         payload,
+        true,
       );
     } else {
       const payload: Prisma.JsonObject = {
@@ -164,7 +165,11 @@ export class NotificationsService {
   async handleUndo(options: NotificationTriggerOptions) {
     const dedupeKey = this.generateDedupeKey(options);
     if (!dedupeKey) {
-      return await this.notificationsRepository.deleteExisting(options);
+      await this.notificationsRepository.deleteExisting(options);
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
+      return;
     }
 
     const undoingActorId = options.actorId.toString();
@@ -175,7 +180,11 @@ export class NotificationsService {
     );
 
     if (!notification) {
-      return await this.notificationsRepository.deleteExisting(options);
+      await this.notificationsRepository.deleteExisting(options);
+      const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
+
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
+      return;
     }
 
     const currentPayload = notification.payload as unknown as NotificationPayloadDto;
@@ -246,6 +255,7 @@ export class NotificationsService {
       notification.id,
       options,
       payload,
+      false,
     );
 
     const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
