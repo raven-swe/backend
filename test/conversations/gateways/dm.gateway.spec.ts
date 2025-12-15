@@ -4,6 +4,7 @@ import { DmGateway } from 'src/conversations/gateways/dm.gateway';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { MessagesService } from 'src/conversations/messages/messages.services';
 import { SseEventsService } from 'src/sse/sse-events.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 import { Server, Socket } from 'socket.io';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import {
@@ -17,6 +18,10 @@ describe('DmGateway', () => {
   let conversationsService: jest.Mocked<ConversationsService>;
   let messagesService: jest.Mocked<MessagesService>;
   let sseEvents: jest.Mocked<SseEventsService>;
+  const mockDomainEventsService = {
+    emitMessageCreated: jest.fn(),
+    emitReactionSent: jest.fn(),
+  };
 
   const mockUser: WsUser = {
     id: '6',
@@ -52,6 +57,7 @@ describe('DmGateway', () => {
             assertParticipant: jest.fn(),
             getConversationParticipants: jest.fn(),
             countUnseenConversations: jest.fn(),
+            getOtherParticipant: jest.fn(),
           },
         },
         {
@@ -69,6 +75,10 @@ describe('DmGateway', () => {
             publishNewMessagePreview: jest.fn(),
             publishNewMessagePreviewToMany: jest.fn(),
           },
+        },
+        {
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     })
@@ -347,6 +357,9 @@ describe('DmGateway', () => {
         },
       ]);
       conversationsService.countUnseenConversations.mockResolvedValue(0);
+      conversationsService.getOtherParticipant.mockResolvedValue({ userId: BigInt(7) });
+      sseEvents.publishUnseenCount.mockResolvedValue();
+      sseEvents.publishNewMessagePreview.mockResolvedValue();
     });
 
     it('should successfully send message and emit to room', async () => {
@@ -443,6 +456,22 @@ describe('DmGateway', () => {
       });
     });
 
+    it('should emit error when media is invalid', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+      messagesService.createMessage.mockResolvedValue({
+        error: 'INVALID_MEDIA',
+      });
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockSocket.emit).toHaveBeenCalledWith('error', {
+        type: 'error',
+        code: CONVERSATIONS_ERROR_CODES.INVALID_MEDIA,
+        message: CONVERSATIONS_ERROR_MESSAGES.INVALID_MEDIA,
+        clientMessageId: 'client-msg-123',
+      });
+    });
+
     it('should handle message with empty body', async () => {
       const emptyPayload = { ...payload, body: '' };
 
@@ -453,6 +482,32 @@ describe('DmGateway', () => {
 
       expect(messagesService.createMessage).toHaveBeenCalledWith('2', '6', '', undefined);
     });
+
+    it('should publish unseen count to other participant when message is sent', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+      conversationsService.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: { displayName: 'Layla', avatarUrl: 'https://example.com/avatar.jpg' },
+          },
+        },
+        {
+          user: {
+            id: BigInt(7),
+            username: 'tasneem',
+            profile: { displayName: 'Tasneem', avatarUrl: 'https://example.com/tasneem.jpg' },
+          },
+        },
+      ]);
+      messagesService.createMessage.mockResolvedValue({ message: mockMessage });
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(sseEvents.publishUnseenCount).toHaveBeenCalledWith(BigInt(7), 0);
+      expect(sseEvents.publishNewMessagePreview).toHaveBeenCalled();
+    });
   });
 
   describe('room management', () => {
@@ -460,6 +515,7 @@ describe('DmGateway', () => {
       mockSocket.data = { user: mockUser };
 
       conversationsService.assertParticipant.mockResolvedValue(true);
+      conversationsService.getOtherParticipant.mockResolvedValue({ userId: BigInt(7) });
       messagesService.createMessage.mockResolvedValue({
         message: {
           id: BigInt(1),
@@ -564,6 +620,61 @@ describe('DmGateway', () => {
 
       expect(mockSocket.to).not.toHaveBeenCalled();
     });
+
+    it('should emit typing_stop to previous conversation when switching rooms while typing', async () => {
+      mockSocket.data = {
+        user: mockUser,
+        currentConversationId: '1',
+        isTyping: true,
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockServer.to).toHaveBeenCalledWith('1');
+      expect(mockServer.emit).toHaveBeenCalledWith('user_typing_stop', {
+        conversationId: '1',
+        username: mockUser.username,
+      });
+      expect(mockSocket.leave).toHaveBeenCalledWith('1');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+    });
+
+    it('should not emit typing event if already typing in same conversation', async () => {
+      const emitMock = jest.fn();
+      const toMock = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+      mockSocket.to = toMock;
+      mockSocket.data = {
+        user: mockUser,
+        currentConversationId: '2',
+        isTyping: true,
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(emitMock).not.toHaveBeenCalled();
+    });
+
+    it('should join new conversation room when switching', async () => {
+      mockSocket.data = {
+        user: mockUser,
+        currentConversationId: '1',
+        isTyping: false,
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStart(mockSocket, payload);
+
+      expect(mockSocket.leave).toHaveBeenCalledWith('1');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+      expect(mockSocket.data).toHaveProperty('currentConversationId', '2');
+    });
   });
 
   describe('typing_stop', () => {
@@ -638,6 +749,23 @@ describe('DmGateway', () => {
       const eventData = callArgs?.[1] as Record<string, unknown>;
       expect(Object.keys(eventData || {})).toHaveLength(2);
     });
+
+    it('should join new conversation room when switching conversations', async () => {
+      mockSocket.data = {
+        user: mockUser,
+        currentConversationId: '1',
+        isTyping: true,
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      await gateway.typingStop(mockSocket, { conversationId: '2' });
+
+      expect(mockSocket.leave).toHaveBeenCalledWith('1');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+      expect(mockSocket.data).toHaveProperty('currentConversationId', '2');
+      expect(mockSocket.data).toHaveProperty('isTyping', false);
+    });
   });
 
   describe('reaction', () => {
@@ -687,6 +815,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -731,6 +867,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -776,6 +920,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -798,6 +950,14 @@ describe('DmGateway', () => {
         reactionDb: bothReactionsDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -828,6 +988,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(testSocket, payload);
@@ -835,6 +1003,27 @@ describe('DmGateway', () => {
       expect((socketData as { currentConversationId?: string }).currentConversationId).toBe(
         payload.conversationId,
       );
+    });
+
+    it('should join new conversation room when switching conversations', async () => {
+      mockSocket.data = {
+        user: mockUser,
+        currentConversationId: '1',
+      };
+
+      conversationsService.assertParticipant.mockResolvedValue(true);
+
+      messagesService.addReactionToMessage.mockResolvedValue({
+        reactionDb: mockReactionDb,
+        sender: mockSender,
+        receiver: mockReceiver,
+      } as never);
+
+      await gateway.reactToMessage(mockSocket, payload);
+
+      expect(mockSocket.leave).toHaveBeenCalledWith('1');
+      expect(mockSocket.join).toHaveBeenCalledWith('2');
+      expect(mockSocket.data).toHaveProperty('currentConversationId', '2');
     });
   });
 });

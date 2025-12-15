@@ -1,8 +1,16 @@
+import { MediaType } from '@prisma/client';
+
 export const DOMAIN_EVENT_NAMES = {
   User_Followed: 'user.followed',
   Tweet_Liked: 'tweet.liked',
   Tweet_Retweeted: 'tweet.retweeted',
   Tweet_Created: 'tweet.created',
+  User_Unfollowed: 'user.unfollowed',
+  Tweet_Unliked: 'tweet.unliked',
+  Tweet_Unretweeted: 'tweet.unretweeted',
+  Message_Created: 'message.created',
+  Reaction_Created: 'reaction.created',
+  Tweet_Deleted: 'tweet.deleted',
 } as const;
 
 interface UserEvent {
@@ -16,9 +24,28 @@ interface TweetEvent {
   tweetId: bigint;
 }
 
+interface MessageEvent {
+  actorId: bigint;
+  receiverId: bigint;
+  conversationId: bigint;
+  messagePreview: string;
+  hasMedia: boolean;
+  mediaType: MediaType | null;
+}
+
+interface ReactionEvent {
+  actorId: bigint;
+  receiverId: bigint;
+  conversationId: bigint;
+  messagePreview: string;
+  reaction: string | null;
+}
+
 export type UserFollowedEvent = UserEvent;
 export type TweetLikedEvent = TweetEvent;
 export type TweetRetweetedEvent = TweetEvent;
+export type MessageCreatedEvent = MessageEvent;
+export type ReactionSentEvent = ReactionEvent;
 
 export type TweetCreatedEvent = {
   tweetId: bigint;
@@ -28,3 +55,11 @@ export type TweetCreatedEvent = {
   quoteToTweetId?: bigint | null;
   mentionedUserIds: bigint[];
 };
+
+export type TweetDeleted = {
+  receivers: { receiverId: bigint; unseenCount: number }[];
+};
+
+export type UserUnfollowedEvent = UserEvent;
+export type TweetUnlikedEvent = TweetEvent;
+export type TweetUnretweetedEvent = TweetEvent;

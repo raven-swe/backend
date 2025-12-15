@@ -405,6 +405,7 @@ model UserMetadataWithLastSeen {
 @doc("Author metadata for tweets with relationship status")
 model TweetAuthor {
   ...UserMetadata;
+
   relationship: UserRelationship;
 }
 
@@ -776,9 +777,6 @@ model NotificationTweetSummary {
 
   @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
   totalCount: int32;
-
-  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
-  subjectIds: string[];
 }
 
 @doc("Represents a single notification item for a user.")
@@ -1397,6 +1395,17 @@ namespace Users {
   op getUserPreview(@path username: string):
     | DataResponse<UserPreview>
     | UnauthorizedResponse
+    | NotFoundResponse
+    | InternalServerErrorResponse;
+
+  @summary("Get user metadata by id (used for retweeter caching in client)")
+  @get
+  @route("/id/{userId}")
+  op getUserMetadataById(@path userId: string):
+    | DataResponse<{
+        username: string;
+        displayName: string;
+      }>
     | NotFoundResponse
     | InternalServerErrorResponse;
 

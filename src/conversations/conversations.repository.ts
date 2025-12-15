@@ -237,6 +237,18 @@ export class ConversationsRepository {
     });
   }
 
+  async getOtherParticipant(conversationId: bigint, currentUserId: bigint) {
+    return this.prisma.conversationParticipant.findFirst({
+      where: {
+        conversationId,
+        userId: { not: currentUserId },
+      },
+      select: {
+        userId: true,
+      },
+    });
+  }
+
   async countUnseenConversations(userId: bigint) {
     const conversations = await this.prisma.conversationParticipant.findMany({
       where: {

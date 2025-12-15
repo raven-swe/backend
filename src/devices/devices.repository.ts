@@ -71,7 +71,11 @@ export class DevicesRepository {
 
   async getUserDevices(userId: bigint) {
     return await this.prisma.userDevice.findMany({
-      where: { userId: userId, fcmToken: { not: null }, pushEnabled: true },
+      where: {
+        userId: userId,
+        fcmToken: { not: null },
+        pushEnabled: true,
+      },
     });
   }
 

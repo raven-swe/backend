@@ -30,11 +30,12 @@ import { PlainMention } from 'src/tweets/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { UserSearchCursor } from 'src/common/types/cursors';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
-import { UserRelationshipDto } from './dtos/relationship-dto';
+import { UserRelationshipDto } from './dtos/relationship.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { BackfillFollowJob } from 'src/tweets/timeline/interfaces';
 import { DomainEventsService } from 'src/events/domain-events.service';
+import { buildTsQuery } from './utils/user-search-query.util';
 
 @Injectable()
 export class UsersService {
@@ -493,6 +494,11 @@ export class UsersService {
     }
 
     await this.usersRepository.unfollowUser(followerId, followedId);
+
+    await this.domainEvents.emitUserUnfollowed({
+      actorId: followerId,
+      receiverId: followedId,
+    });
 
     this.logger.log(`User ID: ${followerId} unfollowed User ID: ${followedId}`);
     return { message: 'User unfollowed successfully.' };
@@ -1052,9 +1058,12 @@ export class UsersService {
     excludeMutedAndBlocked: boolean = false,
     peopleFilter?: PeopleSearchFilter,
   ) {
+    const { tsQuery, firstWord } = buildTsQuery(query);
+
     return this.usersRepository.searchUsers(
       currentUserId,
-      query,
+      tsQuery,
+      firstWord,
       limit,
       decodedCursor,
       excludeMutedAndBlocked,
@@ -1118,5 +1127,19 @@ export class UsersService {
 
   async invalidateUserCache(userId: bigint) {
     await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
+  }
+
+  async getUserById(userId: bigint) {
+    const user = await this.usersRepository.findUsernameAndDisplayNameById(userId);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return user;
   }
 }

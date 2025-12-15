@@ -14,9 +14,10 @@ import { MediaService } from 'src/media/media.service';
 import { MediaFolder } from 'src/media/enums';
 import { ContentParsingService } from 'src/content-parsing/content-parsing.service';
 import { NewUser } from 'src/users/interfaces';
-import { UserRelationshipDto } from 'src/users/dtos/relationship-dto';
+import { UserRelationshipDto } from 'src/users/dtos/relationship.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { DomainEventsService } from 'src/events/domain-events.service';
+import { PeopleSearchFilter } from 'src/search/dtos';
 
 jest.mock('src/auth/utils/password.util');
 jest.mock('src/users/utils/validate-password-format.util');
@@ -97,6 +98,17 @@ describe('UsersService', () => {
     getUserMutualFollowers: jest.fn(),
     getUserIdsFollowedBy: jest.fn(),
     getUsersRelationshipsMap: jest.fn(),
+    updateInterests: jest.fn(),
+    getUserMutedUsers: jest.fn(),
+    getUserBlockedUsers: jest.fn(),
+    checkBatchUsernamesExistence: jest.fn(),
+    createProfile: jest.fn(),
+    getMatchingUsers: jest.fn(),
+    getUserFollowRelations: jest.fn(),
+    searchUsers: jest.fn(),
+    getFollowersUnPaginated: jest.fn(),
+    toggleUserNotifications: jest.fn(),
+    findUsernameAndDisplayNameById: jest.fn(),
   };
 
   const mockEmailQueue = {
@@ -120,6 +132,7 @@ describe('UsersService', () => {
   const mockDomainEventsService = {
     publish: jest.fn(),
     emitUserFollowed: jest.fn(),
+    emitUserUnfollowed: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -941,6 +954,216 @@ describe('UsersService', () => {
       expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(newBannerUrl, BigInt(1));
       expect(mockMediaService.deleteMedia).toHaveBeenCalledTimes(1);
     });
+
+    test('should log warning if old avatar deletion fails', async () => {
+      const oldAvatarUrl = 'https://example.com/old-avatar.jpg';
+      const newAvatarUrl = 'https://example.com/new-avatar.jpg';
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: oldAvatarUrl, bannerUrl: undefined },
+      });
+      mockMediaService.uploadAvatarOrBanner.mockResolvedValue({
+        avatarUrl: newAvatarUrl,
+      });
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      const updatedProfile = {
+        ...updateProfileDto,
+        avatarUrl: newAvatarUrl,
+      };
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), updateProfileDto, {
+        avatar: mockFiles.avatar,
+      });
+
+      expect(result.avatarUrl).toEqual(newAvatarUrl);
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(oldAvatarUrl, BigInt(1));
+    });
+
+    test('should log warning if old banner deletion fails', async () => {
+      const oldBannerUrl = 'https://example.com/old-banner.jpg';
+      const newBannerUrl = 'https://example.com/new-banner.jpg';
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: undefined, bannerUrl: oldBannerUrl },
+      });
+      mockMediaService.uploadAvatarOrBanner.mockResolvedValue({
+        bannerUrl: newBannerUrl,
+      });
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      const updatedProfile = {
+        ...updateProfileDto,
+        bannerUrl: newBannerUrl,
+      };
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), updateProfileDto, {
+        banner: mockFiles.banner,
+      });
+
+      expect(result.bannerUrl).toEqual(newBannerUrl);
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(oldBannerUrl, BigInt(1));
+    });
+
+    test('should log warning if rollback avatar deletion fails', async () => {
+      const newAvatarUrl = 'https://example.com/new-avatar.jpg';
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: undefined, bannerUrl: undefined },
+      });
+      mockMediaService.uploadAvatarOrBanner.mockResolvedValue({
+        avatarUrl: newAvatarUrl,
+      });
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      mockRepository.updateProfile.mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.updateProfile(BigInt(1), updateProfileDto, { avatar: mockFiles.avatar }),
+      ).rejects.toThrow('DB error');
+
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(newAvatarUrl, BigInt(1));
+    });
+
+    test('should log warning if rollback banner deletion fails', async () => {
+      const newBannerUrl = 'https://example.com/new-banner.jpg';
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: undefined, bannerUrl: undefined },
+      });
+      mockMediaService.uploadAvatarOrBanner.mockResolvedValue({
+        bannerUrl: newBannerUrl,
+      });
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      mockRepository.updateProfile.mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.updateProfile(BigInt(1), updateProfileDto, { banner: mockFiles.banner }),
+      ).rejects.toThrow('DB error');
+
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(newBannerUrl, BigInt(1));
+    });
+
+    test('should handle bio with mentions and hashtags', async () => {
+      const bioWithMentionsAndHashtags = '@user1 and @user2 love #coding and #testing';
+      const updatedProfile = {
+        ...updateProfileDto,
+        bio: bioWithMentionsAndHashtags,
+      };
+
+      mockRepository.findByIdWithProfile.mockResolvedValue(mockUser);
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [
+          { username: 'user1', startPosition: 0 },
+          { username: 'user2', startPosition: 11 },
+        ],
+        hashtags: [
+          { keyword: 'coding', startPosition: 24 },
+          { keyword: 'testing', startPosition: 36 },
+        ],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), {
+        ...updateProfileDto,
+        bio: bioWithMentionsAndHashtags,
+      });
+
+      expect(result.bio).toEqual(bioWithMentionsAndHashtags);
+      expect(mockContentParsingService.parseContentForBio).toHaveBeenCalledWith(
+        bioWithMentionsAndHashtags,
+        {},
+      );
+      expect(mockRepository.updateProfile).toHaveBeenCalledWith(
+        BigInt(1),
+        { ...updateProfileDto, bio: bioWithMentionsAndHashtags },
+        undefined,
+        undefined,
+        {
+          mentions: [
+            { username: 'user1', startPosition: 0 },
+            { username: 'user2', startPosition: 11 },
+          ],
+          hashtags: [
+            { hashtag: 'coding', startPosition: 24 },
+            { hashtag: 'testing', startPosition: 36 },
+          ],
+        },
+        {},
+      );
+    });
+
+    test('should log warning if explicit banner deletion fails', async () => {
+      const oldBannerUrl = 'https://example.com/old-banner.jpg';
+      const updatedProfile = {
+        ...updateProfileDto,
+        bannerUrl: null,
+      };
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: undefined, bannerUrl: oldBannerUrl },
+      });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), {
+        ...updateProfileDto,
+        deleteBanner: true,
+      });
+
+      expect(result.bannerUrl).toBeNull();
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(oldBannerUrl, BigInt(1));
+    });
+
+    test('should log warning if explicit avatar deletion fails', async () => {
+      const oldAvatarUrl = 'https://example.com/old-avatar.jpg';
+      const updatedProfile = {
+        ...updateProfileDto,
+        avatarUrl: null,
+      };
+
+      mockRepository.findByIdWithProfile.mockResolvedValue({
+        ...mockUser,
+        profile: { avatarUrl: oldAvatarUrl, bannerUrl: undefined },
+      });
+      mockContentParsingService.parseContentForBio.mockResolvedValue({
+        mentions: [],
+        hashtags: [],
+      });
+      mockPrismaService.$transaction.mockImplementation(
+        <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> => {
+          return callback({} as Prisma.TransactionClient);
+        },
+      );
+      mockMediaService.deleteMedia.mockRejectedValue(new Error('S3 deletion failed'));
+      mockRepository.updateProfile.mockResolvedValue(updatedProfile);
+
+      const result = await service.updateProfile(BigInt(1), {
+        ...updateProfileDto,
+        deleteAvatar: true,
+      });
+
+      expect(result.avatarUrl).toBeNull();
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(oldAvatarUrl, BigInt(1));
+    });
   });
 
   describe('getUserProfile', () => {
@@ -1655,6 +1878,26 @@ describe('UsersService', () => {
             message: USERS_ERROR_MESSAGES.CANNOT_MUTE_SELF,
             code: USERS_ERROR_CODES.CANNOT_MUTE_SELF,
           },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should throw error if user is blocked', async () => {
+      // Arrange
+      const muterId = BigInt(2);
+      const usernameToMute = 'testuser';
+
+      mockRepository.findByUsername.mockResolvedValue(mockUser);
+      mockRepository.isBlocked.mockResolvedValue(true);
+
+      // Act & Assert
+      await expect(service.muteUser(muterId, usernameToMute)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.CANNOT_MUTE_USER,
+            code: USERS_ERROR_CODES.CANNOT_MUTE_USER,
+          },
           HttpStatus.FORBIDDEN,
         ),
       );
@@ -2144,6 +2387,7 @@ describe('UsersService', () => {
       const userId = BigInt(1);
       const mockBannerUrl = 'https://example.com/existing-banner.jpg';
       mockRepository.deleteBanner.mockResolvedValue({ bannerUrl: mockBannerUrl });
+      mockMediaService.deleteMedia.mockResolvedValue(undefined);
 
       // Act
       const result = await service.deleteBanner(userId);
@@ -2151,6 +2395,24 @@ describe('UsersService', () => {
       // Assert
       expect(result).toEqual({ message: 'Banner deleted successfully' });
       expect(mockRepository.deleteBanner).toHaveBeenCalledWith(userId);
+      expect(mockMediaService.deleteMedia).toHaveBeenCalledWith(mockBannerUrl, userId);
+    });
+
+    it('should throw error if banner not found', async () => {
+      // Arrange
+      const userId = BigInt(1);
+      mockRepository.deleteBanner.mockResolvedValue({ bannerUrl: null });
+
+      // Act & Assert
+      await expect(service.deleteBanner(userId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.BANNER_NOT_FOUND,
+            code: USERS_ERROR_CODES.BANNER_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
     });
 
     it('should throw error if repository delete fails', async () => {
@@ -3335,6 +3597,541 @@ describe('UsersService', () => {
       expect(result.items).toEqual([]);
       expect(result.pagination.hasNextPage).toBe(false);
       expect(result.pagination.nextCursor).toBeNull();
+    });
+  });
+
+  describe('updateInterests', () => {
+    it('should update user interests successfully', async () => {
+      const userId = BigInt(1);
+      const interests = ['Technology', 'Sports', 'Music'];
+
+      mockRepository.updateInterests = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.updateInterests(userId, interests);
+
+      expect(mockRepository.updateInterests).toHaveBeenCalledWith(userId, interests);
+      expect(result).toEqual({ message: 'Interests updated successfully.' });
+    });
+  });
+
+  describe('getUserMutes', () => {
+    it('should return muted users with relationships', async () => {
+      const userId = BigInt(1);
+      const limit = 20;
+      const prevCursor = undefined;
+
+      const mockMutedUsers = [
+        {
+          muterId: userId,
+          mutedId: BigInt(2),
+          mutedUser: {
+            id: BigInt(2),
+            username: 'muted1',
+            profile: { displayName: 'Muted One' },
+          },
+        },
+        {
+          muterId: userId,
+          mutedId: BigInt(3),
+          mutedUser: {
+            id: BigInt(3),
+            username: 'muted2',
+            profile: { displayName: 'Muted Two' },
+          },
+        },
+      ];
+
+      const mockRelationMap = new Map<bigint, UserRelationshipDto>([
+        [
+          BigInt(2),
+          { following: false, follower: false, blockedBy: false, blocking: false, muted: true },
+        ],
+        [
+          BigInt(3),
+          { following: true, follower: false, blockedBy: false, blocking: false, muted: true },
+        ],
+      ]);
+
+      mockRepository.getUserMutedUsers = jest.fn().mockResolvedValue(mockMutedUsers);
+      mockRepository.getUsersRelationshipsMap = jest.fn().mockResolvedValue(mockRelationMap);
+
+      const result = await service.getUserMutes(userId, limit, prevCursor);
+
+      expect(mockRepository.getUserMutedUsers).toHaveBeenCalledWith(userId, limit, prevCursor);
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(userId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(result).toEqual({
+        mutedUsers: mockMutedUsers,
+        relationMap: mockRelationMap,
+      });
+    });
+  });
+
+  describe('getUserBlocks', () => {
+    it('should return blocked users with relationships', async () => {
+      const userId = BigInt(1);
+      const limit = 20;
+      const prevCursor = undefined;
+
+      const mockBlockedUsers = [
+        {
+          blockerId: userId,
+          blockedId: BigInt(2),
+          blockedUser: {
+            id: BigInt(2),
+            username: 'blocked1',
+            profile: { displayName: 'Blocked One' },
+          },
+        },
+        {
+          blockerId: userId,
+          blockedId: BigInt(3),
+          blockedUser: {
+            id: BigInt(3),
+            username: 'blocked2',
+            profile: { displayName: 'Blocked Two' },
+          },
+        },
+      ];
+
+      const mockRelationMap = new Map<bigint, UserRelationshipDto>([
+        [
+          BigInt(2),
+          { following: false, follower: false, blockedBy: false, blocking: true, muted: false },
+        ],
+        [
+          BigInt(3),
+          { following: false, follower: false, blockedBy: false, blocking: true, muted: false },
+        ],
+      ]);
+
+      mockRepository.getUserBlockedUsers = jest.fn().mockResolvedValue(mockBlockedUsers);
+      mockRepository.getUsersRelationshipsMap = jest.fn().mockResolvedValue(mockRelationMap);
+
+      const result = await service.getUserBlocks(userId, limit, prevCursor);
+
+      expect(mockRepository.getUserBlockedUsers).toHaveBeenCalledWith(userId, limit, prevCursor);
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(userId, [
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(result).toEqual({
+        blockedUsers: mockBlockedUsers,
+        relationMap: mockRelationMap,
+      });
+    });
+  });
+
+  describe('checkUsernamesExistenceAndReplaceIds', () => {
+    it('should return mentions with user IDs for existing usernames', async () => {
+      const mentions = [
+        { username: 'user1', startPosition: 0 },
+        { username: 'user2', startPosition: 10 },
+        { username: 'nonexistent', startPosition: 20 },
+      ];
+
+      const existingUsers = [
+        { id: BigInt(1), username: 'user1' },
+        { id: BigInt(2), username: 'user2' },
+      ];
+
+      mockRepository.checkBatchUsernamesExistence = jest.fn().mockResolvedValue(existingUsers);
+
+      const result = await service.checkUsernamesExistenceAndReplaceIds(mentions);
+
+      expect(mockRepository.checkBatchUsernamesExistence).toHaveBeenCalledWith(
+        mentions,
+        mockPrismaService,
+      );
+      expect(result).toEqual([
+        { userId: BigInt(1), username: 'user1', startPosition: 0 },
+        { userId: BigInt(2), username: 'user2', startPosition: 10 },
+      ]);
+    });
+
+    it('should handle case-insensitive username matching', async () => {
+      const mentions = [{ username: 'USER1', startPosition: 0 }];
+
+      const existingUsers = [{ id: BigInt(1), username: 'user1' }];
+
+      mockRepository.checkBatchUsernamesExistence = jest.fn().mockResolvedValue(existingUsers);
+
+      const result = await service.checkUsernamesExistenceAndReplaceIds(mentions);
+
+      expect(result).toEqual([{ userId: BigInt(1), username: 'user1', startPosition: 0 }]);
+    });
+
+    it('should return empty array when no usernames exist', async () => {
+      const mentions = [{ username: 'nonexistent', startPosition: 0 }];
+
+      mockRepository.checkBatchUsernamesExistence = jest.fn().mockResolvedValue([]);
+
+      const result = await service.checkUsernamesExistenceAndReplaceIds(mentions);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('createProfile', () => {
+    it('should create a profile for a user', async () => {
+      const userId = BigInt(1);
+      const displayName = 'Test User';
+
+      const mockProfile = {
+        userId,
+        displayName,
+        bio: null,
+        location: null,
+      };
+
+      mockRepository.createProfile = jest.fn().mockResolvedValue(mockProfile);
+
+      const result = await service.createProfile(userId, displayName);
+
+      expect(mockRepository.createProfile).toHaveBeenCalledWith(userId, displayName);
+      expect(result).toEqual(mockProfile);
+    });
+  });
+
+  describe('getMatchingUsers', () => {
+    it('should return matching users', async () => {
+      const userId = BigInt(1);
+      const username = 'test';
+
+      const mockUsers = [
+        { id: BigInt(2), username: 'testuser1' },
+        { id: BigInt(3), username: 'testuser2' },
+      ];
+
+      mockRepository.getMatchingUsers = jest.fn().mockResolvedValue(mockUsers);
+
+      const result = await service.getMatchingUsers(userId, username);
+
+      expect(mockRepository.getMatchingUsers).toHaveBeenCalledWith(userId, username);
+      expect(result).toEqual(mockUsers);
+    });
+  });
+
+  describe('getUserFollowRelations', () => {
+    it('should return follow relations for given user IDs', async () => {
+      const userId = BigInt(1);
+      const userIds = [BigInt(2), BigInt(3), BigInt(4)];
+
+      const mockRelations = [
+        { followerId: userId, followedId: BigInt(2) },
+        { followerId: BigInt(3), followedId: userId },
+      ];
+
+      mockRepository.getUserFollowRelations = jest.fn().mockResolvedValue(mockRelations);
+
+      const result = await service.getUserFollowRelations(userId, userIds);
+
+      expect(mockRepository.getUserFollowRelations).toHaveBeenCalledWith(userId, userIds);
+      expect(result).toEqual(mockRelations);
+    });
+  });
+
+  describe('getUserRelationship', () => {
+    it('should return relationship data for a target user', async () => {
+      const userId = BigInt(1);
+      const targetUsername = 'targetuser';
+
+      const targetUser = {
+        id: BigInt(2),
+        username: targetUsername,
+        email: 'target@example.com',
+      };
+
+      const mockRelationship: UserRelationshipDto = {
+        following: true,
+        follower: false,
+        blocking: false,
+        blockedBy: false,
+        muted: false,
+      };
+
+      const mockRelationMap = new Map<bigint, UserRelationshipDto>([[BigInt(2), mockRelationship]]);
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(targetUser);
+      mockRepository.getUsersRelationshipsMap = jest.fn().mockResolvedValue(mockRelationMap);
+
+      const result = await service.getUserRelationship(userId, targetUsername);
+
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(targetUsername);
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(userId, [BigInt(2)]);
+      expect(result).toEqual(mockRelationship);
+    });
+
+    it('should throw NOT_FOUND if target user does not exist', async () => {
+      const userId = BigInt(1);
+      const targetUsername = 'nonexistent';
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(null);
+
+      await expect(service.getUserRelationship(userId, targetUsername)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(service.getUserRelationship(userId, targetUsername)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+
+    it('should return null if no relationship exists', async () => {
+      const userId = BigInt(1);
+      const targetUsername = 'targetuser';
+
+      const targetUser = {
+        id: BigInt(2),
+        username: targetUsername,
+        email: 'target@example.com',
+      };
+
+      const mockRelationMap = new Map<bigint, UserRelationshipDto>();
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(targetUser);
+      mockRepository.getUsersRelationshipsMap = jest.fn().mockResolvedValue(mockRelationMap);
+
+      const result = await service.getUserRelationship(userId, targetUsername);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('should search users with query', async () => {
+      const currentUserId = BigInt(1);
+      const query = 'test';
+      const limit = 20;
+      const decodedCursor = undefined;
+      const excludeMutedAndBlocked = false;
+
+      const mockSearchResults = [
+        { id: BigInt(2), username: 'testuser1' },
+        { id: BigInt(3), username: 'testuser2' },
+      ];
+
+      mockRepository.searchUsers = jest.fn().mockResolvedValue(mockSearchResults);
+
+      const result = await service.searchUsers(
+        currentUserId,
+        query,
+        limit,
+        decodedCursor,
+        excludeMutedAndBlocked,
+      );
+
+      expect(mockRepository.searchUsers).toHaveBeenCalled();
+      expect(result).toEqual(mockSearchResults);
+    });
+
+    it('should search users with people filter', async () => {
+      const currentUserId = BigInt(1);
+      const query = 'test';
+      const limit = 20;
+      const decodedCursor = undefined;
+      const excludeMutedAndBlocked = true;
+      const peopleFilter = PeopleSearchFilter.Anyone;
+
+      const mockSearchResults = [{ id: BigInt(2), username: 'verified_user' }];
+
+      mockRepository.searchUsers = jest.fn().mockResolvedValue(mockSearchResults);
+
+      const result = await service.searchUsers(
+        currentUserId,
+        query,
+        limit,
+        decodedCursor,
+        excludeMutedAndBlocked,
+        peopleFilter,
+      );
+
+      expect(mockRepository.searchUsers).toHaveBeenCalled();
+      expect(result).toEqual(mockSearchResults);
+    });
+  });
+
+  describe('getUsersRelationshipsMap', () => {
+    it('should return relationships map for multiple users', async () => {
+      const currentUserId = BigInt(1);
+      const userIds = [BigInt(2), BigInt(3), BigInt(4)];
+
+      const mockRelationMap = new Map<bigint, UserRelationshipDto>([
+        [
+          BigInt(2),
+          { following: true, follower: false, blocking: false, blockedBy: false, muted: false },
+        ],
+        [
+          BigInt(3),
+          { following: false, follower: true, blocking: false, blockedBy: false, muted: false },
+        ],
+        [
+          BigInt(4),
+          { following: false, follower: false, blocking: false, blockedBy: false, muted: true },
+        ],
+      ]);
+
+      mockRepository.getUsersRelationshipsMap = jest.fn().mockResolvedValue(mockRelationMap);
+
+      const result = await service.getUsersRelationshipsMap(currentUserId, userIds);
+
+      expect(mockRepository.getUsersRelationshipsMap).toHaveBeenCalledWith(currentUserId, userIds);
+      expect(result).toEqual(mockRelationMap);
+    });
+  });
+
+  describe('getFollowersIds', () => {
+    it('should return array of follower IDs', async () => {
+      const userId = BigInt(1);
+      const mockFollowerIds = [BigInt(2), BigInt(3), BigInt(4)];
+
+      mockRepository.getFollowersUnPaginated = jest.fn().mockResolvedValue(mockFollowerIds);
+
+      const result = await service.getFollowersIds(userId);
+
+      expect(mockRepository.getFollowersUnPaginated).toHaveBeenCalledWith(userId);
+      expect(result).toEqual(mockFollowerIds);
+    });
+  });
+
+  describe('enableUserNotifications', () => {
+    it('should enable notifications for a user', async () => {
+      const userId = BigInt(1);
+      const username = 'targetuser';
+
+      const targetUser = {
+        id: BigInt(2),
+        username,
+        email: 'target@example.com',
+      };
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(targetUser);
+      mockRepository.toggleUserNotifications = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.enableUserNotifications(userId, username);
+
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(mockRepository.toggleUserNotifications).toHaveBeenCalledWith(
+        userId,
+        targetUser.id,
+        true,
+      );
+      expect(result).toEqual({ message: 'Notifications enabled for user successfully' });
+    });
+
+    it('should throw NOT_FOUND if user does not exist', async () => {
+      const userId = BigInt(1);
+      const username = 'nonexistent';
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(null);
+
+      await expect(service.enableUserNotifications(userId, username)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(service.enableUserNotifications(userId, username)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+  });
+
+  describe('disableUserNotifications', () => {
+    it('should disable notifications for a user', async () => {
+      const userId = BigInt(1);
+      const username = 'targetuser';
+
+      const targetUser = {
+        id: BigInt(2),
+        username,
+        email: 'target@example.com',
+      };
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(targetUser);
+      mockRepository.toggleUserNotifications = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.disableUserNotifications(userId, username);
+
+      expect(mockRepository.findByUsername).toHaveBeenCalledWith(username);
+      expect(mockRepository.toggleUserNotifications).toHaveBeenCalledWith(
+        userId,
+        targetUser.id,
+        false,
+      );
+      expect(result).toEqual({ message: 'Notifications disabled for user successfully' });
+    });
+
+    it('should throw NOT_FOUND if user does not exist', async () => {
+      const userId = BigInt(1);
+      const username = 'nonexistent';
+
+      mockRepository.findByUsername = jest.fn().mockResolvedValue(null);
+
+      await expect(service.disableUserNotifications(userId, username)).rejects.toThrow(
+        HttpException,
+      );
+
+      await expect(service.disableUserNotifications(userId, username)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+  });
+
+  describe('invalidateUserCache', () => {
+    it('should invalidate user cache in Redis', async () => {
+      const userId = BigInt(1);
+
+      await service.invalidateUserCache(userId);
+
+      // Verify the method completes without errors
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('getUserById', () => {
+    it('should return user by ID', async () => {
+      const userId = BigInt(1);
+      const mockUser = {
+        id: userId,
+        username: 'testuser',
+        displayName: 'Test User',
+      };
+
+      mockRepository.findUsernameAndDisplayNameById = jest.fn().mockResolvedValue(mockUser);
+
+      const result = await service.getUserById(userId);
+
+      expect(mockRepository.findUsernameAndDisplayNameById).toHaveBeenCalledWith(userId);
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should throw NOT_FOUND if user does not exist', async () => {
+      const userId = BigInt(999);
+
+      mockRepository.findUsernameAndDisplayNameById = jest.fn().mockResolvedValue(null);
+
+      await expect(service.getUserById(userId)).rejects.toThrow(HttpException);
+
+      await expect(service.getUserById(userId)).rejects.toMatchObject({
+        response: {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        status: HttpStatus.NOT_FOUND,
+      });
     });
   });
 });

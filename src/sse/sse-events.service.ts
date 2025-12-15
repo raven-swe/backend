@@ -19,6 +19,7 @@ export interface NewMessagePayload {
 export const SSE_EVENTS = {
   DM_UNSEEN_COUNT: 'dm.unseen_conversations_count',
   DM_NEW_MESSAGE: 'dm.new_message',
+  TIMELINE_FOLLOWING: 'timeline.following',
 } as const;
 
 @Injectable()
@@ -83,6 +84,42 @@ export class SseEventsService {
     await this.publisher.publishToUser(userId.toString(), {
       event: 'notifications.count_update',
       data: { count },
+    });
+  }
+  async publishTimelineFollowingTweets(userId: bigint, authors: string[] | null): Promise<void> {
+    this.logger.debug(`Publishing timeline-following update to user ${userId}`);
+    await this.publisher.publishToUser(userId.toString(), {
+      event: SSE_EVENTS.TIMELINE_FOLLOWING,
+      data: { authors },
+    });
+  }
+
+  async publishNotificationDeleted(receiverId: bigint, updatedCount: number): Promise<void> {
+    this.logger.log(`Publishing notification deleted event to user ${receiverId}`);
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.delete',
+      data: {},
+    });
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.count_update',
+      data: { count: updatedCount },
+    });
+  }
+
+  async publishNotificationUpdate(
+    receiverId: bigint,
+    notifications: NotificationResponseDto,
+    updatedCount: number,
+  ): Promise<void> {
+    this.logger.log(`Publishing notification update event to user ${receiverId}`);
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.update',
+      data: notifications,
+    });
+
+    await this.publisher.publishToUser(receiverId.toString(), {
+      event: 'notifications.count_update',
+      data: { count: updatedCount },
     });
   }
 }

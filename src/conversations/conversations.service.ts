@@ -122,6 +122,10 @@ export class ConversationsService {
     return { items: itemsDto, pagination };
   }
 
+  async getOtherParticipant(conversationId: bigint, userId: bigint) {
+    return this.conversationsRepository.getOtherParticipant(conversationId, userId);
+  }
+
   async createOrFindConversation(userId: bigint, username: string) {
     const otherUser = await this.usersRepository.getUserByUsername(username);
 
@@ -132,6 +136,15 @@ export class ConversationsService {
           code: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
         },
         HttpStatus.NOT_FOUND,
+      );
+
+    if (otherUser.id === userId)
+      throw new HttpException(
+        {
+          message: CONVERSATIONS_ERROR_MESSAGES.CANNOT_CREATE_CONVERSATION_WITH_SELF,
+          code: CONVERSATIONS_ERROR_CODES.CANNOT_CREATE_CONVERSATION_WITH_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
       );
 
     let conversationData = await this.conversationsRepository.findConversation(
