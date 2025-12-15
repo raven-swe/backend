@@ -58,6 +58,9 @@ interface LikeData {
 }
 
 interface SeedData {
+  meta?: {
+    mode: string;
+  };
   users: UserData[];
   tweets: TweetData[];
   retweets?: RetweetData[];
@@ -114,108 +117,168 @@ async function main() {
   }
 
   const data: SeedData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+  const isTrendingMode = data.meta?.mode === 'trending';
 
-  console.log(' Cleaning database...');
-  // Clean in correct order to avoid foreign key violations
-  await prisma.tweet.updateMany({
-    data: { quotedTweetId: null, replyToTweetId: null, rootTweetId: null },
-  });
-  await prisma.conversation.updateMany({ data: { lastMessageId: null } });
-  await prisma.conversationParticipant.updateMany({ data: { lastSeenMessageId: null } });
+  if (isTrendingMode) {
+    console.log(' Trending mode detected: Skipping database clean/wipe. Appending new data...');
+  } else {
+    console.log(' Cleaning database...');
+    // Clean in correct order to avoid foreign key violations
+    await prisma.tweet.updateMany({
+      data: { quotedTweetId: null, replyToTweetId: null, rootTweetId: null },
+    });
+    await prisma.conversation.updateMany({ data: { lastMessageId: null } });
+    await prisma.conversationParticipant.updateMany({ data: { lastSeenMessageId: null } });
 
-  await prisma.notification.deleteMany();
-  await prisma.conversationParticipant.deleteMany();
-  await prisma.message.deleteMany();
-  await prisma.conversation.deleteMany();
-  await prisma.like.deleteMany();
-  await prisma.retweet.deleteMany();
-  await prisma.tweetMedia.deleteMany();
-  await prisma.media.deleteMany();
-  await prisma.tweetHashtag.deleteMany();
-  await prisma.trendingKeyword.deleteMany();
-  await prisma.hashtag.deleteMany();
-  await prisma.tweetMention.deleteMany();
-  await prisma.tweet.deleteMany();
-  await prisma.mute.deleteMany();
-  await prisma.block.deleteMany();
-  await prisma.follow.deleteMany();
-  await prisma.refreshToken.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.userDevice.deleteMany();
-  await prisma.userExternalAccount.deleteMany();
-  await prisma.profile.deleteMany();
-  await prisma.user.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.conversationParticipant.deleteMany();
+    await prisma.message.deleteMany();
+    await prisma.conversation.deleteMany();
+    await prisma.like.deleteMany();
+    await prisma.retweet.deleteMany();
+    await prisma.tweetMedia.deleteMany();
+    await prisma.media.deleteMany();
+    await prisma.tweetHashtag.deleteMany();
+    await prisma.trendingKeyword.deleteMany();
+    await prisma.hashtag.deleteMany();
+    await prisma.tweetMention.deleteMany();
+    await prisma.tweet.deleteMany();
+    await prisma.mute.deleteMany();
+    await prisma.block.deleteMany();
+    await prisma.follow.deleteMany();
+    await prisma.refreshToken.deleteMany();
+    await prisma.session.deleteMany();
+    await prisma.userDevice.deleteMany();
+    await prisma.userExternalAccount.deleteMany();
+    await prisma.profile.deleteMany();
+    await prisma.user.deleteMany();
+  }
 
   console.log(` Creating ${data.users.length} users...`);
-  const createdUsers = [];
 
-  for (let i = 0; i < data.users.length; i++) {
-    const userData = data.users[i];
+  // Bulk insert users
+  await prisma.user.createMany({
+    data: data.users.map((userData) => ({
+      username: userData.username,
+      email: userData.email,
+      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii', // password: "password123"
+      birthdate: new Date(userData.birthdate),
+      interests: userData.interests || [],
+    })),
+    skipDuplicates: true,
+  });
 
-    try {
-      const user = await prisma.user.create({
-        data: {
-          username: userData.username,
-          email: userData.email,
-          passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii', // password: "password123"
-          birthdate: new Date(userData.birthdate),
-          interests: userData.interests || [],
-          profile: {
-            create: {
-              displayName: userData.displayName,
-              bio: userData.bio || null,
-              location: userData.location || null,
-              avatarUrl: userData.avatarUrl || null,
-            },
-          },
-        },
-      });
+  // Fetch created users to get their IDs
+  const createdUsers = await prisma.user.findMany({
+    where: {
+      username: { in: data.users.map((u) => u.username) },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 
-      createdUsers.push(user);
+  // Create a map for quick lookup
+  const usernameToUser = new Map(createdUsers.map((u) => [u.username, u]));
 
-      if ((i + 1) % 100 === 0) {
-        console.log(`  Created ${i + 1}/${data.users.length} users`);
-      }
-    } catch (error) {
-      console.error(`   Failed to create user ${userData.username}:`, error.message);
-    }
-  }
+  // Bulk insert profiles
+  await prisma.profile.createMany({
+    data: data.users
+      .map((userData) => {
+        const user = usernameToUser.get(userData.username);
+        if (!user) return null;
+        return {
+          userId: user.id,
+          displayName: userData.displayName,
+          bio: userData.bio || null,
+          location: userData.location || null,
+          avatarUrl: userData.avatarUrl || null,
+        };
+      })
+      .filter((profile) => profile !== null),
+    skipDuplicates: true,
+  });
 
   console.log(`Created ${createdUsers.length} users`);
 
   console.log(`\nCreating ${data.tweets.length} tweets...`);
-  let successCount = 0;
 
   // Create a map for username lookups
   const usernameToId = new Map(createdUsers.map((u) => [u.username.toLowerCase(), u.id]));
 
-  // Store created tweets for quotes and replies
-  const createdTweets: any[] = [];
+  // Collect all unique hashtags and create them in bulk
+  const allHashtagsSet = new Set<string>();
+  data.tweets.forEach((tweetData) => {
+    const hashtagsInContent = parseHashtags(tweetData.content);
+    const allHashtags = [...new Set([...(tweetData.hashtags || []), ...hashtagsInContent])];
+    allHashtags.forEach((tag) => allHashtagsSet.add(tag.toLowerCase()));
+  });
 
-  for (let i = 0; i < data.tweets.length; i++) {
-    const tweetData = data.tweets[i];
+  if (allHashtagsSet.size > 0) {
+    await prisma.hashtag.createMany({
+      data: Array.from(allHashtagsSet).map((keyword) => ({ keyword })),
+      skipDuplicates: true,
+    });
+    console.log(`Created ${allHashtagsSet.size} unique hashtags`);
+  }
 
-    try {
+  // Fetch all hashtags for lookup
+  const allHashtags = await prisma.hashtag.findMany();
+  const hashtagMap = new Map(allHashtags.map((h) => [h.keyword, h.id]));
+  console.log(`Fetched ${allHashtags.length} hashtags for mapping`);
+
+  // Prepare all media records for bulk insertion
+  const allMediaData: any[] = [];
+  data.tweets.forEach((tweetData, tweetIndex) => {
+    if (tweetData.media && tweetData.media.length > 0) {
       const user = createdUsers[tweetData.userIndex];
-
-      if (!user) {
-        console.error(`   ❌ Tweet ${i}: Invalid userIndex ${tweetData.userIndex}`);
-        createdTweets.push(null);
-        continue;
+      if (user) {
+        tweetData.media.forEach((mediaData, mediaIndex) => {
+          allMediaData.push({
+            userId: user.id,
+            type: mediaData.type,
+            url: mediaData.url,
+            width: mediaData.width || null,
+            height: mediaData.height || null,
+            altText: mediaData.altText || null,
+            pending: false,
+            _tweetIndex: tweetIndex,
+            _mediaOrder: mediaIndex,
+          });
+        });
       }
+    }
+  });
 
-      // Parse hashtags from content
+  // Bulk insert media
+  if (allMediaData.length > 0) {
+    await prisma.media.createMany({
+      data: allMediaData.map(({ _tweetIndex, _mediaOrder, ...data }) => data),
+      skipDuplicates: true,
+    });
+  }
+
+  // Fetch created media
+  const createdMedia = await prisma.media.findMany({
+    where: {
+      userId: { in: createdUsers.map((u) => u.id) },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // Create a map of media by URL for lookup
+  const mediaByUrl = new Map(createdMedia.map((m) => [m.url, m]));
+
+  // First pass: Create all tweets without relationships (quotes/replies)
+  const tweetDataToCreate = data.tweets
+    .map((tweetData, index) => {
+      const user = createdUsers[tweetData.userIndex];
+      if (!user) return null;
+
       const hashtagsInContent = parseHashtags(tweetData.content);
-      const allHashtags = [...new Set([...(tweetData.hashtags || []), ...hashtagsInContent])];
-
-      // Parse mentions from content
+      const allHashtags = [...new Set([...(tweetData.hashtags || []), ...hashtagsInContent])].map(
+        (tag) => tag.toLowerCase(),
+      );
       const mentionsInContent = parseMentions(tweetData.content);
       const allMentions = [...new Set([...(tweetData.mentions || []), ...mentionsInContent])];
-
-      // Get or create hashtags
-      const hashtagRecords = await Promise.all(allHashtags.map((tag) => getOrCreateHashtag(tag)));
-
-      // Find mentioned user IDs
       const mentionedUserIds = allMentions
         .map((username) => usernameToId.get(username.toLowerCase()))
         .filter((id) => id !== undefined);
@@ -224,189 +287,284 @@ async function main() {
         ? new Date(tweetData.createdAt)
         : calculateCreatedAt(tweetData.daysAgo, tweetData.hoursAgo, tweetData.minutesAgo);
 
-      // Handle quoted tweet reference
-      let quotedTweetId = null;
-      if (tweetData.quotedTweetIndex !== undefined && createdTweets[tweetData.quotedTweetIndex]) {
-        quotedTweetId = createdTweets[tweetData.quotedTweetIndex].id;
-      }
+      const hasMedia = tweetData.media && tweetData.media.length > 0;
 
-      // Handle reply reference
-      let replyToTweetId = null;
-      let rootTweetId = null;
-      if (tweetData.replyToTweetIndex !== undefined && createdTweets[tweetData.replyToTweetIndex]) {
-        const replyToTweet = createdTweets[tweetData.replyToTweetIndex];
-        replyToTweetId = replyToTweet.id;
-        rootTweetId = replyToTweet.rootTweetId || replyToTweet.id;
-      }
+      return {
+        userId: user.id,
+        content: tweetData.content,
+        class: null,
+        hasHashtags: allHashtags.length > 0,
+        hasMentions: mentionedUserIds.length > 0,
+        hasMedia,
+        createdAt,
+        _originalIndex: index,
+        _hashtags: allHashtags,
+        _mentions: allMentions,
+        _mentionedUserIds: mentionedUserIds,
+        _mediaUrls: tweetData.media?.map((m) => m.url) || [],
+      };
+    })
+    .filter((t) => t !== null);
 
-      // Create media records if present
-      const mediaRecords = [];
-      if (tweetData.media && tweetData.media.length > 0) {
-        for (const mediaData of tweetData.media) {
-          const media = await prisma.media.create({
-            data: {
-              userId: user.id,
-              type: mediaData.type,
-              url: mediaData.url,
-              width: mediaData.width || null,
-              height: mediaData.height || null,
-              altText: mediaData.altText || null,
-              pending: false,
-            },
-          });
-          mediaRecords.push(media);
+  // Bulk insert tweets
+  await prisma.tweet.createMany({
+    data: tweetDataToCreate.map(
+      ({ _originalIndex, _hashtags, _mentions, _mentionedUserIds, _mediaUrls, ...data }) => data,
+    ),
+  });
+
+  // Fetch created tweets
+  const createdTweets = await prisma.tweet.findMany({
+    where: {
+      userId: { in: createdUsers.map((u) => u.id) },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // Create a mapping from tweet data to created tweets using content + userId as key
+  const tweetMap = new Map<string, any>();
+  createdTweets.forEach((tweet) => {
+    const key = `${tweet.userId}-${tweet.content}-${tweet.createdAt.getTime()}`;
+    tweetMap.set(key, tweet);
+  });
+
+  // Map tweetDataToCreate to actual created tweets
+  const tweetDataWithIds = tweetDataToCreate.map((tweetData) => {
+    const key = `${tweetData.userId}-${tweetData.content}-${tweetData.createdAt.getTime()}`;
+    const tweet = tweetMap.get(key);
+    return {
+      ...tweetData,
+      _tweetId: tweet?.id,
+      _tweet: tweet,
+    };
+  });
+
+  console.log(`Created ${createdTweets.length} tweets`);
+
+  // Second pass: Update tweets with quote/reply relationships
+  const tweetsToUpdate: any[] = [];
+  data.tweets.forEach((tweetData, index) => {
+    if (tweetData.quotedTweetIndex !== undefined || tweetData.replyToTweetIndex !== undefined) {
+      const tweetWithId = tweetDataWithIds[index];
+      if (tweetWithId && tweetWithId._tweetId) {
+        const updateData: any = {};
+
+        if (tweetData.quotedTweetIndex !== undefined) {
+          const quotedTweetWithId = tweetDataWithIds[tweetData.quotedTweetIndex];
+          if (quotedTweetWithId && quotedTweetWithId._tweetId) {
+            updateData.quotedTweetId = quotedTweetWithId._tweetId;
+          }
+        }
+
+        if (tweetData.replyToTweetIndex !== undefined) {
+          const replyToTweetWithId = tweetDataWithIds[tweetData.replyToTweetIndex];
+          if (replyToTweetWithId && replyToTweetWithId._tweet) {
+            updateData.replyToTweetId = replyToTweetWithId._tweetId;
+            updateData.rootTweetId =
+              replyToTweetWithId._tweet.rootTweetId || replyToTweetWithId._tweetId;
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          tweetsToUpdate.push({ id: tweetWithId._tweetId, ...updateData });
         }
       }
-
-      const tweet = await prisma.tweet.create({
-        data: {
-          userId: user.id,
-          content: tweetData.content,
-          class: tweetData.category,
-          hasHashtags: hashtagRecords.length > 0,
-          hasMentions: mentionedUserIds.length > 0,
-          hasMedia: mediaRecords.length > 0,
-          quotedTweetId,
-          replyToTweetId,
-          rootTweetId,
-          createdAt,
-          tweetHashtags: {
-            create: hashtagRecords.map((hashtag, idx) => {
-              const hashtagText = `#${allHashtags[idx]}`;
-              const startPosition = tweetData.content.indexOf(hashtagText);
-              return {
-                hashtagId: hashtag.id,
-                startPosition: startPosition >= 0 ? startPosition : 0,
-              };
-            }),
-          },
-          tweetMentions: {
-            create: mentionedUserIds.map((userId, idx) => {
-              const mentionText = `@${allMentions[idx]}`;
-              const startPosition = tweetData.content.indexOf(mentionText);
-              return {
-                userId,
-                startPosition: startPosition >= 0 ? startPosition : 0,
-              };
-            }),
-          },
-          tweetMedia: {
-            create: mediaRecords.map((media, idx) => ({
-              mediaId: media.id,
-              order: idx,
-            })),
-          },
-        },
-      });
-
-      createdTweets.push(tweet);
-      successCount++;
-
-      if ((i + 1) % 500 === 0) {
-        console.log(`  Created ${i + 1}/${data.tweets.length} tweets`);
-      }
-    } catch (error) {
-      console.error(`   ❌ Failed to create tweet ${i}:`, error.message);
-      createdTweets.push(null);
     }
+  });
+
+  // Update tweets with relationships using transaction
+  if (tweetsToUpdate.length > 0) {
+    await prisma.$transaction(
+      tweetsToUpdate.map((update) => {
+        const { id, ...data } = update;
+        return prisma.tweet.update({
+          where: { id },
+          data,
+        });
+      }),
+    );
+
+    console.log(`Updated ${tweetsToUpdate.length} tweets with quote/reply relationships`);
   }
 
-  console.log(`Created ${successCount} tweets`);
+  // Bulk insert tweet hashtags
+  const tweetHashtagsToCreate: any[] = [];
+  tweetDataWithIds.forEach((tweetData) => {
+    if (tweetData._tweetId && tweetData._hashtags.length > 0) {
+      tweetData._hashtags.forEach((hashtag) => {
+        const hashtagId = hashtagMap.get(hashtag.toLowerCase());
+        if (hashtagId) {
+          const hashtagText = `#${hashtag}`;
+          const startPosition = tweetData.content.indexOf(hashtagText);
+          tweetHashtagsToCreate.push({
+            tweetId: tweetData._tweetId,
+            hashtagId,
+            startPosition: startPosition >= 0 ? startPosition : 0,
+          });
+        } else {
+          console.warn(
+            `Warning: Hashtag "${hashtag}" not found in hashtagMap for tweet ${tweetData._tweetId}`,
+          );
+        }
+      });
+    }
+  });
+
+  if (tweetHashtagsToCreate.length > 0) {
+    await prisma.tweetHashtag.createMany({
+      data: tweetHashtagsToCreate,
+      skipDuplicates: true,
+    });
+    console.log(`Created ${tweetHashtagsToCreate.length} tweet-hashtag relationships`);
+  } else {
+    console.log('No tweet-hashtag relationships to create');
+  }
+
+  // Bulk insert tweet mentions
+  const tweetMentionsToCreate: any[] = [];
+  tweetDataWithIds.forEach((tweetData) => {
+    if (tweetData._tweetId && tweetData._mentionedUserIds.length > 0) {
+      tweetData._mentionedUserIds.forEach((userId, idx) => {
+        const mentionText = `@${tweetData._mentions[idx]}`;
+        const startPosition = tweetData.content.indexOf(mentionText);
+        tweetMentionsToCreate.push({
+          tweetId: tweetData._tweetId,
+          userId,
+          startPosition: startPosition >= 0 ? startPosition : 0,
+        });
+      });
+    }
+  });
+
+  if (tweetMentionsToCreate.length > 0) {
+    await prisma.tweetMention.createMany({
+      data: tweetMentionsToCreate,
+      skipDuplicates: true,
+    });
+    console.log(`Created ${tweetMentionsToCreate.length} tweet-mention relationships`);
+  }
+
+  // Bulk insert tweet media
+  const tweetMediaToCreate: any[] = [];
+  tweetDataWithIds.forEach((tweetData) => {
+    if (tweetData._tweetId && tweetData._mediaUrls.length > 0) {
+      tweetData._mediaUrls.forEach((url, order) => {
+        const media = mediaByUrl.get(url);
+        if (media) {
+          tweetMediaToCreate.push({
+            tweetId: tweetData._tweetId,
+            mediaId: media.id,
+            order,
+          });
+        }
+      });
+    }
+  });
+
+  if (tweetMediaToCreate.length > 0) {
+    await prisma.tweetMedia.createMany({
+      data: tweetMediaToCreate,
+      skipDuplicates: true,
+    });
+    console.log(`Created ${tweetMediaToCreate.length} tweet-media relationships`);
+  }
 
   // Create retweets if present
   if (data.retweets && data.retweets.length > 0) {
     console.log(`\n Creating ${data.retweets.length} retweets...`);
-    let retweetCount = 0;
 
-    for (const retweetData of data.retweets) {
-      try {
+    const retweetsToCreate = data.retweets
+      .map((retweetData) => {
         const user = createdUsers[retweetData.userIndex];
-        const tweet = createdTweets[retweetData.tweetIndex];
+        const tweetWithId = tweetDataWithIds[retweetData.tweetIndex];
 
-        if (!user || !tweet) {
+        if (!user || !tweetWithId || !tweetWithId._tweetId) {
           console.error(
             `   ❌ Invalid retweet reference: user ${retweetData.userIndex}, tweet ${retweetData.tweetIndex}`,
           );
-          continue;
+          return null;
         }
 
         const createdAt = retweetData.createdAt
           ? new Date(retweetData.createdAt)
           : calculateCreatedAt(retweetData.daysAgo, retweetData.hoursAgo, retweetData.minutesAgo);
 
-        await prisma.retweet.create({
-          data: {
-            userId: user.id,
-            tweetId: tweet.id,
-            createdAt,
-          },
-        });
+        return {
+          userId: user.id,
+          tweetId: tweetWithId._tweetId,
+          createdAt,
+        };
+      })
+      .filter((r) => r !== null);
 
-        // Update retweet count on the tweet
-        await prisma.tweet.update({
-          where: { id: tweet.id },
-          data: { retweetCount: { increment: 1 } },
-        });
+    // Bulk insert retweets
+    await prisma.retweet.createMany({
+      data: retweetsToCreate,
+      skipDuplicates: true,
+    });
 
-        retweetCount++;
-      } catch (error) {
-        console.error(`   ❌ Failed to create retweet:`, error.message);
-      }
-    }
+    // Update retweet counts
+    await prisma.$executeRawUnsafe(`
+      UPDATE "tweets" t
+      SET "retweet_count" = sub.count
+      FROM (
+        SELECT "tweet_id", COUNT(*) AS count
+        FROM "retweets"
+        GROUP BY "tweet_id"
+      ) AS sub
+      WHERE t.id = sub.tweet_id;
+    `);
 
-    console.log(`Created ${retweetCount} retweets`);
-    console.log(`Created ${retweetCount} retweets`);
+    console.log(`Created ${retweetsToCreate.length} retweets`);
   }
 
   // Create likes if present
   if (data.likes && data.likes.length > 0) {
     console.log(`\n Creating ${data.likes.length} likes...`);
-    let likeCount = 0;
 
-    for (const likeData of data.likes) {
-      try {
+    const likesToCreate = data.likes
+      .map((likeData) => {
         const user = createdUsers[likeData.userIndex];
-        const tweet = createdTweets[likeData.tweetIndex];
+        const tweetWithId = tweetDataWithIds[likeData.tweetIndex];
 
-        if (!user || !tweet) {
+        if (!user || !tweetWithId || !tweetWithId._tweetId) {
           console.error(
             `   ❌ Invalid like reference: user ${likeData.userIndex}, tweet ${likeData.tweetIndex}`,
           );
-          continue;
+          return null;
         }
 
         const createdAt = likeData.createdAt
           ? new Date(likeData.createdAt)
           : calculateCreatedAt(likeData.daysAgo, likeData.hoursAgo, likeData.minutesAgo);
 
-        await prisma.like.create({
-          data: {
-            userId: user.id,
-            tweetId: tweet.id,
-            createdAt,
-          },
-        });
+        return {
+          userId: user.id,
+          tweetId: tweetWithId._tweetId,
+          createdAt,
+        };
+      })
+      .filter((l) => l !== null);
 
-        // Update like count on the tweet
-        await prisma.tweet.update({
-          where: { id: tweet.id },
-          data: { likeCount: { increment: 1 } },
-        });
+    // Bulk insert likes
+    await prisma.like.createMany({
+      data: likesToCreate,
+      skipDuplicates: true,
+    });
 
-        likeCount++;
+    // Update like counts
+    await prisma.$executeRawUnsafe(`
+      UPDATE "tweets" t
+      SET "like_count" = sub.count
+      FROM (
+        SELECT "tweet_id", COUNT(*) AS count
+        FROM "likes"
+        GROUP BY "tweet_id"
+      ) AS sub
+      WHERE t.id = sub.tweet_id;
+    `);
 
-        if (likeCount % 500 === 0) {
-          console.log(`  Created ${likeCount}/${data.likes.length} likes`);
-        }
-      } catch (error) {
-        // Ignore duplicates smoothly
-        if (!error.message.includes('Unique constraint')) {
-          console.error(`   ❌ Failed to create like:`, error.message);
-        }
-      }
-    }
-
-    console.log(`Created ${likeCount} likes`);
+    console.log(`Created ${likesToCreate.length} likes`);
   }
 
   // Create some random follows for engagement
@@ -468,12 +626,14 @@ async function main() {
 
   console.log('\nDatabase seeded successfully!');
   console.log(`   Users: ${createdUsers.length}`);
-  console.log(`   Tweets: ${successCount}`);
+  console.log(`   Tweets: ${createdTweets.length}`);
+  console.log(`   Hashtags: ${allHashtags.length}`);
+  console.log(`   Tweet-Hashtag relationships: ${tweetHashtagsToCreate.length}`);
+  console.log(`   Tweet-Mention relationships: ${tweetMentionsToCreate.length}`);
   console.log(`   Retweets: ${retweetCount}`);
   console.log(`   Replies: ${replyCount}`);
   console.log(`   Quotes: ${quotedCount}`);
   console.log(`   Media: ${mediaCount}`);
-  console.log(`   Follows: ${uniqueFollows.length}`);
   console.log(`   Follows: ${uniqueFollows.length}`);
   console.log(`   Likes: ${data.likes?.length || 0}`);
 }
