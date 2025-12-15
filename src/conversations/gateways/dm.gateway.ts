@@ -557,19 +557,19 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const { reactionDb, sender, receiver, message } = reactionState;
 
-    const reaction =
-      sender!.user.username === user.username
-        ? reactionDb.reactionSender
-        : reactionDb.reactionReceiver;
+    if (user.username !== sender!.user.username) {
+      const reaction = reactionDb.reactionReceiver;
 
-    if (reaction)
-      await this.domainEventsService.emitReactionSent({
-        actorId: sender!.user.id,
-        receiverId: receiver!.user.id,
-        conversationId: BigInt(conversationId),
-        reaction,
-        messagePreview: message.content.slice(0, 100),
-      });
+      if (reaction) {
+        await this.domainEventsService.emitReactionSent({
+          actorId: BigInt(user.id),
+          receiverId: sender!.user.id,
+          conversationId: BigInt(conversationId),
+          reaction,
+          messagePreview: message.content.slice(0, 100),
+        });
+      }
+    }
 
     const socketPayload = {
       conversationId,
