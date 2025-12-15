@@ -511,5 +511,272 @@ describe('TweetAnalyzeService', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.updateTweetClass).toHaveBeenCalledWith(BigInt(3), 'entertainment');
     });
+
+    it('should handle lock extension errors gracefully', async () => {
+      // Let the lock extension run and fail
+      mockRedisClient.expire.mockRejectedValue(new Error('Redis connection lost'));
+
+      await service.analyzeTweets();
+
+      // Should still complete the job
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(redisService.del).toHaveBeenCalled();
+    });
+
+    it('should handle lock acquisition errors', async () => {
+      mockRedisClient.set.mockRejectedValue(new Error('Redis error'));
+
+      await service.analyzeTweets();
+
+      // Should not proceed with analysis
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(repository.findTweetsToClassify).not.toHaveBeenCalled();
+    });
+
+    it('should handle lock release errors gracefully', async () => {
+      redisService.del.mockRejectedValue(new Error('Redis error on delete'));
+
+      await service.analyzeTweets();
+
+      // Should complete without throwing
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(repository.findTweetsToClassify).toHaveBeenCalled();
+    });
+
+    it('should log correctly when processing single run with no more tweets', async () => {
+      const singleBatch = Array.from({ length: 30 }, (_, i) => ({
+        id: BigInt(i + 1),
+        content: `Tweet ${i + 1}`,
+      }));
+
+      repository.findTweetsToClassify
+        .mockReset()
+        .mockResolvedValueOnce(singleBatch)
+        .mockResolvedValue([]);
+
+      await service.analyzeTweets();
+
+      // Should process all tweets in one run
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(httpService.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('should continue processing remaining batches after some updates fail', async () => {
+      const mixedResultTweets: ClassifiedTweet[] = [
+        { id: '1', class: 'technology' },
+        { id: '2', class: 'sports' },
+        { id: '3', class: 'entertainment' },
+        { id: '4', class: 'news' },
+        { id: '5', class: 'science' },
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const axiosResponse = {
+        data: {
+          batch_meta: { total_tweets: 5 },
+          trending_keywords: [],
+          tweets_detail: mixedResultTweets,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {
+          headers: undefined,
+        },
+      } as AxiosResponse<ModelApiResponse>;
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      httpService.post.mockReset().mockReturnValue(of(axiosResponse));
+
+      repository.findTweetsToClassify
+        .mockReset()
+        .mockResolvedValueOnce([
+          { id: BigInt(1), content: 'Tweet 1' },
+          { id: BigInt(2), content: 'Tweet 2' },
+          { id: BigInt(3), content: 'Tweet 3' },
+          { id: BigInt(4), content: 'Tweet 4' },
+          { id: BigInt(5), content: 'Tweet 5' },
+        ])
+        .mockResolvedValue([]);
+
+      repository.updateTweetClass
+        .mockReset()
+        .mockResolvedValueOnce(undefined) // Tweet 1 success
+        .mockRejectedValueOnce(new Error('Database error')) // Tweet 2 fails
+        .mockResolvedValueOnce(undefined) // Tweet 3 success
+        .mockRejectedValueOnce(new Error('Database error')) // Tweet 4 fails
+        .mockResolvedValueOnce(undefined); // Tweet 5 success
+
+      await service.analyzeTweets();
+
+      // Should attempt to update all 5 tweets despite failures
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(repository.updateTweetClass).toHaveBeenCalledTimes(5);
+    });
+
+    it('should handle repository errors during tweet fetching', async () => {
+      repository.findTweetsToClassify.mockReset().mockRejectedValue(new Error('Database error'));
+
+      await service.analyzeTweets();
+
+      // Should release lock even when error occurs
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(redisService.del).toHaveBeenCalled();
+      // Should not call API
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(httpService.post).not.toHaveBeenCalled();
+    });
+
+    it('should skip trending update when no keywords returned', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const noKeywordsResponse = {
+        data: {
+          batch_meta: { total_tweets: 3 },
+          trending_keywords: null,
+          tweets_detail: mockClassifiedTweets,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {
+          headers: undefined,
+        },
+      } as AxiosResponse<ModelApiResponse>;
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      httpService.post.mockReset().mockReturnValue(of(noKeywordsResponse));
+
+      await service.analyzeTweets();
+
+      // Should not update trending when no keywords
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(trendingService.updateTrendScores).not.toHaveBeenCalled();
+    });
+
+    it('should handle trending service errors gracefully', async () => {
+      trendingService.updateTrendScores.mockReset().mockRejectedValue(new Error('Trending error'));
+
+      await expect(service.analyzeTweets()).resolves.not.toThrow();
+
+      // Should still complete the job
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(redisService.del).toHaveBeenCalled();
+    });
+
+    it('should process tweets correctly when batch_meta is missing', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const noBatchMetaResponse = {
+        data: {
+          batch_meta: null,
+          trending_keywords: mockTrendingKeywords,
+          tweets_detail: mockClassifiedTweets,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {
+          headers: undefined,
+        },
+      } as AxiosResponse<ModelApiResponse>;
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      httpService.post.mockReset().mockReturnValue(of(noBatchMetaResponse));
+
+      await service.analyzeTweets();
+
+      // Should still update trending with 0 total tweets
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(trendingService.updateTrendScores).toHaveBeenCalledWith({
+        batch_meta: { total_tweets: 0 },
+        trending_keywords: mockTrendingKeywords,
+      });
+    });
+  });
+
+  describe('lifecycle hooks', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should start cron job on module init when enabled', () => {
+      const analyzeSpy = jest.spyOn(service, 'analyzeTweets').mockResolvedValue(undefined);
+
+      service.onModuleInit();
+
+      // Should call immediately
+      expect(analyzeSpy).toHaveBeenCalledTimes(1);
+
+      // Advance time and check periodic execution
+      jest.advanceTimersByTime(5 * 60 * 1000); // 5 minutes
+
+      expect(analyzeSpy).toHaveBeenCalledTimes(2);
+
+      analyzeSpy.mockRestore();
+    });
+
+    it('should not start cron job when disabled', () => {
+      const disabledConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'CLASSIFY_TWEETS') return 'false';
+          if (key === 'CLASSIFICATION_INTERVAL_MINUTES') return '5';
+          if (key === 'CLASSIFY_REQ_LIMIT') return '50';
+          if (key === 'CLASSIFICATION_API_URL') return 'http://localhost:5000/analyze';
+          return '';
+        }),
+      } as unknown as ConfigService;
+
+      const disabledService = new TweetAnalyzeService(
+        disabledConfigService,
+        httpService,
+        repository,
+        redisService,
+        trendingService,
+      );
+
+      const analyzeSpy = jest.spyOn(disabledService, 'analyzeTweets').mockResolvedValue(undefined);
+
+      disabledService.onModuleInit();
+
+      expect(analyzeSpy).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+
+      expect(analyzeSpy).not.toHaveBeenCalled();
+
+      analyzeSpy.mockRestore();
+    });
+
+    it('should handle errors in initial analysis run', () => {
+      const analyzeSpy = jest
+        .spyOn(service, 'analyzeTweets')
+        .mockRejectedValue(new Error('Initial run failed'));
+
+      service.onModuleInit();
+
+      // Should not throw
+      expect(() => service.onModuleInit()).not.toThrow();
+
+      analyzeSpy.mockRestore();
+    });
+
+    it('should handle errors in scheduled analysis runs', () => {
+      const analyzeSpy = jest
+        .spyOn(service, 'analyzeTweets')
+        .mockResolvedValueOnce(undefined) // First call succeeds
+        .mockRejectedValue(new Error('Scheduled run failed')); // Subsequent calls fail
+
+      service.onModuleInit();
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+
+      // Should not throw
+      expect(() => jest.advanceTimersByTime(5 * 60 * 1000)).not.toThrow();
+
+      analyzeSpy.mockRestore();
+    });
   });
 });
