@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="../cp/assets/images/light-raven.png" alt="Raven Logo" width="150" height="150">
+  <img src="https://cdn.raven.cmp27.space/light-raven.png" alt="Raven Logo" width="150" height="150">
 
-  # Raven Backend
+# Raven Backend
 
   **Caw Your Thoughts**
 
@@ -44,11 +44,12 @@
 - **Real-time Chat** - WebSocket-powered instant messaging via Socket.IO
 - **Conversation Management** - Create and manage one-on-one conversations
 - **Message Features**:
-  - Text messages with entity parsing
+  - Text messages
   - Image attachments
   - Emoji reactions (sender and receiver)
   - Message deletion (per-participant)
   - Read receipts via last seen tracking
+  - Typing Indicator
 - **WebSocket Scaling** - Redis adapter for horizontal scaling
 
 ### Timeline & Feed
@@ -171,38 +172,46 @@
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/OmarGamal10/raven-backend
    cd raven-backend
    ```
 
 2. Install dependencies:
+
    ```bash
    pnpm install
    ```
 
 3. Set up environment variables:
+
    ```bash
    cp .env.example .env
    ```
+
    Edit `.env` with your configuration values.
 
 4. Generate Prisma client:
+
    ```bash
    pnpm db:generate
    ```
 
 5. Run database migrations:
+
    ```bash
    pnpm db:migrate
    ```
 
 6. Seed the database (optional):
+
    ```bash
    pnpm db:seed
    ```
 
 7. Start the development server:
+
    ```bash
    pnpm dev
    ```
@@ -238,6 +247,7 @@ The API specification is available in TypeSpec format under the `api-spec/` dire
 - **Complete Spec** - Full API specification including planned features
 
 Generate OpenAPI documentation:
+
 ```bash
 pnpm spec:generate
 ```
@@ -245,11 +255,13 @@ pnpm spec:generate
 ## Docker
 
 Build the Docker image:
+
 ```bash
 docker build -t raven-backend .
 ```
 
 Run with Docker Compose (development):
+
 ```bash
 docker-compose -f docker-compose.dev.yml up
 ```
