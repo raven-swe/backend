@@ -1,6 +1,6 @@
 import { JsonObject } from '@prisma/client/runtime/library';
 import { mapToUserSearchResultDto } from 'src/search/mappers/user-search-result.mapper';
-import { UserRelationshipDto } from 'src/users/dtos/relationship-dto';
+import { UserRelationshipDto } from 'src/users/dtos/relationship.dto';
 
 describe('mapToUserSearchResultDto', () => {
   it('should map a single user item with all fields populated', () => {

@@ -28,7 +28,7 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { BlocksCursor, MutesCursor } from 'src/common/interfaces';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
-import { UserRelationshipDto } from 'src/users/dtos/relationship-dto';
+import { UserRelationshipDto } from 'src/users/dtos/relationship.dto';
 
 interface CachedEmailUpdateData {
   userId: string;
