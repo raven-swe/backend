@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -60,16 +61,20 @@ describe('JwtAuthGuard', () => {
 
     it('should return user when user is authenticated', () => {
       const mockUser: RequestUser = {
-        id: BigInt(1),
-        email: 'test@example.com',
-        username: 'testuser',
+        id: '1',
       };
 
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      const result = guard.handleRequest(null, mockUser, null, mockContext);
+      const result = guard.handleRequest(
+        null,
+        mockUser,
+        null,
+        mockContext,
+      ) as unknown as RequestUser | null;
 
       expect(result).toEqual(mockUser);
+
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(OPTIONAL_AUTH_KEY, [
         mockContext.getHandler(),
         mockContext.getClass(),
@@ -79,7 +84,12 @@ describe('JwtAuthGuard', () => {
     it('should return null when user is not authenticated and auth is optional', () => {
       reflector.getAllAndOverride.mockReturnValue(true);
 
-      const result = guard.handleRequest(null, null, null, mockContext);
+      const result = guard.handleRequest(
+        null,
+        null,
+        null,
+        mockContext,
+      ) as unknown as RequestUser | null;
 
       expect(result).toBeNull();
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(OPTIONAL_AUTH_KEY, [
@@ -91,58 +101,74 @@ describe('JwtAuthGuard', () => {
     it('should throw UnauthorizedException when user is not authenticated and auth is required', () => {
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      expect(() => guard.handleRequest(null, null, null, mockContext)).toThrow(
-        UnauthorizedException,
-      );
+      expect(
+        () => guard.handleRequest(null, null, null, mockContext) as unknown as RequestUser | null,
+      ).toThrow(UnauthorizedException);
     });
 
     it('should throw error when error is provided and user is null', () => {
       const customError = new Error('Custom auth error');
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      expect(() => guard.handleRequest(customError, null, null, mockContext)).toThrow(
-        'Custom auth error',
-      );
+      expect(
+        () =>
+          guard.handleRequest(
+            customError,
+            null,
+            null,
+            mockContext,
+          ) as unknown as RequestUser | null,
+      ).toThrow('Custom auth error');
     });
 
     it('should return user even when auth is optional and user exists', () => {
       const mockUser: RequestUser = {
-        id: BigInt(2),
-        email: 'optional@example.com',
-        username: 'optionaluser',
+        id: '2',
       };
 
       reflector.getAllAndOverride.mockReturnValue(true);
 
-      const result = guard.handleRequest(null, mockUser, null, mockContext);
+      const result = guard.handleRequest(
+        null,
+        mockUser,
+        null,
+        mockContext,
+      ) as unknown as RequestUser | null;
 
       expect(result).toEqual(mockUser);
     });
 
     it('should handle user with all properties', () => {
       const mockUser: RequestUser = {
-        id: BigInt(1),
-        email: 'complete@example.com',
-        username: 'completeuser',
+        id: '1',
       };
 
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      const result = guard.handleRequest(null, mockUser, null, mockContext);
+      const result = guard.handleRequest(
+        null,
+        mockUser,
+        null,
+        mockContext,
+      ) as unknown as RequestUser | null;
 
       expect(result).toEqual(mockUser);
-      expect(result.id).toBe(BigInt(1));
-      expect(result.email).toBe('complete@example.com');
-      expect(result.username).toBe('completeuser');
+      expect(result!.id).toBe('1');
     });
 
     it('should prioritize error over UnauthorizedException', () => {
       const customError = new Error('Token expired');
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      expect(() => guard.handleRequest(customError, null, null, mockContext)).toThrow(
-        'Token expired',
-      );
+      expect(
+        () =>
+          guard.handleRequest(
+            customError,
+            null,
+            null,
+            mockContext,
+          ) as unknown as RequestUser | null,
+      ).toThrow('Token expired');
     });
 
     it('should check both handler and class for optional auth decorator', () => {
@@ -167,17 +193,20 @@ describe('JwtAuthGuard', () => {
 
     it('should handle bigint user id correctly', () => {
       const mockUser: RequestUser = {
-        id: BigInt('9007199254740991'), // Large BigInt
-        email: 'bigint@example.com',
-        username: 'bigintuser',
+        id: '9007199254740991', // Large BigInt
       };
 
       reflector.getAllAndOverride.mockReturnValue(false);
 
-      const result = guard.handleRequest(null, mockUser, null, mockContext);
+      const result = guard.handleRequest(
+        null,
+        mockUser,
+        null,
+        mockContext,
+      ) as unknown as RequestUser | null;
 
-      expect(result.id).toBe(BigInt('9007199254740991'));
-      expect(typeof result.id).toBe('bigint');
+      expect(result?.id).toBe('9007199254740991');
+      expect(typeof result?.id).toBe('string');
     });
   });
 });

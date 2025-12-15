@@ -1,4 +1,8 @@
-import { decodeCursor, decodeCompositeCursor, paginateComposite } from './cursor-pagination.util';
+import {
+  decodeCursor,
+  decodeCompositeCursor,
+  paginateComposite,
+} from '../../../src/common/utils/cursor-pagination.util';
 
 describe('cursor-pagination.util', () => {
   describe('decodeCursor', () => {
@@ -213,6 +217,15 @@ describe('cursor-pagination.util', () => {
       const items = createTestItems(6);
       const limit = 5;
 
+      interface tp {
+        stringField: string;
+        numberField: number;
+        booleanField: boolean;
+        bigintField: bigint;
+        nullField: null;
+        undefinedField: undefined;
+      }
+
       const result = paginateComposite(items, limit, undefined, (item) => ({
         stringField: 'test',
         numberField: 123,
@@ -224,13 +237,13 @@ describe('cursor-pagination.util', () => {
 
       expect(result.nextCursor).not.toBeNull();
 
-      const decoded = decodeCompositeCursor<any>(result.nextCursor!);
-      expect(decoded.stringField).toBe('test');
-      expect(decoded.numberField).toBe(123);
-      expect(decoded.booleanField).toBe(true);
-      expect(decoded.bigintField).toBe('6'); // Converted to string
-      expect(decoded.nullField).toBeNull();
-      expect(decoded.undefinedField).toBeUndefined();
+      const decoded = decodeCompositeCursor<tp>(result.nextCursor!);
+      expect(decoded!.stringField).toBe('test');
+      expect(decoded!.numberField).toBe(123);
+      expect(decoded!.booleanField).toBe(true);
+      expect(decoded!.bigintField).toBe('6'); // Converted to string
+      expect(decoded!.nullField).toBeNull();
+      expect(decoded!.undefinedField).toBeUndefined();
     });
 
     it('should not mutate original items when hasNextPage is false', () => {

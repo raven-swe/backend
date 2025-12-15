@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { SseService } from 'src/sse/sse.service';
 import { RedisService } from 'src/redis/redis.service';
@@ -551,33 +552,31 @@ describe('SseService', () => {
   });
 
   describe('Redis lifecycle', () => {
-    it('should initialize Redis pub/sub on module init', async () => {
+    it('should initialize Redis pub/sub on module init', () => {
       expect(mockPubClient.duplicate).toHaveBeenCalled();
       expect(mockSubClient.psubscribe).toHaveBeenCalledWith('sse:user:*');
       expect(Logger.prototype.log).toHaveBeenCalledWith('SseService Redis pub/sub initialized');
     });
 
-    it('should register Redis error handler', async () => {
-      const errorHandler = (mockSubClient.on as jest.Mock).mock.calls.find(
-        (call) => call[0] === 'error',
-      )?.[1];
+    it('should register Redis error handler', () => {
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [string, (err: Error) => void][];
+      const errorHandler = calls.find((call) => call[0] === 'error')?.[1];
 
       expect(errorHandler).toBeDefined();
 
       const testError = new Error('Test Redis error');
-      errorHandler(testError);
+      errorHandler!(testError);
 
       expect(Logger.prototype.error).toHaveBeenCalledWith('Redis sub client error', testError);
     });
 
-    it('should register Redis reconnecting handler', async () => {
-      const reconnectHandler = (mockSubClient.on as jest.Mock).mock.calls.find(
-        (call) => call[0] === 'reconnecting',
-      )?.[1];
+    it('should register Redis reconnecting handler', () => {
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [string, () => void][];
+      const reconnectHandler = calls.find((call) => call[0] === 'reconnecting')?.[1];
 
       expect(reconnectHandler).toBeDefined();
 
-      reconnectHandler();
+      reconnectHandler!();
 
       expect(Logger.prototype.warn).toHaveBeenCalledWith('Redis sub client reconnecting...');
     });
@@ -600,14 +599,16 @@ describe('SseService', () => {
       });
 
       // Simulate receiving a raw string message (will be kept as string, but won't match topic filter)
-      const pmessageHandler = (mockSubClient.on as jest.Mock).mock.calls.find(
-        (call) => call[0] === 'pmessage',
-      )?.[1];
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
 
       expect(pmessageHandler).toBeDefined();
 
       // Raw string without event property won't match topic filter
-      pmessageHandler('sse:user:*', `sse:user:${userId}`, 'raw string message');
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, 'raw string message');
 
       await new Promise<void>((resolve) => setTimeout(resolve, 10));
 
@@ -625,12 +626,14 @@ describe('SseService', () => {
         events.push(event);
       });
 
-      const pmessageHandler = (mockSubClient.on as jest.Mock).mock.calls.find(
-        (call) => call[0] === 'pmessage',
-      )?.[1];
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
 
       const jsonMessage = { event: 'notifications.test', data: 'parsed' };
-      pmessageHandler('sse:user:*', `sse:user:${userId}`, JSON.stringify(jsonMessage));
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, JSON.stringify(jsonMessage));
 
       await new Promise<void>((resolve) => setTimeout(resolve, 10));
 
@@ -647,12 +650,14 @@ describe('SseService', () => {
         events.push(event);
       });
 
-      const pmessageHandler = (mockSubClient.on as jest.Mock).mock.calls.find(
-        (call) => call[0] === 'pmessage',
-      )?.[1];
+      const calls = (mockSubClient.on as jest.Mock).mock.calls as [
+        string,
+        (pattern: string, channel: string, message: string) => void,
+      ][];
+      const pmessageHandler = calls.find((call) => call[0] === 'pmessage')?.[1];
 
       const event = { event: 'dm.message', data: 'test' };
-      pmessageHandler('sse:user:*', `sse:user:${userId}`, JSON.stringify(event));
+      pmessageHandler!('sse:user:*', `sse:user:${userId}`, JSON.stringify(event));
 
       await new Promise<void>((resolve) => setTimeout(resolve, 10));
 

@@ -1,40 +1,45 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
-import { NotificationProcessor } from './notifications.processor';
-import { NotificationsRepository } from './notifications.repository';
+import { NotificationProcessor } from '../../src/notifications/notifications.processor';
+import { NotificationsRepository } from '../../src/notifications/notifications.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { PushSenderService } from 'src/firebase/push-sender.service';
 import { NotificationType, LanguageCode } from '@prisma/client';
 import { Logger } from '@nestjs/common';
-import * as fcmBuilder from './utils/fcm-notification-body-builder';
+import * as fcmBuilder from '../../src/notifications/utils/fcm-notification-body-builder';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+
+interface NotificationJobData {
+  notificationId: string;
+  userId: string;
+}
+
+interface ExtendedNotification {
+  title?: string;
+  body?: string;
+  image?: string;
+}
+
+const mockNotificationsRepository = {
+  findByIdForPush: jest.fn(),
+};
+
+const mockUsersRepository = {
+  getUserLocale: jest.fn(),
+};
+
+const mockPushService = {
+  sendToDevices: jest.fn(),
+};
 
 describe('NotificationProcessor', () => {
   let processor: NotificationProcessor;
-  let notificationsRepository: jest.Mocked<NotificationsRepository>;
-  let usersRepository: jest.Mocked<UsersRepository>;
   let pushService: jest.Mocked<PushSenderService>;
-
-  const mockNotificationsRepository = {
-    findByIdForPush: jest.fn(),
-  };
-
-  const mockUsersRepository = {
-    getUserLocale: jest.fn(),
-  };
-
-  const mockPushService = {
-    sendToDevices: jest.fn(),
-  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
-
-    // Suppress logger output during tests
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,15 +51,17 @@ describe('NotificationProcessor', () => {
     }).compile();
 
     processor = module.get<NotificationProcessor>(NotificationProcessor);
-    notificationsRepository = module.get(NotificationsRepository);
-    usersRepository = module.get(UsersRepository);
     pushService = module.get(PushSenderService);
+
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(function (this: void) {});
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(function (this: void) {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(function (this: void) {});
   });
 
-  const createMockJob = (notificationId: string, userId: string): Job => {
+  const createMockJob = (notificationId: string, userId: string): Job<NotificationJobData> => {
     return {
       data: { notificationId, userId },
-    } as Job;
+    } as Job<NotificationJobData>;
   };
 
   describe('process', () => {
@@ -65,7 +72,10 @@ describe('NotificationProcessor', () => {
 
       await processor.process(job);
 
-      expect(notificationsRepository.findByIdForPush).toHaveBeenCalledWith(BigInt(999), BigInt(10));
+      expect(mockNotificationsRepository.findByIdForPush).toHaveBeenCalledWith(
+        BigInt(999),
+        BigInt(10),
+      );
       expect(Logger.prototype.warn).toHaveBeenCalledWith(
         'Notification with id 999 not found, skipping push notification',
       );
@@ -111,8 +121,11 @@ describe('NotificationProcessor', () => {
 
       await processor.process(job);
 
-      expect(notificationsRepository.findByIdForPush).toHaveBeenCalledWith(BigInt(1), BigInt(10));
-      expect(usersRepository.getUserLocale).toHaveBeenCalledWith(BigInt(10));
+      expect(mockNotificationsRepository.findByIdForPush).toHaveBeenCalledWith(
+        BigInt(1),
+        BigInt(10),
+      );
+      expect(mockUsersRepository.getUserLocale).toHaveBeenCalledWith(BigInt(10));
       expect(fcmBuilder.buildFcmNotificationText).toHaveBeenCalledWith({
         notificationType: NotificationType.LIKE,
         isAggregated: false,
@@ -136,7 +149,7 @@ describe('NotificationProcessor', () => {
             type: NotificationType.LIKE,
             isSeen: 'false',
             latestEventAt: '2024-01-01T10:00:00.000Z',
-          }),
+          }) as unknown,
           android: {
             priority: 'normal',
             notification: {
@@ -216,10 +229,19 @@ describe('NotificationProcessor', () => {
       const call = pushService.sendToDevices.mock.calls[0];
       const payload = call[1];
 
-      expect(payload.notification.title).toBe('Alice and 2 others liked your tweet');
-      expect(payload.notification.body).toBeUndefined();
+      expect(payload.notification).toBeDefined();
+      expect((payload.notification as unknown as ExtendedNotification).title).toBe(
+        'Alice and 2 others liked your tweet',
+      );
+      expect((payload.notification as unknown as ExtendedNotification).body).toBeUndefined();
 
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      expect(payload.data).toBeDefined();
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{
+        username: string;
+        displayName: string | null;
+        avatarUrl: string;
+        isFollowing: boolean;
+      }>;
       expect(actorSummary).toHaveLength(3);
       expect(actorSummary[0]).toEqual({
         username: 'alice',
@@ -229,7 +251,6 @@ describe('NotificationProcessor', () => {
       });
       expect(actorSummary[2]).toEqual({
         username: 'charlie',
-        displayName: undefined,
         avatarUrl: DEFAULT_PROFILE_PICTURE,
         isFollowing: false,
       });
@@ -322,7 +343,7 @@ describe('NotificationProcessor', () => {
 
       await processor.process(job);
 
-      expect(usersRepository.getUserLocale).toHaveBeenCalledWith(BigInt(10));
+      expect(mockUsersRepository.getUserLocale).toHaveBeenCalledWith(BigInt(10));
       expect(fcmBuilder.buildFcmNotificationText).toHaveBeenCalledWith({
         notificationType: NotificationType.REPLY,
         isAggregated: false,
@@ -335,9 +356,11 @@ describe('NotificationProcessor', () => {
       const call = pushService.sendToDevices.mock.calls[0];
       const payload = call[1];
 
-      expect(payload.data.isSeen).toBe('true');
-      expect(payload.android.notification.tag).toBeUndefined();
-      expect(payload.notification.image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(payload.data!.isSeen).toBe('true');
+      expect(payload.android!.notification!.tag).toBeUndefined();
+      expect((payload.notification as unknown as ExtendedNotification).image).toBe(
+        DEFAULT_PROFILE_PICTURE,
+      );
     });
 
     it('should handle notification with null payload gracefully', async () => {
@@ -427,9 +450,13 @@ describe('NotificationProcessor', () => {
       const call = pushService.sendToDevices.mock.calls[0];
       const payload = call[1];
 
-      expect(payload.notification.image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect((payload.notification as unknown as ExtendedNotification).image).toBe(
+        DEFAULT_PROFILE_PICTURE,
+      );
 
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{
+        avatarUrl: string;
+      }>;
       expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
     });
 
@@ -475,7 +502,9 @@ describe('NotificationProcessor', () => {
       const call = pushService.sendToDevices.mock.calls[0];
       const payload = call[1];
 
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{
+        isFollowing: boolean;
+      }>;
       expect(actorSummary[0].isFollowing).toBe(true);
     });
 
@@ -530,7 +559,7 @@ describe('NotificationProcessor', () => {
         title: 'Liker liked your tweet',
         body: 'Tweet',
       });
-      mockPushService.sendToDevices.mockRejectedValue(pushError);
+      pushService.sendToDevices.mockRejectedValue(pushError);
 
       await expect(processor.process(job)).rejects.toThrow('FCM service unavailable');
 
@@ -571,7 +600,7 @@ describe('NotificationProcessor', () => {
 
       mockNotificationsRepository.findByIdForPush.mockResolvedValue(notification);
       mockUsersRepository.getUserLocale.mockResolvedValue(LanguageCode.EN);
-      mockPushService.sendToDevices.mockResolvedValue(undefined);
+      pushService.sendToDevices.mockResolvedValue(undefined);
 
       jest.spyOn(fcmBuilder, 'buildFcmNotificationText').mockReturnValue({
         title: 'Quoter quoted: "Quote tweet content"',
@@ -623,7 +652,7 @@ describe('NotificationProcessor', () => {
 
       mockNotificationsRepository.findByIdForPush.mockResolvedValue(notification);
       mockUsersRepository.getUserLocale.mockResolvedValue(LanguageCode.EN);
-      mockPushService.sendToDevices.mockResolvedValue(undefined);
+      pushService.sendToDevices.mockResolvedValue(undefined);
 
       jest.spyOn(fcmBuilder, 'buildFcmNotificationText').mockReturnValue({
         title: 'User Thirteen liked your tweet',
@@ -670,7 +699,7 @@ describe('NotificationProcessor', () => {
 
       mockNotificationsRepository.findByIdForPush.mockResolvedValue(notification);
       mockUsersRepository.getUserLocale.mockResolvedValue(LanguageCode.EN);
-      mockPushService.sendToDevices.mockResolvedValue(undefined);
+      pushService.sendToDevices.mockResolvedValue(undefined);
 
       jest.spyOn(fcmBuilder, 'buildFcmNotificationText').mockReturnValue({
         title: 'user14 liked your tweet',

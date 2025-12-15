@@ -1,6 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationsListeners } from './notifications.listeners';
-import { NotificationsService } from './notifications.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { Logger } from '@nestjs/common';
 import type {
@@ -13,21 +11,22 @@ import type {
   UserFollowedEvent,
   TweetDeleted,
 } from 'src/events/interfaces/event.interface';
+import { NotificationsListeners } from 'src/notifications/notifications.listeners';
+import { NotificationsService } from 'src/notifications/notifications.service';
+
+const mockNotificationsService = {
+  trigger: jest.fn(),
+  handleUndo: jest.fn(),
+  handleTweetDeletionNotifications: jest.fn(),
+};
+
+const mockTweetRepository = {
+  findTweetById: jest.fn(),
+};
 
 describe('NotificationsListeners', () => {
   let listeners: NotificationsListeners;
-  let notificationsService: jest.Mocked<NotificationsService>;
-  let tweetRepository: jest.Mocked<TweetsRepository>;
-
-  const mockNotificationsService = {
-    trigger: jest.fn(),
-    handleUndo: jest.fn(),
-    handleTweetDeletionNotifications: jest.fn(),
-  };
-
-  const mockTweetRepository = {
-    findTweetById: jest.fn(),
-  };
+  let loggerErrorSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -41,11 +40,10 @@ describe('NotificationsListeners', () => {
     }).compile();
 
     listeners = module.get<NotificationsListeners>(NotificationsListeners);
-    notificationsService = module.get(NotificationsService);
-    tweetRepository = module.get(TweetsRepository);
 
-    // Suppress logger output during tests
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(function (this: void) {});
   });
 
   describe('handleTweetLiked', () => {
@@ -58,7 +56,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetLiked(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
@@ -74,14 +72,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Trigger failed');
-      notificationsService.trigger.mockRejectedValueOnce(error);
+      mockNotificationsService.trigger.mockRejectedValueOnce(error);
 
       await listeners.handleTweetLiked(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing Tweet_Liked event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing Tweet_Liked event:', error);
     });
   });
 
@@ -94,7 +89,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleUserFollowed(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         type: 'FOLLOW',
@@ -108,14 +103,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Trigger failed');
-      notificationsService.trigger.mockRejectedValueOnce(error);
+      mockNotificationsService.trigger.mockRejectedValueOnce(error);
 
       await listeners.handleUserFollowed(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing User_Followed event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing User_Followed event:', error);
     });
   });
 
@@ -129,7 +121,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetRetweeted(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
@@ -145,14 +137,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Trigger failed');
-      notificationsService.trigger.mockRejectedValueOnce(error);
+      mockNotificationsService.trigger.mockRejectedValueOnce(error);
 
       await listeners.handleTweetRetweeted(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing Tweet_Retweeted event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing Tweet_Retweeted event:', error);
     });
   });
 
@@ -167,12 +156,12 @@ describe('NotificationsListeners', () => {
       };
 
       const parentTweet = { id: 50n, userId: 2n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(tweetRepository.findTweetById).toHaveBeenCalledWith(50n);
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockTweetRepository.findTweetById).toHaveBeenCalledWith(50n);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'REPLY',
         actorId: 1n,
         receiverId: 2n,
@@ -190,11 +179,11 @@ describe('NotificationsListeners', () => {
       };
 
       const parentTweet = { id: 50n, userId: 1n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).not.toHaveBeenCalled();
+      expect(mockNotificationsService.trigger).not.toHaveBeenCalled();
     });
 
     it('should not trigger REPLY notification when parent tweet not found', async () => {
@@ -210,7 +199,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).not.toHaveBeenCalled();
+      expect(mockNotificationsService.trigger).not.toHaveBeenCalled();
     });
 
     it('should trigger QUOTE notification when quoting a tweet', async () => {
@@ -223,12 +212,12 @@ describe('NotificationsListeners', () => {
       };
 
       const quotedTweet = { id: 50n, userId: 2n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(tweetRepository.findTweetById).toHaveBeenCalledWith(50n);
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockTweetRepository.findTweetById).toHaveBeenCalledWith(50n);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'QUOTE',
         actorId: 1n,
         receiverId: 2n,
@@ -246,11 +235,11 @@ describe('NotificationsListeners', () => {
       };
 
       const quotedTweet = { id: 50n, userId: 1n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).not.toHaveBeenCalled();
+      expect(mockNotificationsService.trigger).not.toHaveBeenCalled();
     });
 
     it('should trigger MENTION notifications for mentioned users', async () => {
@@ -264,20 +253,20 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledTimes(3);
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledTimes(3);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
       });
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 3n,
         tweetId: 100n,
       });
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 4n,
@@ -296,8 +285,8 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledTimes(1);
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledTimes(1);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 2n,
@@ -315,20 +304,20 @@ describe('NotificationsListeners', () => {
       };
 
       const parentTweet = { id: 50n, userId: 2n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(parentTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledTimes(2);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledTimes(2);
       // User 2 should only get REPLY notification, not MENTION
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'REPLY',
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
       });
       // User 3 should get MENTION notification
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 3n,
@@ -346,20 +335,20 @@ describe('NotificationsListeners', () => {
       };
 
       const quotedTweet = { id: 50n, userId: 2n };
-      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet as any);
+      mockTweetRepository.findTweetById.mockResolvedValueOnce(quotedTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledTimes(2);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledTimes(2);
       // User 2 should only get QUOTE notification, not MENTION
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'QUOTE',
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
       });
       // User 3 should get MENTION notification
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 3n,
@@ -379,32 +368,32 @@ describe('NotificationsListeners', () => {
       const parentTweet = { id: 50n, userId: 2n };
       const quotedTweet = { id: 60n, userId: 3n };
       mockTweetRepository.findTweetById
-        .mockResolvedValueOnce(parentTweet as any)
-        .mockResolvedValueOnce(quotedTweet as any);
+        .mockResolvedValueOnce(parentTweet)
+        .mockResolvedValueOnce(quotedTweet);
 
       await listeners.handleTweetCreated(payload);
 
-      expect(notificationsService.trigger).toHaveBeenCalledTimes(4);
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledTimes(4);
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'REPLY',
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
       });
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'QUOTE',
         actorId: 1n,
         receiverId: 3n,
         tweetId: 100n,
       });
       // Users 4 and 5 should get MENTION notifications
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 4n,
         tweetId: 100n,
       });
-      expect(notificationsService.trigger).toHaveBeenCalledWith({
+      expect(mockNotificationsService.trigger).toHaveBeenCalledWith({
         type: 'MENTION',
         actorId: 1n,
         receiverId: 5n,
@@ -426,10 +415,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetCreated(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing Tweet_Created event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing Tweet_Created event:', error);
     });
   });
 
@@ -443,7 +429,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetUnliked(payload);
 
-      expect(notificationsService.handleUndo).toHaveBeenCalledWith({
+      expect(mockNotificationsService.handleUndo).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
@@ -459,14 +445,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Undo failed');
-      notificationsService.handleUndo.mockRejectedValueOnce(error);
+      mockNotificationsService.handleUndo.mockRejectedValueOnce(error);
 
       await listeners.handleTweetUnliked(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing Tweet_Unliked event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing Tweet_Unliked event:', error);
     });
   });
 
@@ -479,7 +462,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleUserUnfollowed(payload);
 
-      expect(notificationsService.handleUndo).toHaveBeenCalledWith({
+      expect(mockNotificationsService.handleUndo).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         type: 'FOLLOW',
@@ -493,14 +476,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Undo failed');
-      notificationsService.handleUndo.mockRejectedValueOnce(error);
+      mockNotificationsService.handleUndo.mockRejectedValueOnce(error);
 
       await listeners.handleUserUnfollowed(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing User_Unfollowed event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing User_Unfollowed event:', error);
     });
   });
 
@@ -514,7 +494,7 @@ describe('NotificationsListeners', () => {
 
       await listeners.handleTweetUnRetweeted(payload);
 
-      expect(notificationsService.handleUndo).toHaveBeenCalledWith({
+      expect(mockNotificationsService.handleUndo).toHaveBeenCalledWith({
         actorId: 1n,
         receiverId: 2n,
         tweetId: 100n,
@@ -530,11 +510,11 @@ describe('NotificationsListeners', () => {
       };
 
       const error = new Error('Undo failed');
-      notificationsService.handleUndo.mockRejectedValueOnce(error);
+      mockNotificationsService.handleUndo.mockRejectedValueOnce(error);
 
       await listeners.handleTweetUnRetweeted(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
         'Error processing Tweet_Unretweeted event:',
         error,
       );
@@ -544,32 +524,36 @@ describe('NotificationsListeners', () => {
   describe('handleTweetDeleted', () => {
     it('should handle tweet deletion notifications', async () => {
       const payload: TweetDeleted = {
-        receivers: [1n, 2n, 3n],
+        receivers: [
+          { receiverId: 1n, unseenCount: 2 },
+          { receiverId: 2n, unseenCount: 3 },
+          { receiverId: 3n, unseenCount: 4 },
+        ],
       };
-
       await listeners.handleTweetDeleted(payload);
 
-      expect(notificationsService.handleTweetDeletionNotifications).toHaveBeenCalledWith([
-        1n,
-        2n,
-        3n,
+      expect(mockNotificationsService.handleTweetDeletionNotifications).toHaveBeenCalledWith([
+        { receiverId: 1n, unseenCount: 2 },
+        { receiverId: 2n, unseenCount: 3 },
+        { receiverId: 3n, unseenCount: 4 },
       ]);
     });
 
     it('should log error if handling deletion fails', async () => {
       const payload: TweetDeleted = {
-        receivers: [1n, 2n, 3n],
+        receivers: [
+          { receiverId: 1n, unseenCount: 2 },
+          { receiverId: 2n, unseenCount: 3 },
+          { receiverId: 3n, unseenCount: 4 },
+        ],
       };
 
       const error = new Error('Deletion handling failed');
-      notificationsService.handleTweetDeletionNotifications.mockRejectedValueOnce(error);
+      mockNotificationsService.handleTweetDeletionNotifications.mockRejectedValueOnce(error);
 
       await listeners.handleTweetDeleted(payload);
 
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        'Error processing Tweet_Deleted event:',
-        error,
-      );
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error processing Tweet_Deleted event:', error);
     });
   });
 });

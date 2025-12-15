@@ -1,48 +1,59 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
-import { PushSenderService } from './push-sender.service';
 import { DevicesRepository } from 'src/devices/devices.repository';
 import * as admin from 'firebase-admin';
+import { PushSenderService } from 'src/firebase/push-sender.service';
 
 // Mock firebase-admin
 jest.mock('firebase-admin', () => ({
   messaging: jest.fn(),
 }));
 
+const mockMessaging = {
+  sendEachForMulticast: jest.fn(),
+};
+
+const mockDevicesRepository = {
+  getUserDevices: jest.fn(),
+  deleteDevicesByTokens: jest.fn(),
+};
+
+const mockLogger = {
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
 describe('PushSenderService', () => {
   let service: PushSenderService;
-  let devicesRepository: jest.Mocked<DevicesRepository>;
-  let mockMessaging: jest.Mocked<admin.messaging.Messaging>;
-
-  const mockDevicesRepository = {
-    getUserDevices: jest.fn(),
-    deleteDevicesByTokens: jest.fn(),
-  };
+  let loggerLogSpy: jest.SpyInstance;
+  let loggerWarnSpy: jest.SpyInstance;
+  let loggerErrorSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    // Mock firebase messaging
-    mockMessaging = {
-      sendEachForMulticast: jest.fn(),
-    } as any;
-
     (admin.messaging as jest.Mock).mockReturnValue(mockMessaging);
-
-    // Suppress logger output during tests
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PushSenderService,
         { provide: DevicesRepository, useValue: mockDevicesRepository },
+        { provide: Logger, useValue: mockLogger },
       ],
     }).compile();
 
     service = module.get<PushSenderService>(PushSenderService);
-    devicesRepository = module.get(DevicesRepository);
+
+    loggerLogSpy = jest
+      .spyOn((service as unknown as { logger: Logger }).logger, 'log')
+      .mockImplementation(() => {});
+    loggerWarnSpy = jest
+      .spyOn((service as unknown as { logger: Logger }).logger, 'warn')
+      .mockImplementation(() => {});
+    loggerErrorSpy = jest
+      .spyOn((service as unknown as { logger: Logger }).logger, 'error')
+      .mockImplementation(() => {});
   });
 
   describe('sendToDevices', () => {
@@ -59,7 +70,7 @@ describe('PushSenderService', () => {
       android: {
         priority: 'normal',
         notification: {
-          channel_id: 'default',
+          channelId: 'default',
         },
       },
     };
@@ -69,8 +80,8 @@ describe('PushSenderService', () => {
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(devicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(mockDevicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'No devices found for user 123, skipping push notification',
       );
       expect(mockMessaging.sendEachForMulticast).not.toHaveBeenCalled();
@@ -82,12 +93,12 @@ describe('PushSenderService', () => {
         { id: BigInt(2), userId: BigInt(123), fcmToken: '' },
       ];
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(devicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Found 2 devices for user 123');
+      expect(mockDevicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
+      expect(loggerLogSpy).toHaveBeenCalledWith('Found 2 devices for user 123');
       expect(mockMessaging.sendEachForMulticast).not.toHaveBeenCalled();
     });
 
@@ -108,22 +119,22 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(devicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Found 3 devices for user 123');
-      expect(Logger.prototype.log).toHaveBeenCalledWith('tokens: token1, token2, token3');
+      expect(mockDevicesRepository.getUserDevices).toHaveBeenCalledWith(BigInt(123));
+      expect(loggerLogSpy).toHaveBeenCalledWith('Found 3 devices for user 123');
+      expect(loggerLogSpy).toHaveBeenCalledWith('tokens: token1, token2, token3');
       expect(mockMessaging.sendEachForMulticast).toHaveBeenCalledWith({
         tokens: ['token1', 'token2', 'token3'],
         notification: mockPayload.notification,
         data: mockPayload.data,
         android: mockPayload.android,
       });
-      expect(Logger.prototype.log).toHaveBeenCalledWith('response: ', mockResponse);
-      expect(devicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
+      expect(loggerLogSpy).toHaveBeenCalledWith('response: ', mockResponse);
+      expect(mockDevicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
     });
 
     it('should filter out null and empty tokens before sending', async () => {
@@ -145,8 +156,8 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
@@ -189,8 +200,8 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
@@ -201,18 +212,18 @@ describe('PushSenderService', () => {
         android: mockPayload.android,
       });
 
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to send notification to token invalidToken1: Invalid token',
       );
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to send notification to token invalidToken2: Token not registered',
       );
 
-      expect(devicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith([
+      expect(mockDevicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith([
         'invalidToken1',
         'invalidToken2',
       ]);
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Deleted 2 invalid tokens for user 123');
+      expect(loggerLogSpy).toHaveBeenCalledWith('Deleted 2 invalid tokens for user 123');
     });
 
     it('should not delete tokens for non-registration errors', async () => {
@@ -236,15 +247,15 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to send notification to token token2: Internal server error',
       );
-      expect(devicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
+      expect(mockDevicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
     });
 
     it('should handle mix of registration and non-registration errors', async () => {
@@ -278,13 +289,13 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(devicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith(['invalidToken']);
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Deleted 1 invalid tokens for user 123');
+      expect(mockDevicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith(['invalidToken']);
+      expect(loggerLogSpy).toHaveBeenCalledWith('Deleted 1 invalid tokens for user 123');
     });
 
     it('should handle errors from Firebase messaging gracefully', async () => {
@@ -292,14 +303,14 @@ describe('PushSenderService', () => {
 
       const error = new Error('Firebase connection timeout');
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
       mockMessaging.sendEachForMulticast.mockRejectedValue(error);
 
       await service.sendToDevices(userId, mockPayload);
 
       expect(mockMessaging.sendEachForMulticast).toHaveBeenCalled();
-      expect(Logger.prototype.error).toHaveBeenCalledWith('Error sending push to user 123', error);
-      expect(devicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error sending push to user 123', error);
+      expect(mockDevicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
     });
 
     it('should handle errors from devicesRepository.getUserDevices', async () => {
@@ -349,17 +360,17 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(devicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith([
+      expect(mockDevicesRepository.deleteDevicesByTokens).toHaveBeenCalledWith([
         'invalidToken1',
         'invalidToken2',
         'invalidToken3',
       ]);
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Deleted 3 invalid tokens for user 123');
+      expect(loggerLogSpy).toHaveBeenCalledWith('Deleted 3 invalid tokens for user 123');
     });
 
     it('should handle response with missing error details', async () => {
@@ -380,15 +391,15 @@ describe('PushSenderService', () => {
         ],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         'Failed to send notification to token token2: undefined',
       );
-      expect(devicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
+      expect(mockDevicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
     });
 
     it('should handle large number of devices', async () => {
@@ -407,18 +418,18 @@ describe('PushSenderService', () => {
         })),
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, mockPayload);
 
-      expect(Logger.prototype.log).toHaveBeenCalledWith('Found 100 devices for user 123');
+      expect(loggerLogSpy).toHaveBeenCalledWith('Found 100 devices for user 123');
       expect(mockMessaging.sendEachForMulticast).toHaveBeenCalledWith(
         expect.objectContaining({
-          tokens: expect.arrayContaining(['token1', 'token50', 'token100']),
+          tokens: expect.arrayContaining(['token1', 'token50', 'token100']) as string[],
         }),
       );
-      expect(devicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
+      expect(mockDevicesRepository.deleteDevicesByTokens).not.toHaveBeenCalled();
     });
 
     it('should pass notification payload correctly to Firebase', async () => {
@@ -428,7 +439,6 @@ describe('PushSenderService', () => {
         notification: {
           title: 'Complex Notification',
           body: 'With body text',
-          image: 'https://example.com/image.jpg',
         },
         data: {
           id: '999',
@@ -439,7 +449,7 @@ describe('PushSenderService', () => {
         android: {
           priority: 'high',
           notification: {
-            channel_id: 'mentions',
+            channelId: 'mentions',
             sound: 'default',
             color: '#FF5733',
             tag: 'MENTION:TWEET:100',
@@ -453,8 +463,8 @@ describe('PushSenderService', () => {
         responses: [{ success: true, messageId: 'msg1' }],
       };
 
-      mockDevicesRepository.getUserDevices.mockResolvedValue(devices as any);
-      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse as any);
+      mockDevicesRepository.getUserDevices.mockResolvedValue(devices);
+      mockMessaging.sendEachForMulticast.mockResolvedValue(mockResponse);
 
       await service.sendToDevices(userId, complexPayload);
 

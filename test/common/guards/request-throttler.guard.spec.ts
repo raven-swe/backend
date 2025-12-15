@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { RequestThrottlerGuard } from './request-throttler.guard';
+import { RequestThrottlerGuard } from '../../../src/common/guards/request-throttler.guard';
 import { Reflector } from '@nestjs/core';
 import { ThrottlerModuleOptions, ThrottlerStorage } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -22,7 +22,7 @@ describe('RequestThrottlerGuard', () => {
       increment: jest.fn(),
       reset: jest.fn(),
       get: jest.fn(),
-    } as any;
+    } as unknown as ThrottlerStorage;
     const mockReflector = new Reflector();
 
     guard = new RequestThrottlerGuard(mockOptions, mockStorage, mockReflector);
@@ -44,7 +44,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('203.0.113.1');
     });
@@ -56,7 +56,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('192.0.2.1');
     });
@@ -67,7 +67,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('192.0.2.2');
     });
@@ -77,7 +77,7 @@ describe('RequestThrottlerGuard', () => {
         headers: {},
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('unknown');
     });
@@ -91,7 +91,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '127.0.0.1' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('2001:0db8:85a3:0000:0000:8a2e:0370:7334');
     });
@@ -105,7 +105,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('203.0.113.1');
     });
@@ -119,7 +119,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('203.0.113.1');
     });
@@ -134,7 +134,7 @@ describe('RequestThrottlerGuard', () => {
       } as unknown as Request;
 
       // x-forwarded-for as array is not a string, so should fallback to request.ip
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('192.0.2.1');
     });
@@ -149,7 +149,7 @@ describe('RequestThrottlerGuard', () => {
       } as unknown as Request;
 
       // Empty string is not a valid IP, so should fallback to request.ip
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('192.0.2.1');
     });
@@ -163,7 +163,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('127.0.0.1');
     });
@@ -177,7 +177,7 @@ describe('RequestThrottlerGuard', () => {
         socket: { remoteAddress: '192.0.2.2' },
       } as unknown as Request;
 
-      const result = await guard['getTracker'](mockRequest as any);
+      const result = await guard['getTracker'](mockRequest as unknown as Record<string, unknown>);
 
       expect(result).toBe('203.0.113.1');
       expect(result).not.toBe('192.0.2.1');

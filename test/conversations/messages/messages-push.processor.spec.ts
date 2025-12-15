@@ -1,12 +1,25 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { MessagesPushProcessor } from './messages-push.processor';
+import { MessagesPushProcessor } from '../../../src/conversations/messages/messages-push.processor';
 import { PushSenderService } from 'src/firebase/push-sender.service';
 import { UsersRepository } from 'src/users/users.repository';
 import { MediaType, LanguageCode } from '@prisma/client';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import * as fcmBuilder from 'src/notifications/utils/fcm-notification-body-builder';
+
+interface MessageJobData {
+  actorId: string;
+  conversationId: string;
+  messagePreview: string;
+  receiverId: string;
+  hasMedia?: boolean;
+  mediaType?: MediaType | null;
+  reaction?: string | null;
+}
 
 describe('MessagesPushProcessor', () => {
   let processor: MessagesPushProcessor;
@@ -45,10 +58,10 @@ describe('MessagesPushProcessor', () => {
     usersRepository = module.get(UsersRepository);
   });
 
-  const createMockJob = (data: any): Job => {
+  const createMockJob = (data: MessageJobData): Job<MessageJobData> => {
     return {
       data,
-    } as Job;
+    } as Job<MessageJobData>;
   };
 
   describe('process', () => {
@@ -177,7 +190,10 @@ describe('MessagesPushProcessor', () => {
 
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      expect(payload.data).toBeDefined();
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{
+        displayName: string | null;
+      }>;
       expect(actorSummary[0].displayName).toBeNull();
     });
 
@@ -206,9 +222,11 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(payload.notification).toBeDefined();
+      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE);
 
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      expect(payload.data).toBeDefined();
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{ avatarUrl: string }>;
       expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
     });
 
@@ -234,9 +252,11 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(payload.notification).toBeDefined();
+      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE);
 
-      const actorSummary = JSON.parse(payload.data.actorSummary);
+      expect(payload.data).toBeDefined();
+      const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{ avatarUrl: string }>;
       expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
     });
 
@@ -271,8 +291,9 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.title).toBe('Alice Smith sent you a photo');
-      expect(payload.notification.body).toBeUndefined();
+      expect(payload.notification).toBeDefined();
+      expect(payload.notification!.title).toBe('Alice Smith sent you a photo');
+      expect(payload.notification!.body).toBeUndefined();
     });
 
     it('should process message with video media', async () => {
@@ -306,7 +327,8 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.title).toBe('Alice Smith sent you a video');
+      expect(payload.notification).toBeDefined();
+      expect(payload.notification!.title).toBe('Alice Smith sent you a video');
     });
 
     it('should process message with reaction', async () => {
@@ -339,7 +361,8 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.title).toContain('❤️');
+      expect(payload.notification).toBeDefined();
+      expect(payload.notification!.title).toContain('❤️');
     });
 
     it('should process message in Arabic locale', async () => {
@@ -384,7 +407,9 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.android.notification.tag).toBe('msg:12345');
+      expect(payload.android).toBeDefined();
+      expect(payload.android!.notification).toBeDefined();
+      expect((payload.android!.notification as any).tag).toBe('msg:12345');
     });
 
     it('should include message preview in data payload', async () => {
@@ -406,7 +431,11 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      const messageSummary = JSON.parse(payload.data.messageSummary);
+      expect(payload.data).toBeDefined();
+      const messageSummary = JSON.parse(payload.data!.messageSummary) as {
+        messagePreview: string;
+        conversationId: string;
+      };
       expect(messageSummary.messagePreview).toBe('This is a longer message preview for testing');
       expect(messageSummary.conversationId).toBe('100');
     });
@@ -427,10 +456,12 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.android.priority).toBe('high');
-      expect(payload.android.notification.channel_id).toBe('messages');
-      expect(payload.android.notification.sound).toBe('default');
-      expect(payload.android.notification.color).toBe('#e5e7ff');
+      expect(payload.android).toBeDefined();
+      expect(payload.android!.priority).toBe('high');
+      expect(payload.android!.notification).toBeDefined();
+      expect((payload.android!.notification as any).channel_id).toBe('messages');
+      expect(payload.android!.notification!.sound).toBe('default');
+      expect(payload.android!.notification!.color).toBe('#e5e7ff');
     });
 
     it('should handle error when getting user metadata fails', async () => {
@@ -528,7 +559,8 @@ describe('MessagesPushProcessor', () => {
       const sendCall = pushSender.sendToDevices.mock.calls[0];
       const payload = sendCall[1];
 
-      expect(payload.notification.body).toBeUndefined();
+      expect(payload.notification).toBeDefined();
+      expect(payload.notification!.body).toBeUndefined();
     });
 
     it('should handle null mediaType when hasMedia is false', async () => {
