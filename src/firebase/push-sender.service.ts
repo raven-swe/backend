@@ -30,6 +30,8 @@ export class PushSenderService {
         android: payload.android,
       });
 
+      this.logger.log('response: ', response);
+
       if (response.failureCount > 0) {
         const failedTokens: string[] = [];
         response.responses.forEach((resp, idx) => {
