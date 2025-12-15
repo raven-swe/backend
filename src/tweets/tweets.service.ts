@@ -22,7 +22,11 @@ import {
   PAGINATION_ERROR_MESSAGES,
 } from 'src/common/constants/pagination-error-codes';
 import { GetTweetResponseDto } from './dtos/get-tweet-response.dto';
-import { TweetRelationsCursor, UserInteractionsCursor } from 'src/common/types/cursors';
+import {
+  TweetRankCursor,
+  TweetRelationsCursor,
+  UserInteractionsCursor,
+} from 'src/common/types/cursors';
 import { MediaResponseDto } from 'src/media/dtos/media-response.dto';
 import { AuthorDto, TweetDto } from './dtos';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -978,11 +982,11 @@ export class TweetsService {
     currentUserId: bigint,
     query: string,
     limit: number,
-    decodedCursor?: TweetRelationsCursor,
+    decodedCursor?: TweetRankCursor,
     excludeMutedAndBlocked?: boolean,
     peopleFilter?: PeopleSearchFilter,
   ) {
-    return await this.tweetsRepository.getTweetsByQuery(
+    return await this.tweetsRepository.getRankedTweetsByQuery(
       currentUserId,
       query,
       false,
@@ -993,7 +997,7 @@ export class TweetsService {
     );
   }
 
-  async getTweetsWithMediaByQuery(
+  async getLatestTweetsByQuery(
     currentUserId: bigint,
     query: string,
     limit: number,
@@ -1001,7 +1005,24 @@ export class TweetsService {
     excludeMutedAndBlocked?: boolean,
     peopleFilter?: PeopleSearchFilter,
   ) {
-    return await this.tweetsRepository.getTweetsByQuery(
+    return await this.tweetsRepository.getLatestTweetsByQuery(
+      currentUserId,
+      query,
+      excludeMutedAndBlocked,
+      peopleFilter,
+      limit + 1,
+      decodedCursor,
+    );
+  }
+  async getTweetsWithMediaByQuery(
+    currentUserId: bigint,
+    query: string,
+    limit: number,
+    decodedCursor?: TweetRankCursor,
+    excludeMutedAndBlocked?: boolean,
+    peopleFilter?: PeopleSearchFilter,
+  ) {
+    return await this.tweetsRepository.getRankedTweetsByQuery(
       currentUserId,
       query,
       true,

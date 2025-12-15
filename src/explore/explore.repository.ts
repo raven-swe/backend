@@ -11,14 +11,6 @@ export class ExploreRepository {
     private readonly tweetsRepository: TweetsRepository,
   ) {}
 
-  async getUserInterests(userId: bigint): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { interests: true },
-    });
-    return user?.interests ?? [];
-  }
-
   /**
    * Fetches top N tweets per category for the given interests using LATERAL join
    * More efficient than ROW_NUMBER - stops scanning after finding N tweets per category
