@@ -11,12 +11,17 @@ import {
   CONVERSATIONS_ERROR_MESSAGES,
 } from 'src/conversations/constants/conversation-constants';
 import { WsJwtGuard } from 'src/auth/guards';
+import { DomainEventsService } from 'src/events/domain-events.service';
 
 describe('DmGateway', () => {
   let gateway: DmGateway;
   let conversationsService: jest.Mocked<ConversationsService>;
   let messagesService: jest.Mocked<MessagesService>;
   let sseEvents: jest.Mocked<SseEventsService>;
+  const mockDomainEventsService = {
+    emitMessageCreated: jest.fn(),
+    emitReactionSent: jest.fn(),
+  };
 
   const mockUser: WsUser = {
     id: '6',
@@ -69,6 +74,10 @@ describe('DmGateway', () => {
             publishNewMessagePreview: jest.fn(),
             publishNewMessagePreviewToMany: jest.fn(),
           },
+        },
+        {
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     })
