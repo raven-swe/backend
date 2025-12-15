@@ -88,7 +88,8 @@ export function buildFcmNotificationText(opts: {
     locale,
   } = opts;
 
-  const templates = locale ? TEMPLATES[locale] : TEMPLATES[DEFAULT_LOCALE];
+  const effectiveLocale = locale ?? DEFAULT_LOCALE;
+  const templates = TEMPLATES[effectiveLocale];
 
   const leadActor = previewActors[0] ?? 'Someone';
   const remainingCount = Math.max(0, (totalActorCount ?? 1) - 1);
@@ -96,9 +97,9 @@ export function buildFcmNotificationText(opts: {
   let key = 'generic';
   const params: Record<string, unknown> = {};
 
-  if (locale === LanguageCode.AR && isAggregated && remainingCount > 0) {
+  if (effectiveLocale === LanguageCode.AR && isAggregated && remainingCount > 0) {
     params.sar = remainingCount === 1 ? '' : 'ون';
-  } else if (locale === LanguageCode.EN && isAggregated && remainingCount > 0) {
+  } else if (effectiveLocale === LanguageCode.EN && isAggregated && remainingCount > 0) {
     params.s = remainingCount === 1 ? '' : 's';
   }
   switch (notificationType) {
