@@ -3,6 +3,13 @@ import { OnboardingController } from 'src/auth/onboarding.controller';
 import { UsersRepository } from 'src/users/users.repository';
 import { ONBOARDING_CONSTANTS } from 'src/auth/constants';
 import type { RequestUser } from 'src/common/interfaces';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { USERS_ERROR_CODES, USERS_ERROR_MESSAGES } from 'src/users/constants';
+import * as commonUtils from 'src/common/utils';
+
+jest.mock('src/common/utils', () => ({
+  generateUsernames: jest.fn(),
+}));
 
 describe('OnboardingController', () => {
   let controller: OnboardingController;
@@ -11,6 +18,7 @@ describe('OnboardingController', () => {
   const mockUsersRepository = {
     getOnboardingFollowSuggestions: jest.fn(),
     getUserEmailAndDisplayName: jest.fn(),
+    getUserByUsername: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -30,16 +38,179 @@ describe('OnboardingController', () => {
     jest.clearAllMocks();
   });
 
+  describe('getUsernameSuggestions', () => {
+    const mockUser: RequestUser = {
+      id: '123',
+    };
+
+    const mockExistingUser = {
+      email: 'test@example.com',
+      profile: {
+        displayName: 'Test User',
+      },
+    };
+
+    it('should return username suggestions with display name', async () => {
+      const mockSuggestions = ['testuser1', 'testuser2', 'testuser3'];
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(mockExistingUser);
+      (commonUtils.generateUsernames as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      const result = await controller.getUsernameSuggestions(mockUser);
+
+      expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(usersRepository.getUserEmailAndDisplayName).toHaveBeenCalledWith(BigInt(123));
+      expect(commonUtils.generateUsernames).toHaveBeenCalledWith(
+        usersRepository,
+        'Test User',
+        'test@example.com',
+        undefined,
+        ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
+        false,
+      );
+    });
+
+    it('should return username suggestions with typed parameter', async () => {
+      const mockSuggestions = ['myname1', 'myname2', 'myname3'];
+      const typed = 'myname';
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(mockExistingUser);
+      (commonUtils.generateUsernames as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      const result = await controller.getUsernameSuggestions(mockUser, typed);
+
+      expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(usersRepository.getUserEmailAndDisplayName).toHaveBeenCalledWith(BigInt(123));
+      expect(commonUtils.generateUsernames).toHaveBeenCalledWith(
+        usersRepository,
+        'Test User',
+        'test@example.com',
+        'myname',
+        ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
+        false,
+      );
+    });
+
+    it('should handle user with no profile (empty display name)', async () => {
+      const mockSuggestions = ['test1', 'test2', 'test3'];
+      const userWithoutProfile = {
+        email: 'test@example.com',
+        profile: null,
+      };
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(userWithoutProfile);
+      (commonUtils.generateUsernames as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      const result = await controller.getUsernameSuggestions(mockUser);
+
+      expect(result).toEqual({ suggestions: mockSuggestions });
+      expect(commonUtils.generateUsernames).toHaveBeenCalledWith(
+        usersRepository,
+        '',
+        'test@example.com',
+        undefined,
+        ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
+        false,
+      );
+    });
+
+    it('should handle user with profile but no display name', async () => {
+      const mockSuggestions = ['test1', 'test2', 'test3'];
+      const userWithNoDisplayName = {
+        email: 'test@example.com',
+        profile: {
+          displayName: '',
+        },
+      };
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(userWithNoDisplayName);
+      (commonUtils.generateUsernames as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      const result = await controller.getUsernameSuggestions(mockUser);
+
+      expect(result).toEqual({ suggestions: mockSuggestions });
+      expect(commonUtils.generateUsernames).toHaveBeenCalledWith(
+        usersRepository,
+        '',
+        'test@example.com',
+        undefined,
+        ONBOARDING_CONSTANTS.USERNAME_SUGGESTIONS_COUNT,
+        false,
+      );
+    });
+
+    it('should throw UNAUTHORIZED exception when user not found', async () => {
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(null);
+
+      await expect(controller.getUsernameSuggestions(mockUser)).rejects.toThrow(
+        new HttpException(
+          {
+            message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+            code: USERS_ERROR_CODES.USER_NOT_FOUND,
+          },
+          HttpStatus.UNAUTHORIZED,
+        ),
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(usersRepository.getUserEmailAndDisplayName).toHaveBeenCalledWith(BigInt(123));
+      expect(commonUtils.generateUsernames).not.toHaveBeenCalled();
+    });
+
+    it('should correctly convert user id to BigInt', async () => {
+      const mockSuggestions = ['testuser1', 'testuser2', 'testuser3'];
+      const userWithBigId: RequestUser = {
+        id: '999999999999',
+      };
+      usersRepository.getUserEmailAndDisplayName.mockResolvedValue(mockExistingUser);
+      (commonUtils.generateUsernames as jest.Mock).mockResolvedValue(mockSuggestions);
+
+      await controller.getUsernameSuggestions(userWithBigId);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(usersRepository.getUserEmailAndDisplayName).toHaveBeenCalledWith(
+        BigInt('999999999999'),
+      );
+    });
+
+    it('should handle repository errors', async () => {
+      const error = new Error('Database error');
+      usersRepository.getUserEmailAndDisplayName.mockRejectedValue(error);
+
+      await expect(controller.getUsernameSuggestions(mockUser)).rejects.toThrow('Database error');
+    });
+  });
+
   describe('getFollowSuggestions', () => {
     const mockUser: RequestUser = {
       id: '123',
-      username: 'testuser',
     };
 
     const mockSuggestions = [
-      { id: BigInt(1), username: 'user1', profile: { displayName: 'User One' } },
-      { id: BigInt(2), username: 'user2', profile: { displayName: 'User Two' } },
-      { id: BigInt(3), username: 'user3', profile: { displayName: 'User Three' } },
+      {
+        id: '1',
+        username: 'user1',
+        displayName: 'User One',
+        avatarUrl: null,
+        bio: null,
+        bioEntities: null,
+        relationship: { isFollower: false },
+      },
+      {
+        id: '2',
+        username: 'user2',
+        displayName: 'User Two',
+        avatarUrl: null,
+        bio: null,
+        bioEntities: null,
+        relationship: { isFollower: false },
+      },
+      {
+        id: '3',
+        username: 'user3',
+        displayName: 'User Three',
+        avatarUrl: null,
+        bio: null,
+        bioEntities: null,
+        relationship: { isFollower: false },
+      },
     ];
 
     it('should return follow suggestions with default limit', async () => {
@@ -138,7 +309,6 @@ describe('OnboardingController', () => {
     it('should correctly convert user id to BigInt', async () => {
       const userWithStringId: RequestUser = {
         id: '999999999999',
-        username: 'bigiduser',
       };
       usersRepository.getOnboardingFollowSuggestions.mockResolvedValue(mockSuggestions);
 
