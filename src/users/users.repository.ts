@@ -1892,4 +1892,17 @@ export class UsersRepository {
 
     return user ? { username: user.username, displayName: user.profile!.displayName } : null;
   }
+
+  async getUserInterests(userId: bigint): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { interests: true },
+    });
+
+    return (
+      user?.interests.map((interest) =>
+        interest ? interest[0].toUpperCase() + interest.slice(1).toLowerCase() : interest,
+      ) || []
+    );
+  }
 }

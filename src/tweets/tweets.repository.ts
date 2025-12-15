@@ -1680,17 +1680,6 @@ export class TweetsRepository {
     });
     return authors;
   }
-  /**
-   * Get user's interests from their profile
-   */
-  async getUserInterests(userId: bigint): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { interests: true },
-    });
-
-    return user?.interests || [];
-  }
 
   /**
    * Get recent tweets from users the person follows
