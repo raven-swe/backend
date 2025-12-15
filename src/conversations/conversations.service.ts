@@ -64,11 +64,18 @@ export class ConversationsService {
       decoded,
     );
 
-    const blockedUsers = await this.usersRepository.getUserBlocks(userId);
-    const blockedBy = await this.usersRepository.getUserBlockedBy(userId);
+    const blockRelations = await this.usersRepository.getUserBlockRelations(userId);
 
-    const blockedUserIds = new Set(blockedUsers.map((block) => block.blockedId.toString()));
-    const blockedByUserIds = new Set(blockedBy.map((block) => block.userId.toString()));
+    const blockedUserIds = new Set(
+      blockRelations.map((block) => {
+        if (block.userId === userId) return block.blockedId.toString();
+      }),
+    );
+    const blockedByUserIds = new Set(
+      blockRelations.map((block) => {
+        if (block.blockedId === userId) return block.userId.toString();
+      }),
+    );
 
     const conversationsWithBlockStatus = userConversations.map((conversation) => {
       const otherParticipant = conversation.conversationParticipants.find(
@@ -136,11 +143,8 @@ export class ConversationsService {
       otherUser.id,
     );
 
-    const blockedUsers = await this.usersRepository.getUserBlocks(userId);
-    const blockedBy = await this.usersRepository.getUserBlockedBy(userId);
-
-    const isBlocking = blockedUsers.some((block) => block.blockedId === otherUser.id);
-    const isBlockedBy = blockedBy.some((block) => block.userId === otherUser.id);
+    const isBlocking = await this.usersRepository.isBlocked(userId, otherUser.id);
+    const isBlockedBy = await this.usersRepository.isBlocked(otherUser.id, userId);
 
     if (!conversationData) {
       if (isBlocking || isBlockedBy) {

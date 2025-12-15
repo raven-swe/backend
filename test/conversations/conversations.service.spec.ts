@@ -25,9 +25,9 @@ describe('ConversationsService', () => {
 
     const mockUsersRepository = {
       getUserByUsername: jest.fn(),
-      getUserBlocks: jest.fn(),
-      getUserBlockedBy: jest.fn(),
       getBlockingBlockedState: jest.fn(),
+      getUserBlockRelations: jest.fn(),
+      isBlocked: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -49,7 +49,7 @@ describe('ConversationsService', () => {
     usersRepository = module.get(UsersRepository);
   });
 
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
   });
 
@@ -99,9 +99,7 @@ describe('ConversationsService', () => {
       ];
 
       conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
-
+      usersRepository.getUserBlockRelations.mockResolvedValueOnce([]);
       const result = await service.getUserConversations(userId, limit, '');
 
       expect(result.items).toHaveLength(1);
@@ -266,8 +264,12 @@ describe('ConversationsService', () => {
       ];
 
       conversationsRepository.getUserConversations.mockResolvedValue(mockConversations);
-      usersRepository.getUserBlocks.mockResolvedValue([{ userId, blockedId: BigInt(2) }]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
+      usersRepository.getUserBlockRelations.mockResolvedValueOnce([
+        {
+          userId,
+          blockedId: BigInt(2),
+        },
+      ]);
 
       const result = await service.getUserConversations(userId, limit, '');
 
@@ -308,14 +310,12 @@ describe('ConversationsService', () => {
           },
         ],
         messages: [],
-        lastMessage: null,
+        lastMessage: { content: 'Hello', user: { username: 'testuser' }, createdAt: new Date() },
       };
 
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      conversationsRepository.findConversation.mockResolvedValue(mockConversation as any);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
+      conversationsRepository.findConversation.mockResolvedValue(mockConversation);
+      usersRepository.isBlocked.mockResolvedValue(false);
 
       const result = await service.createOrFindConversation(userId, username);
 
@@ -380,8 +380,6 @@ describe('ConversationsService', () => {
         lastMessageId: null,
         createdAt: new Date(),
       });
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
 
       const result = await service.createOrFindConversation(userId, username);
 
@@ -392,8 +390,7 @@ describe('ConversationsService', () => {
     it('should throw error if user is blocking target', async () => {
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
       conversationsRepository.findConversation.mockResolvedValue(null);
-      usersRepository.getUserBlocks.mockResolvedValue([{ userId, blockedId: otherUser.id }]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
+      usersRepository.isBlocked.mockResolvedValue(true);
 
       await expect(service.createOrFindConversation(userId, username)).rejects.toThrow(
         HttpException,
@@ -415,10 +412,7 @@ describe('ConversationsService', () => {
     it('should throw error if user is blocked by target', async () => {
       usersRepository.getUserByUsername.mockResolvedValue(otherUser);
       conversationsRepository.findConversation.mockResolvedValue(null);
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([
-        { userId: otherUser.id, blockedId: userId, createdAt: new Date() },
-      ]);
+      usersRepository.isBlocked.mockResolvedValue(true);
 
       await expect(service.createOrFindConversation(userId, username)).rejects.toThrow(
         HttpException,
@@ -441,8 +435,7 @@ describe('ConversationsService', () => {
         lastMessageId: null,
         createdAt: new Date(),
       });
-      usersRepository.getUserBlocks.mockResolvedValue([]);
-      usersRepository.getUserBlockedBy.mockResolvedValue([]);
+      usersRepository.isBlocked.mockResolvedValue(false);
 
       await expect(service.createOrFindConversation(userId, username)).rejects.toThrow(
         HttpException,

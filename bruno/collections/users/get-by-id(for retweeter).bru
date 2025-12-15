@@ -1,0 +1,19 @@
+meta {
+  name: get-by-id(for retweeter)
+  type: http
+  seq: 7
+}
+
+get {
+  url: http://localhost:3000/users/id/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 
+}
+
+settings {
+  encodeUrl: true
+}

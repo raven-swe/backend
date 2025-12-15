@@ -45,6 +45,8 @@ describe('TweetsService', () => {
     getFeedSkeletonSQL: jest.fn(),
     hydrateTweetsInList: jest.fn(),
     mapToDetailedTweetDto: jest.fn(),
+    mapToTweetDto: jest.fn(),
+    mapToAuthorDto: jest.fn(),
     getDetailedTweetById: jest.fn(),
     getTweetLikers: jest.fn(),
     getTweetRetweeters: jest.fn(),
@@ -248,6 +250,7 @@ describe('TweetsService', () => {
         replyToTweetId: null,
         quoteToTweetId: null,
         quotedTweet: undefined,
+        repostedBy: undefined,
         replyToTweet: undefined,
         rootTweetId: null,
       });
