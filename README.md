@@ -224,12 +224,6 @@
 | `pnpm start` | Start the server |
 | `pnpm start:prod` | Start production server |
 | `pnpm build` | Build for production |
-| `pnpm clean` | Remove build artifacts |
-| `pnpm rebuild` | Clean and rebuild |
-| `pnpm lint` | Run ESLint with auto-fix |
-| `pnpm lint:check` | Run ESLint without fix |
-| `pnpm format` | Format code with Prettier |
-| `pnpm format:check` | Check code formatting |
 | `pnpm test` | Run unit tests |
 | `pnpm test:cov` | Run tests with coverage |
 | `pnpm test:e2e` | Run end-to-end tests |
