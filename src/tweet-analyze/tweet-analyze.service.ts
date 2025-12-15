@@ -51,6 +51,15 @@ export class TweetAnalyzeService implements OnModuleInit {
       const intervalMs = this.intervalMinutes * 60 * 1000;
       this.logger.log(`Starting tweet analysis cron job (interval: ${this.intervalMinutes} min)`);
 
+      // Run first job immediately
+      this.analyzeTweets().catch((error) => {
+        this.logger.error(
+          'Initial tweet analysis failed',
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+
+      // Schedule periodic jobs
       setInterval(() => {
         this.analyzeTweets().catch((error) => {
           this.logger.error(
@@ -82,94 +91,122 @@ export class TweetAnalyzeService implements OnModuleInit {
       // Start lock extension mechanism
       this.startLockExtension();
 
-      const tweetsToAnalyze = await this.getTweetsToAnalyze();
+      let totalProcessedAcrossRuns = 0;
+      let runNumber = 0;
 
-      if (tweetsToAnalyze.length === 0) {
-        this.logger.log('No tweets to analyze');
-        return;
-      }
+      // Keep processing until no more tweets remain
+      while (true) {
+        runNumber++;
+        const tweetsToAnalyze = await this.getTweetsToAnalyze();
 
-      // Apply limit per job
-      const tweetsToProcess =
-        tweetsToAnalyze.length > this.LIMIT_PER_JOB
-          ? tweetsToAnalyze.slice(0, this.LIMIT_PER_JOB)
-          : tweetsToAnalyze;
-
-      if (tweetsToAnalyze.length > this.LIMIT_PER_JOB) {
-        this.logger.log(
-          `Retrieved ${tweetsToAnalyze.length} tweets, but limiting to ${this.LIMIT_PER_JOB} for this job run`,
-        );
-      } else {
-        this.logger.log(`Retrieved ${tweetsToAnalyze.length} tweets for analysis`);
-      }
-
-      const batches = this.splitIntoBatches(tweetsToProcess, this.requestLimit);
-
-      this.logger.log(
-        `Split into ${batches.length} batch(es) (limit: ${this.requestLimit} tweets/batch)`,
-      );
-
-      let totalAnalyzedTweets = 0;
-      let allBatchesSucceeded = true;
-
-      // Accumulate trending data across all batches
-      const accumulatedTrendingKeywords: TrendingKeyword[] = [];
-      let totalTweetsInAllBatches = 0;
-
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        this.logger.log(`Processing batch ${i + 1}/${batches.length} (${batch.length} tweets)`);
-
-        try {
-          const batchResult = await this.processBatch(batch);
-          totalAnalyzedTweets += batchResult.analyzedTweetsCount;
-
-          // Accumulate trending keywords from this batch
-          if (batchResult.trending_keywords) {
-            accumulatedTrendingKeywords.push(...batchResult.trending_keywords);
+        if (tweetsToAnalyze.length === 0) {
+          if (runNumber === 1) {
+            this.logger.log('No tweets to analyze');
+          } else {
+            this.logger.log(
+              `All tweets processed across ${runNumber - 1} run(s) (${totalProcessedAcrossRuns} total tweets)`,
+            );
           }
-          if (batchResult.batch_meta) {
-            totalTweetsInAllBatches += batchResult.batch_meta.total_tweets;
-          }
-
-          this.logger.log(
-            `Batch ${i + 1}/${batches.length} completed ` +
-              `(analyzed: ${batchResult.analyzedTweetsCount}, keywords: ${batchResult.trending_keywords?.length || 0})`,
-          );
-        } catch (error) {
-          this.logger.error(
-            `Batch ${i + 1}/${batches.length} failed`,
-            error instanceof Error ? error.stack : String(error),
-          );
-          this.logger.warn(
-            `Stopping after batch ${i + 1} failure. ` +
-              `${batches.length - i - 1} batch(es) will retry in next run`,
-          );
-          allBatchesSucceeded = false;
           break;
         }
-      }
 
-      // Update trending scores once with accumulated data from all batches
-      if (accumulatedTrendingKeywords.length > 0) {
-        this.logger.log(
-          `Updating trending scores with ${accumulatedTrendingKeywords.length} accumulated keywords`,
-        );
-        await this.trendingService.updateTrendScores({
-          batch_meta: { total_tweets: totalTweetsInAllBatches },
-          trending_keywords: accumulatedTrendingKeywords,
-        });
-        this.logger.log('Trending scores updated successfully');
-      }
+        // Apply limit per job run
+        const tweetsToProcess =
+          tweetsToAnalyze.length > this.LIMIT_PER_JOB
+            ? tweetsToAnalyze.slice(0, this.LIMIT_PER_JOB)
+            : tweetsToAnalyze;
 
-      if (allBatchesSucceeded) {
+        const hasMoreTweets = tweetsToAnalyze.length > this.LIMIT_PER_JOB;
+
+        this.logger.log(`--- Starting run ${runNumber} ---`);
+
+        if (hasMoreTweets) {
+          this.logger.log(
+            `Retrieved ${tweetsToAnalyze.length} tweets, processing ${this.LIMIT_PER_JOB} in this run`,
+          );
+        } else {
+          this.logger.log(`Retrieved ${tweetsToAnalyze.length} tweets for analysis`);
+        }
+
+        const batches = this.splitIntoBatches(tweetsToProcess, this.requestLimit);
+
         this.logger.log(
-          `=== Tweet Analysis Job Completed Successfully (${totalAnalyzedTweets} tweets) ===`,
+          `Split into ${batches.length} batch(es) (limit: ${this.requestLimit} tweets/batch)`,
         );
-      } else {
-        this.logger.warn(
-          `=== Tweet Analysis Job Stopped (${totalAnalyzedTweets} tweets processed) ===`,
-        );
+
+        let runAnalyzedTweets = 0;
+        let allBatchesSucceeded = true;
+
+        // Accumulate trending data across all batches in this run
+        const accumulatedTrendingKeywords: TrendingKeyword[] = [];
+        let totalTweetsInRun = 0;
+
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          this.logger.log(`Processing batch ${i + 1}/${batches.length} (${batch.length} tweets)`);
+
+          try {
+            const batchResult = await this.processBatch(batch);
+            runAnalyzedTweets += batchResult.analyzedTweetsCount;
+
+            // Accumulate trending keywords from this batch
+            if (batchResult.trending_keywords) {
+              accumulatedTrendingKeywords.push(...batchResult.trending_keywords);
+            }
+            if (batchResult.batch_meta) {
+              totalTweetsInRun += batchResult.batch_meta.total_tweets;
+            }
+
+            this.logger.log(
+              `Batch ${i + 1}/${batches.length} completed ` +
+                `(analyzed: ${batchResult.analyzedTweetsCount}, keywords: ${batchResult.trending_keywords?.length || 0})`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Batch ${i + 1}/${batches.length} failed`,
+              error instanceof Error ? error.stack : String(error),
+            );
+            this.logger.warn(
+              `Stopping after batch ${i + 1} failure. ` +
+                `${batches.length - i - 1} batch(es) will retry in next job`,
+            );
+            allBatchesSucceeded = false;
+            break;
+          }
+        }
+
+        // Update trending scores for this run
+        if (accumulatedTrendingKeywords.length > 0) {
+          this.logger.log(
+            `Updating trending scores with ${accumulatedTrendingKeywords.length} keywords from run ${runNumber}`,
+          );
+          await this.trendingService.updateTrendScores({
+            batch_meta: { total_tweets: totalTweetsInRun },
+            trending_keywords: accumulatedTrendingKeywords,
+          });
+          this.logger.log('Trending scores updated successfully');
+        }
+
+        totalProcessedAcrossRuns += runAnalyzedTweets;
+
+        if (!allBatchesSucceeded) {
+          this.logger.warn(
+            `Run ${runNumber} stopped due to failure (${runAnalyzedTweets} tweets processed in this run)`,
+          );
+          break;
+        }
+
+        this.logger.log(`Run ${runNumber} completed successfully (${runAnalyzedTweets} tweets)`);
+
+        // If no more tweets remain, exit the loop
+        if (!hasMoreTweets) {
+          this.logger.log(
+            `=== Tweet Analysis Job Completed Successfully (${totalProcessedAcrossRuns} total tweets across ${runNumber} run(s)) ===`,
+          );
+          break;
+        }
+
+        this.logger.log('More tweets remain, continuing to next run immediately...');
       }
     } catch (error) {
       this.logger.error(
