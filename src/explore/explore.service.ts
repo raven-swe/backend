@@ -15,11 +15,15 @@ export class ExploreService {
     private readonly usersRepository: UsersRepository,
   ) {}
 
-  async getForYouCategories(userId: bigint): Promise<ForYouCategory[]> {
+  async getForYouCategories(userId: bigint): Promise<{
+    categories: ForYouCategory[];
+  }> {
     const userInterests = await this.usersRepository.getUserInterests(userId);
 
     if (!userInterests || userInterests.length === 0) {
-      return [];
+      return {
+        categories: [],
+      };
     }
 
     // Fetch all tweets for all categories in a single query
@@ -41,7 +45,9 @@ export class ExploreService {
       }
     }
 
-    return categories;
+    return {
+      categories,
+    };
   }
 
   private mapCategory(category: string): string {
