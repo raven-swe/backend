@@ -134,6 +134,15 @@ export class ConversationsService {
         HttpStatus.NOT_FOUND,
       );
 
+    if (otherUser.id === userId)
+      throw new HttpException(
+        {
+          message: CONVERSATIONS_ERROR_MESSAGES.CANNOT_CREATE_CONVERSATION_WITH_SELF,
+          code: CONVERSATIONS_ERROR_CODES.CANNOT_CREATE_CONVERSATION_WITH_SELF,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+
     let conversationData = await this.conversationsRepository.findConversation(
       userId,
       otherUser.id,
