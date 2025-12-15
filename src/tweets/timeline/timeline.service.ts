@@ -1217,8 +1217,7 @@ export class TimelineService {
   ): Promise<Array<{ id: string; score: number; retweeterId?: string }>> {
     this.logger.debug(`Generating For You feed for user ${userId}`);
 
-    // 1. Get user interests from database
-    const userInterests = await this.tweetsRepository.getUserInterests(userId);
+    const userInterests = await this.usersRepository.getUserInterests(userId);
     this.logger.debug(
       `User ${userId} has ${userInterests.length} interests: ${userInterests.join(', ')}`,
     );

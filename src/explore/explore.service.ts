@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ExploreRepository } from './explore.repository';
 import { TweetDto } from 'src/tweets/dtos';
+import { UsersRepository } from 'src/users/users.repository';
 
 export interface ForYouCategory {
   category: string;
@@ -9,10 +10,13 @@ export interface ForYouCategory {
 
 @Injectable()
 export class ExploreService {
-  constructor(private readonly exploreRepository: ExploreRepository) {}
+  constructor(
+    private readonly exploreRepository: ExploreRepository,
+    private readonly usersRepository: UsersRepository,
+  ) {}
 
   async getForYouCategories(userId: bigint): Promise<ForYouCategory[]> {
-    const userInterests = await this.exploreRepository.getUserInterests(userId);
+    const userInterests = await this.usersRepository.getUserInterests(userId);
 
     if (!userInterests || userInterests.length === 0) {
       return [];
