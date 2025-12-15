@@ -169,9 +169,7 @@ export class MediaService {
   /**
    * Get image dimensions from buffer
    */
-  private async getImageDimensions(
-    file: Express.Multer.File,
-  ): Promise<{ width: number; height: number }> {
+  async getImageDimensions(file: Express.Multer.File): Promise<{ width: number; height: number }> {
     try {
       const image = sharp(file.buffer);
 
