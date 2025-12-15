@@ -1123,4 +1123,18 @@ export class UsersService {
   async invalidateUserCache(userId: bigint) {
     await this.redisService.del(REDIS_TIMELINE_KEYS.getAuthorDataKey(userId));
   }
+
+  async getUserById(userId: bigint) {
+    const user = await this.usersRepository.findUsernameAndDisplayNameById(userId);
+    if (!user) {
+      throw new HttpException(
+        {
+          message: USERS_ERROR_MESSAGES.USER_NOT_FOUND,
+          code: USERS_ERROR_CODES.USER_NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return user;
+  }
 }
