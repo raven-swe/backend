@@ -280,15 +280,20 @@ export class TweetsService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.tweetsRepository.deleteTweet(tweetId, tx);
+    const receivers = await this.prisma.$transaction(async (tx) => {
+      const receivers = await this.tweetsRepository.deleteTweet(tweetId, tx);
       if (replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(replyToTweetId, false, tx);
       }
       if (quoteToTweetId) {
         await this.tweetsRepository.updateTweetRetweetCount(quoteToTweetId, false, tx);
       }
+      return receivers;
     });
+    if (receivers && receivers.length > 0) {
+      this.logger.debug(`Emitting tweet deleted event for tweet ID: ${tweetId}`);
+      await this.domainEvents.emitTweetDeleted({ receivers });
+    }
     this.logger.debug(`User ${userId} deleted tweet ${tweetId} successfully`);
 
     await this.invalidateTweetCache(tweetId);

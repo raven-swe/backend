@@ -111,7 +111,6 @@ export class NotificationsRepository {
         actorId: options.actorId,
         latestEventAt: new Date(),
         isAggregated: true,
-        seen: false,
         payload,
       },
       select: notificationSelect(options.receiverId),

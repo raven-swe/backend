@@ -10,6 +10,7 @@ export const DOMAIN_EVENT_NAMES = {
   Tweet_Unretweeted: 'tweet.unretweeted',
   Message_Created: 'message.created',
   Reaction_Created: 'reaction.created',
+  Tweet_Deleted: 'tweet.deleted',
 } as const;
 
 interface UserEvent {
@@ -53,6 +54,10 @@ export type TweetCreatedEvent = {
   replyToTweetId: bigint | null;
   quoteToTweetId?: bigint | null;
   mentionedUserIds: bigint[];
+};
+
+export type TweetDeleted = {
+  receivers: { receiverId: bigint; unseenCount: number }[];
 };
 
 export type UserUnfollowedEvent = UserEvent;

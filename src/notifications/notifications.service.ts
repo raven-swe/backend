@@ -173,7 +173,10 @@ export class NotificationsService {
       options.receiverId,
       dedupeKey,
     );
-    if (!notification) return;
+
+    if (!notification) {
+      return await this.notificationsRepository.deleteExisting(options);
+    }
 
     const currentPayload = notification.payload as unknown as NotificationPayloadDto;
 
@@ -217,7 +220,7 @@ export class NotificationsService {
 
       const count = await this.notificationsRepository.getUnseenCount(options.receiverId);
 
-      await this.sseEvents.publishNotificationDeleted(options.receiverId, notification.id, count);
+      await this.sseEvents.publishNotificationDeleted(options.receiverId, count);
       return;
     }
 
@@ -269,6 +272,13 @@ export class NotificationsService {
     );
   }
 
+  async handleTweetDeletionNotifications(receivers: { receiverId: bigint; unseenCount: number }[]) {
+    await Promise.all(
+      receivers.map((row) =>
+        this.sseEvents.publishNotificationDeleted(BigInt(row.receiverId), Number(row.unseenCount)),
+      ),
+    );
+  }
   async markAllAsSeen(receiverId: bigint) {
     const { count } = await this.notificationsRepository.markAllAsSeen(receiverId);
 

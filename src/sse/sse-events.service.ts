@@ -85,17 +85,11 @@ export class SseEventsService {
       data: { count },
     });
   }
-  async publishNotificationDeleted(
-    receiverId: bigint,
-    notificationId: bigint,
-    updatedCount: number,
-  ): Promise<void> {
+  async publishNotificationDeleted(receiverId: bigint, updatedCount: number): Promise<void> {
     this.logger.log(`Publishing notification deleted event to user ${receiverId}`);
     await this.publisher.publishToUser(receiverId.toString(), {
       event: 'notifications.delete',
-      data: {
-        notificationId: notificationId.toString(),
-      },
+      data: {},
     });
     await this.publisher.publishToUser(receiverId.toString(), {
       event: 'notifications.count_update',

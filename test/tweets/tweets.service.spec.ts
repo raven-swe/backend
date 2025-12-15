@@ -17,6 +17,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RedisService } from 'src/redis/redis.service';
 import { TrendingService } from 'src/trending/trending.service';
+import { SseEventsService } from 'src/sse/sse-events.service';
 
 const encodeCompositeCursor = (cursorObject: object): string => {
   const jsonString = JSON.stringify(cursorObject);
@@ -103,6 +104,10 @@ describe('TweetsService', () => {
     getHashtagId: jest.fn(),
   };
 
+  const mockSSEeventsService = {
+    publishNotificationDeleted: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -153,6 +158,10 @@ describe('TweetsService', () => {
         {
           provide: DomainEventsService,
           useValue: mockDomainEventsService,
+        },
+        {
+          provide: SseEventsService,
+          useValue: mockSSEeventsService,
         },
       ],
     }).compile();
@@ -1889,6 +1898,7 @@ describe('TweetsService', () => {
               safeDecr: jest.fn(),
             },
           },
+          { provide: SseEventsService, useValue: mockSSEeventsService },
           { provide: DomainEventsService, useValue: mockDomainEventsService },
         ],
       }).compile();

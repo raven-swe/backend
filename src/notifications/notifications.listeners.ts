@@ -10,6 +10,7 @@ import type {
   UserUnfollowedEvent,
   TweetUnretweetedEvent,
   UserFollowedEvent,
+  TweetDeleted,
 } from 'src/events/interfaces/event.interface';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 @Injectable()
@@ -149,6 +150,13 @@ export class NotificationsListeners {
       });
     } catch (error) {
       this.logger.error('Error processing Tweet_Unretweeted event:', error);
+    }
+  }
+  @OnEvent(DOMAIN_EVENT_NAMES.Tweet_Deleted) async handleTweetDeleted(payload: TweetDeleted) {
+    try {
+      await this.notificationsService.handleTweetDeletionNotifications(payload.receivers);
+    } catch (error) {
+      this.logger.error('Error processing Tweet_Deleted event:', error);
     }
   }
 }

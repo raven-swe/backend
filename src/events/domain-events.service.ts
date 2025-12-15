@@ -11,6 +11,7 @@ import {
   TweetUnretweetedEvent,
   UserFollowedEvent,
   UserUnfollowedEvent,
+  TweetDeleted,
 } from './interfaces/event.interface';
 
 @Injectable()
@@ -51,5 +52,8 @@ export class DomainEventsService {
 
   async emitReactionSent(payload: ReactionSentEvent) {
     await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Reaction_Created, payload);
+  }
+  async emitTweetDeleted(payload: TweetDeleted) {
+    await this.eventEmitter.emitAsync(DOMAIN_EVENT_NAMES.Tweet_Deleted, payload);
   }
 }
