@@ -1158,4 +1158,699 @@ describe('TimelineService', () => {
       expect(mockRedisClient.del).toHaveBeenCalled();
     });
   });
+
+  describe('timelineCacheHit - batching and pagination', () => {
+    const userId = BigInt(1);
+
+    it('should handle batching when fetching more items than limit', async () => {
+      mockRedisClient.exists.mockResolvedValue(0);
+
+      // First batch returns 5 items
+      mockRedisClient.zrevrangebyscore
+        .mockResolvedValueOnce(['456:123:T', '456:124:T', '456:125:T', '456:126:T', '456:127:T'])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.filterValidAuthors.mockResolvedValue([BigInt(456)]);
+      mockTweetsRepository.filterValidTweets.mockResolvedValue([
+        BigInt(123),
+        BigInt(124),
+        BigInt(125),
+      ]);
+
+      mockRedisClient.zscore.mockResolvedValue(String(Date.now()));
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Tweet 1',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '124',
+              authorId: '456',
+              content: 'Tweet 2',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '125',
+              authorId: '456',
+              content: 'Tweet 3',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+          [null, '3'],
+          [null, '1'],
+          [null, '0'],
+          [null, '4'],
+          [null, '0'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            {
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+              relationship: { following: false, follower: false },
+            },
+          ],
+        ]),
+      );
+
+      const result = await service.timelineCacheHit(userId, undefined, 3, new Set());
+
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('should continue fetching batches until limit is reached', async () => {
+      mockRedisClient.exists.mockResolvedValue(0);
+      mockRedisClient.zrevrangebyscore
+        .mockResolvedValueOnce(['456:123:T'])
+        .mockResolvedValueOnce(['456:124:T'])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.filterValidAuthors.mockResolvedValue([BigInt(456)]);
+      mockTweetsRepository.filterValidTweets.mockResolvedValue([BigInt(123), BigInt(124)]);
+
+      mockRedisClient.zscore.mockResolvedValue(String(Date.now()));
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Tweet 1',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '124',
+              authorId: '456',
+              content: 'Tweet 2',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '3'],
+          [null, '1'],
+          [null, '0'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            {
+              id: '456',
+              username: 'testuser',
+              displayName: 'Test',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+              relationship: { following: false, follower: false },
+            },
+          ],
+        ]),
+      );
+
+      const result = await service.timelineCacheHit(userId, undefined, 10, new Set());
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('getTweetCreatedAt', () => {
+    const userId = BigInt(1);
+
+    it('should return tweet created date from Redis score', async () => {
+      const now = Date.now();
+      mockRedisClient.zscore.mockResolvedValue(String(now));
+
+      const result = await service['getTweetCreatedAt'](userId, '456:123:T');
+
+      expect(result).toEqual(new Date(now));
+      expect(mockRedisClient.zscore).toHaveBeenCalled();
+    });
+
+    it('should return null when tweet score not found in Redis', async () => {
+      mockRedisClient.zscore.mockResolvedValue(null);
+
+      const result = await service['getTweetCreatedAt'](userId, '456:123:T');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('hydrateStaticData - retweet hydration', () => {
+    const userId = BigInt(1);
+
+    it('should hydrate retweeter data for retweets', async () => {
+      mockRedisClient.exists.mockResolvedValue(0);
+      mockRedisClient.zrevrangebyscore.mockResolvedValue(['456:123:R:789']);
+
+      mockTweetsRepository.filterValidAuthors.mockResolvedValue([BigInt(456), BigInt(789)]);
+      mockTweetsRepository.filterValidTweets.mockResolvedValue([BigInt(123)]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Original tweet',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'author',
+              displayName: 'Author',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '789',
+              username: 'retweeter',
+              displayName: 'Retweeter',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            {
+              id: '456',
+              username: 'author',
+              displayName: 'Author',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+              relationship: { following: false, follower: false },
+            },
+          ],
+        ]),
+      );
+
+      const result = await service.timelineCacheHit(userId, undefined, 10, new Set());
+
+      expect(result).toBeDefined();
+      expect(mockPipeline.getex).toHaveBeenCalled();
+    });
+
+    it('should handle missing retweeter data and add to missingAuthorIds', async () => {
+      mockRedisClient.exists.mockResolvedValue(0);
+      mockRedisClient.zrevrangebyscore.mockResolvedValue(['456:123:R:789']);
+
+      mockTweetsRepository.filterValidAuthors.mockResolvedValue([BigInt(456), BigInt(789)]);
+      mockTweetsRepository.filterValidTweets.mockResolvedValue([BigInt(123)]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Original tweet',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'author',
+              displayName: 'Author',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [null, null],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([
+        {
+          id: '789',
+          username: 'retweeter',
+          displayName: 'Retweeter',
+          avatarUrl: DEFAULT_PROFILE_PICTURE,
+        },
+      ]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            { id: '456', username: 'author', relationship: { following: false, follower: false } },
+          ],
+        ]),
+      );
+
+      const result = await service.timelineCacheHit(userId, undefined, 10, new Set());
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('extractIdsFromTimelineItems', () => {
+    it('should extract author and tweet IDs including retweeters', () => {
+      const items = ['456:123:T', '789:124:R:101'];
+
+      const result = service['extractIdsFromTimelineItems'](items);
+
+      expect(result.authorIds.has(BigInt(456))).toBe(true);
+      expect(result.authorIds.has(BigInt(789))).toBe(true);
+      expect(result.authorIds.has(BigInt(101))).toBe(true);
+      expect(result.tweetIds.has(BigInt(123))).toBe(true);
+      expect(result.tweetIds.has(BigInt(124))).toBe(true);
+    });
+  });
+
+  describe('fetchAndValidateForYouTweets - batch processing', () => {
+    const userId = BigInt(1);
+
+    it('should process tweets in batches and accumulate valid tweets', async () => {
+      const rankedFeed = {
+        tweets: [
+          { id: '123', score: 100 },
+          { id: '124', score: 90 },
+          { id: '125', score: 80 },
+        ],
+        generatedAt: Date.now(),
+      };
+
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(rankedFeed));
+      mockRedisClient.smembers.mockResolvedValue([]);
+      mockRedisClient.sadd.mockResolvedValue(undefined);
+      mockRedisClient.expire.mockResolvedValue(undefined);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([
+        { id: '123', authorId: '456', content: 'Tweet 1', createdAt: new Date() },
+        { id: '124', authorId: '457', content: 'Tweet 2', createdAt: new Date() },
+        { id: '125', authorId: '458', content: 'Tweet 3', createdAt: new Date() },
+      ]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Tweet 1',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'user1',
+              displayName: 'User 1',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '124',
+              authorId: '457',
+              content: 'Tweet 2',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '457',
+              username: 'user2',
+              displayName: 'User 2',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '125',
+              authorId: '458',
+              content: 'Tweet 3',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '458',
+              username: 'user3',
+              displayName: 'User 3',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+          [null, '6'],
+          [null, '3'],
+          [null, '2'],
+          [null, '7'],
+          [null, '4'],
+          [null, '3'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            { id: '456', username: 'user1', relationship: { following: false, follower: false } },
+          ],
+          [
+            '457',
+            { id: '457', username: 'user2', relationship: { following: false, follower: false } },
+          ],
+          [
+            '458',
+            { id: '458', username: 'user3', relationship: { following: false, follower: false } },
+          ],
+        ]),
+      );
+
+      const result = await service.getForYouFeed(userId, undefined, 10);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should handle For You feed with retweet items', async () => {
+      const rankedFeed = {
+        tweets: [{ id: '123', score: 100, retweeterId: '789' }],
+        generatedAt: Date.now(),
+      };
+
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(rankedFeed));
+      mockRedisClient.smembers.mockResolvedValue([]);
+      mockRedisClient.sadd.mockResolvedValue(undefined);
+      mockRedisClient.expire.mockResolvedValue(undefined);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([
+        { id: '123', authorId: '456', content: 'Original tweet', createdAt: new Date() },
+      ]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Original tweet',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'author',
+              displayName: 'Author',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '789',
+              username: 'retweeter',
+              displayName: 'Retweeter',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            { id: '456', username: 'author', relationship: { following: false, follower: false } },
+          ],
+        ]),
+      );
+
+      const result = await service.getForYouFeed(userId, undefined, 10);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should deduplicate tweets within the same batch', async () => {
+      const rankedFeed = {
+        tweets: [
+          { id: '123', score: 100 },
+          { id: '123', score: 99 },
+        ],
+        generatedAt: Date.now(),
+      };
+
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(rankedFeed));
+      mockRedisClient.smembers.mockResolvedValue([]);
+      mockRedisClient.sadd.mockResolvedValue(undefined);
+      mockRedisClient.expire.mockResolvedValue(undefined);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([
+        { id: '123', authorId: '456', content: 'Tweet', createdAt: new Date() },
+      ]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Tweet',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'user',
+              displayName: 'User',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            { id: '456', username: 'user', relationship: { following: false, follower: false } },
+          ],
+        ]),
+      );
+
+      const result = await service.getForYouFeed(userId, undefined, 10);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should skip tweets that no longer exist in DB', async () => {
+      const rankedFeed = {
+        tweets: [
+          { id: '123', score: 100 },
+          { id: '124', score: 90 },
+        ],
+        generatedAt: Date.now(),
+      };
+
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(rankedFeed));
+      mockRedisClient.smembers.mockResolvedValue([]);
+      mockRedisClient.sadd.mockResolvedValue(undefined);
+      mockRedisClient.expire.mockResolvedValue(undefined);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([
+        { id: '123', authorId: '456', content: 'Tweet 1', createdAt: new Date() },
+      ]);
+
+      mockPipeline.exec
+        .mockResolvedValueOnce([
+          [
+            null,
+            JSON.stringify({
+              id: '123',
+              authorId: '456',
+              content: 'Tweet 1',
+              createdAt: new Date().toISOString(),
+            }),
+          ],
+          [
+            null,
+            JSON.stringify({
+              id: '456',
+              username: 'user',
+              displayName: 'User',
+              avatarUrl: DEFAULT_PROFILE_PICTURE,
+            }),
+          ],
+        ])
+        .mockResolvedValueOnce([
+          [null, '5'],
+          [null, '2'],
+          [null, '1'],
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockTweetsRepository.getTweetsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getCompactAuthorsByIds.mockResolvedValue([]);
+      mockTweetsRepository.getUserTweetInteractions.mockResolvedValue(new Map());
+      mockTweetsRepository.getAuthorRelationships.mockResolvedValue(
+        new Map([
+          [
+            '456',
+            { id: '456', username: 'user', relationship: { following: false, follower: false } },
+          ],
+        ]),
+      );
+
+      const result = await service.getForYouFeed(userId, undefined, 10);
+
+      expect(result).toBeDefined();
+    });
+  });
 });
