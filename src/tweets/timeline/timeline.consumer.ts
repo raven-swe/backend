@@ -4,7 +4,11 @@ import { Job } from 'bullmq';
 import { RedisService } from 'src/redis/redis.service';
 import { UsersService } from 'src/users/users.service';
 import { RetweetFanoutJob, TweetFanoutJob } from './interfaces/tweet-fanout-job.interface';
-import { TIMELINE_MAX_SIZE } from '../timeline/constants/timeline.constants';
+import {
+  NEW_TWEETS_INDICATOR_MAX_AUTHORS,
+  NEW_TWEETS_INDICATOR_TTL,
+  TIMELINE_MAX_SIZE,
+} from '../timeline/constants/timeline.constants';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { TweetsRepository } from '../tweets.repository';
 import { BackfillFollowJob } from './interfaces/backfill-follow-job.interface';
@@ -62,10 +66,25 @@ export class TimelineConsumer extends WorkerHost {
       const followerIds: string[] = (await this.usersService.getFollowersIds(BigInt(authorId))).map(
         (id) => id.toString(),
       );
-      followerIds.unshift(authorId.toString());
+
+      const actorId = isRetweetFanoutJob(actionType, job.data)
+        ? BigInt(job.data.retweeterId)
+        : BigInt(authorId);
+
+      const allRecipinetIds = [actorId.toString(), ...new Set(followerIds)];
+
+      // delete EMPTY_PLACEHOLDER for ALL the recipients
+      const deletePipeline = this.redisClient.pipeline();
+      for (const userId of allRecipinetIds) {
+        const emptyPlaceholderKey = REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(
+          BigInt(userId),
+        );
+        deletePipeline.del(emptyPlaceholderKey);
+      }
+      await deletePipeline.exec();
 
       // Fanout should be to existing keys only (active users), those keys are created when the timeline cache misses, and persist for a configured time
-      const timelineKeys = followerIds.map((id) =>
+      const timelineKeys = allRecipinetIds.map((id) =>
         REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(id)),
       );
       const existingKeyspipeline = this.redisClient.pipeline();
@@ -77,7 +96,10 @@ export class TimelineConsumer extends WorkerHost {
       if (!existingKeysResults) {
         return; // though this never happens, at least the author timeline key exists
       }
-      const existingKeys = timelineKeys.filter((_, index) => existingKeysResults[index][1] === 1);
+
+      const activeUserIds = allRecipinetIds.filter(
+        (_, index) => existingKeysResults[index][1] === 1,
+      );
       const compositeId = isRetweetFanoutJob(actionType, job.data)
         ? REDIS_TIMELINE_KEYS.getTimelineRetweetItem(
             BigInt(authorId),
@@ -87,12 +109,21 @@ export class TimelineConsumer extends WorkerHost {
         : REDIS_TIMELINE_KEYS.getTimelineTweetItem(BigInt(authorId), BigInt(tweetId));
 
       const writePipeline = this.redisClient.pipeline();
-      for (const key of existingKeys) {
-        writePipeline.del(
-          REDIS_TIMELINE_KEYS.getUserTimelineEmptyPlaceholderKey(BigInt(key.split(':')[1])),
-        ); // remove empty placeholder if exists
-        writePipeline.zadd(key, timestamp, compositeId);
-        writePipeline.zremrangebyrank(key, 0, -(TIMELINE_MAX_SIZE + 1)); // keep timeline size capped at TIMELINE_MAX_SIZE
+
+      for (const userId of activeUserIds) {
+        const timelineKey = REDIS_TIMELINE_KEYS.getUserTimelineKey(BigInt(userId));
+        const newTweetIndicatorKey = REDIS_TIMELINE_KEYS.getNewTweetsIndicatorKey(BigInt(userId));
+
+        writePipeline.zadd(timelineKey, timestamp, compositeId);
+        writePipeline.zremrangebyrank(timelineKey, 0, -(TIMELINE_MAX_SIZE + 1)); // keep timeline size capped at TIMELINE_MAX_SIZE
+
+        writePipeline.zadd(newTweetIndicatorKey, timestamp, actorId.toString());
+        writePipeline.zremrangebyrank(
+          newTweetIndicatorKey,
+          0,
+          -(NEW_TWEETS_INDICATOR_MAX_AUTHORS + 1),
+        ); // only latest 3 indicators
+        writePipeline.expire(newTweetIndicatorKey, NEW_TWEETS_INDICATOR_TTL);
       }
 
       await writePipeline.exec();

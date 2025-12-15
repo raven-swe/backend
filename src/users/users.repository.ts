@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { NewUser } from './interfaces';
 import {
+  DEFAULT_PROFILE_PICTURE,
   USER_SEARCH_RANKING_WEIGHTS,
   USERS_ERROR_CODES,
   USERS_ERROR_MESSAGES,
@@ -1825,6 +1826,7 @@ export class UsersRepository {
     }));
   }
 
+
   async getUserMetadataById(id: bigint) {
     return await this.prisma.user.findUnique({
       where: { id },
@@ -1839,6 +1841,19 @@ export class UsersRepository {
         },
       },
     });
+  }
+
+  async findAvatarUrlsByUserIds(userIds: bigint[]): Promise<Map<string, string>> {
+    const profile = await this.prisma.profile.findMany({
+      where: { userId: { in: userIds } },
+      select: { avatarUrl: true, userId: true },
+    });
+    if (profile) {
+      return new Map(
+        profile.map((p) => [p.userId.toString(), p.avatarUrl || DEFAULT_PROFILE_PICTURE]),
+      );
+    }
+    return new Map();
   }
 
   async findUsernameAndDisplayNameById(

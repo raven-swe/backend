@@ -16,6 +16,8 @@ export const REDIS_TIMELINE_KEYS: {
   getUserInteractionsRetweetItem: (tweetId: bigint) => string;
   getForYouFeedKey: (userId: bigint) => string;
   getForYouSeenKey: (userId: bigint) => string;
+  getSSEOnlineFollowingTimelineKey: () => string;
+  getNewTweetsIndicatorKey: (userId: bigint) => string;
 } = {
   getUserTimelineKey: (userId: bigint): string => {
     return `timeline:${userId}`;
@@ -52,4 +54,8 @@ export const REDIS_TIMELINE_KEYS: {
   getForYouFeedKey: (userId: bigint): string => `foryou:${userId}:feed`,
 
   getForYouSeenKey: (userId: bigint): string => `foryou:${userId}:seen`,
+
+  getSSEOnlineFollowingTimelineKey: (): string => 'sse:online:following_timeline',
+
+  getNewTweetsIndicatorKey: (userId: bigint): string => `sse:timeline:new_tweets:${userId}`,
 };
