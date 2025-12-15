@@ -17,6 +17,10 @@ describe('UsersController', () => {
     getUserFollowers: jest.fn(),
     getUserFollowings: jest.fn(),
     getUserMutualFollowers: jest.fn(),
+    getUserRelationship: jest.fn(),
+    enableUserNotifications: jest.fn(),
+    disableUserNotifications: jest.fn(),
+    getUserById: jest.fn(),
   };
 
   const mockUsersRepository = {
@@ -141,6 +145,25 @@ describe('UsersController', () => {
 
       // Assert
       expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, currentUserId);
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should call usersService.getUserProfile with undefined when user is not provided', async () => {
+      // Arrange
+      const username = 'john_doe';
+      const expectedResult = {
+        displayName: 'John Doe',
+        bio: 'A sample user',
+      };
+
+      (mockUsersService.getUserProfile as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.getUserProfile(username, undefined as any);
+
+      // Assert
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(username, undefined);
       expect(mockUsersService.getUserProfile).toHaveBeenCalledTimes(1);
       expect(result).toEqual(expectedResult);
     });
@@ -996,6 +1019,159 @@ describe('UsersController', () => {
         20,
         undefined,
       );
+    });
+  });
+
+  describe('GET /users/:username/relationship', () => {
+    const mockUser = { id: '1' };
+    const username = 'testuser';
+
+    it('should call usersService.getUserRelationship with correct parameters', async () => {
+      // Arrange
+      const expectedResult = {
+        isFollowing: true,
+        isFollowedBy: false,
+        isBlocked: false,
+        isMuted: false,
+      };
+
+      (mockUsersService.getUserRelationship as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.getUserRelationship(username, mockUser);
+
+      // Assert
+      expect(mockUsersService.getUserRelationship).toHaveBeenCalledWith(BigInt(1), username);
+      expect(mockUsersService.getUserRelationship).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.getUserRelationship', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      (mockUsersService.getUserRelationship as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.getUserRelationship(username, mockUser)).rejects.toThrow(
+        'User not found',
+      );
+      expect(mockUsersService.getUserRelationship).toHaveBeenCalledWith(BigInt(1), username);
+    });
+  });
+
+  describe('POST /users/:username/notify', () => {
+    const mockUser = { id: '1' };
+    const username = 'testuser';
+
+    it('should call usersService.enableUserNotifications with correct parameters', async () => {
+      // Arrange
+      const expectedResult = { message: 'Notifications enabled successfully' };
+
+      (mockUsersService.enableUserNotifications as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.enableUserNotifications(username, mockUser);
+
+      // Assert
+      expect(mockUsersService.enableUserNotifications).toHaveBeenCalledWith(BigInt(1), username);
+      expect(mockUsersService.enableUserNotifications).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.enableUserNotifications', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      (mockUsersService.enableUserNotifications as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.enableUserNotifications(username, mockUser)).rejects.toThrow(
+        'User not found',
+      );
+      expect(mockUsersService.enableUserNotifications).toHaveBeenCalledWith(BigInt(1), username);
+    });
+  });
+
+  describe('DELETE /users/:username/notify', () => {
+    const mockUser = { id: '1' };
+    const username = 'testuser';
+
+    it('should call usersService.disableUserNotifications with correct parameters', async () => {
+      // Arrange
+      const expectedResult = { message: 'Notifications disabled successfully' };
+
+      (mockUsersService.disableUserNotifications as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.disableUserNotifications(username, mockUser);
+
+      // Assert
+      expect(mockUsersService.disableUserNotifications).toHaveBeenCalledWith(BigInt(1), username);
+      expect(mockUsersService.disableUserNotifications).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.disableUserNotifications', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      (mockUsersService.disableUserNotifications as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.disableUserNotifications(username, mockUser)).rejects.toThrow(
+        'User not found',
+      );
+      expect(mockUsersService.disableUserNotifications).toHaveBeenCalledWith(BigInt(1), username);
+    });
+  });
+
+  describe('GET /users/id/:id', () => {
+    const userId = '123456789';
+
+    it('should call usersService.getUserById with correct parameters', async () => {
+      // Arrange
+      const expectedResult = {
+        id: '123456789',
+        username: 'testuser',
+        displayName: 'Test User',
+        bio: 'Test bio',
+      };
+
+      (mockUsersService.getUserById as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      const result = await controller.getUserById(userId);
+
+      // Assert
+      expect(mockUsersService.getUserById).toHaveBeenCalledWith(BigInt(userId));
+      expect(mockUsersService.getUserById).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResult);
+    });
+
+    it('should handle errors thrown by usersService.getUserById', async () => {
+      // Arrange
+      const error = new Error('User not found');
+      (mockUsersService.getUserById as jest.Mock).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(controller.getUserById(userId)).rejects.toThrow('User not found');
+      expect(mockUsersService.getUserById).toHaveBeenCalledWith(BigInt(userId));
+    });
+
+    it('should correctly convert user id string to BigInt', async () => {
+      // Arrange
+      const largeUserId = '9007199254740991'; // max safe integer
+      const expectedResult = {
+        id: largeUserId,
+        username: 'testuser',
+        displayName: 'Test User',
+      };
+
+      (mockUsersService.getUserById as jest.Mock).mockResolvedValue(expectedResult);
+
+      // Act
+      await controller.getUserById(largeUserId);
+
+      // Assert
+      expect(mockUsersService.getUserById).toHaveBeenCalledWith(BigInt(largeUserId));
     });
   });
 });
