@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
@@ -122,7 +123,7 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.createRefreshToken.mockResolvedValue(expectedCreatedToken);
+      repository.createRefreshToken.mockResolvedValue(expectedCreatedToken as any);
 
       const result = await service.createRefreshToken(tokenData);
 
@@ -149,7 +150,7 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.createRefreshToken.mockResolvedValue(expectedToken);
+      repository.createRefreshToken.mockResolvedValue(expectedToken as any);
 
       const result = await service.createRefreshToken(tokenData, mockTx);
 
@@ -172,7 +173,7 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.createRefreshToken.mockResolvedValue(expectedToken);
+      repository.createRefreshToken.mockResolvedValue(expectedToken as any);
 
       const result = await service.createRefreshToken(tokenData);
 
@@ -205,9 +206,13 @@ describe('RefreshTokensService', () => {
         expiresAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+        user: {
+          id: BigInt(100),
+          username: 'testuser',
+        },
       };
 
-      repository.getTokenByHash.mockResolvedValue(expectedToken);
+      repository.getTokenByHash.mockResolvedValue(expectedToken as any);
 
       const result = await service.getTokenByHash(hash);
 
@@ -261,7 +266,7 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.updateTokenHash.mockResolvedValue(updatedToken);
+      repository.updateTokenHash.mockResolvedValue(updatedToken as any);
 
       const result = await service.updateTokenHash(tokenId, newHash, expiresAt);
 
@@ -284,7 +289,7 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.updateTokenHash.mockResolvedValue(updatedToken);
+      repository.updateTokenHash.mockResolvedValue(updatedToken as any);
 
       const result = await service.updateTokenHash(tokenId, newHash, expiresAt);
 
@@ -309,7 +314,7 @@ describe('RefreshTokensService', () => {
     it('should delete token by id', async () => {
       const tokenId = BigInt(1);
 
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.deleteTokensById.mockResolvedValue({ count: 1 } as any);
 
       await service.deleteTokensById(tokenId);
 
@@ -320,7 +325,7 @@ describe('RefreshTokensService', () => {
       const tokenId = BigInt(2);
       const mockTx = {} as Prisma.TransactionClient;
 
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.deleteTokensById.mockResolvedValue({ count: 1 } as any);
 
       await service.deleteTokensById(tokenId, mockTx);
 
@@ -330,9 +335,9 @@ describe('RefreshTokensService', () => {
     it('should handle deletion of non-existent token', async () => {
       const tokenId = BigInt(999);
 
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.deleteTokensById.mockResolvedValue({ count: 0 } as any);
 
-      await expect(service.deleteTokensById(tokenId)).resolves.toBeUndefined();
+      await expect(service.deleteTokensById(tokenId)).resolves.toEqual({ count: 0 });
     });
 
     it('should propagate repository errors during deletion', async () => {
@@ -347,7 +352,7 @@ describe('RefreshTokensService', () => {
     it('should handle deletion with large token id', async () => {
       const tokenId = BigInt('9007199254740991');
 
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.deleteTokensById.mockResolvedValue({ count: 1 } as any);
 
       await service.deleteTokensById(tokenId);
 
@@ -371,8 +376,8 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.createRefreshToken.mockResolvedValue(createdToken);
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.createRefreshToken.mockResolvedValue(createdToken as any);
+      repository.deleteTokensById.mockResolvedValue({ count: 1 } as any);
 
       await service.createRefreshToken(tokenData);
       expect(repository.createRefreshToken).toHaveBeenCalledWith(tokenData, prismaService);
@@ -397,8 +402,8 @@ describe('RefreshTokensService', () => {
         updatedAt: new Date(),
       };
 
-      repository.createRefreshToken.mockResolvedValue(createdToken);
-      repository.deleteTokensById.mockResolvedValue(undefined);
+      repository.createRefreshToken.mockResolvedValue(createdToken as any);
+      repository.deleteTokensById.mockResolvedValue({ count: 1 } as any);
 
       await service.createRefreshToken(tokenData, mockTx);
       expect(repository.createRefreshToken).toHaveBeenCalledWith(tokenData, mockTx);

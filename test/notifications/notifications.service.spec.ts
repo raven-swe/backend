@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { NotificationsService } from 'src/notifications/notifications.service';
@@ -14,9 +15,11 @@ import { SseEventsService } from 'src/sse/sse-events.service';
 import { UsersRepository } from 'src/users/users.repository';
 import { getQueueToken } from '@nestjs/bullmq';
 
+import { NotificationResponseDto } from 'src/notifications/dtos/notification-response.dto';
+
 describe('NotificationsService', () => {
   let service: NotificationsService;
-  const mockNotificationsRepository: jest.Mocked<Partial<NotificationsRepository>> = {
+  const mockNotificationsRepository = {
     createNotification: jest.fn(),
     findExisting: jest.fn(),
     findById: jest.fn(),
@@ -29,18 +32,18 @@ describe('NotificationsService', () => {
     updtateNotificationByIdAggregation: jest.fn(),
     deleteExisting: jest.fn(),
     deleteById: jest.fn(),
-  };
+  } as unknown as jest.Mocked<NotificationsRepository>;
 
-  const mockSseEventsService: jest.Mocked<Partial<SseEventsService>> = {
+  const mockSseEventsService = {
     publishNewNotification: jest.fn(),
     publishNotificationSeen: jest.fn(),
     publishNotificationDeleted: jest.fn(),
     publishNotificationUpdate: jest.fn(),
-  };
-  const mockUsersRepository: jest.Mocked<Partial<UsersRepository>> = {
+  } as unknown as jest.Mocked<SseEventsService>;
+  const mockUsersRepository = {
     isBlocked: jest.fn(),
     getUsersMetadataById: jest.fn(),
-  };
+  } as unknown as jest.Mocked<UsersRepository>;
   const mockNotificationsQueue = {
     add: jest.fn(),
   };
@@ -539,15 +542,17 @@ describe('NotificationsService', () => {
 
       mockUsersRepository.isBlocked.mockResolvedValue(false);
       mockNotificationsRepository.findExisting.mockResolvedValue(null);
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(existingNotification);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(
+        existingNotification as any,
+      );
       mockNotificationsRepository.updtateNotificationByIdAggregation.mockResolvedValue(
-        updatedNotification,
+        updatedNotification as any,
       );
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(5);
       mockNotificationsRepository.mapToNotificationDto.mockReturnValue({
         id: '50',
         type: 'LIKE',
-      } as any);
+      } as unknown as NotificationResponseDto);
 
       const result = await service.trigger(options);
 
@@ -618,19 +623,23 @@ describe('NotificationsService', () => {
 
       mockUsersRepository.isBlocked.mockResolvedValue(false);
       mockNotificationsRepository.findExisting.mockResolvedValue(null);
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(existingNotification);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(
+        existingNotification as any,
+      );
       mockNotificationsRepository.updtateNotificationByIdAggregation.mockResolvedValue({
         ...existingNotification,
         id: BigInt(50),
-      });
+      } as any);
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(5);
-      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '50' } as any);
+      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({
+        id: '50',
+      } as unknown as NotificationResponseDto);
 
       await service.trigger(options);
 
-      const updateCall =
-        mockNotificationsRepository.updtateNotificationByIdAggregation.mock.calls[0];
-      const payload = updateCall[2] as any;
+      const updateCall = mockNotificationsRepository.updtateNotificationByIdAggregation.mock
+        .calls[0] as any[];
+      const payload = updateCall[2] as { actorsPreview: any[] };
 
       // Should only keep first 2 actors when adding 5th actor
       expect(payload.actorsPreview.length).toBeLessThanOrEqual(2);
@@ -652,9 +661,11 @@ describe('NotificationsService', () => {
 
       mockUsersRepository.isBlocked.mockResolvedValue(false);
       mockNotificationsRepository.findExisting.mockResolvedValue(null);
-      mockNotificationsRepository.createNotification.mockResolvedValue(newNotification);
+      mockNotificationsRepository.createNotification.mockResolvedValue(newNotification as any);
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(3);
-      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '100' } as any);
+      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({
+        id: '100',
+      } as unknown as NotificationResponseDto);
 
       await service.trigger(options);
 
@@ -688,9 +699,11 @@ describe('NotificationsService', () => {
       mockUsersRepository.isBlocked.mockResolvedValue(false);
       mockNotificationsRepository.findExisting.mockResolvedValue(null);
       mockNotificationsRepository.findOpenNotification.mockResolvedValue(null);
-      mockNotificationsRepository.createNotification.mockResolvedValue(notification);
+      mockNotificationsRepository.createNotification.mockResolvedValue(notification as any);
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(1);
-      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '99' } as any);
+      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({
+        id: '99',
+      } as unknown as NotificationResponseDto);
 
       await service.trigger(options);
 
@@ -725,7 +738,7 @@ describe('NotificationsService', () => {
         type: 'REPLY' as const,
       };
 
-      mockNotificationsRepository.deleteExisting.mockResolvedValue(undefined);
+      mockNotificationsRepository.deleteExisting.mockResolvedValue({ count: 1 });
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(2);
 
       await service.handleUndo(options);
@@ -743,7 +756,7 @@ describe('NotificationsService', () => {
       };
 
       mockNotificationsRepository.findOpenNotification.mockResolvedValue(null);
-      mockNotificationsRepository.deleteExisting.mockResolvedValue(undefined);
+      mockNotificationsRepository.deleteExisting.mockResolvedValue({ count: 1 });
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(1);
 
       await service.handleUndo(options);
@@ -778,7 +791,7 @@ describe('NotificationsService', () => {
         },
       };
 
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification as any);
 
       await service.handleUndo(options);
 
@@ -808,8 +821,8 @@ describe('NotificationsService', () => {
         },
       };
 
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification);
-      mockNotificationsRepository.deleteById.mockResolvedValue(undefined);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification as any);
+      mockNotificationsRepository.deleteById.mockResolvedValue({ count: 1 });
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(0);
 
       await service.handleUndo(options);
@@ -858,12 +871,14 @@ describe('NotificationsService', () => {
         },
       };
 
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification as any);
       mockNotificationsRepository.updtateNotificationByIdAggregation.mockResolvedValue(
-        updatedNotification,
+        updatedNotification as any,
       );
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(5);
-      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '50' } as any);
+      mockNotificationsRepository.mapToNotificationDto.mockReturnValue({
+        id: '50',
+      } as unknown as NotificationResponseDto);
 
       await service.handleUndo(options);
 
@@ -922,12 +937,12 @@ describe('NotificationsService', () => {
         profile: { displayName: 'User 4', avatarUrl: 'url4' },
       };
 
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification);
-      mockUsersRepository.getUsersMetadataById.mockResolvedValue([newUser]);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification as any);
+      mockUsersRepository.getUsersMetadataById.mockResolvedValue([newUser] as any);
       mockNotificationsRepository.updtateNotificationByIdAggregation.mockResolvedValue({
         ...notification,
         id: BigInt(50),
-      });
+      } as any);
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(3);
       mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '50' } as any);
 
@@ -970,11 +985,11 @@ describe('NotificationsService', () => {
         },
       };
 
-      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification);
+      mockNotificationsRepository.findOpenNotification.mockResolvedValue(notification as any);
       mockNotificationsRepository.updtateNotificationByIdAggregation.mockResolvedValue({
         ...notification,
         actorId: BigInt(3),
-      });
+      } as any);
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(2);
       mockNotificationsRepository.mapToNotificationDto.mockReturnValue({ id: '50' } as any);
 
@@ -1046,7 +1061,7 @@ describe('NotificationsService', () => {
       const notificationId = BigInt(1);
       const userId = BigInt(10);
 
-      mockNotificationsRepository.findById.mockResolvedValue({ id: notificationId });
+      mockNotificationsRepository.findById.mockResolvedValue({ id: notificationId } as any);
       mockNotificationsRepository.markAsSeen.mockResolvedValue({ count: 1 });
       mockNotificationsRepository.getUnseenCount.mockResolvedValue(4);
 
