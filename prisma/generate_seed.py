@@ -88,6 +88,9 @@ TRENDING_HASHTAGS = {
 # ============================================================================
 
 PROFILE_PIC_URLS = [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoCodK5lzl094X0SV_I-39E-XbKpM8_--UVQ&s",
+    "https://i1.sndcdn.com/artworks-000582811712-ds64si-t500x500.jpg",
+    "https://cdn.eremnews.com/media/e572fd93-06ed-42c6-9ee5-577edaac5e62",
     "https://pbs.twimg.com/profile_images/1164682491069943809/uGwI0V6H_400x400.jpg",
     "https://pbs.twimg.com/media/GB5j51SWsAAEKtA.jpg",
     "https://2img.net/h/images.wikia.com/spongebob/ar/images/4/40/Gary.png",
