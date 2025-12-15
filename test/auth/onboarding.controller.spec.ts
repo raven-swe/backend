@@ -48,6 +48,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -61,6 +62,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, customLimit);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(BigInt(123), 10);
     });
 
@@ -71,6 +73,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, exceedingLimit);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -84,6 +87,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, invalidLimit);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -97,6 +101,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, zeroLimit);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -110,6 +115,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, negativeLimit);
 
       expect(result).toEqual({ suggestions: mockSuggestions });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -122,6 +128,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser);
 
       expect(result).toEqual({ suggestions: [] });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt(123),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -137,6 +144,7 @@ describe('OnboardingController', () => {
 
       await controller.getFollowSuggestions(userWithStringId);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(
         BigInt('999999999999'),
         ONBOARDING_CONSTANTS.MAX_FOLLOW_SUGGESTIONS_COUNT,
@@ -150,6 +158,7 @@ describe('OnboardingController', () => {
       const result = await controller.getFollowSuggestions(mockUser, limit);
 
       expect(result).toEqual({ suggestions: [mockSuggestions[0]] });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(usersRepository.getOnboardingFollowSuggestions).toHaveBeenCalledWith(BigInt(123), 1);
     });
 
