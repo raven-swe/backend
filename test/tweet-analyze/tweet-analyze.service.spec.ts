@@ -92,9 +92,13 @@ describe('TweetAnalyzeService', () => {
     });
 
     it('should initialize with correct configuration', () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(configService.get).toHaveBeenCalledWith('CLASSIFY_TWEETS');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(configService.get).toHaveBeenCalledWith('CLASSIFICATION_INTERVAL_MINUTES');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(configService.get).toHaveBeenCalledWith('CLASSIFY_REQ_LIMIT');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(configService.get).toHaveBeenCalledWith('CLASSIFICATION_API_URL', '/analyze');
     });
   });
@@ -143,15 +147,17 @@ describe('TweetAnalyzeService', () => {
       repository.updateTweetClass.mockResolvedValue(undefined);
       trendingService.updateTrendScores.mockResolvedValue(undefined);
 
-      const axiosResponse: AxiosResponse<ModelApiResponse> = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const axiosResponse = {
         data: mockApiResponse,
         status: 200,
         statusText: 'OK',
         headers: {},
         config: {
           headers: undefined,
-        } as AxiosResponse<ModelApiResponse>['config'],
-      };
+        },
+      } as AxiosResponse<ModelApiResponse>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       httpService.post.mockReturnValue(of(axiosResponse));
     });
 
@@ -176,6 +182,7 @@ describe('TweetAnalyzeService', () => {
 
       await disabledService.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.findTweetsToClassify).not.toHaveBeenCalled();
     });
 
@@ -184,6 +191,7 @@ describe('TweetAnalyzeService', () => {
 
       await service.analyzeTweets();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(repository.findTweetsToClassify).not.toHaveBeenCalled();
     });
 
@@ -268,6 +276,7 @@ describe('TweetAnalyzeService', () => {
       // First batch succeeds, second batch fails
       httpService.post
         .mockReturnValueOnce(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           of({
             data: mockApiResponse,
             status: 200,
@@ -275,8 +284,8 @@ describe('TweetAnalyzeService', () => {
             headers: {},
             config: {
               headers: undefined,
-            } as AxiosResponse<ModelApiResponse>['config'],
-          }),
+            },
+          } as AxiosResponse<ModelApiResponse>),
         )
         .mockReturnValueOnce(throwError(() => new Error('Batch 2 failed')));
 
@@ -302,7 +311,8 @@ describe('TweetAnalyzeService', () => {
         .mockResolvedValueOnce(tweetsWithNull)
         .mockResolvedValue([]);
 
-      const axiosResponse: AxiosResponse<ModelApiResponse> = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const axiosResponse = {
         data: {
           batch_meta: { total_tweets: 2 },
           trending_keywords: [],
@@ -316,8 +326,9 @@ describe('TweetAnalyzeService', () => {
         headers: {},
         config: {
           headers: undefined,
-        } as AxiosResponse<ModelApiResponse>['config'],
-      };
+        },
+      } as AxiosResponse<ModelApiResponse>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       httpService.post.mockReturnValue(of(axiosResponse));
 
       await service.analyzeTweets();
@@ -333,7 +344,8 @@ describe('TweetAnalyzeService', () => {
     });
 
     it('should handle empty API response', async () => {
-      const emptyResponse: AxiosResponse<ModelApiResponse> = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const emptyResponse = {
         data: {
           batch_meta: { total_tweets: 0 },
           trending_keywords: [],
@@ -344,8 +356,9 @@ describe('TweetAnalyzeService', () => {
         headers: {},
         config: {
           headers: undefined,
-        } as AxiosResponse<ModelApiResponse>['config'],
-      };
+        },
+      } as AxiosResponse<ModelApiResponse>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       httpService.post.mockReset().mockReturnValue(of(emptyResponse));
 
       await service.analyzeTweets();
@@ -430,6 +443,7 @@ describe('TweetAnalyzeService', () => {
       httpService.post
         .mockReset()
         .mockReturnValueOnce(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           of({
             data: {
               batch_meta: { total_tweets: 50 },
@@ -441,10 +455,11 @@ describe('TweetAnalyzeService', () => {
             headers: {},
             config: {
               headers: undefined,
-            } as AxiosResponse<ModelApiResponse>['config'],
-          }),
+            },
+          } as AxiosResponse<ModelApiResponse>),
         )
         .mockReturnValueOnce(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           of({
             data: {
               batch_meta: { total_tweets: 50 },
@@ -456,8 +471,8 @@ describe('TweetAnalyzeService', () => {
             headers: {},
             config: {
               headers: undefined,
-            } as AxiosResponse<ModelApiResponse>['config'],
-          }),
+            },
+          } as AxiosResponse<ModelApiResponse>),
         );
 
       await service.analyzeTweets();
