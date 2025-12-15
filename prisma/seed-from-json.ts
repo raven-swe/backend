@@ -619,6 +619,20 @@ async function main() {
     WHERE u.id = sub.user_id;
   `);
 
+  // Update tweet reply counts
+  console.log('\n Updating tweet reply counts...');
+  await prisma.$executeRawUnsafe(`
+    UPDATE "tweets" t
+    SET "reply_count" = sub.count
+    FROM (
+      SELECT "reply_to_tweet_id", COUNT(*) AS count
+      FROM "tweets"
+      WHERE "reply_to_tweet_id" IS NOT NULL
+      GROUP BY "reply_to_tweet_id"
+    ) AS sub
+    WHERE t.id = sub.reply_to_tweet_id;
+  `);
+
   const retweetCount = data.retweets?.length || 0;
   const mediaCount = await prisma.media.count();
   const quotedCount = await prisma.tweet.count({ where: { quotedTweetId: { not: null } } });

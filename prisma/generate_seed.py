@@ -29,9 +29,9 @@ TRENDING_END_TIME = CURRENT_DATE   # End of trending period (now)
 TOPIC_TREND = ["Sports" , "Politics"]  # Options: "Sports", "Entertainment", "Finance", "Politics", "Tech", "Culture", "General", "Learning", "Travel"
 
 # Generation Counts
-USER_COUNT = 5000
-TWEET_COUNT = 1000
-RETWEET_COUNT = 200
+USER_COUNT = 1100
+TWEET_COUNT = 5100
+RETWEET_COUNT = 700
 LIKE_COUNT_RANGE = (1000, 2000)
 
 # Interests/Categories
@@ -440,11 +440,11 @@ def generate_tweets(users: list, n: int = TWEET_COUNT) -> tuple:
             category = random.choice(user["interests"])
 
         # Random tweet type weights
-        w1 = random.randint(20, 50)
-        w2 = random.randint(30, 60)
-        w3 = random.randint(30, 60)
-        w4 = random.randint(30, 60)
-        w5 = random.randint(25, 55)
+        w1 = random.randint(10, 30)  # Regular (reduced)
+        w2 = random.randint(20, 40)  # Media (reduced)
+        w3 = random.randint(40, 70)  # Reply (increased)
+        w4 = random.randint(40, 70)  # Quote (increased)
+        w5 = random.randint(30, 60)  # Combined
         
         tweet_type = random.choices(
             ["regular", "media", "reply", "quote", "combined"],
@@ -466,9 +466,11 @@ def generate_tweets(users: list, n: int = TWEET_COUNT) -> tuple:
             emojis = ["🚀", "🔥", "🤯", "😂", "☕", "🌟", "✈️", "📈", "⚽", "🎉"]
             content += " " + " ".join(random.sample(emojis, k=random.randint(1, 2)))
 
-        # Add mentions sometimes
-        if random.random() > 0.85 and tweet_type in ["reply", "combined"]:
-            possible_mentions = random.sample(list(usernames - {user["username"]}), k=min(2, len(usernames) - 1))
+        # Add mentions sometimes (increased frequency)
+        if random.random() > 0.5:  # 50% chance (was 15%)
+            # Allow mentions in all tweet types, but more likely in replies/combined
+            k_mentions = random.randint(1, 3) 
+            possible_mentions = random.sample(list(usernames - {user["username"]}), k=min(k_mentions, len(usernames) - 1))
             mention_str = " ".join([f"@{m}" for m in possible_mentions[:random.randint(1, 2)]])
             content = mention_str + " " + content
 
@@ -509,9 +511,21 @@ def generate_tweets(users: list, n: int = TWEET_COUNT) -> tuple:
         # Handle replies and quotes
         reply_to = None
         quoted = None
-        if tweet_type == "reply" and reply_candidates:
+        
+        # Determine if this tweet should optionally be a reply or quote
+        is_reply = tweet_type == "reply"
+        is_quote = tweet_type == "quote"
+        
+        if tweet_type == "combined":
+            # Combined tweets: 50% chance reply, 50% chance quote (plus they already have media)
+            if random.random() < 0.5:
+                is_reply = True
+            else:
+                is_quote = True
+
+        if is_reply and reply_candidates:
             reply_to = random.choice(reply_candidates)
-        elif tweet_type == "quote" and len(tweets) > 10:
+        elif is_quote and len(tweets) > 10:
             quoted = random.choice(range(max(0, i - 200), i))
 
         tweet = {
