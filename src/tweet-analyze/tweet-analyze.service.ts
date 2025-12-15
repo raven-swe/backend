@@ -356,7 +356,7 @@ export class TweetAnalyzeService implements OnModuleInit {
         await this.repository.updateTweetClass(tweetId, analyzed.class);
         successCount++;
 
-        this.logger.debug(`Updated tweet ${analyzed.id} → class: ${analyzed.class}`);
+        this.logger.debug(`sdasdasd tweet ${analyzed.id} → class: ${analyzed.class}`);
       } catch (error) {
         failCount++;
         this.logger.error(
