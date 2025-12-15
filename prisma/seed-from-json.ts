@@ -307,8 +307,8 @@ async function main() {
 
   // Bulk insert tweets
   await prisma.tweet.createMany({
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     data: tweetDataToCreate.map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       ({ _originalIndex, _hashtags, _mentions, _mentionedUserIds, _mediaUrls, ...data }) => data,
     ),
   });
