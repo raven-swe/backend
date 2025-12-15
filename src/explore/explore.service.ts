@@ -12,7 +12,9 @@ export class ExploreService {
   constructor(private readonly exploreRepository: ExploreRepository) {}
 
   async getForYouCategories(userId: bigint): Promise<ForYouCategory[]> {
-    const userInterests = await this.exploreRepository.getUserInterests(userId);
+    const userInterests = (await this.exploreRepository.getUserInterests(userId)).map((interest) =>
+      interest ? interest[0].toUpperCase() + interest.slice(1).toLowerCase() : interest,
+    );
 
     if (!userInterests || userInterests.length === 0) {
       return [];

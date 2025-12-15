@@ -2,16 +2,17 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// test1234
 async function main() {
   const testUser = await prisma.user.upsert({
     where: { email: 'fy@test.com' },
     update: {},
     create: {
-      username: 'fytester',
+      username: 'omar',
       email: 'fy@test.com',
       passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
       birthdate: new Date('2000-01-01'),
-      interests: ['SPORTS', 'TECH', 'ENTERTAINMENT'],
+      interests: ['ENTERTAINMENT'],
       profile: { create: { displayName: 'FY Tester' } },
     },
   });
@@ -79,18 +80,6 @@ async function main() {
       interests: ['GENERAL'],
       profile: { create: { displayName: 'Gen' } },
     },
-  });
-
-  await prisma.follow.upsert({
-    where: { followerId_followedId: { followerId: testUser.id, followedId: u1.id } },
-    update: {},
-    create: { followerId: testUser.id, followedId: u1.id },
-  });
-
-  await prisma.follow.upsert({
-    where: { followerId_followedId: { followerId: testUser.id, followedId: u2.id } },
-    update: {},
-    create: { followerId: testUser.id, followedId: u2.id },
   });
 
   const tweetData = [
@@ -167,35 +156,35 @@ async function main() {
     {
       userId: u3.id,
       content: 'New Marvel movie WOW',
-      class: 'ENTERTAINMENT',
+      class: 'Entertainment',
       likeCount: 500,
       retweetCount: 200,
     },
     {
       userId: u3.id,
       content: 'Taylor Swift new album',
-      class: 'ENTERTAINMENT',
+      class: 'Entertainment',
       likeCount: 800,
       retweetCount: 350,
     },
     {
       userId: u3.id,
       content: 'Best TV shows to binge',
-      class: 'ENTERTAINMENT',
+      class: 'Entertainment',
       likeCount: 150,
       retweetCount: 45,
     },
     {
       userId: u3.id,
       content: 'Broadway is back',
-      class: 'ENTERTAINMENT',
+      class: 'Entertainment',
       likeCount: 70,
       retweetCount: 20,
     },
     {
       userId: u3.id,
       content: 'New video game release',
-      class: 'ENTERTAINMENT',
+      class: 'Entertainment',
       likeCount: 250,
       retweetCount: 90,
     },
