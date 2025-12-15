@@ -13,7 +13,7 @@ fake = Faker()
 # Mode: "normal" or "trending"
 # - "normal": generates tweets across the full date range
 # - "trending": generates tweets only within TRENDING_START_TIME to TRENDING_END_TIME
-GENERATION_MODE = "trending"
+GENERATION_MODE = "normal"
 
 # Time Configuration
 CURRENT_DATE = datetime(2025, 12, 15, 2, 0, 0)  # Current time reference
@@ -29,8 +29,8 @@ TRENDING_END_TIME = CURRENT_DATE   # End of trending period (now)
 TOPIC_TREND = ["Sports" , "Politics"]  # Options: "Sports", "Entertainment", "Finance", "Politics", "Tech", "Culture", "General", "Learning", "Travel"
 
 # Generation Counts
-USER_COUNT = 100
-TWEET_COUNT = 500
+USER_COUNT = 5000
+TWEET_COUNT = 1000
 RETWEET_COUNT = 200
 LIKE_COUNT_RANGE = (1000, 2000)
 
@@ -440,11 +440,11 @@ def generate_tweets(users: list, n: int = TWEET_COUNT) -> tuple:
             category = random.choice(user["interests"])
 
         # Random tweet type weights
-        w1 = random.randint(10, 50)
-        w2 = random.randint(10, 50)
-        w3 = random.randint(20, 40)
-        w4 = random.randint(20, 40)
-        w5 = random.randint(5, 15)
+        w1 = random.randint(20, 50)
+        w2 = random.randint(30, 60)
+        w3 = random.randint(30, 60)
+        w4 = random.randint(30, 60)
+        w5 = random.randint(25, 55)
         
         tweet_type = random.choices(
             ["regular", "media", "reply", "quote", "combined"],
