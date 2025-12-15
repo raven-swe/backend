@@ -357,13 +357,6 @@ model MessageCreatedResponse<TMessage extends string> {
   }>;
 }
 
-model FollowingUser {
-  ...CompactUser;
-  isFollowing: boolean;
-  followsYou: boolean;
-  isBlocked: boolean;
-}
-
 model AccountInfo {
   username: string;
   email: string | null;
@@ -402,8 +395,8 @@ enum InterestCode {
 
 alias MutedListResponse = DataResponseWithPagination<CompactUser[]>;
 alias BlockedListResponse = DataResponseWithPagination<CompactUser[]>;
-alias FollowingListResponse = DataResponseWithPagination<FollowingUser[]>;
-alias FollowersListResponse = DataResponseWithPagination<FollowingUser[]>;
+alias FollowingListResponse = DataResponseWithPagination<CompactUser[]>;
+alias FollowersListResponse = DataResponseWithPagination<CompactUser[]>;
 alias UnfollowUserResponse = MessageResponse<"user unfollowed successfully">;
 alias FollowUserResponse = MessageResponse<"user followed successfully">;
 alias BlockUserResponse = MessageResponse<"user blocked successfully">;
@@ -487,9 +480,6 @@ model BioEntities {
 model UserProfile {
   ...PublicUser;
 
-  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
-  relationship: UserRelationship | null; // null if get my profile
-
   @doc("The number of users this user is following")
   followingCount: int64;
 
@@ -532,6 +522,9 @@ model CompactUser {
 
   @doc("URL to the user's avatar image")
   avatarUrl: string | null;
+
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
 }
 
 @doc("Public-facing user profile (visible to others)")
@@ -559,19 +552,19 @@ model PublicUser {
 @doc("Relationship state between the current user and the subject user. Defines blocking and muting status")
 model UserRelationship {
   @doc("True if the current user has blocked this user, preventing them from viewing their profile or interacting.")
-  blocking: boolean;
+  blocking?: boolean;
 
   @doc("True if this user has blocked the current user.")
-  blockedBy: boolean;
+  blockedBy?: boolean;
 
   @doc("True if the current user has muted this user, hiding their posts from the feed without unfollowing.")
-  muted: boolean;
+  muted?: boolean;
 
   @doc("Is the user followed by the current logged-in user")
-  following: boolean;
+  following?: boolean;
 
   @doc("Is the user following the current logged-in user")
-  follower: boolean;
+  follower?: boolean;
 }
 
 @doc("Extended user metadata displayed in hover cards and user previews")
@@ -636,14 +629,7 @@ model UserMetadataWithLastSeen {
 model TweetAuthor {
   ...UserMetadata;
 
-  @doc("True if the current user has blocked this author")
-  isBlocked: boolean;
-
-  @doc("True if the current user has muted this author")
-  isMuted: boolean;
-
-  @doc("True if the current user is following this author")
-  isFollowing: boolean;
+  relationship: UserRelationship;
 }
 
 model UserMetadataWithFollowInfo {
@@ -665,23 +651,18 @@ model UserMetadataWithFollowing {
 
 @doc("User metadata with biography information")
 model UserMetadataWithBio {
-  ...UserMetadataWithFollowInfo;
+  ...UserMetadata;
+  ...UserBio;
 
-  @doc("The user's biography with structured entities")
-  bio: UserBio | null;
-
-  @doc("True if the current user has blocked this user")
-  isBlocked: boolean;
-
-  @doc("True if the current user has muted this user")
-  isMuted: boolean;
+  @doc("Relationship state between the authenticated user and this profile user, including blocks and mutes.")
+  relationship: UserRelationship;
 }
 
 @doc("User's biography with structured entities")
 model UserBio {
   @doc("The user's bio text (max 160 characters)")
   @maxLength(160)
-  text: string | null;
+  bio: string | null;
 
   @doc("Structured entities found in the bio (mentions and hashtags)")
   bioEntities: BioEntities | null;
@@ -893,15 +874,19 @@ model Tweet {
   @doc("The full object of the tweet being quoted, for easy display.")
   quotedTweet: CompactTweet | null; // Hydrated object for a quoted tweet.
 
-  repostedBy: {
-    @doc("The username of the user who reposted this tweet.")
-    username: string;
-
-    @doc("The display name of the user who reposted this tweet.")
-    displayName: string;
-
-  }
+  @doc("User who reposted this tweet.")
+  repostedBy?: TweetReposter;
 }
+
+model TweetReposter {
+
+  @doc("The username of the user who reposted this tweet.")
+  username: string;
+
+  @doc("The display name of the user who reposted this tweet.")
+  displayName: string;
+}
+
 
 
 model TweetWithoutQuotedTweet {
@@ -1607,6 +1592,16 @@ namespace Me {
 @route("/users")
 @useAuth(BearerAuth)
 namespace Users {
+  @route("/{username}/relationship")
+  @get
+  @summary("Get relationship status with a user by their username")
+  op getUserRelationship(@path username: string):
+    | DataResponse<UserRelationship>
+    | BadRequestResponse
+    | NotFoundResponse
+    | UnauthorizedResponse
+    | InternalServerErrorResponse;
+
   namespace Follows {
     @summary("List a user's followers")
     @get
@@ -1616,6 +1611,17 @@ namespace Users {
       | BadRequestResponse
       | NotFoundResponse
       | UnauthorizedResponse
+      | InternalServerErrorResponse;
+
+    @summary("Get user metadata by id (used for retweeter caching in client)")
+    @get
+    @route("/id/{userId}")
+    op getUserMetadataById(@path userId: string):
+      | DataResponse<{
+        username: string;
+        displayName: string;
+        }>
+      | NotFoundResponse
       | InternalServerErrorResponse;
 
     @get

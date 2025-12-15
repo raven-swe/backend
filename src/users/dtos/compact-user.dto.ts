@@ -1,9 +1,7 @@
+import { AuthorDto } from 'src/tweets/dtos';
 import { BioEntitiesDto } from './bio-entities.dto';
 
-export class CompactUserDto {
-  username: string;
-  displayName: string;
+export class CompactUserDto extends AuthorDto {
   bio: string | null;
   bioEntities: BioEntitiesDto | null;
-  avatarUrl: string | null;
 }
