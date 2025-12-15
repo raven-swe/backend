@@ -56,7 +56,7 @@ describe('TimelineService', () => {
     getTimelineForUser: jest.fn(),
     filterValidAuthors: jest.fn(),
     filterValidTweets: jest.fn(),
-    filterNonMutedAuthors: jest.fn(),
+    filterNonMutedNonBlockedAuthors: jest.fn(),
     getTweetsByIds: jest.fn(),
     getCompactAuthorsByIds: jest.fn(),
     getTweetCounts: jest.fn(),
@@ -1073,7 +1073,10 @@ describe('TimelineService', () => {
       mockTweetsRepository.getTweetsMatchingInterests.mockResolvedValue([
         { id: '789', authorId: '555', createdAt: new Date() },
       ]);
-      mockTweetsRepository.filterNonMutedAuthors.mockResolvedValue([BigInt(456), BigInt(555)]);
+      mockTweetsRepository.filterNonMutedNonBlockedAuthors.mockResolvedValue([
+        BigInt(456),
+        BigInt(555),
+      ]);
       mockTweetsRepository.filterValidTweets.mockResolvedValue([BigInt(123), BigInt(789)]);
       mockTweetsRepository.getTweetCounts.mockResolvedValue(
         new Map([
@@ -1102,7 +1105,7 @@ describe('TimelineService', () => {
 
       mockUsersRepository.getUserInterests.mockResolvedValue([]);
       mockTweetsRepository.getTimelineForUser.mockResolvedValue([]);
-      mockTweetsRepository.filterNonMutedAuthors.mockResolvedValue([BigInt(456)]);
+      mockTweetsRepository.filterNonMutedNonBlockedAuthors.mockResolvedValue([BigInt(456)]);
       mockTweetsRepository.filterValidTweets.mockResolvedValue([BigInt(123)]);
       mockTweetsRepository.getTweetCounts.mockResolvedValue(
         new Map([['123', { likeCounts: 5, retweetCounts: 3, replyCounts: 1 }]]),
@@ -1125,7 +1128,7 @@ describe('TimelineService', () => {
 
       mockUsersRepository.getUserInterests.mockResolvedValue([]);
       mockTweetsRepository.getTimelineForUser.mockResolvedValue([]);
-      mockTweetsRepository.filterNonMutedAuthors.mockResolvedValue([]);
+      mockTweetsRepository.filterNonMutedNonBlockedAuthors.mockResolvedValue([]);
       mockTweetsRepository.filterValidTweets.mockResolvedValue([]);
       mockUsersRepository.getFollowingIds.mockResolvedValue([]);
 

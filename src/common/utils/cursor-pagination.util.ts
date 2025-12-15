@@ -1,6 +1,5 @@
 import { CursorPagination } from '../interfaces';
 
-const encodeCursor = (id: string) => Buffer.from(id).toString('base64');
 export const decodeCursor = (cursor: string | undefined) => {
   if (!cursor) return undefined;
   return Buffer.from(cursor, 'base64').toString('utf-8');
@@ -14,30 +13,6 @@ export const decodeCompositeCursor = <T>(cursorString: string): T | undefined =>
   if (!cursorString) return undefined;
   const jsonString = Buffer.from(cursorString, 'base64').toString('utf-8');
   return JSON.parse(jsonString) as T;
-};
-
-export const paginateSingle = <T>(
-  items: T[],
-  limit: number,
-  prevCursor: string | undefined,
-  getId: (item: T) => bigint | string,
-): CursorPagination => {
-  const hasNextPage = items.length > limit;
-  let nextCursor: string | null = null;
-
-  if (hasNextPage) {
-    const nextItem = items.pop();
-    if (nextItem) {
-      const id = getId(nextItem);
-      nextCursor = encodeCursor(id.toString());
-    }
-  }
-
-  return {
-    cursor: prevCursor || null,
-    nextCursor,
-    hasNextPage,
-  };
 };
 
 export const paginateComposite = <T, C extends Record<string, unknown>>(
