@@ -1,80 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { Categories, Prisma } from '@prisma/client';
+import { Categories } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TweetDto } from 'src/tweets/dtos';
-
-const tweetInclude = (currentUserId: bigint) =>
-  ({
-    user: {
-      select: {
-        username: true,
-        id: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    },
-    _count: {
-      select: {
-        likes: {
-          where: { userId: currentUserId },
-        },
-        retweets: {
-          where: { userId: currentUserId },
-        },
-      },
-    },
-    tweetMentions: {
-      select: {
-        startPosition: true,
-        user: {
-          select: {
-            username: true,
-          },
-        },
-      },
-    },
-    tweetHashtags: {
-      select: {
-        startPosition: true,
-        hashtag: {
-          select: {
-            keyword: true,
-          },
-        },
-      },
-    },
-    tweetMedia: {
-      select: {
-        order: true,
-        media: {
-          select: {
-            url: true,
-            type: true,
-            altText: true,
-            width: true,
-            height: true,
-          },
-        },
-      },
-      orderBy: { order: 'asc' as const },
-    },
-  }) satisfies Prisma.TweetInclude;
-
-type BaseTweetWithIncludes = Prisma.TweetGetPayload<{
-  include: ReturnType<typeof tweetInclude>;
-}>;
-
-type TweetWithIncludes = BaseTweetWithIncludes & {
-  quotedTweet?: (BaseTweetWithIncludes & { quotedTweet?: null }) | null;
-};
+import { tweetInclude, TweetsRepository, TweetWithIncludes } from 'src/tweets/tweets.repository';
 
 @Injectable()
 export class ExploreRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tweetsRepository: TweetsRepository,
+  ) {}
 
   async getUserInterests(userId: bigint): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
@@ -150,51 +85,12 @@ export class ExploreRepository {
       if (tweet) {
         const categoryKey = category.toLowerCase();
         const categoryTweets = categoryMap.get(categoryKey) ?? [];
-        categoryTweets.push(this.mapToTweetDto(tweet as TweetWithIncludes));
+        categoryTweets.push(this.tweetsRepository.mapToTweetDto(tweet as TweetWithIncludes));
         categoryMap.set(categoryKey, categoryTweets);
       }
     }
 
     return categoryMap;
-  }
-
-  private mapToTweetDto(tweet: TweetWithIncludes): TweetDto {
-    return {
-      id: tweet.id.toString(),
-      author: {
-        username: tweet.user.username,
-        displayName: tweet.user.profile?.displayName ?? '',
-        avatarUrl: tweet.user.profile?.avatarUrl,
-      },
-      rootTweetId: null,
-      content: tweet.content ?? '',
-      createdAt: tweet.createdAt,
-      replyCount: tweet.replyCount,
-      retweetCount: tweet.retweetCount,
-      likeCount: tweet.likeCount,
-      isLiked: tweet._count.likes > 0,
-      isRetweeted: tweet._count.retweets > 0,
-      entities: {
-        mentions: tweet.tweetMentions.map((mention) => ({
-          username: mention.user.username,
-          startPosition: mention.startPosition,
-        })),
-        hashtags: tweet.tweetHashtags.map((hashtag) => ({
-          hashtag: hashtag.hashtag.keyword,
-          startPosition: hashtag.startPosition,
-        })),
-      },
-      media: tweet.tweetMedia?.map((media) => ({
-        url: media.media.url,
-        type: media.media.type,
-        altText: media.media.altText,
-        width: media.media.width ?? 0,
-        height: media.media.height ?? 0,
-      })),
-      replyToTweetId: tweet.replyToTweetId?.toString() ?? null,
-      quoteToTweetId: tweet.quotedTweetId?.toString() ?? null,
-      quotedTweet: tweet.quotedTweet ? this.mapToTweetDto(tweet.quotedTweet) : undefined,
-    };
   }
 
   async getTrendingKeywords() {
