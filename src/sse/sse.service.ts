@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import { RedisService } from '../redis/redis.service';
 import { Redis } from 'ioredis';
 import { MAX_CONNECTIONS_PER_USER } from './constants/sse-constants';
+import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 
 interface SseConnection {
   subject: Subject<unknown>;
@@ -94,11 +95,15 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
     }
 
     const newSubject = new Subject<unknown>();
-
-    userConnections.push({
+    const newConnection = {
       subject: newSubject,
       topics: new Set(topics),
-    });
+    };
+    userConnections.push(newConnection);
+
+    if (newConnection.topics.has('timeline')) {
+      await this.pubClient.sadd(REDIS_TIMELINE_KEYS.getSSEOnlineFollowingTimelineKey(), userId);
+    }
 
     return newSubject;
   }
@@ -115,11 +120,29 @@ export class SseService implements OnModuleInit, OnModuleDestroy {
     const index = userConnections.findIndex((c) => c.subject === subject);
     if (index === -1) return;
 
+    const connectionToRemove = userConnections[index];
+
     subject.complete();
     userConnections.splice(index, 1);
 
     if (userConnections.length === 0) {
       this.connections.delete(userId);
+    }
+
+    if (connectionToRemove.topics.has('timeline')) {
+      const remainingConnections = this.connections.get(userId) || [];
+      const stillHasTimeline = remainingConnections.some((c) => c.topics.has('timeline')); // maybe connected to timeline through multiple devices
+
+      if (!stillHasTimeline) {
+        this.pubClient
+          .srem(REDIS_TIMELINE_KEYS.getSSEOnlineFollowingTimelineKey(), userId)
+          .catch((err) => {
+            this.logger.error(
+              `Failed to remove user ${userId} from SSE online following timeline set`,
+              err,
+            );
+          });
+      }
     }
   }
   getConnectionCount(userId: string): number {
