@@ -13,10 +13,10 @@ fake = Faker()
 # Mode: "normal" or "trending"
 # - "normal": generates tweets across the full date range
 # - "trending": generates tweets only within TRENDING_START_TIME to TRENDING_END_TIME
-GENERATION_MODE = "normal"
+GENERATION_MODE = "trending"
 
 # Time Configuration
-CURRENT_DATE = datetime(2025, 12, 15, 2, 0, 0)  # Current time reference
+CURRENT_DATE = datetime(2025, 12, 15, 4, 43, 0)  # Current time reference
 
 # Trending Mode Time Window (only used when GENERATION_MODE = "trending")
 # For realistic trending data, set these relative to CURRENT_DATE (e.g., last 6-24 hours)
@@ -26,13 +26,19 @@ TRENDING_END_TIME = CURRENT_DATE   # End of trending period (now)
 # Trending Topics Filter (only used when GENERATION_MODE = "trending")
 # Empty list means all topics are allowed. Non-empty list filters to only those topics.
 # Example: ["Sports", "Tech"] will only generate tweets for Sports and Tech categories
-TOPIC_TREND = ["Sports" , "Politics"]  # Options: "Sports", "Entertainment", "Finance", "Politics", "Tech", "Culture", "General", "Learning", "Travel"
+TOPIC_TREND = ["Sports" , "Politics" , "Tech"]  # Options: "Sports", "Entertainment", "Finance", "Politics", "Tech", "Culture", "General", "Learning", "Travel"
+
+# # Generation Counts
+# USER_COUNT = 1100
+# TWEET_COUNT = 5100
+# RETWEET_COUNT = 700
+# LIKE_COUNT_RANGE = (1000, 2000)
 
 # Generation Counts
-USER_COUNT = 1100
-TWEET_COUNT = 5100
-RETWEET_COUNT = 700
-LIKE_COUNT_RANGE = (1000, 2000)
+USER_COUNT = 100
+TWEET_COUNT = 500
+RETWEET_COUNT = 200
+LIKE_COUNT_RANGE = (100, 1000)
 
 # Interests/Categories
 INTERESTS = ["Sports", "Entertainment", "Finance", "Politics", "Tech", "Culture", "General", "Learning", "Travel"]
@@ -72,7 +78,7 @@ BASE_HASHTAGS = {
 
 # Trending hashtags (used in trending mode, more specific/timely)
 TRENDING_HASHTAGS = {
-    "Sports": ["worldcup2025"],
+    "Sports": ["worldcup2026"],
     "Entertainment": ["musicvideo"],
     "Finance": ["bullmarket"],
     "Politics": ["election2025"],
