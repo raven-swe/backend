@@ -191,6 +191,39 @@ describe('MediaService', () => {
       expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
     });
 
+    it('should handle rollback failure when S3 deletion fails during rollback', async () => {
+      // Arrange
+      const mockFile = createMockFile();
+      const userId = BigInt(1);
+      const folder = MediaFolder.AVATARS;
+      const mockS3Response = {
+        key: 'avatars/file.jpg',
+        url: 'http://example.com/avatars/file.jpg',
+      };
+      const dbError = new Error('Database connection failed');
+      const rollbackError = new Error('S3 rollback failed');
+
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
+      mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
+      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockMediaRepository.saveMedia.mockRejectedValue(dbError);
+      mockS3Service.deleteFile.mockRejectedValue(rollbackError);
+
+      // Act & Assert
+      await expect(service.uploadAndSaveMedia(mockFile, userId, folder)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.MEDIA_UPLOAD_SAVE_FAILED,
+            code: MEDIA_CODES.MEDIA_UPLOAD_SAVE_FAILED,
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ),
+      );
+
+      // Verify rollback was attempted
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
+    });
+
     it('should handle image dimensions retrieval failure', async () => {
       const mockFile = createMockFile();
       const userId = BigInt(1);
@@ -223,6 +256,42 @@ describe('MediaService', () => {
           height: 0,
         }),
       );
+    });
+  });
+
+  describe('getImageDimensions (private method)', () => {
+    it('should successfully get image dimensions', async () => {
+      const mockFile = createMockFile();
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
+      mockSharpInstance.metadata.mockResolvedValue({ width: 800, height: 600 });
+
+      // Access private method using type assertion
+      const result = await service.getImageDimensions(mockFile);
+
+      expect(result).toEqual({ width: 800, height: 600 });
+      expect(sharp).toHaveBeenCalledWith(mockFile.buffer);
+    });
+
+    it('should return zero dimensions when metadata extraction fails', async () => {
+      const mockFile = createMockFile();
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
+      mockSharpInstance.metadata.mockRejectedValue(new Error('Invalid image format'));
+
+      // Access private method using type assertion
+      const result = await service.getImageDimensions(mockFile);
+
+      expect(result).toEqual({ width: 0, height: 0 });
+    });
+
+    it('should handle null width and height from metadata', async () => {
+      const mockFile = createMockFile();
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
+      mockSharpInstance.metadata.mockResolvedValue({ width: null, height: null });
+
+      // Access private method using type assertion
+      const result = await service.getImageDimensions(mockFile);
+
+      expect(result).toEqual({ width: 0, height: 0 });
     });
   });
 
@@ -456,6 +525,7 @@ describe('MediaService', () => {
         width: 100,
         height: 100,
         altText: null,
+        pending: false,
       };
       const s3Error = new Error('S3 deletion failed');
 
@@ -478,7 +548,40 @@ describe('MediaService', () => {
         width: mockMediaRecord.width,
         height: mockMediaRecord.height,
         altText: undefined,
+        pending: mockMediaRecord.pending,
       });
+    });
+
+    it('should handle rollback failure when restoring media metadata fails', async () => {
+      // Arrange
+      const url = 'http://example.com/avatars/file.jpg';
+      const userId = BigInt(1);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId,
+        url,
+        type: MediaType.IMAGE,
+        width: 100,
+        height: 100,
+        altText: null,
+        pending: false,
+      };
+      const s3Error = new Error('S3 deletion failed');
+      const rollbackError = new Error('Database restore failed');
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+      mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
+      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
+      mockS3Service.deleteFile.mockRejectedValue(s3Error);
+      mockMediaRepository.saveMedia.mockRejectedValue(rollbackError);
+
+      // Act & Assert
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
+        new Error('S3 deletion failed'),
+      );
+
+      // Verify rollback was attempted
+      expect(mockMediaRepository.saveMedia).toHaveBeenCalled();
     });
   });
 
@@ -525,6 +628,171 @@ describe('MediaService', () => {
       expect(result).toEqual({
         ...expectedResult,
         message: 'Media uploaded successfully.',
+      });
+    });
+  });
+
+  describe('uploadGif', () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      jest.resetModules();
+      process.env = { ...originalEnv };
+      global.fetch = jest.fn();
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+      jest.restoreAllMocks();
+    });
+
+    it('should throw error when RAVEN_TENOR_KEY is not configured', async () => {
+      // Arrange
+      delete process.env.RAVEN_TENOR_KEY;
+      const userId = BigInt(1);
+      const tenorId = 'test-tenor-id';
+
+      // Act & Assert
+      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+            code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        ),
+      );
+    });
+
+    it('should throw error when Tenor API request fails', async () => {
+      // Arrange
+      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      const userId = BigInt(1);
+      const tenorId = 'test-tenor-id';
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 400,
+      });
+
+      // Act & Assert
+      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
+            code: MEDIA_CODES.GIF_UPLOAD_FAILED,
+          },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+
+    it('should throw error when Tenor returns no results', async () => {
+      // Arrange
+      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      const userId = BigInt(1);
+      const tenorId = 'test-tenor-id';
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ results: [] }),
+      });
+
+      // Act & Assert
+      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.GIF_NOT_FOUND,
+            code: MEDIA_CODES.GIF_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should throw error when Tenor returns null results', async () => {
+      // Arrange
+      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      const userId = BigInt(1);
+      const tenorId = 'test-tenor-id';
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      // Act & Assert
+      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+        new HttpException(
+          {
+            message: MEDIA_MESSAGES.GIF_NOT_FOUND,
+            code: MEDIA_CODES.GIF_NOT_FOUND,
+          },
+          HttpStatus.NOT_FOUND,
+        ),
+      );
+    });
+
+    it('should successfully upload GIF and save metadata', async () => {
+      // Arrange
+      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      const userId = BigInt(1);
+      const tenorId = 'test-tenor-id';
+      const mockTenorResponse = {
+        results: [
+          {
+            id: tenorId,
+            content_description: 'Happy cat dancing',
+            media_formats: {
+              gif: {
+                url: 'https://media.tenor.com/test.gif',
+                dims: [498, 280],
+              },
+            },
+          },
+        ],
+      };
+      const mockSavedMedia = {
+        id: BigInt(123),
+        userId,
+        url: 'https://media.tenor.com/test.gif',
+        type: MediaType.GIF,
+        width: 498,
+        height: 280,
+        altText: 'Happy cat dancing',
+        pending: true,
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockTenorResponse),
+      });
+      mockMediaRepository.saveMedia.mockResolvedValue(mockSavedMedia);
+
+      // Act
+      const result = await service.uploadGif(userId, tenorId);
+
+      // Assert
+      expect(result).toEqual({
+        id: '123',
+        url: 'https://media.tenor.com/test.gif',
+        width: 498,
+        height: 280,
+        altText: 'Happy cat dancing',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `https://tenor.googleapis.com/v2/posts?key=test-api-key&ids=${tenorId}&client_key=my_app`,
+      );
+
+      expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith({
+        userId,
+        url: 'https://media.tenor.com/test.gif',
+        type: MediaType.GIF,
+        width: 498,
+        height: 280,
+        altText: 'Happy cat dancing',
+        pending: true,
       });
     });
   });
@@ -625,6 +893,34 @@ describe('MediaService', () => {
       // Assert
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
       expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key2');
+    });
+
+    it('should handle error when S3 deletion fails during cleanup', async () => {
+      // Arrange
+      const mockPendingMedia = [
+        {
+          id: BigInt(1),
+          url: 'https://cdn.raven.cmp27.space/avatars/test.png',
+        },
+      ];
+
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
+      mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
+      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/test.png');
+      mockS3Service.deleteFile.mockRejectedValue(new Error('S3 deletion failed'));
+
+      // Spy on logger to ensure error is logged
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      // Act
+      await service.cleanUpPendingMedia();
+
+      // Assert
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/test.png');
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to clean up pending media'),
+      );
     });
   });
 });

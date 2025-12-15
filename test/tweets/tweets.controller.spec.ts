@@ -7,6 +7,8 @@ describe('TweetsController', () => {
   let controller: TweetsController;
 
   const mockTweetsService = {
+    createTweet: jest.fn(),
+    deleteTweet: jest.fn(),
     likeTweet: jest.fn(),
     unlikeTweet: jest.fn(),
     retweetTweet: jest.fn(),
@@ -17,6 +19,7 @@ describe('TweetsController', () => {
     getTweetRetweeters: jest.fn(),
     getTweetLikers: jest.fn(),
     getTweetReplies: jest.fn(),
+    getTweetSummary: jest.fn(),
   };
 
   const mockUser: RequestUser = {
@@ -43,6 +46,54 @@ describe('TweetsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('createTweet', () => {
+    it('should call tweetsService.createTweet with correct parameters', async () => {
+      const createTweetDto = {
+        content: 'Hello World',
+      };
+      const expectedResponse = { id: BigInt(100), text: 'Hello World' };
+      mockTweetsService.createTweet.mockResolvedValue(expectedResponse);
+
+      const result = await controller.createTweet(mockUser, createTweetDto);
+
+      expect(mockTweetsService.createTweet).toHaveBeenCalledWith(createTweetDto, BigInt(123));
+      expect(mockTweetsService.createTweet).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should propagate errors from service', async () => {
+      const createTweetDto = {
+        content: 'Hello World',
+      };
+      const error = new Error('Failed to create tweet');
+      mockTweetsService.createTweet.mockRejectedValue(error);
+
+      await expect(controller.createTweet(mockUser, createTweetDto)).rejects.toThrow(error);
+    });
+  });
+
+  describe('deleteTweet', () => {
+    it('should call tweetsService.deleteTweet with correct parameters', async () => {
+      const tweetId = BigInt(100);
+      const expectedResponse = { message: 'Tweet deleted successfully' };
+      mockTweetsService.deleteTweet.mockResolvedValue(expectedResponse);
+
+      const result = await controller.deleteTweet(mockUser, tweetId);
+
+      expect(mockTweetsService.deleteTweet).toHaveBeenCalledWith(tweetId, BigInt(123));
+      expect(mockTweetsService.deleteTweet).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should propagate errors from service', async () => {
+      const tweetId = BigInt(100);
+      const error = new Error('Tweet not found');
+      mockTweetsService.deleteTweet.mockRejectedValue(error);
+
+      await expect(controller.deleteTweet(mockUser, tweetId)).rejects.toThrow(error);
+    });
   });
 
   describe('likeTweet', () => {
@@ -329,6 +380,45 @@ describe('TweetsController', () => {
       await expect(controller.getTweetReplies(tweetId, mockUser, '10', cursor)).rejects.toThrow(
         error,
       );
+    });
+  });
+
+  describe('getTweetSummary', () => {
+    const tweetId = BigInt(100);
+    const expectedResponse = { summary: 'This is a summary' };
+
+    it('should call service with default locale en-US when no locale provided', async () => {
+      mockTweetsService.getTweetSummary.mockResolvedValue(expectedResponse);
+
+      const result = await controller.getTweetSummary(tweetId);
+
+      expect(mockTweetsService.getTweetSummary).toHaveBeenCalledWith(tweetId, 'en-US');
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should call service with provided locale when valid', async () => {
+      mockTweetsService.getTweetSummary.mockResolvedValue(expectedResponse);
+
+      const result = await controller.getTweetSummary(tweetId, 'ar-EG');
+
+      expect(mockTweetsService.getTweetSummary).toHaveBeenCalledWith(tweetId, 'ar-EG');
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should default to en-US when invalid locale provided', async () => {
+      mockTweetsService.getTweetSummary.mockResolvedValue(expectedResponse);
+
+      const result = await controller.getTweetSummary(tweetId, 'fr-FR');
+
+      expect(mockTweetsService.getTweetSummary).toHaveBeenCalledWith(tweetId, 'en-US');
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should propagate errors from service', async () => {
+      const error = new Error('Tweet not found');
+      mockTweetsService.getTweetSummary.mockRejectedValue(error);
+
+      await expect(controller.getTweetSummary(tweetId, 'en-US')).rejects.toThrow(error);
     });
   });
 });

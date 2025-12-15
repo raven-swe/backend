@@ -20,6 +20,7 @@ WHERE "is_hashtag" = true
 GROUP BY "keyword";
 
 -- Store old hashtag_id mapping in a temporary table for reference
+DROP TABLE IF EXISTS "temp_hashtag_id_mapping";
 CREATE TEMP TABLE "temp_hashtag_id_mapping" AS
 SELECT tk.id as old_id, h.id as new_id
 FROM "trending_keywords" tk
