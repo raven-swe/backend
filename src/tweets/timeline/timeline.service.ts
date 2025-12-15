@@ -1240,6 +1240,7 @@ export class TimelineService {
     // 2. Get tweet candidates from the Following timeline cache
     const followingTweets = await this.getFollowingTimelineCandidates(userId, FOR_YOU_FEED_SIZE);
     const followingTweetIds = new Set(followingTweets.map((t) => t.id)); // Keep track of which IDs came from this source
+    const followingAuthorIds = new Set(followingTweets.map((t) => t.authorId));
 
     this.logger.debug(
       `Got ${followingTweets.length} candidate tweets from Following timeline for user ${userId}`,
@@ -1274,14 +1275,22 @@ export class TimelineService {
     }
 
     const candidateTweetIds = candidates.map((c) => BigInt(c.id));
-    const candidateAuthorIds = new Set(candidates.map((c) => BigInt(c.authorId)));
+    const candidateAuthorIds = Array.from(new Set(candidates.map((c) => BigInt(c.authorId))));
 
-    const [validAuthorIds, validTweetIds] = await Promise.all([
-      this.tweetsRepository.filterNonMutedAuthors(userId, Array.from(candidateAuthorIds)),
+    const followingCandidateAuthorIds = candidateAuthorIds.filter((id) =>
+      followingAuthorIds.has(id.toString()),
+    );
+    const interestCandidateAuthorIds = candidateAuthorIds.filter(
+      (id) => !followingAuthorIds.has(id.toString()),
+    );
+
+    const [validFollowingAuthorIds, validInterestAuthorIds, validTweetIds] = await Promise.all([
+      this.tweetsRepository.filterValidAuthors(userId, followingCandidateAuthorIds),
+      this.tweetsRepository.filterNonMutedNonBlockedAuthors(userId, interestCandidateAuthorIds),
       this.tweetsRepository.filterValidTweets(candidateTweetIds),
     ]);
 
-    validAuthorIds.push(userId);
+    const validAuthorIds = [userId, ...validFollowingAuthorIds, ...validInterestAuthorIds];
 
     const validAuthorSet = new Set(validAuthorIds.map((id) => id.toString()));
     const validTweetSet = new Set(validTweetIds.map((id) => id.toString()));
