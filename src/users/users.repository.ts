@@ -277,7 +277,7 @@ export class UsersRepository {
         followingCount: user.followingCount,
         followersCount: user.followersCount,
         mutualsCount: null,
-        mutualUsers: null,
+        mutualUsers: [],
       };
 
       // TODO: Get mutual followers count and names
@@ -309,7 +309,7 @@ export class UsersRepository {
       followingCount: user.followingCount,
       followersCount: user.followersCount,
       mutualsCount: mutualsCount,
-      mutualUsers: mutualUsers,
+      mutualUsers: mutualUsers ?? [],
       email: isMyProfile ? user.email : undefined,
       phone: user.phone || undefined,
       languageCode: user.languageCode || undefined,
