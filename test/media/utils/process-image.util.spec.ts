@@ -130,4 +130,22 @@ describe('processImage', () => {
     });
     expect(mockSharpInstance.png).not.toHaveBeenCalled();
   });
+
+  it('should throw error and log when image processing fails', async () => {
+    const mockFile = createMockFile();
+    const processingError = new Error('Image processing failed');
+
+    mockSharpInstance.toBuffer.mockRejectedValue(processingError);
+
+    await expect(processImage(mockFile)).rejects.toThrow('Image processing failed');
+  });
+
+  it('should throw error when metadata extraction fails', async () => {
+    const mockFile = createMockFile();
+    const metadataError = new Error('Failed to read metadata');
+
+    mockSharpInstance.metadata.mockRejectedValue(metadataError);
+
+    await expect(processImage(mockFile)).rejects.toThrow('Failed to read metadata');
+  });
 });

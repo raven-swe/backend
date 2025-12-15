@@ -116,7 +116,7 @@ describe('SseController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Invalid topics. Allowed: dm, notifications',
+        message: 'Invalid topics. Allowed: dm, notifications, timeline',
         code: 'INVALID_TOPICS',
       });
       expect(mockSseService.subscribe).not.toHaveBeenCalled();

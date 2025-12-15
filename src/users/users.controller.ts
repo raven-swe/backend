@@ -1,10 +1,11 @@
 import { Controller, Delete, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
-import { FollowingUserDto } from './dtos';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from 'src/common/interfaces';
+import { CompactUserDto } from './dtos/compact-user.dto';
+import { OptionalAuth } from 'src/common/decorators/optional-auth.decorator';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
@@ -35,8 +36,9 @@ export class UsersController {
 
   // TODO: This should be optional guard (if logged in, provide more details (just the relations))
   @UseGuards(JwtAuthGuard)
+  @OptionalAuth()
   async getUserProfile(@Param('username') username: string, @User() user: RequestUser) {
-    const currentUserId = BigInt(user.id);
+    const currentUserId = user ? BigInt(user.id) : undefined;
 
     return this.usersService.getUserProfile(username, currentUserId);
   }
@@ -57,7 +59,7 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 
@@ -77,7 +79,7 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 
@@ -97,10 +99,15 @@ export class UsersController {
       parsedLimit,
       cursor,
     );
-    const itemsDto = plainToInstance(FollowingUserDto, items);
+    const itemsDto = plainToInstance(CompactUserDto, items);
     return { items: itemsDto, pagination };
   }
 
+  @Get(':username/relationship')
+  @UseGuards(JwtAuthGuard)
+  async getUserRelationship(@Param('username') username: string, @User() user: RequestUser) {
+    return this.usersService.getUserRelationship(BigInt(user.id), username);
+  }
   @Post(':username/notify')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
@@ -113,5 +120,12 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async disableUserNotifications(@Param('username') username: string, @User() user: RequestUser) {
     return await this.usersService.disableUserNotifications(BigInt(user.id), username);
+  }
+
+  @Get('/id/:id')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async getUserById(@Param('id') id: string) {
+    return await this.usersService.getUserById(BigInt(id));
   }
 }

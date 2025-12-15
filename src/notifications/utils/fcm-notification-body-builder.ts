@@ -1,33 +1,41 @@
-import { NotificationType } from '@prisma/client';
+import { NotificationType, LanguageCode, MediaType } from '@prisma/client';
 import IntlMessageFormat from 'intl-messageformat';
 
-const DEFAULT_LOCALE = 'en';
+const DEFAULT_LOCALE: LanguageCode = LanguageCode.EN;
 
 const TEMPLATES: Record<string, Record<string, string>> = {
-  en: {
+  EN: {
     'like.single': '{actor} liked your tweet',
-    'like.aggregated': '{actor} and {count} others liked your tweet',
+    'like.aggregated': '{actor} and {count} other{s} liked your tweet',
     'follow.single': '{actor} followed you',
-    'follow.aggregated': '{actor} and {count} others followed you',
+    'follow.aggregated': '{actor} and {count} other{s} followed you',
     'reply.single': '{actor} replied: "{snippet}"',
     'mention.single': '{actor} mentioned you: "{snippet}"',
     'quote.single': '{actor} quoted: "{snippet}"',
     'retweet.single': '{actor} retweeted your tweet',
-    'retweet.aggregated': '{actor} and {count} others retweeted your tweet',
+    'retweet.aggregated': '{actor} and {count} other{s} retweeted your tweet',
+    'message.single': '{actor} sent you a message: "{snippet}"',
+    'message.reacted': '{actor} reacted {reaction} to your message: "{snippet}"',
+    'message.photo': '{actor} sent you a photo',
+    'message.video': '{actor} sent you a video',
     'author.tweet': '{actor} posted a new tweet',
     generic: 'New interaction',
     'generic.body': 'You have a new notification',
   },
-  ar: {
+  AR: {
     'like.single': 'أعجب {actor} بتغريدتك',
-    'like.aggregated': 'أعجب {actor} و{count} آخرون بتغريدتك',
+    'like.aggregated': 'أعجب {actor} و{count} آخر{sar} بتغريدتك',
     'follow.single': '{actor} تابعك',
-    'follow.aggregated': '{actor} و{count} آخرون تابعوك',
+    'follow.aggregated': '{actor} و{count} آخر{sar} تابعوك',
     'reply.single': '{actor} رد: "{snippet}"',
     'mention.single': '{actor} ذكرك: "{snippet}"',
     'quote.single': '{actor} اقتبس: "{snippet}"',
     'retweet.single': '{actor} أعاد تغريد تغريدتك',
-    'retweet.aggregated': '{actor} و{count} آخرون أعادوا تغريد تغريدتك',
+    'retweet.aggregated': '{actor} و{count} آخر{sar} أعادوا تغريد تغريدتك',
+    'message.single': '{actor} أرسل لك رسالة: "{snippet}"',
+    'message.reacted': '{actor} تفاعل {reaction} مع رسالتك: "{snippet}"',
+    'message.photo': '{actor} أرسل لك صورة',
+    'message.video': '{actor} أرسل لك فيديو',
     'author.tweet': '{actor} نشر تغريدة جديدة',
     generic: 'تفاعل جديد',
     'generic.body': 'لديك إشعار جديد',
@@ -66,7 +74,10 @@ export function buildFcmNotificationText(opts: {
   previewActors?: string[];
   totalActorCount?: number;
   tweetSnippet?: string | null;
-  locale?: string;
+  locale?: LanguageCode;
+  reaction?: string | null;
+  hasMedia?: boolean;
+  mediaType?: MediaType | null;
 }): { title: string; body?: string } {
   const {
     notificationType,
@@ -74,10 +85,10 @@ export function buildFcmNotificationText(opts: {
     previewActors = [],
     totalActorCount = 1,
     tweetSnippet,
-    locale = DEFAULT_LOCALE,
+    locale,
   } = opts;
 
-  const templates = TEMPLATES[locale] ?? TEMPLATES[DEFAULT_LOCALE];
+  const templates = locale ? TEMPLATES[locale] : TEMPLATES[DEFAULT_LOCALE];
 
   const leadActor = previewActors[0] ?? 'Someone';
   const remainingCount = Math.max(0, (totalActorCount ?? 1) - 1);
@@ -85,6 +96,11 @@ export function buildFcmNotificationText(opts: {
   let key = 'generic';
   const params: Record<string, unknown> = {};
 
+  if (locale === LanguageCode.AR && isAggregated && remainingCount > 0) {
+    params.sar = remainingCount === 1 ? '' : 'ون';
+  } else if (locale === LanguageCode.EN && isAggregated && remainingCount > 0) {
+    params.s = remainingCount === 1 ? '' : 's';
+  }
   switch (notificationType) {
     case NotificationType.LIKE:
       if (isAggregated && remainingCount > 0) {
@@ -109,9 +125,16 @@ export function buildFcmNotificationText(opts: {
       break;
 
     case NotificationType.REPLY:
-      key = 'reply.single';
-      params.actor = leadActor;
-      params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      if (isAggregated && remainingCount > 0) {
+        key = 'reply.aggregated';
+        params.actor = leadActor;
+        params.count = remainingCount;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      } else {
+        key = 'reply.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     case NotificationType.MENTION:
@@ -121,9 +144,16 @@ export function buildFcmNotificationText(opts: {
       break;
 
     case NotificationType.QUOTE:
-      key = 'quote.single';
-      params.actor = leadActor;
-      params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      if (isAggregated && remainingCount > 0) {
+        key = 'qoute.aggregated';
+        params.actor = leadActor;
+        params.count = remainingCount;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      } else {
+        key = 'quote.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     case NotificationType.RETWEET:
@@ -140,6 +170,25 @@ export function buildFcmNotificationText(opts: {
     case NotificationType.TWEET:
       key = 'author.tweet';
       params.actor = leadActor;
+      break;
+    case NotificationType.MESSAGE:
+      if (opts.reaction) {
+        key = 'message.reacted';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+        params.reaction = opts.reaction;
+      } else if (opts.hasMedia) {
+        if (opts.mediaType === MediaType.VIDEO) {
+          key = 'message.video';
+        } else {
+          key = 'message.photo';
+        }
+        params.actor = leadActor;
+      } else {
+        key = 'message.single';
+        params.actor = leadActor;
+        params.snippet = truncate(sanitizeText(tweetSnippet ?? ''), 80);
+      }
       break;
 
     default:

@@ -19,5 +19,4 @@ class NotificationActorSummaryDto {
 class NotificationTweetSummaryDto {
   primaryTweet: TweetDto | null;
   totalCount: number;
-  subjectIds: string[];
 }

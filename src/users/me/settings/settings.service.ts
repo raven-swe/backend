@@ -28,6 +28,7 @@ import { generateAndStoreOtp } from 'src/auth/utils';
 import { createValidationError, decodeCompositeCursor, paginateComposite } from 'src/common/utils';
 import { BlocksCursor, MutesCursor } from 'src/common/interfaces';
 import { PAGINATION_ERROR_CODES, PAGINATION_ERROR_MESSAGES } from 'src/common/constants';
+import { UserRelationshipDto } from 'src/users/dtos/relationship.dto';
 
 interface CachedEmailUpdateData {
   userId: string;
@@ -270,7 +271,11 @@ export class SettingsService {
       }
     }
 
-    const mutedUsers = await this.usersService.getUserMutes(userId, limit + 1, decoded);
+    const { mutedUsers, relationMap } = await this.usersService.getUserMutes(
+      userId,
+      limit + 1,
+      decoded,
+    );
 
     const pagination = paginateComposite(mutedUsers, limit, prevCursor, (item) => ({
       userId: item.userId.toString(),
@@ -280,6 +285,13 @@ export class SettingsService {
     const items = mutedUsers.map((b) => ({
       ...b.mutedUser.profile,
       username: b.mutedUser.username,
+      relationship: (relationMap.get(b.mutedId) as UserRelationshipDto) || {
+        blockedBy: false,
+        blocking: false,
+        muted: true,
+        following: false,
+        follower: false,
+      },
     }));
 
     return { items, pagination };
@@ -302,7 +314,11 @@ export class SettingsService {
       }
     }
 
-    const blockedUsers = await this.usersService.getUserBlocks(userId, limit + 1, decoded);
+    const { blockedUsers, relationMap } = await this.usersService.getUserBlocks(
+      userId,
+      limit + 1,
+      decoded,
+    );
 
     const pagination = paginateComposite(blockedUsers, limit, prevCursor, (item) => ({
       userId: item.userId.toString(),
@@ -312,6 +328,13 @@ export class SettingsService {
     const items = blockedUsers.map((b) => ({
       ...b.blockedUser.profile,
       username: b.blockedUser.username,
+      relationship: (relationMap.get(b.blockedId) as UserRelationshipDto) || {
+        blockedBy: false,
+        blocking: true,
+        muted: false,
+        following: false,
+        follower: false,
+      },
     }));
 
     return { items, pagination };

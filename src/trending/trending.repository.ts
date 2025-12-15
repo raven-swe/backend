@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Categories } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PlainHashtag } from 'src/tweets/interfaces';
 
@@ -59,6 +59,51 @@ export class TrendingRepository {
     });
   }
 
+  async scaleDownAllScores(factor: number): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.trendingKeyword.updateMany({
+        data: { overallScore: { multiply: factor } },
+      }),
+      this.prisma.trendingKeywordCategory.updateMany({
+        data: { score: { multiply: factor } },
+      }),
+    ]);
+  }
+
+  async findKeywordByKeywordAndType(
+    keyword: string,
+    isHashtag: boolean,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    return tx.trendingKeyword.findUnique({
+      where: { keyword_isHashtag: { keyword, isHashtag } },
+      include: { categoryScores: true },
+    });
+  }
+
+  async createKeywordWithCategories(
+    data: {
+      keyword: string;
+      isHashtag: boolean;
+      overallScore: number;
+      count: number;
+      lastUpdatedAt: Date;
+      categoryScores: Prisma.TrendingKeywordCategoryCreateWithoutKeywordInput[];
+    },
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    return tx.trendingKeyword.create({
+      data: {
+        keyword: data.keyword,
+        isHashtag: data.isHashtag,
+        overallScore: data.overallScore,
+        count: data.count,
+        lastUpdatedAt: data.lastUpdatedAt,
+        categoryScores: { create: data.categoryScores },
+      },
+    });
+  }
+
   async getTopWords(
     query: string,
     limit: number,
@@ -66,7 +111,6 @@ export class TrendingRepository {
   ): Promise<{ keyword: string; isHashtag: boolean }[]> {
     // Escape sql wildcards % and _
     query = query.replace(/[%_]/g, '\\$&');
-
     const results = await this.prisma.trendingKeyword.findMany({
       where: {
         keyword: {
@@ -83,5 +127,57 @@ export class TrendingRepository {
     });
 
     return results;
+  }
+
+  async upsertKeywordCategory(
+    data: {
+      trendingKeywordId: bigint;
+      category: Categories;
+      score: number;
+      categoryOccurenceCount: number;
+    },
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    return tx.trendingKeywordCategory.upsert({
+      where: {
+        trendingKeywordId_category: {
+          trendingKeywordId: data.trendingKeywordId,
+          category: data.category,
+        },
+      },
+      update: {
+        score: data.score,
+        categoryOccurenceCount: data.categoryOccurenceCount,
+      },
+      create: {
+        trendingKeywordId: data.trendingKeywordId,
+        category: data.category,
+        score: data.score,
+        categoryOccurenceCount: data.categoryOccurenceCount,
+      },
+    });
+  }
+
+  async updateKeyword(
+    id: bigint,
+    data: { overallScore: number; count: number; lastUpdatedAt: Date },
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    return tx.trendingKeyword.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteOldKeywords(cutoffDate: Date): Promise<void> {
+    await this.prisma.trendingKeyword.deleteMany({
+      where: { lastUpdatedAt: { lt: cutoffDate } },
+    });
+  }
+
+  async deleteLowScoreCategories(threshold: number): Promise<void> {
+    await this.prisma.trendingKeywordCategory.deleteMany({
+      where: { score: { lt: threshold } },
+    });
   }
 }
