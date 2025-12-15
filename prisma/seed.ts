@@ -1,571 +1,1288 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, NotificationType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const prisma = new PrismaClient();
+if (process.env.SEED_ENV === 'true') {
+  console.log('Started seeding database...');
+  const prisma = new PrismaClient();
 
-interface UserData {
-  username: string;
-  email: string;
-  displayName: string;
-  bio?: string;
-  birthdate: string;
-  interests?: string[];
-  location?: string;
-  avatarUrl?: string;
-  createdAt?: string;
-}
-
-interface MediaData {
-  url: string;
-  type: 'IMAGE' | 'VIDEO' | 'GIF';
-  width?: number;
-  height?: number;
-  altText?: string;
-}
-
-interface TweetData {
-  userIndex: number;
-  content: string;
-  category: string;
-  hashtags?: string[];
-  mentions?: string[];
-  daysAgo?: number;
-  hoursAgo?: number;
-  minutesAgo?: number;
-  media?: MediaData[];
-  quotedTweetIndex?: number; // Index in tweets array to quote
-  replyToTweetIndex?: number; // Index in tweets array to reply to
-  createdAt?: string;
-}
-
-interface RetweetData {
-  userIndex: number;
-  tweetIndex: number; // Index of tweet to retweet
-  daysAgo?: number;
-  hoursAgo?: number;
-  minutesAgo?: number;
-  createdAt?: string;
-}
-
-interface LikeData {
-  userIndex: number;
-  tweetIndex: number;
-  daysAgo?: number;
-  hoursAgo?: number;
-  minutesAgo?: number;
-  createdAt?: string;
-}
-
-interface SeedData {
-  users: UserData[];
-  tweets: TweetData[];
-  retweets?: RetweetData[];
-  likes?: LikeData[];
-}
-
-function parseHashtags(content: string): string[] {
-  const hashtagRegex = /#(\w+)/g;
-  const matches = content.matchAll(hashtagRegex);
-  return Array.from(matches, (m) => m[1]);
-}
-
-function parseMentions(content: string): string[] {
-  const mentionRegex = /@(\w+)/g;
-  const matches = content.matchAll(mentionRegex);
-  return Array.from(matches, (m) => m[1]);
-}
-
-function calculateCreatedAt(daysAgo?: number, hoursAgo?: number, minutesAgo?: number): Date {
-  const now = new Date();
-
-  if (minutesAgo !== undefined) {
-    return new Date(now.getTime() - minutesAgo * 60 * 1000);
-  }
-
-  if (hoursAgo !== undefined) {
-    return new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-  }
-
-  if (daysAgo !== undefined) {
-    return new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-  }
-
-  // Random time in last 30 days if nothing specified
-  const randomDays = Math.floor(Math.random() * 30);
-  return new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
-}
-
-async function getOrCreateHashtag(keyword: string) {
-  return prisma.hashtag.upsert({
-    where: { keyword },
-    update: {},
-    create: { keyword },
-  });
-}
-
-async function main() {
-  const dataPath = path.join(__dirname, 'seed-data.json');
-
-  if (!fs.existsSync(dataPath)) {
-    console.error(' seed-data.json not found!');
-    console.log(' Create seed-data.json based on seed-data.json.example');
-    process.exit(1);
-  }
-
-  const data: SeedData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-
-  console.log(' Cleaning database...');
-  // Clean in correct order to avoid foreign key violations
-  await prisma.tweet.updateMany({
-    data: { quotedTweetId: null, replyToTweetId: null, rootTweetId: null },
-  });
-  await prisma.conversation.updateMany({ data: { lastMessageId: null } });
-  await prisma.conversationParticipant.updateMany({ data: { lastSeenMessageId: null } });
-
-  await prisma.notification.deleteMany();
-  await prisma.conversationParticipant.deleteMany();
-  await prisma.message.deleteMany();
-  await prisma.conversation.deleteMany();
-  await prisma.like.deleteMany();
-  await prisma.retweet.deleteMany();
-  await prisma.tweetMedia.deleteMany();
-  await prisma.media.deleteMany();
-  await prisma.tweetHashtag.deleteMany();
-  await prisma.trendingKeyword.deleteMany();
-  await prisma.hashtag.deleteMany();
-  await prisma.tweetMention.deleteMany();
-  await prisma.tweet.deleteMany();
-  await prisma.mute.deleteMany();
-  await prisma.block.deleteMany();
-  await prisma.follow.deleteMany();
-  await prisma.refreshToken.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.userDevice.deleteMany();
-  await prisma.userExternalAccount.deleteMany();
-  await prisma.profile.deleteMany();
-  await prisma.user.deleteMany();
-
-  console.log(` Creating ${data.users.length} users...`);
-
-  // Bulk insert users
-  await prisma.user.createMany({
-    data: data.users.map((userData) => ({
-      username: userData.username,
-      email: userData.email,
-      passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii', // password: "password123"
-      birthdate: new Date(userData.birthdate),
-      interests: userData.interests || [],
-    })),
-    skipDuplicates: true,
-  });
-
-  // Fetch created users to get their IDs
-  const createdUsers = await prisma.user.findMany({
-    where: {
-      username: { in: data.users.map((u) => u.username) },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  // Create a map for quick lookup
-  const usernameToUser = new Map(createdUsers.map((u) => [u.username, u]));
-
-  // Bulk insert profiles
-  await prisma.profile.createMany({
-    data: data.users
-      .map((userData) => {
-        const user = usernameToUser.get(userData.username);
-        if (!user) return null;
-        return {
-          userId: user.id,
-          displayName: userData.displayName,
-          bio: userData.bio || null,
-          location: userData.location || null,
-          avatarUrl: userData.avatarUrl || null,
-        };
-      })
-      .filter((profile) => profile !== null),
-    skipDuplicates: true,
-  });
-
-  console.log(`Created ${createdUsers.length} users`);
-
-  console.log(`\nCreating ${data.tweets.length} tweets...`);
-
-  // Create a map for username lookups
-  const usernameToId = new Map(createdUsers.map((u) => [u.username.toLowerCase(), u.id]));
-
-  // Collect all unique hashtags and create them in bulk
-  const allHashtagsSet = new Set<string>();
-  data.tweets.forEach((tweetData) => {
-    const hashtagsInContent = parseHashtags(tweetData.content);
-    const allHashtags = [...new Set([...(tweetData.hashtags || []), ...hashtagsInContent])];
-    allHashtags.forEach((tag) => allHashtagsSet.add(tag.toLowerCase()));
-  });
-
-  if (allHashtagsSet.size > 0) {
-    await prisma.hashtag.createMany({
-      data: Array.from(allHashtagsSet).map((keyword) => ({ keyword })),
-      skipDuplicates: true,
+  async function main() {
+    await prisma.tweet.updateMany({
+      data: { quotedTweetId: null, replyToTweetId: null },
     });
-    console.log(`Created ${allHashtagsSet.size} unique hashtags`);
-  }
+    await prisma.conversation.updateMany({
+      data: { lastMessageId: null },
+    });
+    await prisma.conversationParticipant.updateMany({
+      data: { lastSeenMessageId: null },
+    });
+    await prisma.notification.deleteMany();
+    await prisma.conversationParticipant.deleteMany();
+    await prisma.message.deleteMany();
+    await prisma.conversation.deleteMany();
+    await prisma.like.deleteMany();
+    await prisma.retweet.deleteMany();
+    await prisma.tweetMedia.deleteMany();
+    await prisma.media.deleteMany();
+    await prisma.tweetHashtag.deleteMany();
+    await prisma.trendingKeyword.deleteMany();
+    await prisma.tweetMention.deleteMany();
+    await prisma.tweet.deleteMany();
+    await prisma.mute.deleteMany();
+    await prisma.block.deleteMany();
+    await prisma.follow.deleteMany();
+    await prisma.refreshToken.deleteMany();
+    await prisma.userDevice.deleteMany();
+    await prisma.userExternalAccount.deleteMany();
+    await prisma.profile.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.country.deleteMany();
 
-  // Fetch all hashtags for lookup
-  const allHashtags = await prisma.hashtag.findMany();
-  const hashtagMap = new Map(allHashtags.map((h) => [h.keyword, h.id]));
-  console.log(`Fetched ${allHashtags.length} hashtags for mapping`);
+    await prisma.$executeRaw`ALTER SEQUENCE "users_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "refresh_tokens_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "user_devices_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "tweets_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "trending_keywords_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "messages_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "conversations_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "notifications_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "media_id_seq" RESTART WITH 1;`;
+    await prisma.$executeRaw`ALTER SEQUENCE "countries_id_seq" RESTART WITH 1;`;
 
-  // Prepare all media records for bulk insertion
-  const allMediaData: any[] = [];
-  data.tweets.forEach((tweetData, tweetIndex) => {
-    if (tweetData.media && tweetData.media.length > 0) {
-      const user = createdUsers[tweetData.userIndex];
-      if (user) {
-        tweetData.media.forEach((mediaData, mediaIndex) => {
-          allMediaData.push({
-            userId: user.id,
-            type: mediaData.type,
-            url: mediaData.url,
-            width: mediaData.width || null,
-            height: mediaData.height || null,
-            altText: mediaData.altText || null,
-            pending: false,
-            _tweetIndex: tweetIndex,
-            _mediaOrder: mediaIndex,
-          });
-        });
-      }
+    const countriesPath = path.join(__dirname, 'countries.json');
+    const countriesData = JSON.parse(fs.readFileSync(countriesPath, 'utf-8')) as Array<{
+      name: string;
+      'alpha-2': string;
+      'country-code': string;
+    }>;
+
+    for (const country of countriesData) {
+      await prisma.country.create({
+        data: {
+          name: country.name,
+          code: country['alpha-2'],
+        },
+      });
     }
-  });
 
-  // Bulk insert media
-  if (allMediaData.length > 0) {
-    await prisma.media.createMany({
-      data: allMediaData.map(({ _tweetIndex, _mediaOrder, ...data }) => data),
-      skipDuplicates: true,
+    const egypt = await prisma.country.findFirst({ where: { code: 'EG' } });
+    const usa = await prisma.country.findFirst({ where: { code: 'US' } });
+    const uk = await prisma.country.findFirst({ where: { code: 'GB' } });
+    const canada = await prisma.country.findFirst({ where: { code: 'CA' } });
+    const germany = await prisma.country.findFirst({ where: { code: 'DE' } });
+    const france = await prisma.country.findFirst({ where: { code: 'FR' } });
+
+    const usersToCreate = [
+      {
+        username: 'OmarHassan',
+        email: 'omar@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-08-04'),
+        countryId: egypt?.id,
+        profile: { create: { displayName: 'Omar Hassan' } },
+      },
+      {
+        username: 'notnowomar',
+        email: 'omarg@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-12-04'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Gamal',
+            bio: 'NOT a Frontend enthusiast.',
+            location: 'October, Egypt',
+          },
+        },
+      },
+      {
+        username: 'Tasneem',
+        email: 'tasneem@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-08-04'),
+        phone: '01001013205',
+        countryId: egypt?.id,
+        profile: { create: { displayName: 'Tasneem', bio: 'Life is good.' } },
+      },
+      {
+        username: 'anasbrahim',
+        email: 'anas@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-08-04'),
+        phone: '01005013203',
+        countryId: egypt?.id,
+        profile: { create: { displayName: 'Anas' } },
+      },
+      {
+        username: 'gelgel',
+        email: 'mostafa@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-12-05'),
+        phone: '01005013209',
+        countryId: egypt?.id,
+        profile: { create: { displayName: 'Mostafa' } },
+      },
+      {
+        username: 'Layla',
+        email: 'layla@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2002-05-15'),
+        countryId: usa?.id,
+        profile: { create: { displayName: 'Layla El-Sayed', bio: 'Designer & Photographer 📸' } },
+      },
+      {
+        username: 'kimo',
+        email: 'karim@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-11-20'),
+        countryId: uk?.id,
+        profile: { create: { displayName: 'karim', bio: 'Just here for the memes.' } },
+      },
+      {
+        username: 'SaraA',
+        email: 'sara@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2001-03-10'),
+        phone: '01001234567',
+        countryId: canada?.id,
+        profile: { create: { displayName: 'Sara Ahmed', bio: 'Backend dev & coffee addict ☕' } },
+      },
+      {
+        username: 'ZakiDev',
+        email: 'ahmedz@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-07-22'),
+        countryId: germany?.id,
+        profile: { create: { displayName: 'Ahmed Zaki', bio: 'Learning GraphQL daily.' } },
+      },
+      {
+        username: 'NourCodes',
+        email: 'nour@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2002-09-18'),
+        countryId: france?.id,
+        profile: { create: { displayName: 'Nour', bio: 'Full-stack explorer.' } },
+      },
+      {
+        username: 'YoussefTech',
+        email: 'youssef@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-02-14'),
+        phone: '01009876543',
+        countryId: egypt?.id,
+        profile: { create: { displayName: 'Youssef', bio: 'AI enthusiast 🤖' } },
+      },
+      {
+        username: 'FatmaDesign',
+        email: 'fatma@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-11-30'),
+        countryId: usa?.id,
+        profile: { create: { displayName: 'Fatma', bio: 'UI/UX magic maker.' } },
+      },
+      {
+        username: 'reactjs',
+        email: 'react@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO845Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-11-30'),
+        countryId: usa?.id,
+        profile: {
+          create: { displayName: 'React', bio: 'The library for web and native user interfaces' },
+        },
+      },
+      {
+        username: 'vel_rea_en',
+        email: 'velvelreact@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-11-30'),
+        countryId: usa?.id,
+        profile: {
+          create: {
+            displayName: 'Velvel React (EN)',
+            bio: 'Idk who is velvet react just testing.',
+          },
+        },
+      },
+      {
+        username: 'sumit_saurabh',
+        email: 'sumit@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO8938Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-11-30'),
+        countryId: usa?.id,
+        profile: {
+          create: {
+            displayName: 'Sumit Saurabh | Javascrip | React',
+            bio: 'Senior full stack dev',
+          },
+        },
+      },
+
+      {
+        username: 'omar_gamal',
+        email: 'omar1@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2002-03-15'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Gamal',
+            bio: 'Backend enjoyer.',
+            location: 'Cairo, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarry',
+        email: 'omar2@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2001-07-02'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Youssef',
+            bio: 'Bug creator, bug fixer.',
+            location: 'Alexandria, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omardev',
+        email: 'omar3@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('1999-10-10'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Dev',
+            bio: 'Code > Sleep.',
+            location: 'Giza, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omartix',
+        email: 'omar4@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2000-05-23'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Tarek',
+            bio: 'Tech addict.',
+            location: 'Nasr City, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omar_codes',
+        email: 'omar5@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-02-18'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Salah',
+            bio: 'Rust-curious.',
+            location: 'Maadi, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarszn',
+        email: 'omar6@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-06-30'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Hassan',
+            bio: 'Night coder.',
+            location: 'Heliopolis, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omar_exe',
+        email: 'omar7@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('1998-09-09'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Khaled',
+            bio: 'Always compiling.',
+            location: 'Zamalek, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarlab',
+        email: 'omar8@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-01-21'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Lab',
+            bio: 'Testing in prod.',
+            location: 'Dokki, Egypt',
+          },
+        },
+      },
+      {
+        username: 'theomar',
+        email: 'omar9@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2001-12-12'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'The Omar',
+            bio: 'Digital survivor.',
+            location: 'Haram, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarlol',
+        email: 'omar10@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2005-07-07'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Abdelrahman',
+            bio: 'Learning Linux.',
+            location: 'Faisal, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarx',
+        email: 'omar11@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('1997-04-18'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar X',
+            bio: 'Minimalist dev.',
+            location: 'Sheikh Zayed, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omar_ai',
+        email: 'omar12@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2000-11-11'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar AI',
+            bio: 'Machine learning fan.',
+            location: 'New Cairo, Egypt',
+          },
+        },
+      },
+      {
+        username: 'devomar',
+        email: 'omar13@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2002-02-02'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Dev Omar',
+            bio: 'Building cool stuff.',
+            location: 'Rehab, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarzz',
+        email: 'omar14@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2003-08-08'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Z',
+            bio: 'Learning everyday.',
+            location: 'Shorouk, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omartech',
+        email: 'omar15@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('1996-03-03'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Tech',
+            bio: 'Cloud curious.',
+            location: 'Madinaty, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarxo',
+        email: 'omar16@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2004-09-14'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Mostafa',
+            bio: 'API wizard.',
+            location: 'Badr City, Egypt',
+          },
+        },
+      },
+      {
+        username: 'realomar',
+        email: 'omar17@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('1999-06-01'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Real Omar',
+            bio: 'Real bugs, real fixes.',
+            location: 'Obour, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarscript',
+        email: 'omar18@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2000-09-21'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Script',
+            bio: 'Automation nerd.',
+            location: 'Helwan, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarvibes',
+        email: 'omar19@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2002-12-19'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Fahmy',
+            bio: 'Good vibes only.',
+            location: 'Garden City, Egypt',
+          },
+        },
+      },
+      {
+        username: 'omarflux',
+        email: 'omar20@gmail.com',
+        passwordHash: '$2a$10$faoFdN3VO833Agy0pdZRS.OozTd8R5Z.aEUnK/1fxwByQjx/OPBii',
+        birthdate: new Date('2001-01-01'),
+        countryId: egypt?.id,
+        profile: {
+          create: {
+            displayName: 'Omar Flux',
+            bio: 'Always iterating.',
+            location: 'Tagamo3, Egypt',
+          },
+        },
+      },
+    ];
+    for (const user of usersToCreate) {
+      await prisma.user.create({ data: user });
+    }
+
+    await prisma.follow.createMany({
+      data: [
+        { followerId: 1, followedId: 2, withNotifications: true },
+        { followerId: 1, followedId: 4 },
+        { followerId: 1, followedId: 6 },
+        { followerId: 1, followedId: 8 },
+        { followerId: 1, followedId: 10 },
+        { followerId: 2, followedId: 1 },
+        { followerId: 2, followedId: 3 },
+        { followerId: 2, followedId: 4 },
+        { followerId: 2, followedId: 9 },
+        { followerId: 3, followedId: 2 },
+        { followerId: 3, followedId: 6 },
+        { followerId: 3, followedId: 11 },
+        { followerId: 4, followedId: 1 },
+        { followerId: 4, followedId: 2 },
+        { followerId: 4, followedId: 5 },
+        { followerId: 4, followedId: 12 },
+        { followerId: 5, followedId: 4 },
+        { followerId: 5, followedId: 7 },
+        { followerId: 5, followedId: 8 },
+        { followerId: 5, followedId: 2 },
+        { followerId: 6, followedId: 1 },
+        { followerId: 6, followedId: 3 },
+        { followerId: 6, followedId: 10 },
+        { followerId: 6, followedId: 2 },
+        { followerId: 7, followedId: 2 },
+        { followerId: 7, followedId: 5 },
+        { followerId: 7, followedId: 9 },
+        { followerId: 8, followedId: 1, withNotifications: true },
+        { followerId: 8, followedId: 4 },
+        { followerId: 8, followedId: 6 },
+        { followerId: 8, followedId: 2 },
+        { followerId: 9, followedId: 2 },
+        { followerId: 9, followedId: 7 },
+        { followerId: 10, followedId: 1 },
+        { followerId: 10, followedId: 6 },
+        { followerId: 11, followedId: 3 },
+        { followerId: 11, followedId: 4 },
+        { followerId: 12, followedId: 6 },
+        { followerId: 12, followedId: 8 },
+      ],
     });
-  }
 
-  // Fetch created media
-  const createdMedia = await prisma.media.findMany({
-    where: {
-      userId: { in: createdUsers.map((u) => u.id) },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
+    await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "followers_count" = sub.count
+  FROM (
+    SELECT "followed_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "followed_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
 
-  // Create a map of media by URL for lookup
-  const mediaByUrl = new Map(createdMedia.map((m) => [m.url, m]));
+    await prisma.$executeRawUnsafe(`
+  UPDATE "users" u
+  SET "following_count" = sub.count
+  FROM (
+    SELECT "follower_id" AS user_id, COUNT(*) AS count
+    FROM "follows"
+    GROUP BY "follower_id"
+  ) AS sub
+  WHERE u.id = sub.user_id;
+`);
 
-  // First pass: Create all tweets without relationships (quotes/replies)
-  const tweetDataToCreate = data.tweets
-    .map((tweetData, index) => {
-      const user = createdUsers[tweetData.userIndex];
-      if (!user) return null;
+    await prisma.block.createMany({
+      data: [
+        { userId: 3, blockedId: 5 },
+        { userId: 7, blockedId: 11 },
+        { userId: 9, blockedId: 12 },
+      ],
+    });
 
-      const hashtagsInContent = parseHashtags(tweetData.content);
-      const allHashtags = [...new Set([...(tweetData.hashtags || []), ...hashtagsInContent])].map(
-        (tag) => tag.toLowerCase(),
-      );
-      const mentionsInContent = parseMentions(tweetData.content);
-      const allMentions = [...new Set([...(tweetData.mentions || []), ...mentionsInContent])];
-      const mentionedUserIds = allMentions
-        .map((username) => usernameToId.get(username.toLowerCase()))
-        .filter((id) => id !== undefined);
+    await prisma.mute.createMany({
+      data: [
+        { userId: 1, mutedId: 7 },
+        { userId: 6, mutedId: 10 },
+        { userId: 4, mutedId: 2 },
+      ],
+    });
 
-      const createdAt = tweetData.createdAt
-        ? new Date(tweetData.createdAt)
-        : calculateCreatedAt(tweetData.daysAgo, tweetData.hoursAgo, tweetData.minutesAgo);
-
-      const hasMedia = tweetData.media && tweetData.media.length > 0;
-
-      return {
-        userId: user.id,
-        content: tweetData.content,
-        class: null,
-        hasHashtags: allHashtags.length > 0,
-        hasMentions: mentionedUserIds.length > 0,
-        hasMedia,
-        createdAt,
-        _originalIndex: index,
-        _hashtags: allHashtags,
-        _mentions: allMentions,
-        _mentionedUserIds: mentionedUserIds,
-        _mediaUrls: tweetData.media?.map((m) => m.url) || [],
-      };
-    })
-    .filter((t) => t !== null);
-
-  // Bulk insert tweets
-  await prisma.tweet.createMany({
-    data: tweetDataToCreate.map(
-      ({ _originalIndex, _hashtags, _mentions, _mentionedUserIds, _mediaUrls, ...data }) => data,
-    ),
-  });
-
-  // Fetch created tweets
-  const createdTweets = await prisma.tweet.findMany({
-    where: {
-      userId: { in: createdUsers.map((u) => u.id) },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  // Create a mapping from tweet data to created tweets using content + userId as key
-  const tweetMap = new Map<string, any>();
-  createdTweets.forEach((tweet) => {
-    const key = `${tweet.userId}-${tweet.content}-${tweet.createdAt.getTime()}`;
-    tweetMap.set(key, tweet);
-  });
-
-  // Map tweetDataToCreate to actual created tweets
-  const tweetDataWithIds = tweetDataToCreate.map((tweetData) => {
-    const key = `${tweetData.userId}-${tweetData.content}-${tweetData.createdAt.getTime()}`;
-    const tweet = tweetMap.get(key);
-    return {
-      ...tweetData,
-      _tweetId: tweet?.id,
-      _tweet: tweet,
+    const getHashtag = async (tag: string) => {
+      return prisma.hashtag.upsert({
+        where: { keyword: tag },
+        update: {},
+        create: { keyword: tag },
+      });
     };
-  });
 
-  console.log(`Created ${createdTweets.length} tweets`);
-
-  // Second pass: Update tweets with quote/reply relationships
-  const tweetsToUpdate: any[] = [];
-  data.tweets.forEach((tweetData, index) => {
-    if (tweetData.quotedTweetIndex !== undefined || tweetData.replyToTweetIndex !== undefined) {
-      const tweetWithId = tweetDataWithIds[index];
-      if (tweetWithId && tweetWithId._tweetId) {
-        const updateData: any = {};
-
-        if (tweetData.quotedTweetIndex !== undefined) {
-          const quotedTweetWithId = tweetDataWithIds[tweetData.quotedTweetIndex];
-          if (quotedTweetWithId && quotedTweetWithId._tweetId) {
-            updateData.quotedTweetId = quotedTweetWithId._tweetId;
-          }
-        }
-
-        if (tweetData.replyToTweetIndex !== undefined) {
-          const replyToTweetWithId = tweetDataWithIds[tweetData.replyToTweetIndex];
-          if (replyToTweetWithId && replyToTweetWithId._tweet) {
-            updateData.replyToTweetId = replyToTweetWithId._tweetId;
-            updateData.rootTweetId =
-              replyToTweetWithId._tweet.rootTweetId || replyToTweetWithId._tweetId;
-          }
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          tweetsToUpdate.push({ id: tweetWithId._tweetId, ...updateData });
-        }
-      }
-    }
-  });
-
-  // Update tweets with relationships using transaction
-  if (tweetsToUpdate.length > 0) {
-    await prisma.$transaction(
-      tweetsToUpdate.map((update) => {
-        const { id, ...data } = update;
-        return prisma.tweet.update({
-          where: { id },
-          data,
-        });
-      }),
-    );
-
-    console.log(`Updated ${tweetsToUpdate.length} tweets with quote/reply relationships`);
-  }
-
-  // Bulk insert tweet hashtags
-  const tweetHashtagsToCreate: any[] = [];
-  tweetDataWithIds.forEach((tweetData) => {
-    if (tweetData._tweetId && tweetData._hashtags.length > 0) {
-      tweetData._hashtags.forEach((hashtag) => {
-        const hashtagId = hashtagMap.get(hashtag.toLowerCase());
-        if (hashtagId) {
-          const hashtagText = `#${hashtag}`;
-          const startPosition = tweetData.content.indexOf(hashtagText);
-          tweetHashtagsToCreate.push({
-            tweetId: tweetData._tweetId,
-            hashtagId,
-            startPosition: startPosition >= 0 ? startPosition : 0,
-          });
-        } else {
-          console.warn(
-            `Warning: Hashtag "${hashtag}" not found in hashtagMap for tweet ${tweetData._tweetId}`,
-          );
-        }
-      });
-    }
-  });
-
-  if (tweetHashtagsToCreate.length > 0) {
-    await prisma.tweetHashtag.createMany({
-      data: tweetHashtagsToCreate,
-      skipDuplicates: true,
-    });
-    console.log(`Created ${tweetHashtagsToCreate.length} tweet-hashtag relationships`);
-  } else {
-    console.log('No tweet-hashtag relationships to create');
-  }
-
-  // Bulk insert tweet mentions
-  const tweetMentionsToCreate: any[] = [];
-  tweetDataWithIds.forEach((tweetData) => {
-    if (tweetData._tweetId && tweetData._mentionedUserIds.length > 0) {
-      tweetData._mentionedUserIds.forEach((userId, idx) => {
-        const mentionText = `@${tweetData._mentions[idx]}`;
-        const startPosition = tweetData.content.indexOf(mentionText);
-        tweetMentionsToCreate.push({
-          tweetId: tweetData._tweetId,
-          userId,
-          startPosition: startPosition >= 0 ? startPosition : 0,
-        });
-      });
-    }
-  });
-
-  if (tweetMentionsToCreate.length > 0) {
-    await prisma.tweetMention.createMany({
-      data: tweetMentionsToCreate,
-      skipDuplicates: true,
-    });
-    console.log(`Created ${tweetMentionsToCreate.length} tweet-mention relationships`);
-  }
-
-  // Bulk insert tweet media
-  const tweetMediaToCreate: any[] = [];
-  tweetDataWithIds.forEach((tweetData) => {
-    if (tweetData._tweetId && tweetData._mediaUrls.length > 0) {
-      tweetData._mediaUrls.forEach((url, order) => {
-        const media = mediaByUrl.get(url);
-        if (media) {
-          tweetMediaToCreate.push({
-            tweetId: tweetData._tweetId,
-            mediaId: media.id,
-            order,
-          });
-        }
-      });
-    }
-  });
-
-  if (tweetMediaToCreate.length > 0) {
-    await prisma.tweetMedia.createMany({
-      data: tweetMediaToCreate,
-      skipDuplicates: true,
-    });
-    console.log(`Created ${tweetMediaToCreate.length} tweet-media relationships`);
-  }
-
-  // Create retweets if present
-  if (data.retweets && data.retweets.length > 0) {
-    console.log(`\n Creating ${data.retweets.length} retweets...`);
-
-    const retweetsToCreate = data.retweets
-      .map((retweetData) => {
-        const user = createdUsers[retweetData.userIndex];
-        const tweetWithId = tweetDataWithIds[retweetData.tweetIndex];
-
-        if (!user || !tweetWithId || !tweetWithId._tweetId) {
-          console.error(
-            `   ❌ Invalid retweet reference: user ${retweetData.userIndex}, tweet ${retweetData.tweetIndex}`,
-          );
-          return null;
-        }
-
-        const createdAt = retweetData.createdAt
-          ? new Date(retweetData.createdAt)
-          : calculateCreatedAt(retweetData.daysAgo, retweetData.hoursAgo, retweetData.minutesAgo);
-
-        return {
-          userId: user.id,
-          tweetId: tweetWithId._tweetId,
-          createdAt,
-        };
-      })
-      .filter((r) => r !== null);
-
-    // Bulk insert retweets
-    await prisma.retweet.createMany({
-      data: retweetsToCreate,
-      skipDuplicates: true,
+    // Create media records
+    const media1 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'IMAGE',
+        url: 'https://cdn.raven.cmp27.space/tweets/4846e19b-72b3-4d42-b7d5-b624a362dd38.jpg',
+        width: 736,
+        height: 414,
+        pending: false,
+      },
     });
 
-    // Update retweet counts
-    await prisma.$executeRawUnsafe(`
-      UPDATE "tweets" t
-      SET "retweet_count" = sub.count
-      FROM (
-        SELECT "tweet_id", COUNT(*) AS count
-        FROM "retweets"
-        GROUP BY "tweet_id"
-      ) AS sub
-      WHERE t.id = sub.tweet_id;
-    `);
+    const media2 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'IMAGE',
+        url: 'https://cdn.raven.cmp27.space/tweets/c33fe331-4851-41f6-97c7-e2f6eab63619.jpg',
+        width: 736,
+        height: 414,
+        pending: false,
+      },
+    });
 
-    console.log(`Created ${retweetsToCreate.length} retweets`);
-  }
+    const media3 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'IMAGE',
+        url: 'https://cdn.raven.cmp27.space/tweets/68424de7-60a2-4e05-b8de-7c0fe7b58217.jpg',
+        width: 736,
+        height: 414,
+        pending: false,
+      },
+    });
 
-  // Create likes if present
-  if (data.likes && data.likes.length > 0) {
-    console.log(`\n Creating ${data.likes.length} likes...`);
+    const media4 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'IMAGE',
+        url: 'https://cdn.raven.cmp27.space/tweets/cd1a97a0-2020-4713-9dbc-faa6d1043e0b.png',
+        width: 734,
+        height: 145,
+        pending: false,
+      },
+    });
 
-    const likesToCreate = data.likes
-      .map((likeData) => {
-        const user = createdUsers[likeData.userIndex];
-        const tweetWithId = tweetDataWithIds[likeData.tweetIndex];
+    const media5 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'IMAGE',
+        url: 'https://cdn.raven.cmp27.space/tweets/9e6b75bf-c4b2-4025-b198-56d21a90103c.png',
+        width: 734,
+        height: 145,
+        pending: false,
+      },
+    });
 
-        if (!user || !tweetWithId || !tweetWithId._tweetId) {
-          console.error(
-            `   ❌ Invalid like reference: user ${likeData.userIndex}, tweet ${likeData.tweetIndex}`,
-          );
-          return null;
-        }
+    const media6 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'VIDEO',
+        url: 'https://cdn.raven.cmp27.space/tweets/9c62e434-909f-489f-88d8-b93481eb7cb2.mkv',
+        width: 0,
+        height: 0,
+        pending: false,
+      },
+    });
 
-        const createdAt = likeData.createdAt
-          ? new Date(likeData.createdAt)
-          : calculateCreatedAt(likeData.daysAgo, likeData.hoursAgo, likeData.minutesAgo);
+    const media7 = await prisma.media.create({
+      data: {
+        userId: 2,
+        type: 'VIDEO',
+        url: 'https://cdn.raven.cmp27.space/tweets/66d768fb-0b71-4082-94e7-79b8d1cfb27c.mkv',
+        width: 0,
+        height: 0,
+        pending: false,
+      },
+    });
 
-        return {
-          userId: user.id,
-          tweetId: tweetWithId._tweetId,
-          createdAt,
-        };
-      })
-      .filter((l) => l !== null);
+    let tsHashtag = await getHashtag('typescript');
+    const nestHashtag = await getHashtag('nestjs');
+    const authHashtag = await getHashtag('auth');
 
-    // Bulk insert likes
+    const anasTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 4,
+        content:
+          'Just deployed my first app with #nestjs. The developer experience is amazing compared to Express. #typescript @OmarHassan what do you think?',
+        hasHashtags: true,
+        hasMentions: true,
+        hasMedia: true,
+        tweetHashtags: {
+          create: [
+            { hashtagId: nestHashtag.id, startPosition: 32 },
+            { hashtagId: tsHashtag.id, startPosition: 98 },
+          ],
+        },
+        tweetMentions: {
+          create: [{ userId: 1, startPosition: 110 }],
+        },
+        tweetMedia: {
+          create: [
+            { mediaId: media4.id, order: 0 },
+            { mediaId: media5.id, order: 1 },
+          ],
+        },
+      },
+    });
+
+    const omarGReply1 = await prisma.tweet.create({
+      data: {
+        userId: 2,
+        content: 'Totally agree! The module system keeps everything so clean. @anasbrahim',
+        replyToTweetId: anasTweet1.id,
+        rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 4, startPosition: 60 }],
+        },
+      },
+    });
+
+    const omarHReply1 = await prisma.tweet.create({
+      data: {
+        userId: 1,
+        content: 'How are you handling authentication? Passport.js strategies? #auth',
+        replyToTweetId: anasTweet1.id,
+        rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: authHashtag.id, startPosition: 61 }],
+        },
+      },
+    });
+
+    const anasReply2 = await prisma.tweet.create({
+      data: {
+        userId: 4,
+        content: 'Yep, using passport-jwt. It integrated surprisingly easily. Thanks @OmarHassan!',
+        replyToTweetId: omarHReply1.id,
+        rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 1, startPosition: 66 }],
+        },
+      },
+    });
+
+    const saraReply1 = await prisma.tweet.create({
+      data: {
+        userId: 8,
+        content: 'Loving this thread! For scalable auth, consider JWT with refresh tokens.',
+        replyToTweetId: anasTweet1.id,
+        rootTweetId: anasTweet1.rootTweetId || anasTweet1.id,
+        tweetMedia: {
+          create: [{ mediaId: media6.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const foodHashtag = await getHashtag('foodie');
+    const cairoHashtag = await getHashtag('cairo');
+    const egyptHashtag = await getHashtag('egypt');
+
+    const laylaTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 6,
+        content:
+          'Found the best koshary place in downtown #cairo! Must-visit for every #foodie in #egypt 🤤 @Tasneem',
+        hasMedia: true,
+        hasHashtags: true,
+        hasMentions: true,
+        tweetHashtags: {
+          create: [
+            { hashtagId: cairoHashtag.id, startPosition: 41 },
+            { hashtagId: foodHashtag.id, startPosition: 70 },
+            { hashtagId: egyptHashtag.id, startPosition: 81 },
+          ],
+        },
+        tweetMentions: {
+          create: [{ userId: 3, startPosition: 90 }],
+        },
+        tweetMedia: {
+          create: [
+            { mediaId: media1.id, order: 0 },
+            { mediaId: media2.id, order: 1 },
+            { mediaId: media3.id, order: 2 },
+          ],
+        },
+      },
+    });
+
+    const tasneemReply1 = await prisma.tweet.create({
+      data: {
+        userId: 3,
+        content: 'Omg where is this?? Looks incredible! @Layla tag me next time!',
+        replyToTweetId: laylaTweet1.id,
+        rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 6, startPosition: 38 }],
+        },
+      },
+    });
+
+    const fatmaReply1 = await prisma.tweet.create({
+      data: {
+        userId: 12,
+        content: 'Koshary is life! Adding to my list. 😍',
+        replyToTweetId: laylaTweet1.id,
+        rootTweetId: laylaTweet1.rootTweetId || laylaTweet1.id,
+      },
+    });
+
+    const memeHashtag = await getHashtag('memes');
+    const internetHashtag = await getHashtag('internet');
+
+    const karimTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 7,
+        content: 'Is it just me or is the #internet extra slow today? Share your pain! #memes',
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [
+            { hashtagId: internetHashtag.id, startPosition: 24 },
+            { hashtagId: memeHashtag.id, startPosition: 69 },
+          ],
+        },
+      },
+    });
+
+    const gelgelQuoteTweet = await prisma.tweet.create({
+      data: {
+        userId: 5,
+        content: 'Definitely not just you. My downloads are crawling. @Kimo this is your fault! 😂',
+        quotedTweetId: karimTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 7, startPosition: 52 }],
+        },
+      },
+    });
+
+    const youssefReply1 = await prisma.tweet.create({
+      data: {
+        userId: 11,
+        content: 'ISP woes unite us all. Time for Starlink? 🚀',
+        replyToTweetId: karimTweet1.id,
+        rootTweetId: karimTweet1.rootTweetId || karimTweet1.id,
+      },
+    });
+
+    const uiuxHashtag = await getHashtag('uiux');
+    const designHashtag = await getHashtag('design');
+    tsHashtag = await getHashtag('typescript');
+
+    const fatmaTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 12,
+        content:
+          'Quick tip for better #uiux: Always test with real users. What’s your go-to tool? #design #typescript @ZakiDev',
+        hasHashtags: true,
+        hasMentions: true,
+        hasMedia: true,
+        tweetHashtags: {
+          create: [
+            { hashtagId: uiuxHashtag.id, startPosition: 21 },
+            { hashtagId: designHashtag.id, startPosition: 81 },
+            { hashtagId: tsHashtag.id, startPosition: 89 },
+          ],
+        },
+        tweetMentions: {
+          create: [{ userId: 9, startPosition: 101 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media6.id, order: 0 }],
+        },
+      },
+    });
+
+    const ahmedZReply1 = await prisma.tweet.create({
+      data: {
+        userId: 9,
+        content: 'Figma all the way, but user testing is overrated sometimes. @FatmaDesign',
+        replyToTweetId: fatmaTweet1.id,
+        rootTweetId: fatmaTweet1.rootTweetId || fatmaTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 12, startPosition: 60 }],
+        },
+      },
+    });
+
+    const aiHashtag = await getHashtag('ai');
+
+    const youssefTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 11,
+        content:
+          'AI is changing everything. Excited for the future! #ai @YoussefTech self-promo 😏',
+        hasHashtags: true,
+        hasMedia: true,
+        tweetHashtags: {
+          create: [{ hashtagId: aiHashtag.id, startPosition: 51 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media7.id, order: 0 }],
+        },
+      },
+    });
+
+    const graphqlHashtag = await getHashtag('graphql');
+
+    const nourTweet1 = await prisma.tweet.create({
+      data: {
+        userId: 10,
+        content: 'Diving deep into #graphql today. Resolvers got me hooked! @NourCodes',
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: graphqlHashtag.id, startPosition: 17 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media2.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const quote1 = await prisma.tweet.create({
+      data: {
+        userId: 6,
+        content: 'This! NestJS makes backend development actually enjoyable.',
+        quotedTweetId: anasTweet1.id,
+      },
+    });
+
+    const quote2 = await prisma.tweet.create({
+      data: {
+        userId: 10,
+        content: 'Been using NestJS for 6 months now, can confirm the hype is real! @anasbrahim',
+        quotedTweetId: anasTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 4, startPosition: 66 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media2.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const quote3 = await prisma.tweet.create({
+      data: {
+        userId: 8,
+        content: 'Express served us well, but NestJS is the future. Time to migrate!',
+        quotedTweetId: anasTweet1.id,
+      },
+    });
+
+    const quote4 = await prisma.tweet.create({
+      data: {
+        userId: 1,
+        content: 'Adding this to my Cairo food tour list! #foodie',
+        quotedTweetId: laylaTweet1.id,
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: foodHashtag.id, startPosition: 40 }],
+        },
+      },
+    });
+
+    const quote5 = await prisma.tweet.create({
+      data: {
+        userId: 11,
+        content: 'Egyptian street food hits different. Always. 🇪🇬',
+        quotedTweetId: laylaTweet1.id,
+        tweetMedia: {
+          create: [{ mediaId: media2.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const quote6 = await prisma.tweet.create({
+      data: {
+        userId: 4,
+        content: 'My mouth is watering just looking at this @Layla',
+        quotedTweetId: laylaTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 6, startPosition: 42 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media2.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const quote7 = await prisma.tweet.create({
+      data: {
+        userId: 12,
+        content: 'Story of my life with Egyptian internet providers 😭',
+        quotedTweetId: karimTweet1.id,
+      },
+    });
+
+    const quote8 = await prisma.tweet.create({
+      data: {
+        userId: 2,
+        content: 'Time to switch to a better ISP? Anyone got recommendations?',
+        quotedTweetId: karimTweet1.id,
+      },
+    });
+
+    const quote9 = await prisma.tweet.create({
+      data: {
+        userId: 3,
+        content:
+          "User testing saved my last project from disaster. Can't emphasize this enough! #uiux",
+        quotedTweetId: fatmaTweet1.id,
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: uiuxHashtag.id, startPosition: 79 }],
+        },
+      },
+    });
+
+    const quote10 = await prisma.tweet.create({
+      data: {
+        userId: 7,
+        content: 'Maze.co is my go-to for quick user testing sessions.',
+        quotedTweetId: fatmaTweet1.id,
+      },
+    });
+
+    const quote11 = await prisma.tweet.create({
+      data: {
+        userId: 9,
+        content: "The AI revolution is here and it's incredible to witness! #ai",
+        quotedTweetId: youssefTweet1.id,
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: aiHashtag.id, startPosition: 58 }],
+        },
+      },
+    });
+
+    const quote12 = await prisma.tweet.create({
+      data: {
+        userId: 1,
+        content: "Can't wait to see what AI brings to backend development @YoussefTech",
+        quotedTweetId: youssefTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 11, startPosition: 56 }],
+        },
+      },
+    });
+
+    const quote13 = await prisma.tweet.create({
+      data: {
+        userId: 4,
+        content: 'GraphQL changed how I think about APIs. Worth the learning curve! #graphql',
+        quotedTweetId: nourTweet1.id,
+        hasHashtags: true,
+        tweetHashtags: {
+          create: [{ hashtagId: graphqlHashtag.id, startPosition: 66 }],
+        },
+        tweetMedia: {
+          create: [{ mediaId: media3.id, order: 0 }],
+        },
+        hasMedia: true,
+      },
+    });
+
+    const quote14 = await prisma.tweet.create({
+      data: {
+        userId: 8,
+        content: 'Resolvers are powerful once you understand the pattern @NourCodes',
+        quotedTweetId: nourTweet1.id,
+        hasMentions: true,
+        tweetMentions: {
+          create: [{ userId: 10, startPosition: 55 }],
+        },
+      },
+    });
+
     await prisma.like.createMany({
-      data: likesToCreate,
-      skipDuplicates: true,
+      data: [
+        { userId: 1, tweetId: anasTweet1.id },
+        { userId: 2, tweetId: anasTweet1.id },
+        { userId: 5, tweetId: anasTweet1.id },
+        { userId: 8, tweetId: anasTweet1.id },
+        { userId: 4, tweetId: omarGReply1.id },
+        { userId: 1, tweetId: omarGReply1.id },
+        { userId: 10, tweetId: omarHReply1.id },
+        { userId: 4, tweetId: anasReply2.id },
+        { userId: 1, tweetId: anasReply2.id },
+        { userId: 8, tweetId: saraReply1.id },
+        { userId: 1, tweetId: laylaTweet1.id },
+        { userId: 2, tweetId: laylaTweet1.id },
+        { userId: 3, tweetId: laylaTweet1.id },
+        { userId: 7, tweetId: laylaTweet1.id },
+        { userId: 4, tweetId: tasneemReply1.id },
+        { userId: 6, tweetId: tasneemReply1.id },
+        { userId: 12, tweetId: fatmaReply1.id },
+        { userId: 2, tweetId: karimTweet1.id },
+        { userId: 4, tweetId: karimTweet1.id },
+        { userId: 5, tweetId: karimTweet1.id },
+        { userId: 9, tweetId: karimTweet1.id },
+        { userId: 7, tweetId: gelgelQuoteTweet.id },
+        { userId: 3, tweetId: youssefReply1.id },
+        { userId: 6, tweetId: fatmaTweet1.id },
+        { userId: 1, tweetId: fatmaTweet1.id },
+        { userId: 9, tweetId: ahmedZReply1.id },
+        { userId: 12, tweetId: ahmedZReply1.id },
+        { userId: 2, tweetId: youssefTweet1.id },
+        { userId: 8, tweetId: youssefTweet1.id },
+        { userId: 4, tweetId: nourTweet1.id },
+        { userId: 11, tweetId: nourTweet1.id },
+      ],
     });
 
-    // Update like counts
-    await prisma.$executeRawUnsafe(`
-      UPDATE "tweets" t
-      SET "like_count" = sub.count
-      FROM (
-        SELECT "tweet_id", COUNT(*) AS count
-        FROM "likes"
-        GROUP BY "tweet_id"
-      ) AS sub
-      WHERE t.id = sub.tweet_id;
-    `);
+    await prisma.retweet.createMany({
+      data: [
+        { userId: 2, tweetId: laylaTweet1.id },
+        { userId: 3, tweetId: anasTweet1.id },
+        { userId: 8, tweetId: anasTweet1.id },
+        { userId: 5, tweetId: karimTweet1.id },
+        { userId: 10, tweetId: fatmaTweet1.id },
+      ],
+    });
 
-    console.log(`Created ${likesToCreate.length} likes`);
-  }
+    await prisma.tweet.updateMany({
+      where: {
+        id: { in: [anasTweet1.id, omarGReply1.id, omarHReply1.id, anasReply2.id, saraReply1.id] },
+      },
+      data: { likeCount: { increment: 1 } },
+    });
+    await prisma.tweet.update({
+      where: { id: anasTweet1.id },
+      data: { likeCount: 4, retweetCount: 2, replyCount: 4 },
+    });
+    await prisma.tweet.update({
+      where: { id: omarGReply1.id },
+      data: { likeCount: 2, replyCount: 0 },
+    });
+    await prisma.tweet.update({
+      where: { id: omarHReply1.id },
+      data: { likeCount: 1, replyCount: 1 },
+    });
+    await prisma.tweet.update({ where: { id: anasReply2.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: saraReply1.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({
+      where: { id: laylaTweet1.id },
+      data: { likeCount: 4, retweetCount: 1, replyCount: 2 },
+    });
+    await prisma.tweet.update({ where: { id: tasneemReply1.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: fatmaReply1.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({
+      where: { id: karimTweet1.id },
+      data: { likeCount: 4, retweetCount: 1 },
+    });
+    await prisma.tweet.update({ where: { id: gelgelQuoteTweet.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: youssefReply1.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({
+      where: { id: fatmaTweet1.id },
+      data: { likeCount: 2, replyCount: 1 },
+    });
+    await prisma.tweet.update({ where: { id: ahmedZReply1.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: youssefTweet1.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: nourTweet1.id }, data: { likeCount: 2 } });
 
-  // Create some random follows for engagement
-  console.log('\nCreating follow relationships...');
-  const followsToCreate: Array<{ followerId: bigint; followedId: bigint }> = [];
+    await prisma.tweet.update({
+      where: { id: anasTweet1.id },
+      data: { retweetCount: { increment: 3 } },
+    });
 
-  for (let i = 0; i < Math.min(createdUsers.length * 5, 5000); i++) {
-    const follower = createdUsers[Math.floor(Math.random() * createdUsers.length)];
-    const followed = createdUsers[Math.floor(Math.random() * createdUsers.length)];
+    await prisma.tweet.update({
+      where: { id: laylaTweet1.id },
+      data: { retweetCount: { increment: 3 } },
+    });
+
+    await prisma.tweet.update({
+      where: { id: karimTweet1.id },
+      data: { retweetCount: { increment: 2 } },
+    });
+
+    await prisma.tweet.update({
+      where: { id: fatmaTweet1.id },
+      data: { retweetCount: { increment: 2 } },
+    });
+
+    await prisma.tweet.update({
+      where: { id: youssefTweet1.id },
+      data: { retweetCount: { increment: 2 } },
+    });
+
+    await prisma.tweet.update({
+      where: { id: nourTweet1.id },
+      data: { retweetCount: { increment: 2 } },
+    });
+
+    await prisma.like.createMany({
+      data: [
+        { userId: 4, tweetId: quote1.id },
+        { userId: 1, tweetId: quote1.id },
+        { userId: 2, tweetId: quote2.id },
+        { userId: 4, tweetId: quote2.id },
+        { userId: 5, tweetId: quote3.id },
+        { userId: 6, tweetId: quote4.id },
+        { userId: 3, tweetId: quote4.id },
+        { userId: 1, tweetId: quote5.id },
+        { userId: 6, tweetId: quote6.id },
+        { userId: 7, tweetId: quote7.id },
+        { userId: 5, tweetId: quote8.id },
+        { userId: 12, tweetId: quote9.id },
+        { userId: 9, tweetId: quote9.id },
+        { userId: 8, tweetId: quote10.id },
+        { userId: 11, tweetId: quote11.id },
+        { userId: 8, tweetId: quote11.id },
+        { userId: 11, tweetId: quote12.id },
+        { userId: 10, tweetId: quote13.id },
+        { userId: 9, tweetId: quote13.id },
+        { userId: 10, tweetId: quote14.id },
+      ],
+    });
+
+    await prisma.tweet.update({ where: { id: quote1.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote2.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote3.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote4.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote5.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote6.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote7.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote8.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote9.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote10.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote11.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote12.id }, data: { likeCount: 1 } });
+    await prisma.tweet.update({ where: { id: quote13.id }, data: { likeCount: 2 } });
+    await prisma.tweet.update({ where: { id: quote14.id }, data: { likeCount: 1 } });
+
+    const privateConv1 = await prisma.conversation.create({
+      data: {
+        creatorId: 6,
+        conversationParticipants: {
+          create: [{ userId: 6 }, { userId: 3, lastSeenMessageId: null }],
+        },
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        conversationId: privateConv1.id,
+        userId: 6,
+        messageEntities: {
+          text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        },
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        conversationId: privateConv1.id,
+        userId: 3,
+        messageEntities: {
+          text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        },
+      },
+    });
+
+    const privMsg3 = await prisma.message.create({
+      data: {
+        content: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        conversationId: privateConv1.id,
+        userId: 6,
+        messageEntities: {
+          text: "Tasneem, that koshary spot is at Abou Tarek! Let's go this weekend?",
+        },
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: privateConv1.id },
+      data: { lastMessageId: privMsg3.id },
+    });
 
     await prisma.notification.createMany({
       data: [
@@ -609,67 +1326,15 @@ async function main() {
     });
   }
 
-  // Remove duplicates
-  const uniqueFollows = Array.from(
-    new Map(followsToCreate.map((f) => [`${f.followerId}-${f.followedId}`, f])).values(),
-  );
-
-  await prisma.follow.createMany({
-    data: uniqueFollows,
-    skipDuplicates: true,
-  });
-
-  console.log(` Created ${uniqueFollows.length} follow relationships`);
-
-  // Update follower/following counts
-  console.log('\n Updating follower/following counts...');
-  await prisma.$executeRawUnsafe(`
-    UPDATE "users" u
-    SET "followers_count" = sub.count
-    FROM (
-      SELECT "followed_id" AS user_id, COUNT(*) AS count
-      FROM "follows"
-      GROUP BY "followed_id"
-    ) AS sub
-    WHERE u.id = sub.user_id;
-  `);
-
-  await prisma.$executeRawUnsafe(`
-    UPDATE "users" u
-    SET "following_count" = sub.count
-    FROM (
-      SELECT "follower_id" AS user_id, COUNT(*) AS count
-      FROM "follows"
-      GROUP BY "follower_id"
-    ) AS sub
-    WHERE u.id = sub.user_id;
-  `);
-
-  const retweetCount = data.retweets?.length || 0;
-  const mediaCount = await prisma.media.count();
-  const quotedCount = await prisma.tweet.count({ where: { quotedTweetId: { not: null } } });
-  const replyCount = await prisma.tweet.count({ where: { replyToTweetId: { not: null } } });
-
-  console.log('\nDatabase seeded successfully!');
-  console.log(`   Users: ${createdUsers.length}`);
-  console.log(`   Tweets: ${createdTweets.length}`);
-  console.log(`   Hashtags: ${allHashtags.length}`);
-  console.log(`   Tweet-Hashtag relationships: ${tweetHashtagsToCreate.length}`);
-  console.log(`   Tweet-Mention relationships: ${tweetMentionsToCreate.length}`);
-  console.log(`   Retweets: ${retweetCount}`);
-  console.log(`   Replies: ${replyCount}`);
-  console.log(`   Quotes: ${quotedCount}`);
-  console.log(`   Media: ${mediaCount}`);
-  console.log(`   Follows: ${uniqueFollows.length}`);
-  console.log(`   Likes: ${data.likes?.length || 0}`);
+  main()
+    .then(async () => {
+      await prisma.$disconnect();
+    })
+    .catch(async (e) => {
+      console.error('Seeding failed:', e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+} else {
+  console.log('Seeding is skipped in production environment.');
 }
-
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
