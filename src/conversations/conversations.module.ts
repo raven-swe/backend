@@ -11,15 +11,29 @@ import { AuthModule } from 'src/auth/auth.module';
 import { DmGateway } from './gateways/dm.gateway';
 import { SseModule } from '../sse/sse.module';
 import { MediaModule } from 'src/media/media.module';
+import { MessageNotificationsListeners } from './messages/messages.listeners';
+import { BullModule } from '@nestjs/bullmq';
+import { MessagesPushProcessor } from './messages/messages-push.processor';
+import { FirebaseModule } from 'src/firebase/firebase.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, AuthModule, MediaModule, forwardRef(() => SseModule)],
+  imports: [
+    BullModule.registerQueue({ name: 'messages-push' }),
+    UsersModule,
+    PrismaModule,
+    AuthModule,
+    MediaModule,
+    forwardRef(() => SseModule),
+    FirebaseModule,
+  ],
   controllers: [ConversationsController, MessagesController],
   providers: [
     ConversationsService,
     ConversationsRepository,
     MessagesService,
     MessagesRepository,
+    MessageNotificationsListeners,
+    MessagesPushProcessor,
     DmGateway,
   ],
   exports: [ConversationsService, ConversationsRepository],

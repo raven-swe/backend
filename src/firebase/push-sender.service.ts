@@ -21,6 +21,8 @@ export class PushSenderService {
       const tokens = devices.map((d) => d.fcmToken).filter((t): t is string => !!t);
       if (!tokens.length) return;
 
+      this.logger.log(`tokens: ${tokens.join(', ')}`);
+
       const response = await admin.messaging().sendEachForMulticast({
         tokens,
         notification: payload.notification,
