@@ -495,9 +495,6 @@ export class UsersRepository {
           where: { id: followedId },
           data: { followersCount: { decrement: 1 } },
         }),
-        this.prisma.notification.deleteMany({
-          where: { receiverId: followedId, actorId: followerId, type: 'FOLLOW' },
-        }),
       ])
       .catch((e) => {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
@@ -1862,6 +1859,22 @@ export class UsersRepository {
     }));
   }
 
+  async getUsersMetadataById(ids: bigint[]) {
+    return await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
   async findAvatarUrlsByUserIds(userIds: bigint[]): Promise<Map<string, string>> {
     const profile = await this.prisma.profile.findMany({
       where: { userId: { in: userIds } },
@@ -1889,10 +1902,16 @@ export class UsersRepository {
         },
       },
     });
-
     return user ? { username: user.username, displayName: user.profile!.displayName } : null;
   }
 
+  async getUserLocale(userId: bigint) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { languageCode: true },
+    });
+    return user?.languageCode;
+  }
   async getUserInterests(userId: bigint): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -122,6 +122,10 @@ export class ConversationsService {
     return { items: itemsDto, pagination };
   }
 
+  async getOtherParticipant(conversationId: bigint, userId: bigint) {
+    return this.conversationsRepository.getOtherParticipant(conversationId, userId);
+  }
+
   async createOrFindConversation(userId: bigint, username: string) {
     const otherUser = await this.usersRepository.getUserByUsername(username);
 

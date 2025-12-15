@@ -777,9 +777,6 @@ model NotificationTweetSummary {
 
   @doc("The total number of tweets involved in this aggregation.\n Use this for UI labels like 'Alex liked 5 tweets'.")
   totalCount: int32;
-
-  @doc("IDs of all tweets involved in this notification (for client-side fetching if needed).")
-  subjectIds: string[];
 }
 
 @doc("Represents a single notification item for a user.")

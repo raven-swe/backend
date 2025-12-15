@@ -4,6 +4,7 @@ import { DmGateway } from 'src/conversations/gateways/dm.gateway';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { MessagesService } from 'src/conversations/messages/messages.services';
 import { SseEventsService } from 'src/sse/sse-events.service';
+import { DomainEventsService } from 'src/events/domain-events.service';
 import { Server, Socket } from 'socket.io';
 import { WsUser } from 'src/auth/interfaces/ws-user.interface';
 import {
@@ -17,6 +18,10 @@ describe('DmGateway', () => {
   let conversationsService: jest.Mocked<ConversationsService>;
   let messagesService: jest.Mocked<MessagesService>;
   let sseEvents: jest.Mocked<SseEventsService>;
+  const mockDomainEventsService = {
+    emitMessageCreated: jest.fn(),
+    emitReactionSent: jest.fn(),
+  };
 
   const mockUser: WsUser = {
     id: '6',
@@ -52,6 +57,7 @@ describe('DmGateway', () => {
             assertParticipant: jest.fn(),
             getConversationParticipants: jest.fn(),
             countUnseenConversations: jest.fn(),
+            getOtherParticipant: jest.fn(),
           },
         },
         {
@@ -69,6 +75,10 @@ describe('DmGateway', () => {
             publishNewMessagePreview: jest.fn(),
             publishNewMessagePreviewToMany: jest.fn(),
           },
+        },
+        {
+          provide: DomainEventsService,
+          useValue: mockDomainEventsService,
         },
       ],
     })
@@ -347,6 +357,7 @@ describe('DmGateway', () => {
         },
       ]);
       conversationsService.countUnseenConversations.mockResolvedValue(0);
+      conversationsService.getOtherParticipant.mockResolvedValue({ userId: BigInt(7) });
       sseEvents.publishUnseenCount.mockResolvedValue();
       sseEvents.publishNewMessagePreview.mockResolvedValue();
     });
@@ -504,6 +515,7 @@ describe('DmGateway', () => {
       mockSocket.data = { user: mockUser };
 
       conversationsService.assertParticipant.mockResolvedValue(true);
+      conversationsService.getOtherParticipant.mockResolvedValue({ userId: BigInt(7) });
       messagesService.createMessage.mockResolvedValue({
         message: {
           id: BigInt(1),
@@ -803,6 +815,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -847,6 +867,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -892,6 +920,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -914,6 +950,14 @@ describe('DmGateway', () => {
         reactionDb: bothReactionsDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(mockSocket, payload);
@@ -944,6 +988,14 @@ describe('DmGateway', () => {
         reactionDb: mockReactionDb,
         sender: mockSender,
         receiver: mockReceiver,
+        message: {
+          content: 'Test message',
+          id: BigInt(1),
+          conversationId: BigInt(2),
+          userId: BigInt(3),
+          createdAt: new Date(),
+          mediaUrl: null,
+        },
       } as never);
 
       await gateway.reactToMessage(testSocket, payload);

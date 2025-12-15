@@ -346,12 +346,31 @@ export class TweetsRepository {
     await prismaClient.retweet.deleteMany({
       where: { tweetId },
     });
-    await prismaClient.notification.deleteMany({
-      where: { tweetId },
-    });
     await prismaClient.like.deleteMany({
       where: { tweetId },
     });
+
+    const result = await prismaClient.notification.findMany({
+      where: { tweetId },
+      select: { receiverId: true },
+    });
+
+    if (result.length > 0) {
+      await prismaClient.notification.deleteMany({
+        where: { tweetId },
+      });
+      const counts = await Promise.all(
+        result.map((user) =>
+          prismaClient.notification.count({
+            where: { receiverId: user.receiverId, seen: false },
+          }),
+        ),
+      );
+      return result.map((row, index) => ({
+        receiverId: row.receiverId,
+        unseenCount: counts[index],
+      }));
+    }
   }
 
   mapToDetailedTweetDto(
@@ -464,10 +483,6 @@ export class TweetsRepository {
           },
         });
 
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'LIKE' },
-        });
-
         await tx.tweet.update({
           where: { id: tweetId },
           data: {
@@ -538,10 +553,6 @@ export class TweetsRepository {
               tweetId,
             },
           },
-        });
-
-        await tx.notification.deleteMany({
-          where: { tweetId, actorId: userId, type: 'RETWEET' },
         });
 
         await tx.tweet.update({

@@ -284,15 +284,20 @@ export class TweetsService {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.tweetsRepository.deleteTweet(tweetId, tx);
+    const receivers = await this.prisma.$transaction(async (tx) => {
+      const receivers = await this.tweetsRepository.deleteTweet(tweetId, tx);
       if (replyToTweetId) {
         await this.tweetsRepository.updateTweetReplyCount(replyToTweetId, false, tx);
       }
       if (quoteToTweetId) {
         await this.tweetsRepository.updateTweetRetweetCount(quoteToTweetId, false, tx);
       }
+      return receivers;
     });
+    if (receivers && receivers.length > 0) {
+      this.logger.debug(`Emitting tweet deleted event for tweet ID: ${tweetId}`);
+      await this.domainEvents.emitTweetDeleted({ receivers });
+    }
     this.logger.debug(`User ${userId} deleted tweet ${tweetId} successfully`);
 
     await this.invalidateTweetCache(tweetId);
@@ -474,7 +479,7 @@ export class TweetsService {
   }
 
   async unlikeTweet(userId: bigint, tweetId: bigint) {
-    await this.checkIfTweetExists(tweetId);
+    const tweet = await this.checkIfTweetExists(tweetId);
 
     // Tweet already not liked by user
     const hasLiked = await this.tweetsRepository.hasUserLikedTweet(userId, tweetId);
@@ -489,6 +494,12 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unlikeTweet(userId, tweetId);
+
+    await this.domainEvents.emitTweetUnliked({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId,
+    });
 
     await this.redisService.safeDecr(
       REDIS_TIMELINE_KEYS.getTweetLikesCountKey(tweetId),
@@ -587,6 +598,13 @@ export class TweetsService {
     }
 
     await this.tweetsRepository.unretweetTweet(userId, tweetId);
+
+    await this.domainEvents.emitTweetUnretweeted({
+      actorId: userId,
+      receiverId: tweet.userId,
+      tweetId,
+    });
+
     this.logger.debug(`User ${userId} unretweeted tweet ${tweetId} successfully`);
 
     //dispatch retweet purge job
