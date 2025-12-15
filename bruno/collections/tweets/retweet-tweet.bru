@@ -7,9 +7,14 @@ meta {
 post {
   url: http://localhost:3000/tweets/1/retweet
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 settings {
   encodeUrl: true
+  timeout: 0
 }

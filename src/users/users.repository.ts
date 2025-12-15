@@ -8,21 +8,16 @@ import {
   USERS_ERROR_MESSAGES,
 } from 'src/users/constants';
 
-import {
-  BioEntitiesDto,
-  MutualUserDto,
-  UpdateProfileDto,
-  UserProfileResponseDto,
-  UserRelationshipDto,
-} from './dtos';
+import { BioEntitiesDto, MutualUserDto, UpdateProfileDto, UserProfileResponseDto } from './dtos';
 import * as bcrypt from 'bcrypt';
 import { PlainMention } from 'src/tweets/interfaces';
 import { createValidationError } from 'src/common/utils';
 import { BlocksCursor, FollowsCursor, MutesCursor } from 'src/common/interfaces';
 import { PeopleSearchFilter } from 'src/search/dtos';
 import { RankedUser } from './interfaces/ranked-user.interface';
-import { CompactAuthorDto } from 'src/tweets/dtos';
+import { AuthorDto } from 'src/tweets/dtos';
 import { plainToClass } from 'class-transformer';
+import { UserRelationshipDto } from './dtos/relationship-dto';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 import { UserSearchCursor } from 'src/common/types/cursors';
 
@@ -315,6 +310,8 @@ export class UsersRepository {
       mutualsCount: mutualsCount,
       mutualUsers: mutualUsers,
       email: isMyProfile ? user.email : undefined,
+      phone: user.phone || undefined,
+      languageCode: user.languageCode || undefined,
     };
   }
 
@@ -771,12 +768,35 @@ export class UsersRepository {
     return !!mute;
   }
 
-  async getUserBlocks(userId: bigint) {
-    return await this.prisma.block.findMany({
+  async getUserBlockRelations(userId: bigint, userIds?: bigint[]) {
+    const hasUserIds = Array.isArray(userIds) && userIds.length > 0;
+
+    return this.prisma.block.findMany({
       where: {
-        userId,
+        OR: [
+          {
+            userId,
+            ...(hasUserIds && { blockedId: { in: userIds } }),
+          },
+          {
+            ...(hasUserIds && { userId: { in: userIds } }),
+            blockedId: userId,
+          },
+        ],
       },
+
       select: { userId: true, blockedId: true },
+    });
+  }
+
+  async getUserMuteRelations(userId: bigint, userIds: bigint[]) {
+    return await this.prisma.mute.findMany({
+      where: {
+        OR: [
+          { userId, mutedId: { in: userIds } }, // user-> them
+        ],
+      },
+      select: { userId: true, mutedId: true },
     });
   }
 
@@ -1407,7 +1427,7 @@ export class UsersRepository {
     });
   }
 
-  async findOwnTweetAuthorMetaData(userId: bigint): Promise<CompactAuthorDto> {
+  async findOwnTweetAuthorMetaData(userId: bigint): Promise<AuthorDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -1430,6 +1450,14 @@ export class UsersRepository {
       username: user.username,
       displayName: user.profile?.displayName || '',
       avatarUrl: user.profile?.avatarUrl,
+      relationship: {
+        // self relationship
+        blocking: false,
+        blockedBy: false,
+        following: false,
+        follower: false,
+        muted: false,
+      },
     };
   }
 
@@ -1582,6 +1610,15 @@ export class UsersRepository {
     ) as ranking_score`;
   }
 
+  /**
+   * Get a map of user IDs to their relationship status with the current user.
+   *
+   * @param currentUserId - ID of the current user
+   * @param userIds - Array of user IDs to get relationships for
+   *
+   * @returns A map where the key is the user ID and the value is the UserRelationshipDto
+   */
+
   async getUsersRelationshipsMap(
     currentUserId: bigint,
     userIds: bigint[],
@@ -1627,9 +1664,7 @@ export class UsersRepository {
       WHERE u.id IN (${Prisma.join(userIds)});
     `;
 
-    // 3. Map results
     for (const row of results) {
-      // Boolean() conversion handles cases where DB driver returns 1/0 instead of true/false
       relationshipsMap.set(row.user_id, {
         blocking: Boolean(row.is_blocking),
         blockedBy: Boolean(row.is_blocked_by),
@@ -1791,5 +1826,23 @@ export class UsersRepository {
         isFollower: Boolean(row.is_follower),
       },
     }));
+  }
+
+  async findUsernameAndDisplayNameById(
+    userId: bigint,
+  ): Promise<{ username: string; displayName: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        profile: {
+          select: {
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    return user ? { username: user.username, displayName: user.profile!.displayName } : null;
   }
 }
