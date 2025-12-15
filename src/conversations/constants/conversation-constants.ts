@@ -10,6 +10,7 @@ export const CONVERSATIONS_ERROR_CODES = {
   ASSERT_PARTICPANT_FAILED: 'ASSERT_PARTICPANT_FAILED',
   REACTION_CREATION_FAILED: 'REACTION_CREATION_FAILED',
   INVALID_MEDIA: 'INVALID_MEDIA',
+  CANNOT_CREATE_CONVERSATION_WITH_SELF: 'CANNOT_CREATE_CONVERSATION_WITH_SELF',
 } as const;
 
 export const CONVERSATIONS_ERROR_MESSAGES = {
@@ -24,4 +25,5 @@ export const CONVERSATIONS_ERROR_MESSAGES = {
   ASSERT_PARTICPANT_FAILED: 'Failed to assert conversation participants',
   REACTION_CREATION_FAILED: 'Failed to add reaction to the message',
   INVALID_MEDIA: 'The media ID provided is invalid or does not belong to you',
+  CANNOT_CREATE_CONVERSATION_WITH_SELF: 'You cannot create a conversation with yourself',
 } as const;
