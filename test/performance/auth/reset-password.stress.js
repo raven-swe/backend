@@ -5,8 +5,8 @@ export const options = {
   stages: [
     { duration: '30s', target: 20 },  
     { duration: '1m', target: 50 },
-    { duration: '30s', target: 100 },
-    { duration: '1m', target: 100 }, 
+    { duration: '30s', target: 200 },
+    { duration: '1m', target: 400 }, 
     { duration: '30s', target: 0 },  
   ],
   thresholds: {
@@ -18,16 +18,9 @@ export const options = {
   },
 };
 
-const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3001'; 
+const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'https://test.api.raven.cmp27.space'; 
 
-export default function () {
-  const params = {
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-Client-Type': 'web'
-    },
-  };
-
+export function setup() {
   const resCreate = http.post(
     `${STRESS_TEST_URL}/test/users`, 
   );
@@ -39,6 +32,17 @@ export default function () {
 
   const userData = resCreate.json('data'); 
   const userEmail = userData.email;
+  return { userEmail };
+}
+
+export default function (data) {
+  const { userEmail } = data;
+  const params = {
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-Client-Type': 'web'
+    },
+  };
 
   const payloadForgot = JSON.stringify({
     identifier: userEmail,

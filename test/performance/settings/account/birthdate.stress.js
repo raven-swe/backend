@@ -17,9 +17,9 @@ export const options = {
   },
 };
 
-const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'http://localhost:3001'; 
+const STRESS_TEST_URL = __ENV.STRESS_TEST_URL || 'https://test.api.raven.cmp27.space'; 
 
-export default function () {
+export function setup() {
     
     const resCreate = http.post(
         `${STRESS_TEST_URL}/test/users`, 
@@ -57,6 +57,11 @@ export default function () {
     }
 
     const accessToken = resLogin.json('data.accessToken');
+    return { accessToken };
+}
+
+export default function (data) {
+    const { accessToken } = data;
 
     const headers = {
         'Content-Type': 'application/json',
