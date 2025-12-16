@@ -982,6 +982,7 @@ export class TimelineService {
 
     const shouldGenerate =
       !rankedFeed ||
+      rankedFeed.tweets.length === 0 ||
       (isRefresh && Date.now() - rankedFeed.generatedAt > FOR_YOU_FEED_FRESH_TTL * 1000);
 
     if (shouldGenerate) {
