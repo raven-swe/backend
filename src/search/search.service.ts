@@ -98,7 +98,7 @@ export class SearchService {
     const isRelevanceSearch = !tab || tab === SearchTab.Top || tab == SearchTab.Media;
     const isHashtagSearch = isSingleHashtagQuery(rawQuery);
     const cleanedQuery = isHashtagSearch ? extractHashtag(rawQuery) : prepareSearchQuery(rawQuery);
-    const decodedCursor = this.decodeCursor(prevCursor, isRelevanceSearch);
+    const decodedCursor = this.decodeCursor(prevCursor, isRelevanceSearch, isHashtagSearch);
 
     const items = await this.fetchTweetsByTab(
       tab,
@@ -112,21 +112,22 @@ export class SearchService {
     );
 
     // Create cursor with correct field based on search type
-    const pagination = isRelevanceSearch
-      ? paginateComposite(items, limit, prevCursor, (tweet) => {
-          return {
-            type: 'rank',
-            rank: tweet.rank?.toString(),
-            id: tweet.id.toString(),
-          } as TweetRankCursor;
-        })
-      : paginateComposite(items, limit, prevCursor, (tweet) => {
-          return {
-            type: 'relations',
-            createdAt: tweet.createdAt,
-            id: tweet.id.toString(),
-          } as TweetRelationsCursor;
-        });
+    const pagination =
+      isRelevanceSearch && !isHashtagSearch
+        ? paginateComposite(items, limit, prevCursor, (tweet) => {
+            return {
+              type: 'rank',
+              rank: tweet.rank?.toString(),
+              id: tweet.id.toString(),
+            } as TweetRankCursor;
+          })
+        : paginateComposite(items, limit, prevCursor, (tweet) => {
+            return {
+              type: 'relations',
+              createdAt: tweet.createdAt,
+              id: tweet.id.toString(),
+            } as TweetRelationsCursor;
+          });
 
     this.logger.log(`Fetched ${items.length} top tweets for query: ${query}`);
 
@@ -140,6 +141,7 @@ export class SearchService {
   private decodeCursor(
     prevCursor?: string,
     isRelevanceSearch: boolean = true,
+    isHashtagSearch: boolean = false,
   ): TweetRankCursor | TweetRelationsCursor | undefined {
     if (!prevCursor) return undefined;
 
@@ -158,7 +160,7 @@ export class SearchService {
     }
 
     // Validate cursor type matches search mode
-    if (isRelevanceSearch && !isTweetRankCursor(decoded)) {
+    if (isRelevanceSearch && !isHashtagSearch && !isTweetRankCursor(decoded)) {
       throw new HttpException(
         {
           message: PAGINATION_ERROR_MESSAGES.INVALID_CURSOR,
