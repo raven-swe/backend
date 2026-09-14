@@ -12,6 +12,10 @@ import {
   CONVERSATIONS_ERROR_MESSAGES,
 } from 'src/conversations/constants/conversation-constants';
 import { WsJwtGuard } from 'src/auth/guards';
+import { ConfigService } from '@nestjs/config';
+import { MediaUrlService } from 'src/common/media-url';
+
+const CDN_URL = 'https://cdn.example.com';
 
 describe('DmGateway', () => {
   let gateway: DmGateway;
@@ -79,6 +83,11 @@ describe('DmGateway', () => {
         {
           provide: DomainEventsService,
           useValue: mockDomainEventsService,
+        },
+        MediaUrlService,
+        {
+          provide: ConfigService,
+          useValue: { get: (key: string) => (key === 'CDN_URL' ? CDN_URL : undefined) },
         },
       ],
     })
@@ -397,6 +406,51 @@ describe('DmGateway', () => {
         },
       });
       expect(sseEvents.publishNewMessagePreview).toHaveBeenCalled();
+    });
+
+    it('should expand relative media paths in the emitted message', async () => {
+      conversationsService.assertParticipant.mockResolvedValue(true);
+      conversationsService.getConversationParticipants.mockResolvedValue([
+        {
+          user: {
+            id: BigInt(6),
+            username: 'layla',
+            profile: { displayName: 'Layla', avatarUrl: 'avatars/layla.jpg' },
+          },
+        },
+      ]);
+      mockSocket.data = {
+        user: { ...mockUser, avatarUrl: 'avatars/layla.jpg' },
+      };
+      messagesService.createMessage.mockResolvedValue({
+        message: {
+          ...mockMessage,
+          mediaUrl: 'messages/clip.mp4',
+          media: { type: 'VIDEO', width: 640, height: 480, altText: null },
+        },
+      } as unknown as Awaited<ReturnType<MessagesService['createMessage']>>);
+
+      await gateway.sendMessage(mockSocket, payload);
+
+      expect(mockServer.emit).toHaveBeenCalledWith('message_received', {
+        conversationId: '2',
+        message: {
+          id: '42',
+          sender: {
+            username: 'layla',
+            displayName: 'Layla',
+            avatarUrl: `${CDN_URL}/avatars/layla.jpg`,
+          },
+          clientMessageId: 'client-msg-123',
+          body: 'Hello, how are you?',
+          createdAt: expect.any(Date) as Date,
+          mediaUrl: `${CDN_URL}/messages/clip.mp4`,
+          type: 'VIDEO',
+          altText: null,
+          width: 640,
+          height: 480,
+        },
+      });
     });
 
     it('should join new conversation room when switching conversations', async () => {

@@ -8,7 +8,7 @@ import {
   NEW_TWEETS_INDICATOR_MAX_AUTHORS,
   NEW_TWEETS_INDICATOR_TTL,
   TIMELINE_MAX_SIZE,
-} from '../timeline/constants/timeline.constants';
+} from './constants/timeline.constants';
 import { REDIS_TIMELINE_KEYS } from 'src/common/constants/redis-timeline-keys.constant';
 import { TweetsRepository } from '../tweets.repository';
 import { BackfillFollowJob } from './interfaces/backfill-follow-job.interface';

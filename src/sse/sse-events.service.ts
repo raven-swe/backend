@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventPublisherService } from './event-publisher.service';
 import { NotificationResponseDto } from 'src/notifications/dtos/notification-response.dto';
+import { MediaUrlService } from 'src/common/media-url';
 
 export interface NewMessagePayload {
   messageId: string;
@@ -26,7 +27,10 @@ export const SSE_EVENTS = {
 export class SseEventsService {
   private readonly logger = new Logger(SseEventsService.name);
 
-  constructor(private readonly publisher: EventPublisherService) {}
+  constructor(
+    private readonly publisher: EventPublisherService,
+    private readonly mediaUrlService: MediaUrlService,
+  ) {}
 
   async publishUnseenCount(userId: bigint, count: number): Promise<void> {
     this.logger.log(`Publishing unseen count (${count}) to user ${userId}`);
@@ -90,7 +94,7 @@ export class SseEventsService {
     this.logger.debug(`Publishing timeline-following update to user ${userId}`);
     await this.publisher.publishToUser(userId.toString(), {
       event: SSE_EVENTS.TIMELINE_FOLLOWING,
-      data: { authors },
+      data: { authors: authors?.map((avatar) => this.mediaUrlService.toAbsolute(avatar)) ?? null },
     });
   }
 

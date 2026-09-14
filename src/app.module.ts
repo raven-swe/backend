@@ -28,7 +28,7 @@ import { LoggerModule } from './logger/logger.module';
 import { AppLogger } from './logger/logger.service';
 import { ConversationsModule } from './conversations/conversations.module';
 import { SearchModule } from './search/search.module';
-import { AvatarUrlInterceptor } from './common/interceptors/avatar.interceptor';
+import { MediaUrlInterceptor } from './common/interceptors/media-url.interceptor';
 import { TimelineModule } from './tweets/timeline/timeline.module';
 import { TweetAnalyzeModule } from './tweet-analyze/tweet-analyze.module';
 import { SessionsModule } from './sessions/sessions.module';
@@ -40,10 +40,12 @@ import { EventsModule } from './events/events.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { ExploreModule } from './explore/explore.module';
 import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
+import { MediaUrlModule } from './common/media-url';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    MediaUrlModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
@@ -112,7 +114,7 @@ import { RequestThrottlerGuard } from './common/guards/request-throttler.guard';
     },
     {
       provide: APP_INTERCEPTOR,
-      useClass: AvatarUrlInterceptor,
+      useClass: MediaUrlInterceptor,
     },
     HttpExceptionFilter,
     AppLogger,

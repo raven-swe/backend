@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ProviderProfile } from './interfaces/';
+import { ProviderProfile } from './interfaces';
 import { OAuthProviderStrategy, GithubOAuthStrategy, GoogleOAuthStrategy } from './strategies';
 import { AUTH_ERROR_MESSAGES, SupportedOAuthProvider } from './constants';
 import { ConfigService } from '@nestjs/config';

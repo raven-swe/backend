@@ -103,7 +103,7 @@ describe('S3Service', () => {
   });
 
   describe('uploadFile', () => {
-    it('should upload file successfully and return the file URL and key', async () => {
+    it('should upload file successfully and return the file key', async () => {
       // Arrange
       const mockFile = createMockFile();
       const folder = 'avatars';
@@ -114,14 +114,9 @@ describe('S3Service', () => {
       const result = await service.uploadFile({ file: mockFile, folder });
 
       // Assert
-      expect(result).toEqual({
-        key: 'avatars/mock-uuid-1234.jpg',
-        url: 'https://cdn.example.com/avatars/mock-uuid-1234.jpg',
-      });
+      expect(result).toEqual({ key: 'avatars/mock-uuid-1234.jpg' });
 
       expect(mockS3Client.send).toHaveBeenCalledWith(expect.any(PutObjectCommand));
-      expect(result.key).toBe('avatars/mock-uuid-1234.jpg');
-      expect(result.url).toBe('https://cdn.example.com/avatars/mock-uuid-1234.jpg');
     });
 
     it('should upload file with custom filename', async () => {
@@ -140,10 +135,7 @@ describe('S3Service', () => {
       });
 
       // Assert
-      expect(result).toEqual({
-        key: 'banners/custom-banner.jpg',
-        url: 'https://cdn.example.com/banners/custom-banner.jpg',
-      });
+      expect(result).toEqual({ key: 'banners/custom-banner.jpg' });
     });
 
     it('should handle files with multiple dots in filename', async () => {
@@ -201,10 +193,7 @@ describe('S3Service', () => {
       const result = await service.uploadFile({ file: mockVideoFile, folder });
 
       // Assert
-      expect(result).toEqual({
-        key: 'videos/mock-uuid-1234.mp4',
-        url: 'https://cdn.example.com/videos/mock-uuid-1234.mp4',
-      });
+      expect(result).toEqual({ key: 'videos/mock-uuid-1234.mp4' });
     });
 
     it('should throw error when deletion fails', async () => {
@@ -248,50 +237,6 @@ describe('S3Service', () => {
       await expect(service.fileExists(key)).rejects.toThrow(
         'Failed to check file existence: Not Found',
       );
-    });
-  });
-
-  describe('getPublicUrl', () => {
-    it('should return correct CDN URL', () => {
-      const key = 'avatars/test-file.jpg';
-
-      const url = service.getPublicUrl(key);
-
-      expect(url).toBe('https://cdn.example.com/avatars/test-file.jpg');
-    });
-
-    it('should handle keys with special characters', () => {
-      const key = 'folder/subfolder/file with spaces.jpg';
-
-      const url = service.getPublicUrl(key);
-
-      expect(url).toBe('https://cdn.example.com/folder/subfolder/file with spaces.jpg');
-    });
-
-    it('should handle keys starting with slash', () => {
-      const key = '/avatars/test-file.jpg';
-
-      const url = service.getPublicUrl(key);
-
-      expect(url).toBe('https://cdn.example.com//avatars/test-file.jpg');
-    });
-  });
-
-  describe('extractKeyFromUrl', () => {
-    it('should extract key from full CDN URL', () => {
-      const url = 'https://cdn.example.com/avatars/test-file.jpg';
-
-      const key = service.extractKeyFromUrl(url);
-
-      expect(key).toBe('avatars/test-file.jpg');
-    });
-
-    it('should extract key from URL without CDN prefix', () => {
-      const url = 'https://otherdomain.com/avatars/test-file.jpg';
-
-      const key = service.extractKeyFromUrl(url);
-
-      expect(key).toBe('avatars/test-file.jpg');
     });
   });
 

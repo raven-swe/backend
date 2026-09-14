@@ -10,6 +10,11 @@ import { UsersRepository } from 'src/users/users.repository';
 import { MediaType, LanguageCode } from '@prisma/client';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import * as fcmBuilder from 'src/notifications/utils/fcm-notification-body-builder';
+import { ConfigService } from '@nestjs/config';
+import { MediaUrlService } from 'src/common/media-url';
+
+const CDN_URL = 'https://cdn.example.com';
+const DEFAULT_PROFILE_PICTURE_URL = `${CDN_URL}/${DEFAULT_PROFILE_PICTURE}`;
 
 interface MessageJobData {
   actorId: string;
@@ -35,6 +40,10 @@ describe('MessagesPushProcessor', () => {
     getUserLocale: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string) => (key === 'CDN_URL' ? CDN_URL : undefined)),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
@@ -50,6 +59,8 @@ describe('MessagesPushProcessor', () => {
         MessagesPushProcessor,
         { provide: PushSenderService, useValue: mockPushSender },
         { provide: UsersRepository, useValue: mockUsersRepository },
+        MediaUrlService,
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -223,11 +234,11 @@ describe('MessagesPushProcessor', () => {
       const payload = sendCall[1];
 
       expect(payload.notification).toBeDefined();
-      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE_URL);
 
       expect(payload.data).toBeDefined();
       const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{ avatarUrl: string }>;
-      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE_URL);
     });
 
     it('should use default profile picture when actor has no profile', async () => {
@@ -253,11 +264,11 @@ describe('MessagesPushProcessor', () => {
       const payload = sendCall[1];
 
       expect(payload.notification).toBeDefined();
-      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE);
+      expect((payload.notification as any).image).toBe(DEFAULT_PROFILE_PICTURE_URL);
 
       expect(payload.data).toBeDefined();
       const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{ avatarUrl: string }>;
-      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE_URL);
     });
 
     it('should process message with photo media', async () => {

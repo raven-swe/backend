@@ -5,6 +5,10 @@ import { EventPublisherService } from '../../src/sse/event-publisher.service';
 import { NotificationResponseDto } from '../../src/notifications/dtos/notification-response.dto';
 import { NotificationType } from '@prisma/client';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { MediaUrlService } from '../../src/common/media-url';
+
+const CDN_URL = 'https://cdn.example.com';
 
 describe('SseEventsService', () => {
   let service: SseEventsService;
@@ -23,7 +27,15 @@ describe('SseEventsService', () => {
     } as unknown as jest.Mocked<EventPublisherService>;
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SseEventsService, { provide: EventPublisherService, useValue: publisherMock }],
+      providers: [
+        SseEventsService,
+        { provide: EventPublisherService, useValue: publisherMock },
+        MediaUrlService,
+        {
+          provide: ConfigService,
+          useValue: { get: (key: string) => (key === 'CDN_URL' ? CDN_URL : undefined) },
+        },
+      ],
     }).compile();
 
     service = module.get<SseEventsService>(SseEventsService);
@@ -253,15 +265,33 @@ describe('SseEventsService', () => {
   });
 
   describe('publishTimelineFollowingTweets', () => {
-    it('should publish timeline following tweets with author list', async () => {
+    it('should publish timeline following tweets with the authors avatars expanded', async () => {
       const userId = BigInt(1001);
-      const authors = ['author1', 'author2', 'author3'];
+      const authors = ['avatars/one.png', 'avatars/two.png', 'avatars/three.png'];
 
       await service.publishTimelineFollowingTweets(userId, authors);
 
       expect(publisherMock.publishToUser).toHaveBeenCalledWith('1001', {
         event: SSE_EVENTS.TIMELINE_FOLLOWING,
-        data: { authors },
+        data: {
+          authors: [
+            `${CDN_URL}/avatars/one.png`,
+            `${CDN_URL}/avatars/two.png`,
+            `${CDN_URL}/avatars/three.png`,
+          ],
+        },
+      });
+    });
+
+    it('should leave author avatars that are already absolute untouched', async () => {
+      const userId = BigInt(1001);
+      const authors = ['https://avatars.githubusercontent.com/u/1.png'];
+
+      await service.publishTimelineFollowingTweets(userId, authors);
+
+      expect(publisherMock.publishToUser).toHaveBeenCalledWith('1001', {
+        event: SSE_EVENTS.TIMELINE_FOLLOWING,
+        data: { authors: ['https://avatars.githubusercontent.com/u/1.png'] },
       });
     });
 
@@ -290,13 +320,13 @@ describe('SseEventsService', () => {
 
     it('should handle large bigint userId', async () => {
       const userId = BigInt('9007199254740991'); // Max safe integer
-      const authors = ['author1'];
+      const authors = ['avatars/one.png'];
 
       await service.publishTimelineFollowingTweets(userId, authors);
 
       expect(publisherMock.publishToUser).toHaveBeenCalledWith('9007199254740991', {
         event: SSE_EVENTS.TIMELINE_FOLLOWING,
-        data: { authors },
+        data: { authors: [`${CDN_URL}/avatars/one.png`] },
       });
     });
   });

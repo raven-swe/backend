@@ -27,6 +27,7 @@ import { TypingIndicatorDto } from './dto/typing-indicator.dto';
 import { ReactionDto } from './dto/react-message.dto';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { DomainEventsService } from 'src/events/domain-events.service';
+import { MediaUrlService } from 'src/common/media-url';
 
 @WebSocketGateway({
   namespace: '/ws/dm',
@@ -43,6 +44,7 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly messagesService: MessagesService,
     private readonly sseEvents: SseEventsService,
     private readonly domainEventsService: DomainEventsService,
+    private readonly mediaUrlService: MediaUrlService,
   ) {
     this.logger.log('DmGateway initialized');
   }
@@ -358,25 +360,28 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       mediaType: message.media?.type || null,
     });
 
-    this.server.to(conversationId).emit('message_received', {
-      conversationId,
-      message: {
-        id: message.id.toString(),
-        sender: {
-          username: user.username,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
+    this.server.to(conversationId).emit(
+      'message_received',
+      this.mediaUrlService.resolve({
+        conversationId,
+        message: {
+          id: message.id.toString(),
+          sender: {
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+          },
+          clientMessageId: payload.clientMessageId,
+          body: message.content,
+          createdAt: message.createdAt,
+          mediaUrl: message.mediaUrl,
+          type: message.media?.type || null,
+          height: message.media?.height || null,
+          width: message.media?.width || null,
+          altText: message.media?.altText || null,
         },
-        clientMessageId: payload.clientMessageId,
-        body: message.content,
-        createdAt: message.createdAt,
-        mediaUrl: message.mediaUrl,
-        type: message.media?.type || null,
-        height: message.media?.height || null,
-        width: message.media?.width || null,
-        altText: message.media?.altText || null,
-      },
-    });
+      }),
+    );
 
     await this.publishNewMessagePreview(conversationId, message, user);
   }
@@ -592,6 +597,8 @@ export class DmGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     };
 
-    this.server.to(conversationId).emit('reaction_received', socketPayload);
+    this.server
+      .to(conversationId)
+      .emit('reaction_received', this.mediaUrlService.resolve(socketPayload));
   }
 }

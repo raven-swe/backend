@@ -7,8 +7,13 @@ import { UsersRepository } from 'src/users/users.repository';
 import { PushSenderService } from 'src/firebase/push-sender.service';
 import { NotificationType, LanguageCode } from '@prisma/client';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fcmBuilder from '../../src/notifications/utils/fcm-notification-body-builder';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
+import { MediaUrlService } from 'src/common/media-url';
+
+const CDN_URL = 'https://cdn.example.com';
+const DEFAULT_PROFILE_PICTURE_URL = `${CDN_URL}/${DEFAULT_PROFILE_PICTURE}`;
 
 interface NotificationJobData {
   notificationId: string;
@@ -33,6 +38,10 @@ const mockPushService = {
   sendToDevices: jest.fn(),
 };
 
+const mockConfigService = {
+  get: jest.fn((key: string) => (key === 'CDN_URL' ? CDN_URL : undefined)),
+};
+
 describe('NotificationProcessor', () => {
   let processor: NotificationProcessor;
   let pushService: jest.Mocked<PushSenderService>;
@@ -47,6 +56,8 @@ describe('NotificationProcessor', () => {
         { provide: NotificationsRepository, useValue: mockNotificationsRepository },
         { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: PushSenderService, useValue: mockPushService },
+        MediaUrlService,
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -251,7 +262,7 @@ describe('NotificationProcessor', () => {
       });
       expect(actorSummary[2]).toEqual({
         username: 'charlie',
-        avatarUrl: DEFAULT_PROFILE_PICTURE,
+        avatarUrl: DEFAULT_PROFILE_PICTURE_URL,
         isFollowing: false,
       });
     });
@@ -359,7 +370,7 @@ describe('NotificationProcessor', () => {
       expect(payload.data!.isSeen).toBe('true');
       expect(payload.android!.notification!.tag).toBeUndefined();
       expect((payload.notification as unknown as ExtendedNotification).image).toBe(
-        DEFAULT_PROFILE_PICTURE,
+        DEFAULT_PROFILE_PICTURE_URL,
       );
     });
 
@@ -451,13 +462,13 @@ describe('NotificationProcessor', () => {
       const payload = call[1];
 
       expect((payload.notification as unknown as ExtendedNotification).image).toBe(
-        DEFAULT_PROFILE_PICTURE,
+        DEFAULT_PROFILE_PICTURE_URL,
       );
 
       const actorSummary = JSON.parse(payload.data!.actorSummary) as Array<{
         avatarUrl: string;
       }>;
-      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE);
+      expect(actorSummary[0].avatarUrl).toBe(DEFAULT_PROFILE_PICTURE_URL);
     });
 
     it('should include isFollowing status based on followers', async () => {

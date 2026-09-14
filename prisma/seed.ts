@@ -597,7 +597,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'IMAGE',
-        url: 'https://cdn.raven.cmp27.space/tweets/4846e19b-72b3-4d42-b7d5-b624a362dd38.jpg',
+        url: 'tweets/4846e19b-72b3-4d42-b7d5-b624a362dd38.jpg',
         width: 736,
         height: 414,
         pending: false,
@@ -608,7 +608,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'IMAGE',
-        url: 'https://cdn.raven.cmp27.space/tweets/c33fe331-4851-41f6-97c7-e2f6eab63619.jpg',
+        url: 'tweets/c33fe331-4851-41f6-97c7-e2f6eab63619.jpg',
         width: 736,
         height: 414,
         pending: false,
@@ -619,7 +619,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'IMAGE',
-        url: 'https://cdn.raven.cmp27.space/tweets/68424de7-60a2-4e05-b8de-7c0fe7b58217.jpg',
+        url: 'tweets/68424de7-60a2-4e05-b8de-7c0fe7b58217.jpg',
         width: 736,
         height: 414,
         pending: false,
@@ -630,7 +630,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'IMAGE',
-        url: 'https://cdn.raven.cmp27.space/tweets/cd1a97a0-2020-4713-9dbc-faa6d1043e0b.png',
+        url: 'tweets/cd1a97a0-2020-4713-9dbc-faa6d1043e0b.png',
         width: 734,
         height: 145,
         pending: false,
@@ -641,7 +641,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'IMAGE',
-        url: 'https://cdn.raven.cmp27.space/tweets/9e6b75bf-c4b2-4025-b198-56d21a90103c.png',
+        url: 'tweets/9e6b75bf-c4b2-4025-b198-56d21a90103c.png',
         width: 734,
         height: 145,
         pending: false,
@@ -652,7 +652,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'VIDEO',
-        url: 'https://cdn.raven.cmp27.space/tweets/9c62e434-909f-489f-88d8-b93481eb7cb2.mkv',
+        url: 'tweets/9c62e434-909f-489f-88d8-b93481eb7cb2.mkv',
         width: 0,
         height: 0,
         pending: false,
@@ -663,7 +663,7 @@ if (process.env.SEED_ENV === 'true') {
       data: {
         userId: 2,
         type: 'VIDEO',
-        url: 'https://cdn.raven.cmp27.space/tweets/66d768fb-0b71-4082-94e7-79b8d1cfb27c.mkv',
+        url: 'tweets/66d768fb-0b71-4082-94e7-79b8d1cfb27c.mkv',
         width: 0,
         height: 0,
         pending: false,

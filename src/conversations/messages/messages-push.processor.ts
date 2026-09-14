@@ -6,6 +6,7 @@ import { UsersRepository } from 'src/users/users.repository';
 import { DEFAULT_PROFILE_PICTURE } from 'src/users/constants';
 import { MediaType } from '@prisma/client';
 import { buildFcmNotificationText } from 'src/notifications/utils/fcm-notification-body-builder';
+import { MediaUrlService } from 'src/common/media-url';
 
 @Processor('messages-push')
 export class MessagesPushProcessor extends WorkerHost {
@@ -14,6 +15,7 @@ export class MessagesPushProcessor extends WorkerHost {
   constructor(
     private readonly pushSender: PushSenderService,
     private readonly usersRepository: UsersRepository,
+    private readonly mediaUrlService: MediaUrlService,
   ) {
     super();
   }
@@ -55,12 +57,16 @@ export class MessagesPushProcessor extends WorkerHost {
         mediaType,
       });
 
+      const actorAvatarUrl = this.mediaUrlService.toAbsolute(
+        actorMetadata.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+      );
+
       const fcmData = {
         actorSummary: JSON.stringify([
           {
             username: actorMetadata.username,
             displayName: actorMetadata.profile?.displayName,
-            avatarUrl: actorMetadata.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+            avatarUrl: actorAvatarUrl,
           },
         ]),
         messageSummary: JSON.stringify({
@@ -74,7 +80,7 @@ export class MessagesPushProcessor extends WorkerHost {
         notification: {
           title,
           body: body ?? undefined,
-          image: actorMetadata.profile?.avatarUrl || DEFAULT_PROFILE_PICTURE,
+          image: actorAvatarUrl,
         },
         data: fcmData as unknown as Record<string, string>,
         android: {

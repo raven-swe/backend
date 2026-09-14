@@ -1,10 +1,10 @@
 import { MediaType } from '@prisma/client';
-import { IsBoolean, IsNumber, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsNumber, IsString } from 'class-validator';
 
 export class MediaDto {
   userId: bigint;
 
-  @IsUrl()
+  @IsString()
   url: string;
 
   type: MediaType;

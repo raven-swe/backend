@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
@@ -8,7 +8,6 @@ import {
   PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
-import { MEDIA_CODES, MEDIA_MESSAGES } from '../constants';
 
 @Injectable()
 export class S3Service {
@@ -16,12 +15,10 @@ export class S3Service {
   private readonly bucketName: string;
   private readonly region: string;
   private readonly logger = new Logger(S3Service.name);
-  private readonly cdnUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName = this.configService.get<string>('SPACES_BUCKET') || '';
     this.region = this.configService.get<string>('SPACES_REGION') || '';
-    this.cdnUrl = this.configService.get<string>('CDN_URL') || '';
     const endpoint = this.configService.get<string>('SPACES_ENDPOINT');
     const accessKeyId = this.configService.get<string>('SPACES_KEY');
     const secretAccessKey = this.configService.get<string>('SPACES_SECRET');
@@ -56,7 +53,7 @@ export class S3Service {
    * @param fileName - Optional custom filename (will generate UUID if not provided)
    * @param isPublic - Whether the file should be publicly accessible
    *
-   * @returns Object containing the key and public URL of the uploaded file
+   * @returns Object containing the key of the uploaded file
    */
   async uploadFile({
     file,
@@ -66,7 +63,7 @@ export class S3Service {
     file: Express.Multer.File;
     folder: string;
     fileName?: string;
-  }): Promise<{ key: string; url: string }> {
+  }): Promise<{ key: string }> {
     try {
       const fileExtension = file.originalname.split('.').pop();
       const uniqueFileName = fileName || randomUUID();
@@ -85,14 +82,9 @@ export class S3Service {
 
       await this.s3Client.send(new PutObjectCommand(uploadParams));
 
-      // Serve link to frontend
-      const fileUrl = this.getPublicUrl(key);
-
       this.logger.log(`File uploaded successfully to ${key}`);
-      this.logger.log(`File URL: ${fileUrl}`);
 
-      // Return the file URL
-      return { key: key, url: fileUrl };
+      return { key };
     } catch (error) {
       this.logger.error('File upload failed', error);
       throw error;
@@ -138,32 +130,6 @@ export class S3Service {
       this.logger.error('Error checking file existence in Spaces', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to check file existence: ${message}`);
-    }
-  }
-
-  /**
-   * Get the public URL for a file using CDN
-   *
-   * @param key - The key of the file
-   * @returns Public URL via CDN
-   */
-  getPublicUrl(key: string): string {
-    return `${this.cdnUrl}/${key}`;
-  }
-
-  extractKeyFromUrl(url: string): string {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.pathname.substring(1);
-    } catch (error) {
-      this.logger.error(`Failed to extract S3 key from URL: ${url}`, error);
-      throw new HttpException(
-        {
-          message: MEDIA_MESSAGES.INVALID_URL,
-          code: MEDIA_CODES.INVALID_URL,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
     }
   }
 }

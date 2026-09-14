@@ -8,6 +8,7 @@ import { buildFcmNotificationText } from './utils/fcm-notification-body-builder'
 import { NotificationPayloadDto } from './dtos/notification-payload.dto';
 import { UsersRepository } from 'src/users/users.repository';
 import { PushSenderService } from 'src/firebase/push-sender.service';
+import { MediaUrlService } from 'src/common/media-url';
 
 interface FcmNotificationData {
   id: string;
@@ -26,6 +27,7 @@ export class NotificationProcessor extends WorkerHost {
     private readonly notificationsRepository: NotificationsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly pushService: PushSenderService,
+    private readonly mediaUrlService: MediaUrlService,
   ) {
     super();
   }
@@ -78,6 +80,8 @@ export class NotificationProcessor extends WorkerHost {
         })),
       );
 
+      this.mediaUrlService.resolve(previewActors);
+
       const tweetSnippet = notification.tweet?.content ?? null;
 
       const { title, body } = buildFcmNotificationText({
@@ -105,7 +109,8 @@ export class NotificationProcessor extends WorkerHost {
         notification: {
           title,
           body: body ?? undefined,
-          image: previewActors[0]?.avatarUrl ?? DEFAULT_PROFILE_PICTURE,
+          image:
+            previewActors[0]?.avatarUrl ?? this.mediaUrlService.toAbsolute(DEFAULT_PROFILE_PICTURE),
         },
         data: fcmData as unknown as Record<string, string>,
         android: {

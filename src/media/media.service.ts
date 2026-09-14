@@ -11,6 +11,7 @@ import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } fr
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { TenorResponse } from './interfaces';
 import { UploadedGifResponse } from './dtos/uploaded-gif-response.dto';
+import { MediaUrlService } from 'src/common/media-url';
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -18,6 +19,7 @@ export class MediaService {
   constructor(
     private readonly s3Service: S3Service,
     private readonly mediaRepository: MediaRepository,
+    private readonly mediaUrlService: MediaUrlService,
   ) {}
 
   /**
@@ -30,7 +32,7 @@ export class MediaService {
    * @param mediaType - The type of media being uploaded
    * @param altText - Optional alt text for the media
    *
-   * @returns The URL of the uploaded media
+   * @returns The CDN-relative key of the uploaded media, which is what callers persist
    *
    * @throws HttpException if upload or save fails
    */
@@ -59,14 +61,14 @@ export class MediaService {
       }
 
       // Upload to S3
-      const { key, url } = await this.s3Service.uploadFile({ file, folder });
+      const { key } = await this.s3Service.uploadFile({ file, folder });
       uploadedKey = key;
 
-      this.logger.log(`File uploaded to S3 with URL: ${url}`);
+      this.logger.log(`File uploaded to S3 with key: ${key}`);
 
       const mediaDto: MediaDto = {
         userId,
-        url,
+        url: key,
         type: mediaType,
         width,
         height,
@@ -78,7 +80,7 @@ export class MediaService {
 
       this.logger.log(`Media metadata saved with ID: ${savedMedia.id}`);
 
-      return { url, id: savedMedia.id.toString() };
+      return { url: key, id: savedMedia.id.toString() };
     } catch (error) {
       this.logger.error('Failed to upload media', error);
 
@@ -108,11 +110,13 @@ export class MediaService {
   async deleteMedia(url: string, userId: bigint): Promise<void> {
     let mediaRecord = null;
 
+    const key = this.mediaUrlService.toRelative(url);
+
     try {
-      mediaRecord = await this.mediaRepository.findByUrl(url);
+      mediaRecord = await this.mediaRepository.findByUrl(key);
 
       if (!mediaRecord) {
-        this.logger.error(`Media record not found for URL: ${url}`);
+        this.logger.error(`Media record not found for key: ${key}`);
         throw new HttpException(
           {
             message: MEDIA_MESSAGES.MEDIA_NOT_FOUND,
@@ -137,10 +141,13 @@ export class MediaService {
       await this.mediaRepository.deleteMedia(mediaRecord.id);
       this.logger.log(`Media metadata deleted from database: ${mediaRecord.id}`);
 
-      // Delete from S3
-      const key = this.s3Service.extractKeyFromUrl(url);
-      await this.s3Service.deleteFile(key);
-      this.logger.log(`Successfully deleted media from S3: ${url}`);
+      // Delete from S3, unless the media lives on another host
+      if (this.mediaUrlService.isAbsolute(key)) {
+        this.logger.log(`Skipping S3 deletion for externally hosted media: ${key}`);
+      } else {
+        await this.s3Service.deleteFile(key);
+        this.logger.log(`Successfully deleted media from S3: ${key}`);
+      }
     } catch (error) {
       this.logger.error(`Failed to delete media metadata: ${error}`);
 
@@ -343,10 +350,13 @@ export class MediaService {
         await this.mediaRepository.deleteMedia(media.id);
         this.logger.debug(`Deleted pending media record from database: ID ${media.id}`);
 
-        // Delete from S3
-        const key = this.s3Service.extractKeyFromUrl(media.url);
-        await this.s3Service.deleteFile(key);
-        this.logger.debug(`Deleted pending media from S3: ${media.url}`);
+        // Delete from S3, unless the media lives on another host
+        if (this.mediaUrlService.isAbsolute(media.url)) {
+          this.logger.debug(`Skipping S3 deletion for externally hosted media: ${media.url}`);
+        } else {
+          await this.s3Service.deleteFile(media.url);
+          this.logger.debug(`Deleted pending media from S3: ${media.url}`);
+        }
       } catch (error) {
         this.logger.error(
           `Failed to clean up pending media ID ${media.id} URL ${media.url}: ${error}`,

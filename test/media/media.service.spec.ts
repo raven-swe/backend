@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { MediaService } from 'src/media/media.service';
+import { MediaUrlService } from 'src/common/media-url';
 import { S3Service } from 'src/media/s3/s3.service';
 import { MediaRepository } from 'src/media/media.repository';
 import { HttpException, HttpStatus } from '@nestjs/common';
@@ -23,10 +25,15 @@ jest.mock('src/media/utils/detect-media-type.util', () => ({
   detectMediaType: jest.fn(() => MediaType.IMAGE),
 }));
 
+const CDN_URL = 'https://cdn.example.com';
+
+const mockConfigService = {
+  get: jest.fn((key: string) => (key === 'CDN_URL' ? CDN_URL : undefined)),
+};
+
 const mockS3Service = {
   uploadFile: jest.fn(),
   deleteFile: jest.fn(),
-  extractKeyFromUrl: jest.fn(),
 };
 
 const mockMediaRepository = {
@@ -75,6 +82,8 @@ describe('MediaService', () => {
         MediaService,
         { provide: S3Service, useValue: mockS3Service },
         { provide: MediaRepository, useValue: mockMediaRepository },
+        MediaUrlService,
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -87,14 +96,11 @@ describe('MediaService', () => {
       const mockFile = createMockFile();
       const userId = BigInt(1);
       const folder = MediaFolder.AVATARS;
-      const mockS3Response = {
-        key: 'avatars/file.jpg',
-        url: 'http://example.com/avatars/file.jpg',
-      };
+      const mockS3Response = { key: 'avatars/file.jpg' };
       const mockSavedMedia = {
         id: BigInt(1),
         userId,
-        url: mockS3Response.url,
+        url: mockS3Response.key,
         type: MediaType.IMAGE,
         width: 100,
         height: 100,
@@ -109,12 +115,12 @@ describe('MediaService', () => {
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
       // Assert
-      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.key });
       expect(mockS3Service.uploadFile).toHaveBeenCalledWith({ file: mockFile, folder });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           userId,
-          url: mockS3Response.url,
+          url: mockS3Response.key,
           type: MediaType.IMAGE,
           width: 100,
           height: 100,
@@ -128,14 +134,11 @@ describe('MediaService', () => {
       const mockFile = createMockFile({ mimetype: 'video/mp4' });
       const userId = BigInt(1);
       const folder = MediaFolder.TWEETS;
-      const mockS3Response = {
-        key: 'tweets/video.mp4',
-        url: 'http://example.com/tweets/video.mp4',
-      };
+      const mockS3Response = { key: 'tweets/video.mp4' };
       const mockSavedMedia = {
         id: BigInt(2),
         userId,
-        url: mockS3Response.url,
+        url: mockS3Response.key,
         type: MediaType.VIDEO,
         width: 0,
         height: 0,
@@ -149,7 +152,7 @@ describe('MediaService', () => {
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
       // Assert
-      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.key });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           type: MediaType.VIDEO,
@@ -164,10 +167,7 @@ describe('MediaService', () => {
       const mockFile = createMockFile();
       const userId = BigInt(1);
       const folder = MediaFolder.AVATARS;
-      const mockS3Response = {
-        key: 'avatars/file.jpg',
-        url: 'http://example.com/avatars/file.jpg',
-      };
+      const mockS3Response = { key: 'avatars/file.jpg' };
       const dbError = new Error('Database connection failed');
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
@@ -196,10 +196,7 @@ describe('MediaService', () => {
       const mockFile = createMockFile();
       const userId = BigInt(1);
       const folder = MediaFolder.AVATARS;
-      const mockS3Response = {
-        key: 'avatars/file.jpg',
-        url: 'http://example.com/avatars/file.jpg',
-      };
+      const mockS3Response = { key: 'avatars/file.jpg' };
       const dbError = new Error('Database connection failed');
       const rollbackError = new Error('S3 rollback failed');
 
@@ -228,14 +225,11 @@ describe('MediaService', () => {
       const mockFile = createMockFile();
       const userId = BigInt(1);
       const folder = MediaFolder.AVATARS;
-      const mockS3Response = {
-        key: 'avatars/file.jpg',
-        url: 'http://example.com/avatars/file.jpg',
-      };
+      const mockS3Response = { key: 'avatars/file.jpg' };
       const mockSavedMedia = {
         id: BigInt(1),
         userId,
-        url: mockS3Response.url,
+        url: mockS3Response.key,
         type: MediaType.IMAGE,
         width: 0,
         height: 0,
@@ -249,7 +243,7 @@ describe('MediaService', () => {
 
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
 
-      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.url });
+      expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.key });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           width: 0,
@@ -303,14 +297,8 @@ describe('MediaService', () => {
       const userId = BigInt(1);
       const altText = 'Profile media';
 
-      const avatarS3Response = {
-        key: 'avatars/avatar.jpg',
-        url: 'http://example.com/avatars/avatar.jpg',
-      };
-      const bannerS3Response = {
-        key: 'banners/banner.jpg',
-        url: 'http://example.com/banners/banner.jpg',
-      };
+      const avatarS3Response = { key: 'avatars/avatar.jpg' };
+      const bannerS3Response = { key: 'banners/banner.jpg' };
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
@@ -323,7 +311,7 @@ describe('MediaService', () => {
         .mockResolvedValueOnce({
           id: BigInt(1),
           userId,
-          url: avatarS3Response.url,
+          url: avatarS3Response.key,
           type: MediaType.IMAGE,
           width: 100,
           height: 100,
@@ -332,7 +320,7 @@ describe('MediaService', () => {
         .mockResolvedValueOnce({
           id: BigInt(2),
           userId,
-          url: bannerS3Response.url,
+          url: bannerS3Response.key,
           type: MediaType.IMAGE,
           width: 100,
           height: 100,
@@ -345,8 +333,8 @@ describe('MediaService', () => {
       });
 
       // Assert
-      expect(result.avatarUrl).toBe(avatarS3Response.url);
-      expect(result.bannerUrl).toBe(bannerS3Response.url);
+      expect(result.avatarUrl).toBe(avatarS3Response.key);
+      expect(result.bannerUrl).toBe(bannerS3Response.key);
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(2);
     });
 
@@ -354,10 +342,7 @@ describe('MediaService', () => {
       const mockAvatarFile = createMockFile({ originalname: 'avatar.jpg' });
       const userId = BigInt(1);
 
-      const avatarS3Response = {
-        key: 'avatars/avatar.jpg',
-        url: 'http://example.com/avatars/avatar.jpg',
-      };
+      const avatarS3Response = { key: 'avatars/avatar.jpg' };
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
@@ -366,7 +351,7 @@ describe('MediaService', () => {
       mockMediaRepository.saveMedia.mockResolvedValue({
         id: BigInt(1),
         userId,
-        url: avatarS3Response.url,
+        url: avatarS3Response.key,
         type: MediaType.IMAGE,
         width: 100,
         height: 100,
@@ -377,7 +362,7 @@ describe('MediaService', () => {
         avatar: mockAvatarFile,
       });
 
-      expect(result.avatarUrl).toBe(avatarS3Response.url);
+      expect(result.avatarUrl).toBe(avatarS3Response.key);
       expect(result.bannerUrl).toBeNull();
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
     });
@@ -386,10 +371,7 @@ describe('MediaService', () => {
       const mockBannerFile = createMockFile({ originalname: 'banner.jpg' });
       const userId = BigInt(1);
 
-      const bannerS3Response = {
-        key: 'banners/banner.jpg',
-        url: 'http://example.com/banners/banner.jpg',
-      };
+      const bannerS3Response = { key: 'banners/banner.jpg' };
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
@@ -398,7 +380,7 @@ describe('MediaService', () => {
       mockMediaRepository.saveMedia.mockResolvedValue({
         id: BigInt(2),
         userId,
-        url: bannerS3Response.url,
+        url: bannerS3Response.key,
         type: MediaType.IMAGE,
         width: 100,
         height: 100,
@@ -410,7 +392,7 @@ describe('MediaService', () => {
       });
 
       expect(result.avatarUrl).toBeNull();
-      expect(result.bannerUrl).toBe(bannerS3Response.url);
+      expect(result.bannerUrl).toBe(bannerS3Response.key);
       expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
     });
 
@@ -430,14 +412,14 @@ describe('MediaService', () => {
   });
 
   describe('deleteMedia', () => {
-    it('should successfully delete file from database and S3', async () => {
+    it('should look the record up by key and delete it from database and S3', async () => {
       // Arrange
-      const url = 'http://example.com/avatars/file.jpg';
+      const key = 'avatars/file.jpg';
       const userId = BigInt(1);
       const mockMediaRecord = {
         id: BigInt(1),
         userId,
-        url,
+        url: key,
         type: MediaType.IMAGE,
         width: 100,
         height: 100,
@@ -446,8 +428,59 @@ describe('MediaService', () => {
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
       mockS3Service.deleteFile.mockResolvedValue(undefined);
+
+      // Act
+      await service.deleteMedia(key, userId);
+
+      // Assert
+      expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(key);
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(key);
+    });
+
+    it('should strip the CDN origin from an absolute URL before looking the record up', async () => {
+      // Arrange
+      const key = 'avatars/file.jpg';
+      const userId = BigInt(1);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId,
+        url: key,
+        type: MediaType.IMAGE,
+        width: 100,
+        height: 100,
+        altText: null,
+      };
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+      mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
+      mockS3Service.deleteFile.mockResolvedValue(undefined);
+
+      // Act
+      await service.deleteMedia(`${CDN_URL}/${key}`, userId);
+
+      // Assert
+      expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(key);
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(key);
+    });
+
+    it('should skip S3 deletion for externally hosted media', async () => {
+      // Arrange
+      const url = 'https://media.tenor.com/test.gif';
+      const userId = BigInt(1);
+      const mockMediaRecord = {
+        id: BigInt(1),
+        userId,
+        url,
+        type: MediaType.GIF,
+        width: 100,
+        height: 100,
+        altText: null,
+      };
+
+      mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
+      mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
 
       // Act
       await service.deleteMedia(url, userId);
@@ -455,13 +488,12 @@ describe('MediaService', () => {
       // Assert
       expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(url);
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(url);
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
+      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should throw NOT_FOUND when media record does not exist', async () => {
       // Arrange
-      const url = 'http://example.com/avatars/nonexistent.jpg';
+      const url = 'avatars/nonexistent.jpg';
       const userId = BigInt(1);
 
       mockMediaRepository.findByUrl.mockResolvedValue(null);
@@ -483,7 +515,7 @@ describe('MediaService', () => {
 
     it('should throw FORBIDDEN when user does not own the media', async () => {
       // Arrange
-      const url = 'http://example.com/avatars/file.jpg';
+      const url = 'avatars/file.jpg';
       const userId = BigInt(1);
       const differentUserId = BigInt(2);
       const mockMediaRecord = {
@@ -515,7 +547,7 @@ describe('MediaService', () => {
 
     it('should rollback database deletion when S3 deletion fails', async () => {
       // Arrange
-      const url = 'http://example.com/avatars/file.jpg';
+      const url = 'avatars/file.jpg';
       const userId = BigInt(1);
       const mockMediaRecord = {
         id: BigInt(1),
@@ -531,7 +563,6 @@ describe('MediaService', () => {
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
       mockS3Service.deleteFile.mockRejectedValue(s3Error);
       mockMediaRepository.saveMedia.mockResolvedValue(mockMediaRecord);
 
@@ -554,7 +585,7 @@ describe('MediaService', () => {
 
     it('should handle rollback failure when restoring media metadata fails', async () => {
       // Arrange
-      const url = 'http://example.com/avatars/file.jpg';
+      const url = 'avatars/file.jpg';
       const userId = BigInt(1);
       const mockMediaRecord = {
         id: BigInt(1),
@@ -571,7 +602,6 @@ describe('MediaService', () => {
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/file.jpg');
       mockS3Service.deleteFile.mockRejectedValue(s3Error);
       mockMediaRepository.saveMedia.mockRejectedValue(rollbackError);
 
@@ -832,18 +862,11 @@ describe('MediaService', () => {
     it('should delete pending media from DB and S3 when found', async () => {
       // Arrange
       const mockPendingMedia = [
-        {
-          id: BigInt(1),
-          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
-        },
-        {
-          id: BigInt(2),
-          url: 'https://cdn.raven.cmp27.space/tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
-        },
+        { id: BigInt(1), url: 'avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png' },
+        { id: BigInt(2), url: 'tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png' },
       ];
 
       mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
-      mockS3Service.extractKeyFromUrl.mockReturnValueOnce('key1').mockReturnValueOnce('key2');
       mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
 
       // Act
@@ -854,29 +877,35 @@ describe('MediaService', () => {
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(2));
 
-      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(
-        'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
-      );
-      expect(mockS3Service.extractKeyFromUrl).toHaveBeenCalledWith(
-        'https://cdn.raven.cmp27.space/tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
-      );
-
       expect(mockS3Service.deleteFile).toHaveBeenCalledTimes(2);
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key1');
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key2');
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+        'avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
+      );
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+        'tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
+      );
+    });
+
+    it('should delete externally hosted pending media from the DB only', async () => {
+      // Arrange
+      const mockPendingMedia = [{ id: BigInt(1), url: 'https://media.tenor.com/test.gif' }];
+
+      mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
+      mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
+
+      // Act
+      await service.cleanUpPendingMedia();
+
+      // Assert
+      expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
+      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should handle error gracefully for individual items and continue processing', async () => {
       // Arrange
       const mockPendingMedia = [
-        {
-          id: BigInt(1),
-          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767/fail.png',
-        },
-        {
-          id: BigInt(2),
-          url: 'https://cdn.raven.cmp27.space/avatars/eceda386-4f94-4367-b811-cb52b6ad8767/success.png',
-        },
+        { id: BigInt(1), url: 'avatars/eceda386-4f94-4367-b811-cb52b6ad8767/fail.png' },
+        { id: BigInt(2), url: 'avatars/eceda386-4f94-4367-b811-cb52b6ad8767/success.png' },
       ];
 
       mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
@@ -885,28 +914,23 @@ describe('MediaService', () => {
       mockMediaRepository.deleteMedia
         .mockRejectedValueOnce(new Error('DB Delete Failed'))
         .mockResolvedValueOnce(undefined); // Second succeeds
-      mockS3Service.extractKeyFromUrl.mockReturnValue('key2');
 
       // Act
       await expect(service.cleanUpPendingMedia()).resolves.not.toThrow();
 
       // Assert
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('key2');
+      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+        'avatars/eceda386-4f94-4367-b811-cb52b6ad8767/success.png',
+      );
     });
 
     it('should handle error when S3 deletion fails during cleanup', async () => {
       // Arrange
-      const mockPendingMedia = [
-        {
-          id: BigInt(1),
-          url: 'https://cdn.raven.cmp27.space/avatars/test.png',
-        },
-      ];
+      const mockPendingMedia = [{ id: BigInt(1), url: 'avatars/test.png' }];
 
       mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
       mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
-      mockS3Service.extractKeyFromUrl.mockReturnValue('avatars/test.png');
       mockS3Service.deleteFile.mockRejectedValue(new Error('S3 deletion failed'));
 
       // Spy on logger to ensure error is logged

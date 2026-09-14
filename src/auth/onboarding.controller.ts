@@ -1,5 +1,5 @@
 import { Controller, UseGuards, Get, HttpException, HttpStatus, Query } from '@nestjs/common';
-import { JwtAuthGuard } from './guards/';
+import { JwtAuthGuard } from './guards';
 import { User } from 'src/auth/decorators';
 import type { RequestUser } from '../common/interfaces';
 import { generateUsernames } from 'src/common/utils';

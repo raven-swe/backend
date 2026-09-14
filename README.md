@@ -275,6 +275,7 @@ Key environment variables (see `.env.example` for full list):
 | `AWS_ACCESS_KEY_ID` | AWS credentials for S3 |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials for S3 |
 | `S3_BUCKET` | S3 bucket name |
+| `CDN_URL` | CDN origin media keys are served from (media is stored relative to it) |
 | `FIREBASE_PROJECT_ID` | Firebase project for push notifications |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GITHUB_CLIENT_ID` | GitHub OAuth client ID |
