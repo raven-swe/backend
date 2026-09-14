@@ -1,6 +1,6 @@
-FROM node:lts-alpine AS builder 
+FROM node:lts-alpine AS builder
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.34.5
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
@@ -23,7 +23,7 @@ COPY ./tsconfig.json ./tsconfig.json
 FROM node:lts-alpine AS runner
 
 # For prisma runtime files (seeds mainly)
-RUN npm install -g pnpm ts-node typescript
+RUN npm install -g pnpm@10.34.5 ts-node typescript
 RUN pnpm add -D @types/node
 
 WORKDIR /app
