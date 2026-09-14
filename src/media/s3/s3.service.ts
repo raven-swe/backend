@@ -7,10 +7,11 @@ import {
   PutObjectCommand,
   PutObjectCommandInput,
 } from '@aws-sdk/client-s3';
-import { randomUUID } from 'crypto';
+import { MediaStorage, MediaStorageError, UploadFileParams } from '../storage';
+import { buildMediaKey } from '../utils';
 
 @Injectable()
-export class S3Service {
+export class S3Service implements MediaStorage {
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
   private readonly region: string;
@@ -55,20 +56,10 @@ export class S3Service {
    *
    * @returns Object containing the key of the uploaded file
    */
-  async uploadFile({
-    file,
-    folder,
-    fileName,
-  }: {
-    file: Express.Multer.File;
-    folder: string;
-    fileName?: string;
-  }): Promise<{ key: string }> {
-    try {
-      const fileExtension = file.originalname.split('.').pop();
-      const uniqueFileName = fileName || randomUUID();
-      const key = `${folder}/${uniqueFileName}.${fileExtension}`;
+  async uploadFile({ file, folder, fileName }: UploadFileParams): Promise<{ key: string }> {
+    const key = buildMediaKey(folder, file.originalname, fileName);
 
+    try {
       const uploadParams: PutObjectCommandInput = {
         Bucket: this.bucketName,
         Key: key,
@@ -87,7 +78,7 @@ export class S3Service {
       return { key };
     } catch (error) {
       this.logger.error('File upload failed', error);
-      throw error;
+      throw new MediaStorageError(`Failed to upload media ${key}`, error);
     }
   }
 
@@ -107,7 +98,7 @@ export class S3Service {
       this.logger.log(`File deleted successfully from ${key}`);
     } catch (error) {
       this.logger.error('File deletion failed', error);
-      throw error;
+      throw new MediaStorageError(`Failed to delete media ${key}`, error);
     }
   }
 
@@ -129,7 +120,7 @@ export class S3Service {
     } catch (error: unknown) {
       this.logger.error('Error checking file existence in Spaces', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to check file existence: ${message}`);
+      throw new MediaStorageError(`Failed to check file existence: ${message}`, error);
     }
   }
 }

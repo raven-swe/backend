@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { MediaService } from 'src/media/media.service';
 import { MediaUrlService } from 'src/common/media-url';
-import { S3Service } from 'src/media/s3/s3.service';
+import { MEDIA_STORAGE, MediaStorageError } from 'src/media/storage';
 import { MediaRepository } from 'src/media/media.repository';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { MediaFolder } from 'src/media/enums';
@@ -31,9 +31,10 @@ const mockConfigService = {
   get: jest.fn((key: string) => (key === 'CDN_URL' ? CDN_URL : undefined)),
 };
 
-const mockS3Service = {
+const mockStorage = {
   uploadFile: jest.fn(),
   deleteFile: jest.fn(),
+  fileExists: jest.fn(),
 };
 
 const mockMediaRepository = {
@@ -80,7 +81,7 @@ describe('MediaService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MediaService,
-        { provide: S3Service, useValue: mockS3Service },
+        { provide: MEDIA_STORAGE, useValue: mockStorage },
         { provide: MediaRepository, useValue: mockMediaRepository },
         MediaUrlService,
         { provide: ConfigService, useValue: mockConfigService },
@@ -91,7 +92,7 @@ describe('MediaService', () => {
   });
 
   describe('uploadAndSaveMedia', () => {
-    it('should upload file to S3 and save metadata to database', async () => {
+    it('should upload file to storage and save metadata to database', async () => {
       // Arrange
       const mockFile = createMockFile();
       const userId = BigInt(1);
@@ -108,7 +109,7 @@ describe('MediaService', () => {
       };
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
-      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockStorage.uploadFile.mockResolvedValue(mockS3Response);
       mockMediaRepository.saveMedia.mockResolvedValue(mockSavedMedia);
 
       // Act
@@ -116,7 +117,7 @@ describe('MediaService', () => {
 
       // Assert
       expect(result).toEqual({ id: mockSavedMedia.id.toString(), url: mockS3Response.key });
-      expect(mockS3Service.uploadFile).toHaveBeenCalledWith({ file: mockFile, folder });
+      expect(mockStorage.uploadFile).toHaveBeenCalledWith({ file: mockFile, folder });
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith(
         expect.objectContaining({
           userId,
@@ -145,7 +146,7 @@ describe('MediaService', () => {
         altText: null,
       };
       (detectMediaType as jest.Mock).mockReturnValue(MediaType.VIDEO);
-      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockStorage.uploadFile.mockResolvedValue(mockS3Response);
       mockMediaRepository.saveMedia.mockResolvedValue(mockSavedMedia);
 
       // Act
@@ -162,7 +163,7 @@ describe('MediaService', () => {
       );
     });
 
-    it('should rollback S3 upload when database save fails', async () => {
+    it('should rollback the upload when database save fails', async () => {
       // Arrange
       const mockFile = createMockFile();
       const userId = BigInt(1);
@@ -172,9 +173,9 @@ describe('MediaService', () => {
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
-      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockStorage.uploadFile.mockResolvedValue(mockS3Response);
       mockMediaRepository.saveMedia.mockRejectedValue(dbError);
-      mockS3Service.deleteFile.mockResolvedValue(undefined);
+      mockStorage.deleteFile.mockResolvedValue(undefined);
 
       // Act & Assert
       await expect(service.uploadAndSaveMedia(mockFile, userId, folder)).rejects.toThrow(
@@ -188,10 +189,10 @@ describe('MediaService', () => {
       );
 
       // Fixed: Moved assertion inside the test
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
     });
 
-    it('should handle rollback failure when S3 deletion fails during rollback', async () => {
+    it('should handle rollback failure when storage deletion fails during rollback', async () => {
       // Arrange
       const mockFile = createMockFile();
       const userId = BigInt(1);
@@ -202,9 +203,9 @@ describe('MediaService', () => {
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
-      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockStorage.uploadFile.mockResolvedValue(mockS3Response);
       mockMediaRepository.saveMedia.mockRejectedValue(dbError);
-      mockS3Service.deleteFile.mockRejectedValue(rollbackError);
+      mockStorage.deleteFile.mockRejectedValue(rollbackError);
 
       // Act & Assert
       await expect(service.uploadAndSaveMedia(mockFile, userId, folder)).rejects.toThrow(
@@ -218,7 +219,7 @@ describe('MediaService', () => {
       );
 
       // Verify rollback was attempted
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith('avatars/file.jpg');
     });
 
     it('should handle image dimensions retrieval failure', async () => {
@@ -238,7 +239,7 @@ describe('MediaService', () => {
 
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockRejectedValue(new Error('Invalid image'));
-      mockS3Service.uploadFile.mockResolvedValue(mockS3Response);
+      mockStorage.uploadFile.mockResolvedValue(mockS3Response);
       mockMediaRepository.saveMedia.mockResolvedValue(mockSavedMedia);
 
       const result = await service.uploadAndSaveMedia(mockFile, userId, folder);
@@ -303,7 +304,7 @@ describe('MediaService', () => {
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
 
-      mockS3Service.uploadFile
+      mockStorage.uploadFile
         .mockResolvedValueOnce(avatarS3Response)
         .mockResolvedValueOnce(bannerS3Response);
 
@@ -335,7 +336,7 @@ describe('MediaService', () => {
       // Assert
       expect(result.avatarUrl).toBe(avatarS3Response.key);
       expect(result.bannerUrl).toBe(bannerS3Response.key);
-      expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(2);
+      expect(mockStorage.uploadFile).toHaveBeenCalledTimes(2);
     });
 
     it('should upload only avatar when banner is not provided', async () => {
@@ -347,7 +348,7 @@ describe('MediaService', () => {
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
 
-      mockS3Service.uploadFile.mockResolvedValue(avatarS3Response);
+      mockStorage.uploadFile.mockResolvedValue(avatarS3Response);
       mockMediaRepository.saveMedia.mockResolvedValue({
         id: BigInt(1),
         userId,
@@ -364,7 +365,7 @@ describe('MediaService', () => {
 
       expect(result.avatarUrl).toBe(avatarS3Response.key);
       expect(result.bannerUrl).toBeNull();
-      expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
+      expect(mockStorage.uploadFile).toHaveBeenCalledTimes(1);
     });
 
     it('should upload only banner when avatar is not provided', async () => {
@@ -376,7 +377,7 @@ describe('MediaService', () => {
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
       mockSharpInstance.metadata.mockResolvedValue({ width: 100, height: 100 });
 
-      mockS3Service.uploadFile.mockResolvedValue(bannerS3Response);
+      mockStorage.uploadFile.mockResolvedValue(bannerS3Response);
       mockMediaRepository.saveMedia.mockResolvedValue({
         id: BigInt(2),
         userId,
@@ -393,7 +394,7 @@ describe('MediaService', () => {
 
       expect(result.avatarUrl).toBeNull();
       expect(result.bannerUrl).toBe(bannerS3Response.key);
-      expect(mockS3Service.uploadFile).toHaveBeenCalledTimes(1);
+      expect(mockStorage.uploadFile).toHaveBeenCalledTimes(1);
     });
 
     it('should throw HttpException when both avatar and banner are missing', async () => {
@@ -412,7 +413,7 @@ describe('MediaService', () => {
   });
 
   describe('deleteMedia', () => {
-    it('should look the record up by key and delete it from database and S3', async () => {
+    it('should look the record up by key and delete it from database and storage', async () => {
       // Arrange
       const key = 'avatars/file.jpg';
       const userId = BigInt(1);
@@ -428,7 +429,7 @@ describe('MediaService', () => {
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.deleteFile.mockResolvedValue(undefined);
+      mockStorage.deleteFile.mockResolvedValue(undefined);
 
       // Act
       await service.deleteMedia(key, userId);
@@ -436,7 +437,7 @@ describe('MediaService', () => {
       // Assert
       expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(key);
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(key);
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith(key);
     });
 
     it('should strip the CDN origin from an absolute URL before looking the record up', async () => {
@@ -455,17 +456,17 @@ describe('MediaService', () => {
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.deleteFile.mockResolvedValue(undefined);
+      mockStorage.deleteFile.mockResolvedValue(undefined);
 
       // Act
       await service.deleteMedia(`${CDN_URL}/${key}`, userId);
 
       // Assert
       expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(key);
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(key);
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith(key);
     });
 
-    it('should skip S3 deletion for externally hosted media', async () => {
+    it('should skip storage deletion for externally hosted media', async () => {
       // Arrange
       const url = 'https://media.tenor.com/test.gif';
       const userId = BigInt(1);
@@ -488,7 +489,7 @@ describe('MediaService', () => {
       // Assert
       expect(mockMediaRepository.findByUrl).toHaveBeenCalledWith(url);
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+      expect(mockStorage.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should throw NOT_FOUND when media record does not exist', async () => {
@@ -510,7 +511,7 @@ describe('MediaService', () => {
       );
 
       expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
-      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+      expect(mockStorage.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should throw FORBIDDEN when user does not own the media', async () => {
@@ -542,10 +543,10 @@ describe('MediaService', () => {
       );
 
       expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
-      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+      expect(mockStorage.deleteFile).not.toHaveBeenCalled();
     });
 
-    it('should rollback database deletion when S3 deletion fails', async () => {
+    it('should rollback database deletion when storage deletion fails', async () => {
       // Arrange
       const url = 'avatars/file.jpg';
       const userId = BigInt(1);
@@ -559,17 +560,15 @@ describe('MediaService', () => {
         altText: null,
         pending: false,
       };
-      const s3Error = new Error('S3 deletion failed');
+      const s3Error = new MediaStorageError('storage deletion failed');
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.deleteFile.mockRejectedValue(s3Error);
+      mockStorage.deleteFile.mockRejectedValue(s3Error);
       mockMediaRepository.saveMedia.mockResolvedValue(mockMediaRecord);
 
       // Act & Assert
-      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
-        new Error('S3 deletion failed'),
-      );
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(MediaStorageError);
 
       // Verify rollback was attempted
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith({
@@ -597,18 +596,16 @@ describe('MediaService', () => {
         altText: null,
         pending: false,
       };
-      const s3Error = new Error('S3 deletion failed');
+      const s3Error = new MediaStorageError('storage deletion failed');
       const rollbackError = new Error('Database restore failed');
 
       mockMediaRepository.findByUrl.mockResolvedValue(mockMediaRecord);
       mockMediaRepository.deleteMedia.mockResolvedValue(mockMediaRecord);
-      mockS3Service.deleteFile.mockRejectedValue(s3Error);
+      mockStorage.deleteFile.mockRejectedValue(s3Error);
       mockMediaRepository.saveMedia.mockRejectedValue(rollbackError);
 
       // Act & Assert
-      await expect(service.deleteMedia(url, userId)).rejects.toThrow(
-        new Error('S3 deletion failed'),
-      );
+      await expect(service.deleteMedia(url, userId)).rejects.toThrow(MediaStorageError);
 
       // Verify rollback was attempted
       expect(mockMediaRepository.saveMedia).toHaveBeenCalled();
@@ -838,7 +835,7 @@ describe('MediaService', () => {
       // Assert
       expect(mockMediaRepository.findPendingMediaOlderThan).toHaveBeenCalled();
       expect(mockMediaRepository.deleteMedia).not.toHaveBeenCalled();
-      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+      expect(mockStorage.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should calculate the correct threshold date', async () => {
@@ -859,7 +856,7 @@ describe('MediaService', () => {
       jest.useRealTimers();
     });
 
-    it('should delete pending media from DB and S3 when found', async () => {
+    it('should delete pending media from DB and storage when found', async () => {
       // Arrange
       const mockPendingMedia = [
         { id: BigInt(1), url: 'avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png' },
@@ -877,11 +874,11 @@ describe('MediaService', () => {
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(2));
 
-      expect(mockS3Service.deleteFile).toHaveBeenCalledTimes(2);
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+      expect(mockStorage.deleteFile).toHaveBeenCalledTimes(2);
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith(
         'avatars/eceda386-4f94-4367-b811-cb52b6ad8767.png',
       );
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith(
         'tweets/dc347b14-b274-4b07-b18d-0932eefec2c4.png',
       );
     });
@@ -898,7 +895,7 @@ describe('MediaService', () => {
 
       // Assert
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).not.toHaveBeenCalled();
+      expect(mockStorage.deleteFile).not.toHaveBeenCalled();
     });
 
     it('should handle error gracefully for individual items and continue processing', async () => {
@@ -920,18 +917,18 @@ describe('MediaService', () => {
 
       // Assert
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith(
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith(
         'avatars/eceda386-4f94-4367-b811-cb52b6ad8767/success.png',
       );
     });
 
-    it('should handle error when S3 deletion fails during cleanup', async () => {
+    it('should handle error when storage deletion fails during cleanup', async () => {
       // Arrange
       const mockPendingMedia = [{ id: BigInt(1), url: 'avatars/test.png' }];
 
       mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
       mockMediaRepository.deleteMedia.mockResolvedValue(undefined);
-      mockS3Service.deleteFile.mockRejectedValue(new Error('S3 deletion failed'));
+      mockStorage.deleteFile.mockRejectedValue(new MediaStorageError('storage deletion failed'));
 
       // Spy on logger to ensure error is logged
       const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
@@ -941,7 +938,7 @@ describe('MediaService', () => {
 
       // Assert
       expect(mockMediaRepository.deleteMedia).toHaveBeenCalledWith(BigInt(1));
-      expect(mockS3Service.deleteFile).toHaveBeenCalledWith('avatars/test.png');
+      expect(mockStorage.deleteFile).toHaveBeenCalledWith('avatars/test.png');
       expect(loggerErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to clean up pending media'),
       );

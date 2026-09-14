@@ -1,5 +1,6 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { S3Service } from './s3/s3.service';
+import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { MEDIA_STORAGE, MediaStorageError } from './storage';
+import type { MediaStorage } from './storage';
 import { MediaRepository } from './media.repository';
 import { MediaFolder } from './enums';
 import sharp from 'sharp';
@@ -17,7 +18,7 @@ export class MediaService {
   private readonly logger = new Logger(MediaService.name);
 
   constructor(
-    private readonly s3Service: S3Service,
+    @Inject(MEDIA_STORAGE) private readonly storage: MediaStorage,
     private readonly mediaRepository: MediaRepository,
     private readonly mediaUrlService: MediaUrlService,
   ) {}
@@ -60,11 +61,10 @@ export class MediaService {
         file.buffer = processedBuffer;
       }
 
-      // Upload to S3
-      const { key } = await this.s3Service.uploadFile({ file, folder });
+      const { key } = await this.storage.uploadFile({ file, folder });
       uploadedKey = key;
 
-      this.logger.log(`File uploaded to S3 with key: ${key}`);
+      this.logger.log(`File uploaded to storage with key: ${key}`);
 
       const mediaDto: MediaDto = {
         userId,
@@ -84,14 +84,13 @@ export class MediaService {
     } catch (error) {
       this.logger.error('Failed to upload media', error);
 
-      // Rollback: If database save failed, delete the uploaded file from S3
       if (uploadedKey) {
-        this.logger.error(`Database save failed, rolling back S3 upload for key: ${uploadedKey}`);
+        this.logger.error(`Database save failed, rolling back upload for key: ${uploadedKey}`);
         try {
-          await this.s3Service.deleteFile(uploadedKey);
-          this.logger.log(`Successfully rolled back S3 upload: ${uploadedKey}`);
+          await this.storage.deleteFile(uploadedKey);
+          this.logger.log(`Successfully rolled back upload: ${uploadedKey}`);
         } catch (rollbackError) {
-          this.logger.error(`Failed to rollback S3 upload for key: ${uploadedKey}`, rollbackError);
+          this.logger.error(`Failed to rollback upload for key: ${uploadedKey}`, rollbackError);
         }
       }
 
@@ -141,18 +140,18 @@ export class MediaService {
       await this.mediaRepository.deleteMedia(mediaRecord.id);
       this.logger.log(`Media metadata deleted from database: ${mediaRecord.id}`);
 
-      // Delete from S3, unless the media lives on another host
+      // Delete from storage, unless the media lives on another host
       if (this.mediaUrlService.isAbsolute(key)) {
-        this.logger.log(`Skipping S3 deletion for externally hosted media: ${key}`);
+        this.logger.log(`Skipping storage deletion for externally hosted media: ${key}`);
       } else {
-        await this.s3Service.deleteFile(key);
-        this.logger.log(`Successfully deleted media from S3: ${key}`);
+        await this.storage.deleteFile(key);
+        this.logger.log(`Successfully deleted media from storage: ${key}`);
       }
     } catch (error) {
       this.logger.error(`Failed to delete media metadata: ${error}`);
 
-      // Rollback if S3 deletion failed to restore DB record
-      if (mediaRecord && error instanceof Error && error.message?.includes('S3')) {
+      // Rollback if the storage deletion failed, to restore the DB record
+      if (mediaRecord && error instanceof MediaStorageError) {
         try {
           await this.mediaRepository.saveMedia({
             userId: mediaRecord.userId,
@@ -350,12 +349,12 @@ export class MediaService {
         await this.mediaRepository.deleteMedia(media.id);
         this.logger.debug(`Deleted pending media record from database: ID ${media.id}`);
 
-        // Delete from S3, unless the media lives on another host
+        // Delete from storage, unless the media lives on another host
         if (this.mediaUrlService.isAbsolute(media.url)) {
-          this.logger.debug(`Skipping S3 deletion for externally hosted media: ${media.url}`);
+          this.logger.debug(`Skipping storage deletion for externally hosted media: ${media.url}`);
         } else {
-          await this.s3Service.deleteFile(media.url);
-          this.logger.debug(`Deleted pending media from S3: ${media.url}`);
+          await this.storage.deleteFile(media.url);
+          this.logger.debug(`Deleted pending media from storage: ${media.url}`);
         }
       } catch (error) {
         this.logger.error(

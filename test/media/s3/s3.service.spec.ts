@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { S3Service } from 'src/media/s3/s3.service';
+import { MediaStorageError } from 'src/media/storage';
 import {
   S3Client,
   PutObjectCommand,
@@ -166,7 +167,7 @@ describe('S3Service', () => {
       expect(result.key).toBe('documents/mock-uuid-1234.filename');
     });
 
-    it('should throw error when upload fails', async () => {
+    it('should wrap an upload failure in MediaStorageError', async () => {
       // Arrange
       const mockFile = createMockFile();
       const folder = 'avatars';
@@ -176,7 +177,12 @@ describe('S3Service', () => {
       mockS3Client.send.mockRejectedValue(uploadError);
 
       // Assert
-      await expect(service.uploadFile({ file: mockFile, folder })).rejects.toThrow(uploadError);
+      await expect(service.uploadFile({ file: mockFile, folder })).rejects.toThrow(
+        MediaStorageError,
+      );
+      await expect(service.uploadFile({ file: mockFile, folder })).rejects.toMatchObject({
+        cause: uploadError,
+      });
     });
 
     it('should upload different file types correctly', async () => {
@@ -196,7 +202,7 @@ describe('S3Service', () => {
       expect(result).toEqual({ key: 'videos/mock-uuid-1234.mp4' });
     });
 
-    it('should throw error when deletion fails', async () => {
+    it('should wrap a deletion failure in MediaStorageError', async () => {
       // Arrange
       const key = 'avatars/test-file.jpg';
       const deleteError = new Error('S3 deletion failed');
@@ -204,7 +210,7 @@ describe('S3Service', () => {
       mockS3Client.send.mockRejectedValue(deleteError);
 
       // Assert
-      await expect(service.deleteFile(key)).rejects.toThrow(deleteError);
+      await expect(service.deleteFile(key)).rejects.toThrow(MediaStorageError);
     });
   });
 
@@ -254,7 +260,7 @@ describe('S3Service', () => {
       expect(mockS3Client.send).toHaveBeenCalledWith(expect.any(DeleteObjectCommand));
     });
 
-    it('should throw error when deletion fails', async () => {
+    it('should wrap a deletion failure in MediaStorageError', async () => {
       // Arrange
       const key = 'avatars/test-file.jpg';
       const deleteError = new Error('S3 deletion failed');
@@ -262,7 +268,7 @@ describe('S3Service', () => {
       mockS3Client.send.mockRejectedValue(deleteError);
 
       // Act & Assert
-      await expect(service.deleteFile(key)).rejects.toThrow(deleteError);
+      await expect(service.deleteFile(key)).rejects.toThrow(MediaStorageError);
     });
   });
 });

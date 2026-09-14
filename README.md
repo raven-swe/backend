@@ -219,7 +219,7 @@
 ## Scripts
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `pnpm dev` | Start development server with hot reload |
 | `pnpm start` | Start the server |
 | `pnpm start:prod` | Start production server |
@@ -267,21 +267,37 @@ docker-compose -f docker-compose.dev.yml up
 Key environment variables (see `.env.example` for full list):
 
 | Variable | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string |
 | `JWT_SECRET` | Secret for JWT signing |
 | `JWT_REFRESH_SECRET` | Secret for refresh token signing |
-| `AWS_ACCESS_KEY_ID` | AWS credentials for S3 |
-| `AWS_SECRET_ACCESS_KEY` | AWS credentials for S3 |
-| `S3_BUCKET` | S3 bucket name |
-| `CDN_URL` | CDN origin media keys are served from (media is stored relative to it) |
+| `MEDIA_STORAGE_DRIVER` | Where uploads are stored: `local` or `s3` (default `s3`) |
+| `MEDIA_ROOT` | `local` driver: directory uploads are written to, served at `/media` |
+| `CDN_URL` | Origin media keys are served from (media is stored relative to it) |
+| `SPACES_BUCKET` | `s3` driver: bucket name |
+| `SPACES_REGION` | `s3` driver: region |
+| `SPACES_ENDPOINT` | `s3` driver: endpoint |
+| `SPACES_KEY` | `s3` driver: access key |
+| `SPACES_SECRET` | `s3` driver: secret key |
 | `FIREBASE_PROJECT_ID` | Firebase project for push notifications |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GITHUB_CLIENT_ID` | GitHub OAuth client ID |
 | `GROQ_API_KEY` | Groq API key for AI features |
 | `SMTP_*` | Email configuration |
 | `RECAPTCHA_SECRET_KEY` | reCAPTCHA secret key |
+
+### Media storage
+
+Uploads go to one of two places, chosen by `MEDIA_STORAGE_DRIVER`. Only the
+selected driver is constructed, so an `s3`-less deployment boots fine without
+Spaces credentials.
+
+| | `local` | `s3` |
+| --- | --- | --- |
+| Written to | `MEDIA_ROOT` on disk | DigitalOcean Space |
+| Served by | the API, at `/media` | the bucket's CDN |
+| `CDN_URL` | API origin + `/media` | the CDN origin |
 
 ## Code Quality
 
