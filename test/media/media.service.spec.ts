@@ -468,7 +468,7 @@ describe('MediaService', () => {
 
     it('should skip storage deletion for externally hosted media', async () => {
       // Arrange
-      const url = 'https://media.tenor.com/test.gif';
+      const url = 'https://static.klipy.com/test.gif';
       const userId = BigInt(1);
       const mockMediaRecord = {
         id: BigInt(1),
@@ -673,14 +673,14 @@ describe('MediaService', () => {
       jest.restoreAllMocks();
     });
 
-    it('should throw error when RAVEN_TENOR_KEY is not configured', async () => {
+    it('should throw error when RAVEN_KLIPY_KEY is not configured', async () => {
       // Arrange
-      delete process.env.RAVEN_TENOR_KEY;
+      delete process.env.RAVEN_KLIPY_KEY;
       const userId = BigInt(1);
-      const tenorId = 'test-tenor-id';
+      const klipyId = 'test-klipy-id';
 
       // Act & Assert
-      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+      await expect(service.uploadGif(userId, klipyId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
@@ -691,11 +691,11 @@ describe('MediaService', () => {
       );
     });
 
-    it('should throw error when Tenor API request fails', async () => {
+    it('should throw error when KLIPY API request fails', async () => {
       // Arrange
-      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      process.env.RAVEN_KLIPY_KEY = 'test-api-key';
       const userId = BigInt(1);
-      const tenorId = 'test-tenor-id';
+      const klipyId = 'test-klipy-id';
 
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
@@ -703,7 +703,7 @@ describe('MediaService', () => {
       });
 
       // Act & Assert
-      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+      await expect(service.uploadGif(userId, klipyId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
@@ -714,11 +714,11 @@ describe('MediaService', () => {
       );
     });
 
-    it('should throw error when Tenor returns no results', async () => {
+    it('should throw error when KLIPY returns no results', async () => {
       // Arrange
-      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      process.env.RAVEN_KLIPY_KEY = 'test-api-key';
       const userId = BigInt(1);
-      const tenorId = 'test-tenor-id';
+      const klipyId = 'test-klipy-id';
 
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
@@ -726,7 +726,7 @@ describe('MediaService', () => {
       });
 
       // Act & Assert
-      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+      await expect(service.uploadGif(userId, klipyId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.GIF_NOT_FOUND,
@@ -737,11 +737,11 @@ describe('MediaService', () => {
       );
     });
 
-    it('should throw error when Tenor returns null results', async () => {
+    it('should throw error when KLIPY returns null results', async () => {
       // Arrange
-      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      process.env.RAVEN_KLIPY_KEY = 'test-api-key';
       const userId = BigInt(1);
-      const tenorId = 'test-tenor-id';
+      const klipyId = 'test-klipy-id';
 
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
@@ -749,7 +749,7 @@ describe('MediaService', () => {
       });
 
       // Act & Assert
-      await expect(service.uploadGif(userId, tenorId)).rejects.toThrow(
+      await expect(service.uploadGif(userId, klipyId)).rejects.toThrow(
         new HttpException(
           {
             message: MEDIA_MESSAGES.GIF_NOT_FOUND,
@@ -762,17 +762,17 @@ describe('MediaService', () => {
 
     it('should successfully upload GIF and save metadata', async () => {
       // Arrange
-      process.env.RAVEN_TENOR_KEY = 'test-api-key';
+      process.env.RAVEN_KLIPY_KEY = 'test-api-key';
       const userId = BigInt(1);
-      const tenorId = 'test-tenor-id';
-      const mockTenorResponse = {
+      const klipyId = 'test-klipy-id';
+      const mockKlipyResponse = {
         results: [
           {
-            id: tenorId,
+            id: klipyId,
             content_description: 'Happy cat dancing',
             media_formats: {
               gif: {
-                url: 'https://media.tenor.com/test.gif',
+                url: 'https://static.klipy.com/test.gif',
                 dims: [498, 280],
               },
             },
@@ -782,7 +782,7 @@ describe('MediaService', () => {
       const mockSavedMedia = {
         id: BigInt(123),
         userId,
-        url: 'https://media.tenor.com/test.gif',
+        url: 'https://static.klipy.com/test.gif',
         type: MediaType.GIF,
         width: 498,
         height: 280,
@@ -792,29 +792,29 @@ describe('MediaService', () => {
 
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve(mockTenorResponse),
+        json: () => Promise.resolve(mockKlipyResponse),
       });
       mockMediaRepository.saveMedia.mockResolvedValue(mockSavedMedia);
 
       // Act
-      const result = await service.uploadGif(userId, tenorId);
+      const result = await service.uploadGif(userId, klipyId);
 
       // Assert
       expect(result).toEqual({
         id: '123',
-        url: 'https://media.tenor.com/test.gif',
+        url: 'https://static.klipy.com/test.gif',
         width: 498,
         height: 280,
         altText: 'Happy cat dancing',
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `https://tenor.googleapis.com/v2/posts?key=test-api-key&ids=${tenorId}&client_key=my_app`,
+        `https://api.klipy.com/v2/posts?key=test-api-key&ids=${klipyId}&client_key=my_app`,
       );
 
       expect(mockMediaRepository.saveMedia).toHaveBeenCalledWith({
         userId,
-        url: 'https://media.tenor.com/test.gif',
+        url: 'https://static.klipy.com/test.gif',
         type: MediaType.GIF,
         width: 498,
         height: 280,
@@ -885,7 +885,7 @@ describe('MediaService', () => {
 
     it('should delete externally hosted pending media from the DB only', async () => {
       // Arrange
-      const mockPendingMedia = [{ id: BigInt(1), url: 'https://media.tenor.com/test.gif' }];
+      const mockPendingMedia = [{ id: BigInt(1), url: 'https://static.klipy.com/test.gif' }];
 
       mockMediaRepository.findPendingMediaOlderThan.mockResolvedValue(mockPendingMedia);
       mockMediaRepository.deleteMedia.mockResolvedValue(undefined);

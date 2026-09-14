@@ -691,8 +691,8 @@ model UploadVideoRequest {
 }
 
 model UploadGifBody {
-  @doc("Tenor GIF ID to attach")
-  tenorId: string;
+  @doc("KLIPY GIF ID to attach")
+  klipyId: string;
 }
 
 model UploadGifResponse {
@@ -1922,7 +1922,7 @@ namespace Media {
 
   @post
   @route("/upload/gif")
-  @summary("Upload a GIF by tenor ID")
+  @summary("Upload a GIF by KLIPY ID")
   op uploadGif(@body body: UploadGifBody):
     | DataResponse<UploadGifResponse>
     | BadRequestResponse

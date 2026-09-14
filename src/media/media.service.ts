@@ -10,7 +10,7 @@ import { MediaType } from '@prisma/client';
 import { processImage } from './utils/process-image.util';
 import { MEDIA_CODES, MEDIA_MESSAGES, PENDING_MEDIA_CLEANUP_THRESHOLD_HOURS } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { TenorResponse } from './interfaces';
+import { KlipyResponse } from './interfaces';
 import { UploadedGifResponse } from './dtos/uploaded-gif-response.dto';
 import { MediaUrlService } from 'src/common/media-url';
 @Injectable()
@@ -240,10 +240,10 @@ export class MediaService {
     return { ...items, message: 'Media uploaded successfully.' };
   }
 
-  async uploadGif(currentUserId: bigint, tenorId: string): Promise<UploadedGifResponse> {
-    const tenorApiKey = process.env.RAVEN_TENOR_KEY;
-    if (!tenorApiKey) {
-      this.logger.error('Tenor API key is not configured');
+  async uploadGif(currentUserId: bigint, klipyId: string): Promise<UploadedGifResponse> {
+    const klipyApiKey = process.env.RAVEN_KLIPY_KEY;
+    if (!klipyApiKey) {
+      this.logger.error('KLIPY API key is not configured');
       throw new HttpException(
         {
           message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
@@ -253,12 +253,12 @@ export class MediaService {
       );
     }
 
-    const tenorUrl = `https://tenor.googleapis.com/v2/posts?key=${tenorApiKey}&ids=${tenorId}&client_key=my_app`;
-    this.logger.log(`Fetching GIF from Tenor with ID: ${tenorId}`);
+    const klipyUrl = `https://api.klipy.com/v2/posts?key=${klipyApiKey}&ids=${klipyId}&client_key=my_app`;
+    this.logger.log(`Fetching GIF from KLIPY with ID: ${klipyId}`);
 
-    const tenorResponse = await fetch(tenorUrl);
+    const klipyResponse = await fetch(klipyUrl);
 
-    if (!tenorResponse.ok) {
+    if (!klipyResponse.ok) {
       throw new HttpException(
         {
           message: MEDIA_MESSAGES.GIF_UPLOAD_FAILED,
@@ -268,9 +268,9 @@ export class MediaService {
       );
     }
 
-    const tenorData = (await tenorResponse.json()) as TenorResponse;
+    const klipyData = (await klipyResponse.json()) as KlipyResponse;
 
-    if ((tenorData && !tenorData.results) || tenorData.results.length === 0) {
+    if ((klipyData && !klipyData.results) || klipyData.results.length === 0) {
       throw new HttpException(
         {
           message: MEDIA_MESSAGES.GIF_NOT_FOUND,
@@ -280,13 +280,13 @@ export class MediaService {
       );
     }
 
-    const gifData = tenorData.results[0];
+    const gifData = klipyData.results[0];
 
     // Get the GIF URL and dimensions from the response
     const gifUrl = gifData.media_formats.gif.url;
     const [width, height] = gifData.media_formats.gif.dims;
 
-    this.logger.log(`GIF URL from Tenor: ${gifUrl}`);
+    this.logger.log(`GIF URL from KLIPY: ${gifUrl}`);
 
     // Save metadata to database
     const mediaDto: MediaDto = {

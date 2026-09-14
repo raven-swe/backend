@@ -15,7 +15,7 @@ export const options = {
         'http_req_duration{name:01_Login_Action}': ['p(95)<3000'],
         'http_req_duration{name:02_Upload_Image}': ['p(95)<10000'], // Image uploads can take longer
         'http_req_duration{name:03_Upload_Video}': ['p(95)<15000'], // Video uploads can take longer
-        'http_req_duration{name:04_Upload_Gif}': ['p(95)<5000'],    // GIF (Tenor lookup) should be faster
+        'http_req_duration{name:04_Upload_Gif}': ['p(95)<5000'],    // GIF (KLIPY lookup) should be faster
     },
 };
 
@@ -156,15 +156,14 @@ export default function () {
     sleep(0.3);
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // STEP 3: Upload GIF via Tenor ID (POST /media/upload/gif)
+    // STEP 3: Upload GIF via KLIPY ID (POST /media/upload/gif)
     // ─────────────────────────────────────────────────────────────────────────────
     group('GIF Upload', function () {
-        // Note: This requires a valid Tenor GIF ID
-        // Using a commonly available GIF ID - may need to be updated if Tenor API changes
-        const tenorId = '16989471141791455574';
+        // Note: This requires a valid KLIPY GIF ID (copy one from a KLIPY search result)
+        const klipyId = '16989471141791455574';
 
         const gifPayload = JSON.stringify({
-            tenorId: tenorId,
+            klipyId: klipyId,
         });
 
         const resUploadGif = http.post(

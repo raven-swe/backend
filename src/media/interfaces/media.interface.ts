@@ -15,7 +15,7 @@ export interface GifResult {
   content_description: string;
 }
 
-export interface TenorResponse {
+export interface KlipyResponse {
   results: GifResult[];
   next: string;
 }

@@ -24,7 +24,7 @@ export const MEDIA_MESSAGES = {
   MEDIA_NOT_FOUND: 'Media not found.',
   UNAUTHORIZED_DELETE: 'Unauthorized attempt to delete media.',
   ALLOWED_IMAGE_TYPES: 'Only image files are allowed (jpg, jpeg, png, webp).',
-  GIF_UPLOAD_FAILED: 'Failed to upload GIF from Tenor.',
-  GIF_NOT_FOUND: 'GIF not found on Tenor with the provided ID.',
+  GIF_UPLOAD_FAILED: 'Failed to upload GIF from KLIPY.',
+  GIF_NOT_FOUND: 'GIF not found on KLIPY with the provided ID.',
   ALLOWED_VIDEO_TYPES: 'Only video files are allowed (mp4, mov).',
 } as const;
